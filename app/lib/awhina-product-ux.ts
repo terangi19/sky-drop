@@ -801,7 +801,8 @@ export function suggestListingImprovements(fill: SkyAiListingFill): string | nul
     }
   }
   if (fill.category === "Cars" && fill.listingType === "physical") {
-    tips.push("confirming category — this may belong under Vehicles");
+    // Legacy tip only — new creates should use Vehicle type; keep for historical fills.
+    tips.push("switching to Vehicle type — cars are listed under Vehicles now");
   }
 
   if (!tips.length) return null;

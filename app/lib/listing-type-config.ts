@@ -43,15 +43,18 @@ export const ALL_LISTING_TYPES = [
 
 export type ListingType = (typeof ALL_LISTING_TYPES)[number];
 
+/** Physical goods only — vehicles use VEHICLE_LISTING_CATEGORIES / type=vehicle. */
 export const PHYSICAL_LISTING_CATEGORIES = [
   "Tech",
-  "Cars",
   "Gaming",
   "Fashion",
   "Home",
   "Sports",
   "Other",
 ] as const;
+
+/** Historical physical+Cars records created before vehicle was its own type. */
+export const LEGACY_VEHICLE_PHYSICAL_CATEGORY = "Cars";
 
 export const SERVICE_LISTING_CATEGORY_LIST = [
   "Trades & Repairs",
@@ -126,6 +129,68 @@ export function isRentalListingCategory(category?: string | null): boolean {
 
 export function isCanonicalListingType(type?: string | null): type is CanonicalListingType {
   return !!type && (CANONICAL_LISTING_TYPES as readonly string[]).includes(type);
+}
+
+/**
+ * Canonical vehicle for NEW create/edit flows.
+ * Do not combine with physical+Cars — that dual path is retired.
+ */
+export function isCanonicalVehicleListing(input: {
+  type?: string | null;
+  listingType?: string | null;
+}): boolean {
+  const t = (input.listingType || input.type || "").toLowerCase();
+  return t === "vehicle";
+}
+
+/**
+ * Historical records only: type=physical + category=Cars.
+ * Use when loading/rendering old listings — never for new listing creation.
+ */
+export function isLegacyVehicleListing(input: {
+  type?: string | null;
+  listingType?: string | null;
+  category?: string | null;
+}): boolean {
+  const t = (input.listingType || input.type || "").toLowerCase();
+  return t === "physical" && input.category === LEGACY_VEHICLE_PHYSICAL_CATEGORY;
+}
+
+/** Active vehicle sale semantics (canonical type only). Rental vehicle hire is separate. */
+export function isActiveVehicleSaleListing(input: {
+  type?: string | null;
+  listingType?: string | null;
+}): boolean {
+  return isCanonicalVehicleListing(input);
+}
+
+/** Vehicle field keys that must not leak onto non-vehicle create payloads. */
+export const VEHICLE_SALE_FIELD_KEYS = [
+  "vehicleMake",
+  "vehicleModel",
+  "vehicleGeneration",
+  "vehicleYear",
+  "vehicleOdometer",
+  "vehicleFuelType",
+  "vehicleTransmission",
+  "vehicleBodyType",
+  "vehicleColour",
+] as const;
+
+export function stripInactiveVehicleSaleFields(
+  listingType: string | null | undefined,
+  data: Record<string, unknown>,
+  opts?: { rentalSubType?: string | null }
+): Record<string, unknown> {
+  const t = (listingType || "").toLowerCase();
+  const rentalVehicle =
+    t === "rental" && (opts?.rentalSubType || "").toLowerCase() === "vehicle";
+  if (t === "vehicle" || rentalVehicle) return data;
+  const out = { ...data };
+  for (const key of VEHICLE_SALE_FIELD_KEYS) {
+    delete out[key];
+  }
+  return out;
 }
 
 /** Types that never use marketplace checkout / Buy Now in V1. */
@@ -261,6 +326,7 @@ export const TYPE_ISOLATION_CLEAR_FIELDS: Record<string, readonly string[]> = {
     "rentalPetsPolicy",
     "rentalMinTenancy",
     "rentalFeatures",
+    ...VEHICLE_SALE_FIELD_KEYS,
   ],
   vehicle: [
     "servicePricingType",
@@ -284,14 +350,7 @@ export const TYPE_ISOLATION_CLEAR_FIELDS: Record<string, readonly string[]> = {
     "rentalDeposit",
     "rentalAvailableDate",
     "rentalRatePeriod",
-    "vehicleMake",
-    "vehicleModel",
-    "vehicleYear",
-    "vehicleOdometer",
-    "vehicleFuelType",
-    "vehicleTransmission",
-    "vehicleBodyType",
-    "vehicleColour",
+    ...VEHICLE_SALE_FIELD_KEYS,
   ],
   rental: [
     "saleType",
@@ -319,5 +378,6 @@ export const TYPE_ISOLATION_CLEAR_FIELDS: Record<string, readonly string[]> = {
     "rentalRatePeriod",
     "acceptOffers",
     "paymentType",
+    ...VEHICLE_SALE_FIELD_KEYS,
   ],
 };

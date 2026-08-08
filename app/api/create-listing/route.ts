@@ -13,6 +13,10 @@ import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile
 import { trackAndCheckAbuse } from "../../lib/abuse-tracker";
 import { createSystemNotification } from "../../lib/system-notifications";
 import { resolveListingType } from "../../lib/listing-types";
+import {
+  LEGACY_VEHICLE_PHYSICAL_CATEGORY,
+  stripInactiveVehicleSaleFields,
+} from "../../lib/listing-type-config";
 import { validateListingForPublish } from "../../lib/listing-validation";
 import { runMatchmaking } from "../../lib/sky-ai-matchmaking";
 import { stripeListingPublishErrorAsync } from "../../lib/stripe-connect-account";
@@ -128,6 +132,20 @@ export async function POST(req: NextRequest) {
       type: body.type,
       category,
     });
+
+    // New creates: never persist physical + Cars (retired dual vehicle path).
+    if (
+      listingType === "physical" &&
+      category === LEGACY_VEHICLE_PHYSICAL_CATEGORY
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Use Vehicle listing type for cars — Physical no longer includes the Cars category",
+        },
+        { status: 400 }
+      );
+    }
 
     const allowedFields: string[] = [
       "images", "sellerUsername", "expiresInDays",
@@ -381,15 +399,22 @@ export async function POST(req: NextRequest) {
 
     const shadowRank = decision.verdict === "shadow_degrade" ? decision.shadowRank : "normal";
 
+    const strippedClient = stripInactiveVehicleSaleFields(listingType, clientData, {
+      rentalSubType: (clientData.rentalSubType as string) || body.rentalSubType,
+    });
+
     const finalData: Record<string, unknown> = {
       title: sanitizedTitle,
       description: sanitizedDesc,
       price: String(numericPrice),
-      category: category || "Other",
-      images: clientData.images || [],
-      imageUrl: (Array.isArray(clientData.images) ? clientData.images[0] : "") || "",
+      category:
+        listingType === "vehicle"
+          ? "Cars"
+          : category || "Other",
+      images: strippedClient.images || [],
+      imageUrl: (Array.isArray(strippedClient.images) ? strippedClient.images[0] : "") || "",
       sellerEmail: token.email,
-      sellerUsername: clientData.sellerUsername || token.email?.split("@")[0] || "",
+      sellerUsername: strippedClient.sellerUsername || token.email?.split("@")[0] || "",
       sellerId: token.uid,
       status,
       views: 0,
@@ -398,7 +423,7 @@ export async function POST(req: NextRequest) {
       createdAt: now,
       expiresAt,
       visibilityRank: shadowRank,
-      ...clientData,
+      ...strippedClient,
       saleType,
       paymentType,
       type: listingType,

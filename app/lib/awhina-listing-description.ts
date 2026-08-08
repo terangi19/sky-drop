@@ -423,6 +423,8 @@ export function getVehicleDraftReadiness(fill: SkyAiListingFill): VehicleDraftRe
 
 export function isVehicleListingFill(fill: SkyAiListingFill): boolean {
   const type = (fill.listingType || "").toLowerCase();
+  // Explicit non-vehicle type wins (user type switch / override).
+  if (type && type !== "vehicle") return false;
   return type === "vehicle" || Boolean(fill.vehicleMake || fill.vehicleModel);
 }
 
@@ -434,9 +436,16 @@ export function resolveListingDescriptionStyle(fill: SkyAiListingFill): ListingD
   if (type === "service") return "service";
   if (type === "rental") return "rental";
   if (type === "wanted") return "wanted";
+  // Explicit physical never uses vehicle copy — leftover make/model in draft is inactive.
+  if (type === "physical") {
+    // fall through to goods styles below without Cars/vehicle heuristics
+  }
 
   const blob = `${fill.category || ""} ${fill.title || ""}`.toLowerCase();
-  if (fill.category === "Cars" || /\b(bmw|toyota|mazda|honda|ford|nissan|subaru|ute|car)\b/i.test(blob)) {
+  if (
+    type !== "physical" &&
+    (fill.category === "Cars" || /\b(bmw|toyota|mazda|honda|ford|nissan|subaru|ute|car)\b/i.test(blob))
+  ) {
     return "vehicle";
   }
   if (fill.category === "Gaming" || /\b(ps5|ps4|playstation|xbox|nintendo|switch|console)\b/i.test(blob)) {

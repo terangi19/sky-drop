@@ -5,6 +5,7 @@ import { sanitizeListingContent } from "../../lib/sanitize";
 import { createSystemNotification } from "../../lib/system-notifications";
 import { stripeListingPublishErrorAsync } from "../../lib/stripe-connect-account";
 import { validateListingForPublish } from "../../lib/listing-validation";
+import { isLegacyVehicleListing, VEHICLE_SALE_FIELD_KEYS } from "../../lib/listing-type-config";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -93,6 +94,7 @@ export async function PUT(req: NextRequest) {
       "rentalPriceWeekly", "rentalPriceMonthly", "rentalDeposit", "rentalAvailableDate",
       "vehicleMake", "vehicleModel", "vehicleYear", "vehicleOdometer",
       "vehicleFuelType", "vehicleTransmission", "vehicleBodyType", "vehicleColour",
+      "type",
     ];
     const updateData: Record<string, unknown> = {};
 
@@ -109,6 +111,12 @@ export async function PUT(req: NextRequest) {
           updateData[key] = resolveListingPaymentTypeForWrite(body[key]);
           continue;
         }
+        if (key === "type") {
+          const t = String(body.type || "").toLowerCase();
+          const VALID = ["physical", "digital", "service", "rental", "event", "vehicle", "job", "property", "wanted"];
+          if (VALID.includes(t)) updateData.type = t;
+          continue;
+        }
         if (key === "stockQuantity") {
           const val = body[key];
           if (val === undefined || val === null || val === "" || Number(val) <= 0) continue;
@@ -120,8 +128,16 @@ export async function PUT(req: NextRequest) {
     }
 
     const mergedForValidation = { ...existingData, ...updateData };
+    const resolvedType = String(mergedForValidation.type || "physical");
+    // Soft-upgrade path: editing legacy physical+Cars as vehicle is allowed.
+    const allowLegacy =
+      isLegacyVehicleListing({
+        type: existingData.type as string,
+        category: existingData.category as string,
+      }) && resolvedType === "physical";
+
     const typeValidation = validateListingForPublish({
-      type: (mergedForValidation.type as string) || "physical",
+      type: resolvedType,
       title: mergedForValidation.title as string,
       description: mergedForValidation.description as string,
       price: mergedForValidation.price as string | number,
@@ -139,12 +155,21 @@ export async function PUT(req: NextRequest) {
       vehicleModel: mergedForValidation.vehicleModel as string,
       vehicleYear: mergedForValidation.vehicleYear as string | number,
       vehicleOdometer: mergedForValidation.vehicleOdometer as string | number,
+      allowLegacyPhysicalCars: allowLegacy,
     });
     if (!typeValidation.ok) {
       return NextResponse.json(
         { error: typeValidation.errors[0] || "Invalid listing details", errors: typeValidation.errors },
         { status: 400 }
       );
+    }
+
+    if (resolvedType === "vehicle") {
+      updateData.category = "Cars";
+    } else if (resolvedType === "physical" && !allowLegacy) {
+      for (const key of VEHICLE_SALE_FIELD_KEYS) {
+        delete updateData[key];
+      }
     }
 
     updateData.updatedAt = new Date();

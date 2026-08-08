@@ -24,11 +24,12 @@ export type ListingReadinessState =
 export function getListingReadinessState(
   fill: Partial<SkyAiListingFill>
 ): ListingReadinessState {
+  const type = (fill.listingType || "").toLowerCase();
   const title = fill.title?.trim();
+  const vehicleIdentityActive = type === "vehicle" || (!type && Boolean(fill.vehicleMake || fill.vehicleModel));
   const hasIdentity = Boolean(
     title ||
-      fill.vehicleMake ||
-      fill.vehicleModel ||
+      (vehicleIdentityActive && (fill.vehicleMake || fill.vehicleModel)) ||
       (fill.extras && fill.extras.length)
   );
   if (!hasIdentity) return "STARTED";
@@ -52,8 +53,8 @@ export function getListingReadinessState(
 
   const hasCore =
     Boolean(fill.price) &&
-    Boolean(fill.condition) &&
-    Boolean(fill.location || fill.pickupArea) &&
+    Boolean(type === "wanted" || fill.condition) &&
+    Boolean(fill.location || fill.pickupArea || type === "wanted") &&
     Boolean(title);
   if (!hasCore) return missing.length >= 3 ? "STARTED" : "IN_PROGRESS";
   if (missing.length === 0) return "READY_TO_PUBLISH";

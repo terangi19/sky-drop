@@ -3,7 +3,14 @@
  */
 
 import { servicePriceRequired, normalizeServicePricingType } from "./service-pricing";
-import { RENTAL_SUB_TYPES, TYPE_ISOLATION_CLEAR_FIELDS } from "./listing-type-config";
+import {
+  LEGACY_VEHICLE_PHYSICAL_CATEGORY,
+  PHYSICAL_LISTING_CATEGORIES,
+  RENTAL_SUB_TYPES,
+  TYPE_ISOLATION_CLEAR_FIELDS,
+  VEHICLE_LISTING_CATEGORIES,
+  categoriesForListingType,
+} from "./listing-type-config";
 
 export type ListingValidationInput = {
   type?: string | null;
@@ -25,6 +32,8 @@ export type ListingValidationInput = {
   vehicleModel?: string | null;
   vehicleYear?: string | number | null;
   vehicleOdometer?: string | number | null;
+  /** When true, physical+Cars is allowed for editing historical records only. */
+  allowLegacyPhysicalCars?: boolean;
 };
 
 export type ListingValidationResult = {
@@ -106,10 +115,32 @@ export function validateListingForPublish(input: ListingValidationInput): Listin
       if (!hasText(input.location)) {
         errors.push("Location is required");
       }
+      if (
+        hasText(input.category) &&
+        !(VEHICLE_LISTING_CATEGORIES as readonly string[]).includes(String(input.category))
+      ) {
+        errors.push("Vehicle listings must use the Cars category");
+      }
       break;
     }
     case "physical":
     default: {
+      if (
+        type === "physical" &&
+        input.category === LEGACY_VEHICLE_PHYSICAL_CATEGORY &&
+        !input.allowLegacyPhysicalCars
+      ) {
+        errors.push("Use Vehicle listing type for cars — Physical no longer includes Cars");
+      }
+      if (
+        type === "physical" &&
+        hasText(input.category) &&
+        !(PHYSICAL_LISTING_CATEGORIES as readonly string[]).includes(String(input.category)) &&
+        !(input.allowLegacyPhysicalCars && input.category === LEGACY_VEHICLE_PHYSICAL_CATEGORY)
+      ) {
+        const allowed = categoriesForListingType("physical").join(", ");
+        errors.push(`Invalid Physical category — choose one of: ${allowed}`);
+      }
       if (!hasPositiveMoney(input.price) && input.pricingType !== "quote") {
         errors.push("Sale price is required");
       }

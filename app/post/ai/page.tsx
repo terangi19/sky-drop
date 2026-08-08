@@ -19,10 +19,8 @@ import { getListingBlockReason } from "../../lib/seller-eligibility";
 import { STRIPE_CONNECT_REQUIRED_MSG, sellerCanUseStripeCheckout } from "../../lib/seller-payments";
 import { resolveListingType } from "../../lib/listing-types";
 import {
-  PHYSICAL_LISTING_CATEGORIES,
-  RENTAL_LISTING_CATEGORY_LIST,
-  SERVICE_LISTING_CATEGORY_LIST,
-  WANTED_LISTING_CATEGORIES,
+  categoriesForListingType,
+  isLegacyVehicleListing,
   listingTypeHelperDescription,
 } from "../../lib/listing-type-config";
 import { hasActiveListingDraft, mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
@@ -154,6 +152,19 @@ export default function AIPostPage() {
   const [vehicleFuelType, setVehicleFuelType] = useState("");
   const [vehicleTransmission, setVehicleTransmission] = useState("");
   const [vehicleColour, setVehicleColour] = useState("");
+  /** Same-session restore when switching Vehicle ↔ other types (inactive while not vehicle). */
+  const vehicleDraftMemoryRef = useRef<{
+    make: string;
+    model: string;
+    generation: string;
+    year: string;
+    odometer: string;
+    bodyType: string;
+    fuelType: string;
+    transmission: string;
+    colour: string;
+    category: string;
+  } | null>(null);
   const [jobCompany, setJobCompany] = useState("");
   const [jobEmploymentType, setJobEmploymentType] = useState("");
   const [salaryMin, setSalaryMin] = useState("");
@@ -261,14 +272,19 @@ export default function AIPostPage() {
       listingType,
       location,
       pickupArea,
-      vehicleMake,
-      vehicleModel,
-      vehicleGeneration,
-      vehicleYear,
-      vehicleOdometer,
-      vehicleColour,
-      vehicleTransmission,
-      vehicleFuelType,
+      // Vehicle fields only participate when type is actively vehicle.
+      ...(listingType === "vehicle"
+        ? {
+            vehicleMake,
+            vehicleModel,
+            vehicleGeneration,
+            vehicleYear,
+            vehicleOdometer,
+            vehicleColour,
+            vehicleTransmission,
+            vehicleFuelType,
+          }
+        : {}),
       extras: draftExtras,
       rentalSubType,
       rentalPriceWeekly,
@@ -319,8 +335,7 @@ export default function AIPostPage() {
 
   const hasDraftContent = Boolean(
     title.trim() ||
-      vehicleMake ||
-      vehicleYear ||
+      (listingType === "vehicle" && (vehicleMake || vehicleYear)) ||
       String(price || "").trim() ||
       description.trim() ||
       awhinaConversation.listingFillOccurred
@@ -336,12 +351,13 @@ export default function AIPostPage() {
   };
 
   const photoSubject = useMemo(() => {
-    const vehicle = [vehicleMake, vehicleModel].filter(Boolean).join(" ").trim();
-    if (vehicle) {
-      // Prefer short model nickname when present (Skyline, Corolla…)
-      const model = String(vehicleModel || "").trim();
-      if (model) return model;
-      return vehicle;
+    if (listingType === "vehicle") {
+      const vehicle = [vehicleMake, vehicleModel].filter(Boolean).join(" ").trim();
+      if (vehicle) {
+        const model = String(vehicleModel || "").trim();
+        if (model) return model;
+        return vehicle;
+      }
     }
     const fromTitle = String(title || "")
       .replace(/\b(19|20)\d{2}\b/g, "")
@@ -351,7 +367,7 @@ export default function AIPostPage() {
       .slice(0, 3)
       .join(" ");
     return fromTitle;
-  }, [vehicleMake, vehicleModel, title]);
+  }, [listingType, vehicleMake, vehicleModel, title]);
 
   const photoCtaTitle = photoSubject
     ? `Add photos of your ${photoSubject}`
@@ -384,7 +400,9 @@ export default function AIPostPage() {
 
   const liveDraftTitle =
     title ||
-    [vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ") ||
+    (listingType === "vehicle"
+      ? [vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ")
+      : "") ||
     "Your listing";
 
   const liveDraftTypeLabel =
@@ -402,12 +420,14 @@ export default function AIPostPage() {
 
   const listingTypeHelper = listingTypeHelperDescription(listingType);
 
-  const isVehicleListing =
-    listingType === "vehicle" || (listingType === "physical" && category === "Cars");
+  // NEW create: canonical vehicle only. Legacy physical+Cars is upgrade-on-edit only.
+  const isVehicleListing = listingType === "vehicle";
 
   const marketplaceTitle =
     title.trim() ||
-    [vehicleYear, vehicleMake, vehicleModel, vehicleGeneration].filter(Boolean).join(" ") ||
+    (isVehicleListing
+      ? [vehicleYear, vehicleMake, vehicleModel, vehicleGeneration].filter(Boolean).join(" ")
+      : "") ||
     "";
 
   const marketplacePrice = (() => {
@@ -565,15 +585,26 @@ export default function AIPostPage() {
       listingType,
       location,
       paymentType,
-      vehicleMake,
-      vehicleModel,
-      vehicleGeneration,
-      vehicleYear,
-      vehicleOdometer,
-      vehicleColour,
-      vehicleBodyType,
-      vehicleFuelType,
-      vehicleTransmission,
+      ...(listingType === "vehicle"
+        ? {
+            vehicleMake,
+            vehicleModel,
+            vehicleGeneration,
+            vehicleYear,
+            vehicleOdometer,
+            vehicleColour,
+            vehicleBodyType,
+            vehicleFuelType,
+            vehicleTransmission,
+          }
+        : listingType === "rental" && rentalSubType === "vehicle"
+          ? {
+              vehicleMake,
+              vehicleModel,
+              vehicleYear,
+              vehicleTransmission,
+            }
+          : {}),
       rentalSubType,
       rentalPropertyType,
       rentalPriceWeekly,
@@ -1127,7 +1158,12 @@ export default function AIPostPage() {
       setCategory(data.category || "");
       setPrice(String(data.price || ""));
       setCondition(data.condition || "");
-      setListingType(data.type || "physical");
+      // Soft-upgrade legacy physical+Cars to canonical vehicle for editing.
+      if (isLegacyVehicleListing({ type: data.type, category: data.category })) {
+        setListingType("vehicle");
+      } else {
+        setListingType(data.type || "physical");
+      }
       setLocation(data.location || "");
       setPickupAvailable(!!data.pickupAvailable);
       setShippingAvailable(!!data.shippingAvailable);
@@ -1369,11 +1405,15 @@ export default function AIPostPage() {
         return;
       }
     }
-    if (listingType === "vehicle" || (listingType === "physical" && category === "Cars")) {
+    if (listingType === "vehicle") {
       if (!vehicleMake || !vehicleModel) {
         showToast("Enter the vehicle make and model.", "error");
         return;
       }
+    }
+    if (listingType === "physical" && category === "Cars") {
+      showToast("Cars belong under Vehicle type — switch Type to Vehicle.", "error");
+      return;
     }
     if (listingType === "job") {
       if (!jobCompany) {
@@ -1571,19 +1611,7 @@ export default function AIPostPage() {
         buyNowPrice: buyNowPrice ? Number(buyNowPrice) : null,
         startingBid: (saleType === "auction" || saleType === "auction_buy_now") && startingBid ? Number(startingBid) : null,
         reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
-        ...(category === "Cars"
-          ? {
-              vehicleMake,
-              vehicleModel,
-              vehicleGeneration,
-              vehicleYear: vehicleYear ? Number(vehicleYear) : null,
-              vehicleOdometer: vehicleOdometer ? Number(vehicleOdometer) : null,
-              vehicleBodyType,
-              vehicleFuelType,
-              vehicleTransmission,
-              vehicleColour,
-            }
-          : {}),
+        // Physical never persists vehicle fields (even if draft memory still has them).
         ...(editId ? {} : {
           auctionEndsAt: (saleType === "auction" || saleType === "auction_buy_now") ? new Date(Date.now() + Number(auctionDuration) * 86400000) : null,
           expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
@@ -1729,13 +1757,125 @@ export default function AIPostPage() {
       return;
     }
 
+    const snapshotVehicleDraft = () => {
+      if (
+        vehicleMake ||
+        vehicleModel ||
+        vehicleYear ||
+        vehicleOdometer ||
+        vehicleColour ||
+        vehicleGeneration
+      ) {
+        vehicleDraftMemoryRef.current = {
+          make: vehicleMake,
+          model: vehicleModel,
+          generation: vehicleGeneration,
+          year: vehicleYear,
+          odometer: vehicleOdometer,
+          bodyType: vehicleBodyType,
+          fuelType: vehicleFuelType,
+          transmission: vehicleTransmission,
+          colour: vehicleColour,
+          category: category || "Cars",
+        };
+      }
+    };
+
+    const restoreVehicleDraft = () => {
+      const mem = vehicleDraftMemoryRef.current;
+      if (!mem) return;
+      setVehicleMake(mem.make);
+      setVehicleModel(mem.model);
+      setVehicleGeneration(mem.generation);
+      setVehicleYear(mem.year);
+      setVehicleOdometer(mem.odometer);
+      setVehicleBodyType(mem.bodyType);
+      setVehicleFuelType(mem.fuelType);
+      setVehicleTransmission(mem.transmission);
+      setVehicleColour(mem.colour);
+    };
+
+    if (listingType === "vehicle" && newType !== "vehicle") {
+      snapshotVehicleDraft();
+    }
+
     const typeConfig = [
-      { key: "physical", icon: "📦", label: "Physical", desc: "Real items that can be picked up or shipped, including vehicles.", examples: "Phones, cars, furniture, tools, clothing, collectibles.", action: () => setAcceptOffers(false) },
-      { key: "service", icon: "🛠️", label: "Service", desc: "Local services performed in person.", examples: "Lawn mowing, cleaning, tutoring, photography, trades, handyman work, personal training.", action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
-      { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Houses, rooms, trailers, equipment, party gear.", action: () => { setCategory(""); markField("category"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition(""); markField("condition"); } },
-      { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Motor vehicles for sale.", examples: "Cars, motorcycles, boats, caravans, trucks.", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
-      { key: "wanted", icon: "📋", label: "Wanted", desc: "Post what you're looking for and let sellers come to you.", examples: "Looking for a car, need a service, want to rent something.", action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
-    ].find(t => t.key === newType);
+      {
+        key: "physical",
+        icon: "📦",
+        label: "Physical",
+        desc: "Normal sellable items you can pick up or ship.",
+        examples: "Phones, furniture, tools, clothing, collectibles.",
+        action: () => {
+          setAcceptOffers(false);
+          // Reset off Cars / vehicle category — vehicle values stay in memory but inactive.
+          if (category === "Cars" || !categoriesForListingType("physical").includes(category)) {
+            setCategory("");
+            markField("category");
+          }
+        },
+      },
+      {
+        key: "service",
+        icon: "🛠️",
+        label: "Service",
+        desc: "Local services performed in person.",
+        examples: "Lawn mowing, cleaning, tutoring, photography, trades, handyman work, personal training.",
+        action: () => {
+          setCategory("Other Services");
+          setServicePricingType("fixed");
+          setPickupAvailable(true);
+          setShippingAvailable(false);
+          setAcceptOffers(true);
+          setSaleType("buy_now");
+        },
+      },
+      {
+        key: "rental",
+        icon: "🔑",
+        label: "Rental",
+        desc: "Something people can hire or rent temporarily.",
+        examples: "Houses, rooms, trailers, equipment, party gear.",
+        action: () => {
+          setCategory("");
+          markField("category");
+          setPickupAvailable(true);
+          setShippingAvailable(false);
+          setAcceptOffers(false);
+          setSaleType("buy_now");
+          setLocation("");
+          setCondition("");
+          markField("condition");
+        },
+      },
+      {
+        key: "vehicle",
+        icon: "🚗",
+        label: "Vehicle",
+        desc: "Motor vehicles for sale.",
+        examples: "Cars, motorcycles, boats, caravans, trucks.",
+        action: () => {
+          setCategory("Cars");
+          setSaleType("buy_now");
+          setAcceptOffers(false);
+          restoreVehicleDraft();
+        },
+      },
+      {
+        key: "wanted",
+        icon: "📋",
+        label: "Wanted",
+        desc: "Post what you're looking for and let sellers come to you.",
+        examples: "Looking for a car, need a service, want to rent something.",
+        action: () => {
+          setCategory("Items");
+          setPickupAvailable(false);
+          setShippingAvailable(false);
+          setAcceptOffers(false);
+          setSaleType("buy_now");
+        },
+      },
+    ].find((t) => t.key === newType);
 
     if (typeConfig) {
       setListingType(typeConfig.key as any);
@@ -1767,7 +1907,7 @@ export default function AIPostPage() {
           <h1 className="text-[1.65rem] font-semibold tracking-tight text-white sm:text-3xl">
             {editId ? "Edit your listing" : "Build your listing"}
           </h1>
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-zinc-400">
+          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-zinc-500">
             {editId
               ? "Update details, photos, and publish when you're ready."
               : "Tell Āwhina what you're selling and we'll build it together."}
@@ -1797,10 +1937,12 @@ export default function AIPostPage() {
         )}
 
         {!editId && detailsRemaining > 0 && hasDraftContent && !isReadyToReview && (
-          <p className="mb-4 text-[11px] text-zinc-500">
-            <span className="mr-2 inline-block h-px w-8 align-middle bg-zinc-700" />
-            {detailsRemaining} detail{detailsRemaining === 1 ? "" : "s"} remaining
-          </p>
+          <div className="mb-4 flex items-center gap-3">
+            <span className="h-px w-10 bg-sky-500/70" aria-hidden />
+            <p className="text-[11px] text-zinc-500">
+              {detailsRemaining} detail{detailsRemaining === 1 ? "" : "s"} remaining
+            </p>
+          </div>
         )}
 
         {/* Desktop: listing left · Āwhina right. Mobile: tabbed. */}
@@ -1852,16 +1994,16 @@ export default function AIPostPage() {
               {hasDraftContent || imagePreviews.length > 0 ? (
                 <div className="space-y-2">
                   <h2
-                    className={`text-xl font-semibold tracking-tight text-white sm:text-2xl ${draftFlash("title") || draftFlash("make") || draftFlash("model") ? "text-emerald-300 transition-colors duration-500" : ""}`}
+                    className={`text-xl font-semibold tracking-tight text-white sm:text-2xl ${draftFlash("title") || draftFlash("make") || draftFlash("model") ? "text-sky-100 transition-colors duration-500" : ""}`}
                   >
                     {marketplaceTitle || "Your listing"}
                   </h2>
                   {marketplacePrice ? (
                     <p
-                      className={`text-lg font-medium text-white sm:text-xl ${draftFlash("price") ? "text-emerald-300 transition-colors duration-500" : ""}`}
+                      className={`text-lg font-medium text-white sm:text-xl ${draftFlash("price") ? "text-sky-100 transition-colors duration-500" : ""}`}
                     >
                       {marketplacePrice}
-                      {draftFlash("price") ? <span className="ml-1.5 text-sm font-normal text-emerald-400/80">✓</span> : null}
+                      {draftFlash("price") ? <span className="ml-1.5 text-sm font-normal text-sky-400/80">✓</span> : null}
                     </p>
                   ) : null}
                   {marketplaceMeta ? (
@@ -1873,7 +2015,7 @@ export default function AIPostPage() {
                 </div>
               ) : (
                 <div className="space-y-1.5 py-1">
-                  <p className="text-base font-medium text-zinc-300">No details yet</p>
+                  <p className="text-base font-medium text-white">No details yet</p>
                   <p className="text-sm text-zinc-500">Chat with Āwhina, or edit the listing yourself.</p>
                 </div>
               )}
@@ -1924,7 +2066,7 @@ export default function AIPostPage() {
           id="manual-listing-form"
           className={`${!editId && !showManualEditor ? "hidden" : "mt-2 block"}`}
         >
-        <div className="rounded-2xl border border-white/[0.08] bg-zinc-950/40 p-4 sm:p-5">
+        <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/45 p-4 sm:p-5">
         {!editId && showManualEditor && (
           <div className="mb-5 flex items-center justify-between gap-3">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Listing details</p>
@@ -1982,7 +2124,7 @@ export default function AIPostPage() {
           <div className="space-y-4">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Basics</p>
             <div className="space-y-1.5">
-              <label htmlFor="listing-title" className="block text-xs font-medium text-zinc-400">Title</label>
+              <label htmlFor="listing-title" className="block text-xs font-medium text-zinc-500">Title</label>
               <input
                 id="listing-title"
                 type="text"
@@ -2004,7 +2146,7 @@ export default function AIPostPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="listing-description" className="block text-xs font-medium text-zinc-400">Description</label>
+              <label htmlFor="listing-description" className="block text-xs font-medium text-zinc-500">Description</label>
               <textarea
                 id="listing-description"
                 value={description}
@@ -2027,7 +2169,7 @@ export default function AIPostPage() {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-zinc-400">
+                <label className="block text-xs font-medium text-zinc-500">
                   {listingType === "service" ? "Service category" : "Category"}
                 </label>
                 <select
@@ -2036,20 +2178,14 @@ export default function AIPostPage() {
                   className="w-full cursor-pointer appearance-none rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45"
                 >
                   <option value="" className="bg-zinc-900 text-zinc-500">Select category</option>
-                  {listingType === "service" ? (
-                    <>{SERVICE_LISTING_CATEGORY_LIST.map((c) => <option key={c} className="bg-zinc-900 text-white">{c}</option>)}</>
-                  ) : listingType === "rental" ? (
-                    <>{RENTAL_LISTING_CATEGORY_LIST.map((c) => <option key={c} className="bg-zinc-900 text-white">{c}</option>)}</>
-                  ) : listingType === "wanted" ? (
-                    <>{WANTED_LISTING_CATEGORIES.map((c) => <option key={c} className="bg-zinc-900 text-white">{c}</option>)}</>
-                  ) : (
-                    <>{PHYSICAL_LISTING_CATEGORIES.map((c) => <option key={c} className="bg-zinc-900 text-white">{c}</option>)}</>
-                  )}
+                  {categoriesForListingType(listingType).map((c) => (
+                    <option key={c} className="bg-zinc-900 text-white">{c}</option>
+                  ))}
                 </select>
               </div>
-              {listingType === "physical" && (
+              {(listingType === "physical" || listingType === "vehicle") && (
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-zinc-400">Condition</label>
+                  <label className="block text-xs font-medium text-zinc-500">Condition</label>
                   <select
                     value={condition}
                     onChange={(e) => { setCondition(e.target.value); markField("condition"); }}
@@ -2066,7 +2202,7 @@ export default function AIPostPage() {
             </div>
           </div>
 
-          {(listingType === "vehicle" || (listingType === "physical" && category === "Cars")) && (
+          {listingType === "vehicle" && (
             <div className="space-y-3 border-t border-white/[0.06] pt-5">
               <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Vehicle</p>
               <div className="grid grid-cols-2 gap-3">
@@ -2147,8 +2283,8 @@ export default function AIPostPage() {
               </div>
             ) : saleType === "buy_now" && listingType === "service" && servicePricingType === "request_quote" ? (
               <div className="space-y-1.5">
-                <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-4 py-3 text-center">
-                  <p className="text-xs font-medium text-sky-400">Quote Required — buyers will contact you for a quote</p>
+                <div className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-4 py-3 text-center">
+                  <p className="text-xs font-medium text-white">Quote Required — buyers will contact you for a quote</p>
                 </div>
               </div>
             ) : saleType === "buy_now" ? (
@@ -2226,7 +2362,7 @@ export default function AIPostPage() {
               ].map((opt) => (
                 <button key={opt.id} type="button" onClick={() => setSaleType(opt.id)}
                   className={`rounded-xl border px-4 py-4 text-left transition-all duration-150 active:scale-[0.98] ${
-                    saleType === opt.id ? "border-sky-400/60 bg-gradient-to-b from-sky-500/[0.15] to-sky-500/[0.08] text-sky-400" : "border-white/[0.08] bg-white/[0.02] text-[var(--muted)] hover:border-white/[0.15] hover:bg-white/[0.05]"
+                    saleType === opt.id ? "border-sky-500/40 bg-sky-500/10 text-sky-300" : "border-white/[0.08] bg-white/[0.02] text-zinc-500 hover:border-white/[0.15] hover:bg-white/[0.05] hover:text-zinc-300"
                   }`}>
                   <div className="font-bold text-sm">{opt.label}</div>
                   <div className="mt-1 text-[10px] leading-relaxed">{opt.desc}</div>
@@ -2272,7 +2408,7 @@ export default function AIPostPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <button type="button" onClick={() => choosePaymentType("contact")}
                     className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
-                      paymentType === "contact" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400" : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
+                      paymentType === "contact" ? "border-sky-500/40 bg-sky-500/10 text-sky-300" : "bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300"
                     }`}>
                     <span className="flex items-center gap-1.5">🤝 Arrange Purchase</span>
                     <span className="ml-1 rounded bg-sky-500/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-sky-300">Default</span>
@@ -2288,8 +2424,8 @@ export default function AIPostPage() {
                       !stripeConnected
                         ? "cursor-not-allowed border-white/[0.06] bg-white/[0.02] text-[var(--muted)] opacity-60"
                         : paymentType === "stripe"
-                          ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400"
-                          : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
+                          ? "border-sky-500/40 bg-sky-500/10 text-sky-300"
+                          : "bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300"
                     }`}>
                     <span className="flex items-center gap-1.5">
                       <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="currentColor">
@@ -2490,8 +2626,8 @@ export default function AIPostPage() {
                       onClick={() => setRentalSubType(opt.id)}
                       className={`flex flex-col items-center gap-2 rounded-xl border px-4 py-4 text-center transition-all duration-150 active:scale-[0.98] ${
                         rentalSubType === opt.id
-                          ? "border-sky-400/60 bg-gradient-to-b from-sky-500/[0.15] to-sky-500/[0.08] text-sky-400"
-                          : "border-white/[0.08] bg-white/[0.02] text-[var(--muted)] hover:border-white/[0.15] hover:bg-white/[0.05]"
+                          ? "border-sky-500/40 bg-sky-500/10 text-sky-300"
+                          : "border-white/[0.08] bg-white/[0.02] text-zinc-500 hover:border-white/[0.15] hover:bg-white/[0.05] hover:text-zinc-300"
                     }`}>
                       <span className="text-2xl transition-transform duration-150">{opt.icon}</span>
                       <span className="text-sm font-bold">{opt.label}</span>
@@ -2688,7 +2824,13 @@ export default function AIPostPage() {
             }`}
           >
             <div className="mb-2 flex items-center gap-2 px-0.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-500/15 text-[10px] text-sky-300" aria-hidden>
+                ✦
+              </span>
               <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Āwhina</span>
+              {awhinaIsAsking ? (
+                <span className="h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden />
+              ) : null}
             </div>
             <SkyAiChatPanel
               mode="inline"
@@ -2772,8 +2914,16 @@ export default function AIPostPage() {
                   <span className="text-2xl">📦</span>
                   <h4 className="font-bold text-white">Physical Items</h4>
                 </div>
-                <p className="mt-2 text-sm text-[var(--muted)]">Real items that can be picked up or shipped, including vehicles.</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">Best for: Phones, furniture, tools, clothing, cars, collectibles.</p>
+                <p className="mt-2 text-sm text-[var(--muted)]">Normal sellable items you can pick up or ship — not vehicles.</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">Best for: Phones, furniture, tools, clothing, collectibles.</p>
+              </div>
+              <div className="rounded-xl bg-white/[0.02] p-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🚗</span>
+                  <h4 className="font-bold text-white">Vehicle</h4>
+                </div>
+                <p className="mt-2 text-sm text-[var(--muted)]">Cars, motorbikes, vans and other vehicles for sale.</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">Best for: Cars, utes, vans, motorcycles, boats, caravans.</p>
               </div>
               <div className="rounded-xl bg-white/[0.02] p-4">
                 <div className="flex items-center gap-2">

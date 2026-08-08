@@ -24,6 +24,7 @@ import {
 import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
 import {
   categoriesForListingType,
+  isLegacyVehicleListing,
   listingSupportsCondition,
   listingSupportsSaleType,
   isMessagingOnlyListingType,
@@ -181,7 +182,11 @@ export default function EditListingPage({
         }
 
         const type = String(data.type || "physical").toLowerCase();
-        setListingType(type);
+        if (isLegacyVehicleListing({ type, category: data.category })) {
+          setListingType("vehicle");
+        } else {
+          setListingType(type);
+        }
 
         setTitle(data.title || "");
 
@@ -329,9 +334,10 @@ export default function EditListingPage({
         title: sanitizeListingContent(title),
         price,
         location: sanitizeListingContent(location),
-        category,
+        category: listingType === "vehicle" ? "Cars" : category,
         description: sanitizeListingContent(description),
         images: uploadedImages,
+        type: listingType,
         expiresInDays: expiresIn,
       };
 

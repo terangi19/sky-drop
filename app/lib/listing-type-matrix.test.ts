@@ -19,14 +19,25 @@ import {
   emptyListCtaLabel,
   categoriesForListingType,
   WANTED_LISTING_CATEGORIES,
+  PHYSICAL_LISTING_CATEGORIES,
+  VEHICLE_LISTING_CATEGORIES,
   isMessagingOnlyListingType,
   listingTypeHelperDescription,
   LISTING_TYPE_HELPER_DESCRIPTIONS,
   CANONICAL_LISTING_TYPES,
+  isLegacyVehicleListing,
+  isCanonicalVehicleListing,
+  stripInactiveVehicleSaleFields,
 } from "./listing-type-config";
 import { validateListingForPublish, clearCrossTypeFields } from "./listing-validation";
 import { normalizeServicePricingType, formatServicePriceDisplay } from "./service-pricing";
-import { normalizeSkyAiListingFill } from "./sky-ai-listing-fill";
+import {
+  applySkyAiListingFill,
+  normalizeSkyAiListingFill,
+  type ListingFillHandlers,
+} from "./sky-ai-listing-fill";
+import { isVehicleListingFill } from "./awhina-listing-description";
+import { getListingReadinessState } from "./awhina-listing-readiness";
 
 describe("wanted price/budget/CTA", () => {
   it("formats budget not sale price", () => {
@@ -138,6 +149,42 @@ describe("validation matrix", () => {
     expect(cleared.rentalDeposit).toBeUndefined();
     expect(cleared.price).toBe("5000");
   });
+  it("clears vehicle fields when switching to physical", () => {
+    const cleared = clearCrossTypeFields("physical", {
+      title: "PS5",
+      vehicleMake: "BMW",
+      vehicleModel: "335i",
+      vehicleYear: "2007",
+      price: "450",
+    });
+    expect(cleared.vehicleMake).toBeUndefined();
+    expect(cleared.vehicleModel).toBeUndefined();
+    expect(cleared.price).toBe("450");
+  });
+  it("rejects new physical + Cars category", () => {
+    const r = validateListingForPublish({
+      type: "physical",
+      title: "2015 Mazda",
+      description: "Blue hatch",
+      price: "11500",
+      condition: "Used - Good",
+      category: "Cars",
+    });
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => /Vehicle|Cars/i.test(e))).toBe(true);
+  });
+  it("allows legacy physical + Cars when flagged", () => {
+    const r = validateListingForPublish({
+      type: "physical",
+      title: "2015 Mazda",
+      description: "Blue hatch",
+      price: "11500",
+      condition: "Used - Good",
+      category: "Cars",
+      allowLegacyPhysicalCars: true,
+    });
+    expect(r.ok).toBe(true);
+  });
 });
 
 describe("service from-price", () => {
@@ -219,10 +266,211 @@ describe("listing type helper descriptions", () => {
       expect(LISTING_TYPE_HELPER_DESCRIPTIONS[type].length).toBeGreaterThan(20);
     }
     expect(listingTypeHelperDescription("physical")).toContain("electronics");
+    expect(listingTypeHelperDescription("physical")).not.toMatch(/vehicle/i);
     expect(listingTypeHelperDescription("vehicle")).toContain("motorbike");
     expect(listingTypeHelperDescription("service")).toContain("lawn mowing");
     expect(listingTypeHelperDescription("rental")).toContain("temporary use");
     expect(listingTypeHelperDescription("wanted")).toContain("looking to buy");
     expect(listingTypeHelperDescription("event")).toBeUndefined();
+  });
+});
+
+describe("canonical vehicle vs physical semantics", () => {
+  it("physical categories exclude Cars; vehicle owns Cars", () => {
+    expect(PHYSICAL_LISTING_CATEGORIES).not.toContain("Cars");
+    expect(PHYSICAL_LISTING_CATEGORIES).toEqual([
+      "Tech",
+      "Gaming",
+      "Fashion",
+      "Home",
+      "Sports",
+      "Other",
+    ]);
+    expect(categoriesForListingType("physical")).toEqual([...PHYSICAL_LISTING_CATEGORIES]);
+    expect(categoriesForListingType("vehicle")).toEqual([...VEHICLE_LISTING_CATEGORIES]);
+    expect(VEHICLE_LISTING_CATEGORIES).toContain("Cars");
+  });
+
+  it("legacy helper only for historical physical+Cars", () => {
+    expect(isLegacyVehicleListing({ type: "physical", category: "Cars" })).toBe(true);
+    expect(isLegacyVehicleListing({ type: "vehicle", category: "Cars" })).toBe(false);
+    expect(isLegacyVehicleListing({ type: "physical", category: "Tech" })).toBe(false);
+    expect(isCanonicalVehicleListing({ listingType: "vehicle" })).toBe(true);
+    expect(isCanonicalVehicleListing({ listingType: "physical" })).toBe(false);
+  });
+
+  it("Physical + PS5 → no vehicle fields on normalize/apply", () => {
+    const fill = normalizeSkyAiListingFill({
+      title: "PlayStation 5",
+      listingType: "physical",
+      category: "Gaming",
+      price: "450",
+      condition: "Used - Good",
+      vehicleMake: "BMW",
+      vehicleModel: "335i",
+    });
+    expect(fill?.listingType).toBe("physical");
+    expect(fill?.vehicleMake).toBeUndefined();
+    expect(fill?.vehicleModel).toBeUndefined();
+
+    const applied: Record<string, string> = {};
+    const h: ListingFillHandlers = {
+      setListingType: (v) => {
+        applied.listingType = v;
+      },
+      setCategory: (v) => {
+        applied.category = v;
+      },
+      setTitle: (v) => {
+        applied.title = v;
+      },
+      setDescription: () => {},
+      setPrice: (v) => {
+        applied.price = v;
+      },
+      setCondition: (v) => {
+        applied.condition = v;
+      },
+      setVehicleMake: (v) => {
+        applied.vehicleMake = v;
+      },
+      setVehicleModel: (v) => {
+        applied.vehicleModel = v;
+      },
+    };
+    applySkyAiListingFill(
+      {
+        title: "PlayStation 5",
+        listingType: "physical",
+        category: "Gaming",
+        price: "450",
+        condition: "Used - Good",
+      },
+      h
+    );
+    expect(applied.listingType).toBe("physical");
+    expect(applied.category).toBe("Gaming");
+    expect(applied.vehicleMake).toBeUndefined();
+  });
+
+  it("Physical + iPhone → Tech, no vehicle fields", () => {
+    const fill = normalizeSkyAiListingFill({
+      title: "iPhone 13",
+      listingType: "physical",
+      category: "Tech",
+      price: "600",
+    });
+    expect(fill?.listingType).toBe("physical");
+    expect(fill?.category).toBe("Tech");
+    expect(fill?.vehicleMake).toBeUndefined();
+  });
+
+  it("Vehicle + BMW → vehicle fields visible via apply", () => {
+    const applied: Record<string, string> = {};
+    const h: ListingFillHandlers = {
+      setListingType: (v) => {
+        applied.listingType = v;
+      },
+      setCategory: (v) => {
+        applied.category = v;
+      },
+      setTitle: (v) => {
+        applied.title = v;
+      },
+      setDescription: () => {},
+      setPrice: (v) => {
+        applied.price = v;
+      },
+      setCondition: () => {},
+      setVehicleMake: (v) => {
+        applied.vehicleMake = v;
+      },
+      setVehicleModel: (v) => {
+        applied.vehicleModel = v;
+      },
+      setVehicleYear: (v) => {
+        applied.vehicleYear = v;
+      },
+      setAcceptOffers: () => {},
+      setSaleType: () => {},
+    };
+    applySkyAiListingFill(
+      {
+        title: "2007 BMW 335i",
+        listingType: "vehicle",
+        category: "Cars",
+        price: "20000",
+        vehicleMake: "BMW",
+        vehicleModel: "335i",
+        vehicleYear: "2007",
+      },
+      h
+    );
+    expect(applied.listingType).toBe("vehicle");
+    expect(applied.category).toBe("Cars");
+    expect(applied.vehicleMake).toBe("BMW");
+    expect(applied.vehicleModel).toBe("335i");
+  });
+
+  it("Vehicle → Physical: vehicle fields ignored for readiness/fill checks", () => {
+    expect(
+      isVehicleListingFill({
+        listingType: "physical",
+        title: "BMW 335i",
+        vehicleMake: "BMW",
+        vehicleModel: "335i",
+      })
+    ).toBe(false);
+    const state = getListingReadinessState({
+      listingType: "physical",
+      title: "PlayStation 5",
+      price: "450",
+      condition: "Used - Good",
+      location: "Auckland",
+      category: "Gaming",
+      vehicleMake: "BMW",
+      vehicleModel: "335i",
+    });
+    expect(state === "READY_TO_REVIEW" || state === "READY_TO_PUBLISH").toBe(true);
+  });
+
+  it("Physical → Vehicle: vehicle identity activates", () => {
+    expect(
+      isVehicleListingFill({
+        listingType: "vehicle",
+        vehicleMake: "BMW",
+        vehicleModel: "335i",
+      })
+    ).toBe(true);
+  });
+
+  it("publish strip removes vehicle fields from physical payloads", () => {
+    const stripped = stripInactiveVehicleSaleFields("physical", {
+      title: "PS5",
+      category: "Gaming",
+      vehicleMake: "BMW",
+      vehicleModel: "335i",
+      vehicleYear: "2007",
+      price: "450",
+    });
+    expect(stripped.vehicleMake).toBeUndefined();
+    expect(stripped.vehicleModel).toBeUndefined();
+    expect(stripped.price).toBe("450");
+    expect(
+      stripInactiveVehicleSaleFields("vehicle", {
+        vehicleMake: "BMW",
+        vehicleModel: "335i",
+      }).vehicleMake
+    ).toBe("BMW");
+  });
+
+  it("old physical+Cars listing still recognized via compatibility path", () => {
+    expect(
+      isLegacyVehicleListing({
+        type: "physical",
+        listingType: "physical",
+        category: "Cars",
+      })
+    ).toBe(true);
   });
 });

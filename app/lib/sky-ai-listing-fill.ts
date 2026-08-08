@@ -94,8 +94,9 @@ const LISTING_TYPES = new Set([
 
 export function inferPhysicalCategoryFromText(text: string): string | undefined {
   const lower = text.toLowerCase();
+  // Vehicle signals belong to type=vehicle — never map physical goods to Cars.
   if (/car|vehicle|auto|bmw|toyota|ford|mazda|honda|nissan|subaru|\d{2,3}[\s,]?\d{3}\s*km/i.test(lower)) {
-    return "Cars";
+    return undefined;
   }
   if (/ps5|ps4|playstation|xbox|nintendo|switch|console|gaming|\bgames?\b/i.test(lower)) {
     return "Gaming";
@@ -169,16 +170,23 @@ function inferServicePricingFromText(text: string, price?: string): string | und
 function normalizeCategory(raw: string, listingType?: string): string | undefined {
   if (listingType === "rental") return normalizeRentalCategory(raw);
   if (listingType === "service") return normalizeServiceCategory(raw);
+  if (listingType === "vehicle") return "Cars";
   const s = raw.trim();
-  if (CATEGORIES.has(s)) return s;
+  // Cars is vehicle-only — never a physical category for new fills.
+  if (s === "Cars" && listingType !== "vehicle") {
+    return listingType === "physical" ? "Other" : "Cars";
+  }
+  if (CATEGORIES.has(s) && s !== "Cars") return s;
+  if (s === "Cars") return "Cars";
   const lower = s.toLowerCase();
-  if (/car|vehicle|auto|bmw|toyota|ford/i.test(lower)) return "Cars";
+  if (/car|vehicle|auto|bmw|toyota|ford/i.test(lower)) {
+    return listingType === "physical" ? "Other" : "Cars";
+  }
   if (/tech|phone|laptop|computer/i.test(lower)) return "Tech";
   if (/game|console|playstation|xbox/i.test(lower)) return "Gaming";
   if (/fashion|clothes|shoe/i.test(lower)) return "Fashion";
   if (/home|furniture/i.test(lower)) return "Home";
   if (/sport/i.test(lower)) return "Sports";
-  if (listingType === "vehicle") return "Cars";
   return "Other";
 }
 
@@ -608,25 +616,40 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
   if (!out.paymentType) {
     out.paymentType = "contact";
   }
-  if (listingType === "vehicle" || raw.vehicleMake || raw.vehicleModel) {
-    if (!out.listingType && listingType !== "rental") out.listingType = "vehicle";
-    if (!out.category && listingType !== "rental") out.category = "Cars";
-    if (raw.vehicleMake) out.vehicleMake = raw.vehicleMake.slice(0, 60);
-    if (raw.vehicleModel) out.vehicleModel = raw.vehicleModel.slice(0, 60);
-    if (raw.vehicleGeneration) out.vehicleGeneration = raw.vehicleGeneration.slice(0, 24);
-    if (raw.vehicleYear) out.vehicleYear = raw.vehicleYear;
-    if (raw.vehicleOdometer) out.vehicleOdometer = raw.vehicleOdometer;
-    if (raw.vehicleColour)
-      out.vehicleColour = normalizeColour(raw.vehicleColour);
-    if (raw.vehicleTransmission)
-      out.vehicleTransmission = normalizeTransmission(raw.vehicleTransmission);
-    if (raw.vehicleFuelType) out.vehicleFuelType = normalizeFuelType(raw.vehicleFuelType);
-    if (raw.vehicleBodyType) {
-      const body = normalizeBodyType(raw.vehicleBodyType, raw.vehicleModel);
-      if (body) out.vehicleBodyType = body;
-    } else if (raw.vehicleModel) {
-      const inferred = normalizeBodyType("", raw.vehicleModel);
-      if (inferred) out.vehicleBodyType = inferred;
+  if (listingType === "vehicle" || (raw.vehicleMake || raw.vehicleModel)) {
+    // Explicit non-vehicle type (user override) — do not attach vehicle sale fields.
+    if (
+      listingType === "physical" ||
+      listingType === "service" ||
+      listingType === "wanted"
+    ) {
+      // skip vehicle field attach
+    } else if (listingType === "rental") {
+      if (raw.vehicleMake) out.vehicleMake = raw.vehicleMake.slice(0, 60);
+      if (raw.vehicleModel) out.vehicleModel = raw.vehicleModel.slice(0, 60);
+      if (raw.vehicleYear) out.vehicleYear = raw.vehicleYear;
+      if (raw.vehicleTransmission)
+        out.vehicleTransmission = normalizeTransmission(raw.vehicleTransmission);
+    } else {
+      if (!out.listingType) out.listingType = "vehicle";
+      if (!out.category) out.category = "Cars";
+      if (raw.vehicleMake) out.vehicleMake = raw.vehicleMake.slice(0, 60);
+      if (raw.vehicleModel) out.vehicleModel = raw.vehicleModel.slice(0, 60);
+      if (raw.vehicleGeneration) out.vehicleGeneration = raw.vehicleGeneration.slice(0, 24);
+      if (raw.vehicleYear) out.vehicleYear = raw.vehicleYear;
+      if (raw.vehicleOdometer) out.vehicleOdometer = raw.vehicleOdometer;
+      if (raw.vehicleColour)
+        out.vehicleColour = normalizeColour(raw.vehicleColour);
+      if (raw.vehicleTransmission)
+        out.vehicleTransmission = normalizeTransmission(raw.vehicleTransmission);
+      if (raw.vehicleFuelType) out.vehicleFuelType = normalizeFuelType(raw.vehicleFuelType);
+      if (raw.vehicleBodyType) {
+        const body = normalizeBodyType(raw.vehicleBodyType, raw.vehicleModel);
+        if (body) out.vehicleBodyType = body;
+      } else if (raw.vehicleModel) {
+        const inferred = normalizeBodyType("", raw.vehicleModel);
+        if (inferred) out.vehicleBodyType = inferred;
+      }
     }
   }
 
@@ -800,11 +823,14 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
       normalized.vehicleOdometer
   );
 
-  if (type === "vehicle" || (type === "physical" && hasVehicleDetails)) {
-    type = "physical";
-    if (!normalized.category || normalized.category === "Other") {
-      normalized.category = "Cars";
-    }
+  // Canonical: vehicle identity → type=vehicle (never physical + Cars).
+  // Explicit physical/service/wanted from the fill is respected (user type switch).
+  if (type === "vehicle" || (hasVehicleDetails && type !== "physical" && type !== "service" && type !== "wanted" && type !== "rental")) {
+    type = "vehicle";
+    normalized.category = "Cars";
+  } else if (type === "physical" && normalized.category === "Cars") {
+    // New physical path never uses Cars — fall back until user picks a goods category.
+    normalized.category = "Other";
   }
 
   h.setListingType(type);
@@ -876,6 +902,16 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
       if (normalized.vehicleTransmission) h.setVehicleTransmission?.(normalized.vehicleTransmission);
       if (normalized.stockQuantity) h.setStockQuantity?.(normalized.stockQuantity);
     }
+  } else if (type === "vehicle") {
+    h.setCategory("Cars");
+    if (normalized.condition) h.setCondition(normalized.condition);
+    if (normalized.price) h.setPrice(normalized.price);
+    if (normalized.paymentType) h.setPaymentType?.(normalized.paymentType);
+    if (normalized.pickupAvailable !== undefined) h.setPickupAvailable?.(normalized.pickupAvailable);
+    else if (normalized.location) h.setPickupAvailable?.(true);
+    if (normalized.shippingAvailable !== undefined) h.setShippingAvailable?.(normalized.shippingAvailable);
+    if (normalized.saleType) h.setSaleType?.(normalized.saleType);
+    applyVehicleFields();
   } else {
     if (normalized.category) h.setCategory(normalized.category);
     if (normalized.condition) h.setCondition(normalized.condition);
@@ -886,9 +922,7 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
     if (normalized.shippingAvailable !== undefined) h.setShippingAvailable?.(normalized.shippingAvailable);
     if (normalized.acceptOffers !== undefined) h.setAcceptOffers?.(normalized.acceptOffers);
     if (normalized.saleType) h.setSaleType?.(normalized.saleType);
-    if (normalized.category === "Cars" || hasVehicleDetails) {
-      applyVehicleFields();
-    }
+    // Physical never applies vehicle sale fields — even if draft memory still has them.
   }
 
   if (normalized.title) h.setTitle(normalized.title);

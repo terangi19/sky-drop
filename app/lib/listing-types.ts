@@ -52,7 +52,7 @@ export function isHomeBrowseListing(item: { type?: string | null }): boolean {
   return item.type !== "wanted";
 }
 
-/** Physical-goods categories on homepage (Cars, Tech, …) — exclude services & other verticals. */
+/** Physical-goods categories on homepage (Tech, Gaming, …) — exclude services & other verticals. */
 export function isPhysicalHomeCategoryListing(item: {
   type?: string | null;
 }): boolean {
