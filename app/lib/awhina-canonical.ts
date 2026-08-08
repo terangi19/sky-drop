@@ -71,8 +71,7 @@ import {
   mergeClarifyIntoSearchMessage,
   tryMarketplaceEducationReply,
   isCompareRequest,
-  summarizeListingComparison,
-  parseCompareTitlesFromMessage,
+  buildGroundedCompareReply,
   shouldAutoNavigate,
   isExplicitNavigationAction,
   isNoResultFollowUp,
@@ -81,9 +80,14 @@ import {
   polishAwhinaReplyStyle,
   maybeOneProactiveSuggestion,
   buildPremiumSearchSummary,
-  pickCompareFactsFromPage,
   type ListingFacts,
 } from "./awhina-product-ux";
+import {
+  buildAwhinaDecision,
+  isToolAllowedByDecision,
+  selfCheckBeforeToolResponse,
+  type AwhinaDecision,
+} from "./awhina-decision";
 
 export type CanonicalContext = {
   pathname?: string;
@@ -134,6 +138,8 @@ export type CanonicalResult = {
   toolCall?: AwhinaToolCall;
   /** Echo to client — durable source of truth across serverless instances */
   sessionState?: CanonicalSessionState;
+  /** Internal only — never render to users */
+  _decision?: AwhinaDecision;
 };
 
 const CATEGORY_LOCAL: Array<{ re: RegExp; path: string; label: string }> = [
@@ -251,7 +257,10 @@ export function processCanonicalAwhina(
   hydrateTaskScope(scopeKey, context.clientTask);
   hydrateSearchSession(memKey, context.clientSearch);
 
-  const finish = (partial: Omit<CanonicalResult, "executionTimeMs">): CanonicalResult => {
+  const finish = (
+    partial: Omit<CanonicalResult, "executionTimeMs">,
+    decisionOverride?: AwhinaDecision
+  ): CanonicalResult => {
     const taskSnap = getTaskScope(scopeKey);
     const searchSnap = getSearchSession(memKey);
     let reply = partial.reply
@@ -274,16 +283,87 @@ export function processCanonicalAwhina(
       }
     }
 
-    // Hard tool gate: sticky SEARCH cannot sell/create/edit listing tools
+    // Education-only: never auto-navigate to /messages
+    if (
+      (partial.intent === "education" || decisionOverride?.intent === "education") &&
+      navigateTo === "/messages" &&
+      !isExplicitNavigationAction(trimmed)
+    ) {
+      navigateTo = undefined;
+    }
+
+    // Decision + task tool gates (search sticky + decision.blockedTools)
     let tool = partial.tool;
     let toolCall = partial.toolCall;
     let listingFill = partial.listingFill;
     const activeTask = taskSnap?.task || "none";
-    if (tool && !isToolAllowedForTask(tool, activeTask)) {
+    const decision =
+      decisionOverride ||
+      partial._decision ||
+      buildAwhinaDecision({
+        message: trimmed,
+        pathname,
+        session: taskSnap,
+        listingContext: context.listingContext,
+        searchFilters: searchSnap?.filters,
+        intentHint:
+          partial.intent === "compare"
+            ? "compare"
+            : partial.intent === "education"
+              ? "education"
+              : partial.intent === "marketplace_search"
+                ? "marketplace_search"
+                : partial.intent === "listing_create" || partial.intent === "listing_update"
+                  ? "listing_create"
+                  : undefined,
+      });
+
+    if (tool && (!isToolAllowedForTask(tool, activeTask) || !isToolAllowedByDecision(tool, decision))) {
       tool = undefined;
       toolCall = undefined;
       listingFill = undefined;
       navigateTo = navigateTo === "/post/ai" ? undefined : navigateTo;
+    }
+
+    // Internal self-check — strip unsafe tool/fill before emit (never shown)
+    const check = selfCheckBeforeToolResponse({
+      decision,
+      tool,
+      listingFill: listingFill as Record<string, unknown> | null,
+      navigateTo,
+      reply,
+    });
+    if (!check.ok) {
+      if (check.reasons.some((r) => r.startsWith("stale_") || r.startsWith("blocked_"))) {
+        if (check.reasons.some((r) => r.startsWith("blocked_") || r === "education_nav_messages")) {
+          tool = undefined;
+          toolCall = undefined;
+          if (check.reasons.includes("education_nav_messages")) navigateTo = undefined;
+        }
+        if (check.reasons.some((r) => r.startsWith("stale_")) && listingFill) {
+          // Drop vehicle bleed fields; keep current-turn price/title when present
+          const scrubbed = { ...listingFill } as Record<string, unknown>;
+          for (const k of [
+            "vehicleMake",
+            "vehicleModel",
+            "vehicleYear",
+            "vehicleColour",
+            "vehicleOdometer",
+          ]) {
+            delete scrubbed[k];
+          }
+          if (
+            decision.currentTurnEntities.price &&
+            String(scrubbed.price) !== decision.currentTurnEntities.price
+          ) {
+            scrubbed.price = decision.currentTurnEntities.price;
+          }
+          listingFill = scrubbed;
+        }
+      }
+      if (check.reasons.includes("legacy_updated_prefix") && reply) {
+        reply = reply.replace(/^Updated:\s*/i, "");
+      }
     }
 
     // At most one contextual tip when strong evidence (not every turn)
@@ -308,6 +388,8 @@ export function processCanonicalAwhina(
         task: toClientTaskScope(taskSnap),
         search: toClientSearchContext(searchSnap),
       },
+      // Keep on result for tests/telemetry — UI must ignore
+      _decision: decision,
     };
     const clarification = Boolean(result.clarificationQuestion);
     recordAwhinaObs({
@@ -400,44 +482,64 @@ export function processCanonicalAwhina(
   const edu = tryMarketplaceEducationReply(trimmed);
   if (edu) {
     setActiveTask(scopeKey, "help");
-    return finish({
-      handled: true,
-      reply: edu.includes("Stay on") ? edu : awhinaSafetyEducationReply(),
-      navigateTo: undefined,
-      source: "rules",
-      intent: "education",
-      confidence: 0.95,
-      usedLocalExecution: false,
-      avoidedAi: true,
+    const eduDecision = buildAwhinaDecision({
+      message: trimmed,
+      pathname,
+      session: getTaskScope(scopeKey),
+      intentHint: "education",
     });
+    return finish(
+      {
+        handled: true,
+        reply: edu.includes("Stay on") ? edu : awhinaSafetyEducationReply(),
+        navigateTo: undefined,
+        source: "rules",
+        intent: "education",
+        confidence: 0.95,
+        usedLocalExecution: false,
+        avoidedAi: true,
+        tool: undefined,
+        toolCall: undefined,
+        _decision: eduDecision,
+      },
+      eduDecision
+    );
   }
 
-  // Listing comparison — real fields when pageListings provided; never invent
+  // Listing comparison — single grounded pathway (pageListings pre-enriched by route)
   if (isCompareRequest(trimmed)) {
-    const titles = parseCompareTitlesFromMessage(trimmed);
-    const page = context.pageListings || [];
-    let facts: ListingFacts[];
-    if (page.length >= 2 && titles.length < 2) {
-      facts = page.slice(0, 4);
-    } else if (titles.length || page.length) {
-      facts = pickCompareFactsFromPage(titles.length ? titles : page.map((p) => String(p.title || "")).filter(Boolean).slice(0, 2), page);
-    } else {
-      facts = titles.map((title) => ({ title }));
-    }
-    const reply = summarizeListingComparison(facts);
+    const priorCompare = getTaskScope(scopeKey)?.compareCandidates;
+    const grounded = buildGroundedCompareReply({
+      message: trimmed,
+      pageListings: context.pageListings || [],
+      compareCandidates: priorCompare,
+    });
     setActiveTask(scopeKey, "shopping", {
-      compareCandidates: titles.length ? titles : facts.map((f) => String(f.title || "")).filter(Boolean),
+      compareCandidates: grounded.titles.length
+        ? grounded.titles
+        : grounded.facts.map((f) => String(f.title || "")).filter(Boolean),
     });
-    return finish({
-      handled: true,
-      reply,
-      source: "rules",
-      intent: "compare",
-      confidence: facts.filter((f) => f.price || f.condition || f.location).length >= 2 ? 0.9 : 0.85,
-      usedLocalExecution: false,
-      avoidedAi: true,
-      clarificationQuestion: facts.length < 2 ? reply : undefined,
+    const compareDecision = buildAwhinaDecision({
+      message: trimmed,
+      pathname,
+      session: getTaskScope(scopeKey),
+      intentHint: "compare",
     });
+    return finish(
+      {
+        handled: true,
+        reply: grounded.reply,
+        navigateTo: undefined,
+        source: "rules",
+        intent: "compare",
+        confidence: grounded.grounded ? 0.9 : 0.85,
+        usedLocalExecution: false,
+        avoidedAi: true,
+        clarificationQuestion: grounded.facts.length < 2 ? grounded.reply : undefined,
+        _decision: compareDecision,
+      },
+      compareDecision
+    );
   }
 
   // Category / short nav locals beyond awhina-local-execution
@@ -792,12 +894,20 @@ export function processCanonicalAwhina(
     }
   }
 
-  // Primary find — structured search tool + remember session
+  // Primary find — structured search tool + remember session (decision-gated)
   if (
     !explicitSell &&
     (!hasListingSellIntent(trimmed) || searchLang || stickyShopping) &&
     pathname !== "/post/ai"
   ) {
+    const searchDecision = buildAwhinaDecision({
+      message: trimmed,
+      pathname,
+      session: taskSession,
+      listingContext: context.listingContext,
+      searchFilters: getSearchSession(memKey)?.filters,
+      intentHint: "marketplace_search",
+    });
     const find = tryFindBrowseReply(trimmed, {
       priorUserMessage: context.history
         ?.slice()
@@ -809,6 +919,9 @@ export function processCanonicalAwhina(
         .find((h) => h.role === "assistant")?.content,
     });
     if (find || searchLang) {
+      if (!isToolAllowedByDecision("searchListings", searchDecision)) {
+        // Decision blocked search — fall through
+      } else {
       rememberPrimarySearch(memKey, trimmed);
       setActiveTask(scopeKey, "shopping");
       const delta = extractSearchRefinement(trimmed);
@@ -827,20 +940,25 @@ export function processCanonicalAwhina(
         ) || !find;
       const path = useBuilt ? built.navigateTo : find!.navigateTo;
       const text = useBuilt ? built.text : find!.text;
-      const toolCall = searchToolCall(merged, 0.92);
+      const toolCall = searchToolCall(merged, searchDecision.confidence);
       const validated = validateToolCall(toolCall);
-      return finish({
-        handled: true,
-        reply: text,
-        navigateTo: path,
-        source: "tool",
-        intent: "marketplace_search",
-        tool: validated.ok ? "searchListings" : undefined,
-        confidence: 0.92,
-        usedLocalExecution: false,
-        avoidedAi: true,
-        toolCall: validated.ok ? toolCall : undefined,
-      });
+      return finish(
+        {
+          handled: true,
+          reply: text,
+          navigateTo: path,
+          source: "tool",
+          intent: "marketplace_search",
+          tool: validated.ok ? "searchListings" : undefined,
+          confidence: searchDecision.confidence,
+          usedLocalExecution: false,
+          avoidedAi: true,
+          toolCall: validated.ok ? toolCall : undefined,
+          _decision: searchDecision,
+        },
+        searchDecision
+      );
+      }
     }
   }
 
@@ -850,13 +968,14 @@ export function processCanonicalAwhina(
   const listKey = listKeyEarly;
   const listSession = listSessionEarly;
   const hasListDraft = hasListDraftEarly;
-  const resolvedTask = resolveTaskForMessage(trimmed, {
+  const sellDecisionEarly = buildAwhinaDecision({
+    message: trimmed,
     pathname,
-    hasListingDraft: hasListDraft,
     session: taskSession,
-    hasSellIntent: hasListingSellIntent(trimmed) || explicitSell,
-    hasSearchIntent: searchLang || stickyShopping,
+    listingContext: context.listingContext || (listSession?.draft as SkyAiListingContext) || null,
+    searchFilters: getSearchSession(memKey)?.filters,
   });
+  const resolvedTask = sellDecisionEarly.activeTask;
 
   const sellCandidate =
     onSell ||
@@ -865,12 +984,17 @@ export function processCanonicalAwhina(
         hasListingSellIntent(trimmed) ||
         (isListingFollowUp(trimmed, hasListDraft) && !stickyShopping)));
 
-  if (sellCandidate && !stickyShopping) {
+  if (sellCandidate && !stickyShopping && !sellDecisionEarly.stickyShopping) {
     // Hard task RESET on explicit SELL switch — do NOT inherit SEARCH year/maxPrice/make
     const switchingFromSearch =
+      sellDecisionEarly.freshSellStart ||
       explicitSell ||
       (taskSession?.task === "shopping" &&
         (hasListingSellIntent(trimmed) || explicitSell));
+    // Capture prior search filters BEFORE clear — for ignoredStaleContext
+    const priorSearchFilters = switchingFromSearch
+      ? getSearchSession(memKey)?.filters || null
+      : getSearchSession(memKey)?.filters || null;
     if (switchingFromSearch) {
       clearSearchSession(memKey);
       clearListingDraftSession(listKey);
@@ -878,6 +1002,42 @@ export function processCanonicalAwhina(
         pendingItem: undefined,
         compareCandidates: undefined,
       });
+    }
+
+    const sellDecision = buildAwhinaDecision({
+      message: trimmed,
+      pathname: onSell ? pathname : "/post/ai",
+      session: switchingFromSearch
+        ? { task: "shopping", updatedAt: Date.now() }
+        : getTaskScope(scopeKey),
+      listingContext: switchingFromSearch
+        ? null
+        : context.listingContext || (listSession?.draft as SkyAiListingContext) || null,
+      searchFilters: priorSearchFilters,
+      intentHint: switchingFromSearch ? "listing_create" : undefined,
+    });
+    // After decision, active task is selling — keep ignoredStale from prior shop filters
+    const sellDecisionFinal = {
+      ...sellDecision,
+      activeTask: "selling" as const,
+      freshSellStart: switchingFromSearch || sellDecision.freshSellStart,
+    };
+
+    if (sellDecisionFinal.requiresClarification && sellDecisionFinal.clarificationQuestion && !onSell) {
+      return finish(
+        {
+          handled: true,
+          reply: sellDecisionFinal.clarificationQuestion,
+          source: "clarify",
+          intent: "listing_create",
+          confidence: sellDecisionFinal.confidence,
+          usedLocalExecution: false,
+          avoidedAi: true,
+          clarificationQuestion: sellDecisionFinal.clarificationQuestion,
+          _decision: sellDecisionFinal,
+        },
+        sellDecisionFinal
+      );
     }
 
     const listing = processListingFillMessage(trimmed, {
@@ -891,28 +1051,36 @@ export function processCanonicalAwhina(
     });
     if (listing.handled) {
       const sellTool = listing.toolCall?.tool || (listing.listingFill ? "createListing" : undefined);
-      if (sellTool && !isToolAllowedForTask(sellTool, "selling")) {
-        // Fall through — should not sell while shopping
+      if (
+        sellTool &&
+        (!isToolAllowedForTask(sellTool, "selling") ||
+          !isToolAllowedByDecision(sellTool, { ...sellDecisionFinal, activeTask: "selling" }))
+      ) {
+        // Fall through — should not sell while shopping / decision blocked
       } else {
         setActiveTask(scopeKey, "selling");
         const navigateTo =
           !onSell && listing.listingFill
             ? "/post/ai"
             : undefined;
-        return finish({
-          handled: true,
-          reply: listing.reply,
-          listingFill: listing.listingFill,
-          navigateTo,
-          source: listing.clarify ? "clarify" : "tool",
-          intent: listing.intent,
-          tool: sellTool,
-          confidence: listing.clarify ? 0.55 : 0.9,
-          usedLocalExecution: false,
-          avoidedAi: true,
-          clarificationQuestion: listing.clarify ? listing.reply : undefined,
-          toolCall: listing.toolCall,
-        });
+        return finish(
+          {
+            handled: true,
+            reply: listing.reply,
+            listingFill: listing.listingFill,
+            navigateTo,
+            source: listing.clarify ? "clarify" : "tool",
+            intent: listing.intent,
+            tool: sellTool,
+            confidence: listing.clarify ? 0.55 : sellDecisionFinal.confidence,
+            usedLocalExecution: false,
+            avoidedAi: true,
+            clarificationQuestion: listing.clarify ? listing.reply : undefined,
+            toolCall: listing.toolCall,
+            _decision: sellDecisionFinal,
+          },
+          sellDecisionFinal
+        );
       }
     }
   }

@@ -384,6 +384,81 @@ export function pickCompareFactsFromPage(
   return out;
 }
 
+function listingHasRealFacts(l: ListingFacts): boolean {
+  return Boolean(
+    l.price ||
+      l.condition ||
+      l.location ||
+      l.mileage ||
+      l.year ||
+      l.sellerReputation ||
+      l.delivery ||
+      l.make
+  );
+}
+
+/**
+ * Single grounded compare pathway — resolve facts once from page listings
+ * (and optional pre-fetched docs). Never invent; never title-only-then-patch.
+ */
+export function resolveGroundedCompare(opts: {
+  message: string;
+  pageListings?: ListingFacts[];
+  compareCandidates?: string[];
+}): {
+  titles: string[];
+  facts: ListingFacts[];
+  grounded: boolean;
+  needsEnrichment: boolean;
+} {
+  const page = opts.pageListings || [];
+  const titlesFromMsg = parseCompareTitlesFromMessage(opts.message);
+  const titles =
+    titlesFromMsg.length >= 2
+      ? titlesFromMsg
+      : (opts.compareCandidates || []).filter(Boolean).slice(0, 4);
+
+  let facts: ListingFacts[];
+  if (page.length >= 2 && titles.length < 2) {
+    facts = page.slice(0, 4);
+  } else if (titles.length || page.length) {
+    facts = pickCompareFactsFromPage(
+      titles.length ? titles : page.map((p) => String(p.title || "")).filter(Boolean).slice(0, 2),
+      page
+    );
+  } else {
+    facts = [];
+  }
+
+  const grounded = facts.filter(listingHasRealFacts).length >= 2;
+  const needsEnrichment =
+    !grounded &&
+    (titles.length >= 2 || (opts.compareCandidates || []).length >= 2) &&
+    page.filter(listingHasRealFacts).length < 2;
+
+  return {
+    titles: titles.length ? titles : facts.map((f) => String(f.title || "")).filter(Boolean),
+    facts,
+    grounded,
+    needsEnrichment,
+  };
+}
+
+/** Build compare reply from one grounded resolution (no second pass). */
+export function buildGroundedCompareReply(opts: {
+  message: string;
+  pageListings?: ListingFacts[];
+  compareCandidates?: string[];
+}): { reply: string; facts: ListingFacts[]; titles: string[]; grounded: boolean } {
+  const resolved = resolveGroundedCompare(opts);
+  return {
+    reply: summarizeListingComparison(resolved.facts),
+    facts: resolved.facts,
+    titles: resolved.titles,
+    grounded: resolved.grounded,
+  };
+}
+
 /**
  * After draft fill — at most 1–2 useful suggestions. Don't overwhelm.
  */

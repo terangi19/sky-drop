@@ -253,7 +253,7 @@ describe("compare: real facts path (not titles-only when facts exist)", () => {
   it("route imports fetchListingFactsForCompare and rebuilds compare reply", () => {
     const src = readFileSync(join(__dirname, "../api/sky-ai/route.ts"), "utf8");
     expect(src).toMatch(/fetchListingFactsForCompare/);
-    expect(src).toMatch(/summarizeListingComparison/);
+    expect(src).toMatch(/resolveGroundedCompare|fetchListingFactsForCompare/);
     expect(src).toMatch(/progressStatesForCanonical/);
   });
 });

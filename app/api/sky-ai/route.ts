@@ -43,12 +43,11 @@ import {
   buildPostListingNextActions,
   isCompareRequest,
   parseCompareTitlesFromMessage,
-  pickCompareFactsFromPage,
+  resolveGroundedCompare,
   polishAwhinaReplyStyle,
   progressStatesForRoute,
   progressStatesForCanonical,
   shouldAutoNavigate,
-  summarizeListingComparison,
   type AwhinaProgressState,
   type ListingFacts,
 } from "../../lib/awhina-product-ux";
@@ -551,19 +550,29 @@ export async function POST(req: NextRequest) {
     const pageListings = parsePageListings(body.pageListings);
     const searchResultMeta = parseSearchResultMeta(body.searchResultMeta);
 
-    // Real compare: enrich titles with Firestore listing docs when page cards aren't enough
+    // Real compare: enrich BEFORE canonical so one grounded pathway (no title-only then patch)
     let comparePageListings = pageListings;
-    if (isCompareRequest(message) && pageListings.length < 2) {
-      const titles = parseCompareTitlesFromMessage(message);
-      if (titles.length >= 2 || (awhinaSession?.task?.compareCandidates?.length || 0) >= 2) {
+    if (isCompareRequest(message)) {
+      const pre = resolveGroundedCompare({
+        message,
+        pageListings,
+        compareCandidates: awhinaSession?.task?.compareCandidates,
+      });
+      if (pre.needsEnrichment) {
         const needles =
-          titles.length >= 2
-            ? titles
-            : (awhinaSession?.task?.compareCandidates || []).slice(0, 4);
-        const fetched = await fetchListingFactsForCompare(needles);
-        if (fetched.some((f) => f.price || f.condition || f.location || f.mileage)) {
-          comparePageListings = fetched;
+          pre.titles.length >= 2
+            ? pre.titles
+            : parseCompareTitlesFromMessage(message).length >= 2
+              ? parseCompareTitlesFromMessage(message)
+              : (awhinaSession?.task?.compareCandidates || []).slice(0, 4);
+        if (needles.length >= 2) {
+          const fetched = await fetchListingFactsForCompare(needles);
+          if (fetched.some((f) => f.price || f.condition || f.location || f.mileage)) {
+            comparePageListings = fetched;
+          }
         }
+      } else if (pre.grounded) {
+        comparePageListings = pre.facts;
       }
     }
 
@@ -592,21 +601,6 @@ export async function POST(req: NextRequest) {
       pageListings: comparePageListings,
       searchResultMeta,
     });
-
-    // If compare still title-only but we fetched docs, rebuild reply with real facts
-    if (
-      canonical.handled &&
-      canonical.intent === "compare" &&
-      comparePageListings.length >= 2 &&
-      comparePageListings.some((f) => f.price || f.mileage || f.sellerReputation)
-    ) {
-      const titles = parseCompareTitlesFromMessage(message);
-      const facts =
-        titles.length >= 2
-          ? pickCompareFactsFromPage(titles, comparePageListings)
-          : comparePageListings.slice(0, 4);
-      canonical.reply = summarizeListingComparison(facts);
-    }
 
     if (canonical.handled && canonical.reply) {
       let reply = stripBold(canonical.reply);

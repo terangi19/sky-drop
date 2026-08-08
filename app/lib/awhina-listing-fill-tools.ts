@@ -12,7 +12,6 @@ import {
   enhanceListingFillFromMessage,
 } from "./sky-ai-form-actions";
 import {
-  inferPhysicalCategoryFromText,
   normalizeSkyAiListingFill,
   type SkyAiListingFill,
 } from "./sky-ai-listing-fill";
@@ -32,7 +31,6 @@ import type { AwhinaToolCall } from "./awhina-types";
 import { validateToolCall } from "./awhina-tool-registry";
 import {
   suggestListingImprovements,
-  buildPremiumListingTitle,
   buildListingDescriptionFromFacts,
   autoImproveListingDraft,
   buildCompleteDraftReply,
@@ -41,11 +39,10 @@ import {
   isCompleteListingDraft,
   normalizeProductName,
 } from "./awhina-product-ux";
+import { composeListingTitleAndDescription } from "./awhina-listing-composer";
 import {
   looksLikeVehicleYearToken,
   parseVehicleYear,
-  parseVehicleMake,
-  parseVehicleModel,
 } from "./sky-ai-find-routing";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
@@ -105,6 +102,9 @@ const MALFORMED_PRICE_RE =
 /** Storage / qty / size numbers that must never become listing price. */
 const NON_PRICE_NUMBER_RE =
   /\b(\d+)\s*(gb|tb|mb|kg|km|sqm|m2|inch|inches|"|bed|beds|bedroom|bath|baths|seater|pack|pcs?|x\d)\b/i;
+
+/** Bare storage tokens without space: 128gb, 256GB, 1tb */
+const STORAGE_GLUED_RE = /\b(\d+)\s*(gb|tb|mb)\b/i;
 
 const CONDITION_RE =
   /\b(?:condition(?:\s+is)?|it'?s|its)\s+(new|used(?:\s*[-–]?\s*(?:like\s+new|good|fair))?|like\s+new|excellent|mint|good|fair|rough)\b|\b(new|used|like\s+new|excellent|mint)\b(?!\s+(?:zealand|listing))/i;
@@ -295,6 +295,20 @@ function normalizeConditionLocal(raw: string): string | undefined {
   return undefined;
 }
 
+function isStorageOrSizeToken(raw: string, message: string): boolean {
+  if (!raw) return false;
+  const storage = message.match(STORAGE_GLUED_RE);
+  if (storage && (storage[1] === raw || Number(storage[1]) === Number(raw))) return true;
+  const nonPrice = message.match(NON_PRICE_NUMBER_RE);
+  if (nonPrice && (nonPrice[1] === raw || nonPrice[1] === String(Number(raw)))) return true;
+  // "iphone 15 128gb 900" — 128 is storage even if another number is price
+  if (/\b\d+\s*(gb|tb)\b/i.test(message) && /^(64|128|256|512|1024|1|2|4)$/.test(raw)) {
+    const glued = message.match(new RegExp(`\\b${raw}\\s*(gb|tb)\\b`, "i"));
+    if (glued) return true;
+  }
+  return false;
+}
+
 function extractPriceFromMessage(message: string): string | null | "malformed" {
   if (MALFORMED_PRICE_RE.test(message) && !/\$?\s*\d/.test(message)) {
     return "malformed";
@@ -306,12 +320,15 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     if (!Number.isFinite(n)) return null;
     if (kSuffix) n *= 1000;
     const raw = String(Math.round(n));
+    if (isStorageOrSizeToken(raw, message) || isStorageOrSizeToken(rawDigits.replace(/,/g, ""), message)) {
+      return null;
+    }
     const check = validatePriceString(raw);
     if (!check.ok) return "malformed";
     return check.price;
   };
 
-  // Explicit dollar amounts always win
+  // Explicit dollar amounts always win (still reject storage-as-price)
   const dollar = message.match(/\$\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\b/);
   if (dollar) {
     return finalize(dollar[1], dollar[2]);
@@ -322,6 +339,7 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
   if (bucks) {
     const raw = finalize(bucks[1], bucks[2]);
     if (raw === "malformed") return "malformed";
+    if (raw === null) return null;
     if (
       raw &&
       looksLikeVehicleYearToken(raw, message) &&
@@ -433,44 +451,21 @@ function buildTitleAndDescription(
   item: string,
   extras?: { condition?: string; price?: string; location?: string; pickupAvailable?: boolean }
 ): Pick<SkyAiListingFill, "title" | "description" | "category" | "listingType" | "vehicleMake" | "vehicleModel" | "vehicleYear"> {
-  const vehicle =
-    /toyota|mazda|honda|ford|bmw|nissan|subaru|ute|car\b|vehicle|\d{2,3}[\s,]?\d{3}\s*km/i.test(item) ||
-    Boolean(parseVehicleMake(item));
-  const listingType = vehicle ? "vehicle" : "physical";
-  const make = parseVehicleMake(item);
-  const model = parseVehicleModel(item);
-  const year = parseVehicleYear(item);
-  const title = buildPremiumListingTitle({
-    item: vehicle && make ? [year, make, model].filter(Boolean).join(" ") || item : item,
-    condition: extras?.condition,
-    listingType,
-    vehicleYear: year,
-  });
-  const category =
-    listingType === "vehicle"
-      ? "Cars"
-      : inferPhysicalCategoryFromText(`${item} ${title}`) || undefined;
-  const seed: SkyAiListingFill = {
-    title,
+  const composed = composeListingTitleAndDescription({
+    item,
     condition: extras?.condition,
     price: extras?.price,
     location: extras?.location,
     pickupAvailable: extras?.pickupAvailable,
-    listingType,
-    category,
-    vehicleMake: make,
-    vehicleModel: model,
-    vehicleYear: year,
-  };
-  const description = buildListingDescriptionFromFacts(seed);
+  });
   return {
-    title,
-    description,
-    category: category || (listingType === "vehicle" ? "Cars" : "Other"),
-    listingType,
-    vehicleMake: make,
-    vehicleModel: model,
-    vehicleYear: year,
+    title: composed.title,
+    description: composed.description,
+    category: composed.category || "Other",
+    listingType: composed.listingType,
+    vehicleMake: composed.vehicleMake,
+    vehicleModel: composed.vehicleModel,
+    vehicleYear: composed.vehicleYear,
   };
 }
 

@@ -264,7 +264,7 @@ describe("one-shot sell uses Premium Plus description path", () => {
       "want to list my ps5 its brand new 200 bucks pick up auckland",
       { conversationId: "desc-ps5", pathname: "/" }
     );
-    const desc = r.listingFill?.description || "";
+    const desc = String(r.listingFill?.description || "");
     expect(desc).toMatch(/PlayStation\s*5|PS5/i);
     expect(desc).toMatch(/Auckland/i);
     expect(desc).toMatch(/\$200/);
@@ -278,7 +278,7 @@ describe("one-shot sell uses Premium Plus description path", () => {
       "selling my 2018 BMW 320i 85000km Auckland $18500",
       { conversationId: "desc-bmw", pathname: "/" }
     );
-    const desc = r.listingFill?.description || "";
+    const desc = String(r.listingFill?.description || "");
     expect(r.listingFill?.listingType).toBe("vehicle");
     expect(desc).toMatch(/BMW/i);
     expect(desc).not.toMatch(ROBOTIC_SMELLS);
