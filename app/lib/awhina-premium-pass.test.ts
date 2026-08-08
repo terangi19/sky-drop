@@ -25,6 +25,7 @@ import {
   summarizeListingComparison,
   polishAwhinaReplyStyle,
   pickCompareFactsFromPage,
+  passesListingDescriptionQualityGate,
 } from "./awhina-product-ux";
 import { scoreConversationReply } from "./sky-ai-reply-quality";
 import { SKY_AI_LISTING_FILL_SUCCESS } from "./sky-ai-prompts";
@@ -109,8 +110,9 @@ describe("premium title + description (reusable categories)", () => {
     expect(desc).toMatch(/\$200|Asking \$200/);
     expect(desc).toMatch(/Auckland/);
     expect(desc).not.toMatch(/controller|dualsense|games included|SSD/i);
-    expect(desc).not.toMatch(/Condition:|Message me with any questions/i);
-    expect(desc).toMatch(/Feel free to get in touch/i);
+    expect(desc).not.toMatch(/Condition:|Message me with any questions|I'm selling this/i);
+    expect(desc).not.toMatch(/Feel free to get in touch if you'd like more information/i);
+    expect(passesListingDescriptionQualityGate(desc)).toBe(true);
   });
 });
 

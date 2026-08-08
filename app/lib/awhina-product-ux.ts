@@ -569,24 +569,33 @@ export type ListingDescriptionStyle =
   | "gaming"
   | "furniture"
   | "clothing"
+  | "home_garden"
   | "sports"
   | "service"
   | "rental"
   | "general";
 
+/** Field-label / template smells — reject and rewrite. */
+const FIELD_LABEL_RE =
+  /\b(Condition|Located in|Odometer|Colour|Color|Transmission|Fuel type|Pickup available|Shipping available)\s*:/i;
+
+const BANNED_TEMPLATE_RE =
+  /\bI'm selling this\b|\bThis item\b|\bMessage me with any questions\b|\bFeel free to get in touch if you'd like more information\b|\bIt's based in\b|\b— based in\b|\bLocated in\b/i;
+
+function wordCount(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
+}
+
 /** Robotic field-restating templates we always rewrite. */
 export function isRoboticListingDescription(text: string | undefined | null): boolean {
   if (!text?.trim()) return true;
   const t = text.trim();
-  if (t.length < 40) return true;
-  // Raw user paste openers — not polished "Selling my 2018 BMW…" marketplace copy
-  if (/^selling my .{1,40}$/i.test(t) && !/\n/.test(t)) return true;
-  if (/\bCondition:\s*/i.test(t)) return true;
-  if (/\bMessage me with any questions\b/i.test(t)) return true;
+  if (t.length < 28) return true;
+  if (FIELD_LABEL_RE.test(t)) return true;
+  if (BANNED_TEMPLATE_RE.test(t)) return true;
   if (/\bOdometer:\s*/i.test(t) && /\bColour:\s*/i.test(t)) return true;
   if (/^Selling .+\.\s*Condition:/i.test(t)) return true;
-  if (/\bLocated in\s+\w[\w\s]*\.\s*Pickup available\./i.test(t)) return true;
-  // Many short label-style sentences in a row
+  if (/^selling my .{1,40}$/i.test(t) && !/\n/.test(t)) return true;
   const sentences = t.split(/(?<=\.)\s+/).filter(Boolean);
   if (
     sentences.length >= 3 &&
@@ -596,7 +605,19 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   ) {
     return true;
   }
+  if ((t.match(/\n\n/g) || []).length >= 2 && /Asking \$/.test(t)) return true;
   return false;
+}
+
+/** Premium Plus human-prose gate: one paragraph, no field labels, ~40–90 words. */
+export function passesListingDescriptionQualityGate(text: string | undefined | null): boolean {
+  if (!text?.trim()) return false;
+  const t = text.trim();
+  if (FIELD_LABEL_RE.test(t) || BANNED_TEMPLATE_RE.test(t)) return false;
+  if (t.includes("\n\n")) return false;
+  const n = wordCount(t);
+  if (n < 35 || n > 100) return false;
+  return true;
 }
 
 export function resolveListingDescriptionStyle(fill: SkyAiListingFill): ListingDescriptionStyle {
@@ -621,42 +642,59 @@ export function resolveListingDescriptionStyle(fill: SkyAiListingFill): ListingD
   if (fill.category === "Fashion" || /\b(jacket|shoe|sneaker|dress|hoodie|jeans|clothing)\b/i.test(blob)) {
     return "clothing";
   }
-  if (fill.category === "Home" || /\b(couch|sofa|table|chair|mattress|furniture|desk)\b/i.test(blob)) {
+  if (/\b(couch|sofa|table|chair|mattress|furniture|desk|bookshelf|dresser)\b/i.test(blob)) {
     return "furniture";
   }
+  if (
+    /home\s*&\s*garden|garden|lawn ?mower|hedge|outdoor|bbq|hose|pot plant|wheelbarrow|shed/i.test(blob) ||
+    (fill.category === "Home" && !/\b(couch|sofa|table|chair|mattress|furniture|desk)\b/i.test(blob))
+  ) {
+    return "home_garden";
+  }
+  if (fill.category === "Home") return "furniture";
   if (fill.category === "Sports" || /\b(bike|bicycle|golf|tennis|gym|fitness)\b/i.test(blob)) {
     return "sports";
   }
   return "general";
 }
 
-function formatMoneyAsk(price: string | undefined): string | null {
+function hashSeed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function pickVariant<T>(seed: string, options: readonly T[]): T {
+  return options[hashSeed(seed) % options.length];
+}
+
+function formatMoneyPlain(price: string | undefined): string | null {
   if (!price?.trim()) return null;
   const n = price.replace(/,/g, "").trim();
-  if (!n) return null;
-  return `Asking $${n}`;
+  return n ? `$${n}` : null;
 }
 
-function conditionPhrase(condition: string | undefined, quality: ListingDescriptionQuality): string | null {
+function conditionShort(condition: string | undefined): string | null {
   if (!condition?.trim()) return null;
   const c = condition.trim();
-  if (c === "New") {
-    return quality === "standard" ? "in new condition" : "brand new";
-  }
-  if (c === "Used - Like New") return "in like-new condition";
-  if (c === "Used - Good") return "in good used condition";
-  if (c === "Used - Fair") return "in fair used condition";
-  return `in ${c.toLowerCase()} condition`;
+  if (c === "New") return "brand new";
+  if (c === "Used - Like New") return "like-new";
+  if (c === "Used - Good") return "good used condition";
+  if (c === "Used - Fair") return "fair used condition";
+  return c.toLowerCase();
 }
 
-function deliveryPhrase(fill: SkyAiListingFill): string | null {
+function deliveryShort(fill: SkyAiListingFill): string | null {
   const pickup = fill.pickupAvailable === true;
   const ship = fill.shippingAvailable === true;
   const shipOff = fill.shippingAvailable === false;
-  if (pickup && shipOff) return "happy to arrange local pickup only";
-  if (pickup && ship) return "happy to arrange pickup or shipping";
-  if (pickup) return "happy to arrange pickup";
-  if (ship) return "happy to arrange shipping";
+  if (pickup && shipOff) return "pickup only";
+  if (pickup && ship) return "pickup or shipping";
+  if (pickup) return "pickup";
+  if (ship) return "shipping";
   return null;
 }
 
@@ -669,8 +707,11 @@ function weaveableExtras(fill: SkyAiListingFill): string[] {
     .filter((e) => !/^kw:/i.test(e))
     .filter((e) => !/^visual:/i.test(e))
     .filter((e) => !/^(brand|new|like|console|the|and|for|with)$/i.test(e))
-    .filter((e) => e.split(/\s+/).length >= 2 || /servic|tyre|tire|receipt|paperwork|wof|rego|mod|include|controller|charger|box|manual|warranty/i.test(e))
-    .slice(0, 6);
+    .filter((e) =>
+      e.split(/\s+/).length >= 2 ||
+      /servic|tyre|tire|receipt|paperwork|wof|rego|mod|include|controller|charger|box|manual|warranty/i.test(e)
+    )
+    .slice(0, 4);
 }
 
 function stripTitleConditionPrefix(title: string): string {
@@ -680,31 +721,177 @@ function stripTitleConditionPrefix(title: string): string {
     .trim();
 }
 
-function naturalClose(
-  fill: SkyAiListingFill,
-  style: ListingDescriptionStyle,
-  quality: ListingDescriptionQuality
-): string {
-  if (quality === "standard") {
-    return "Happy to answer questions.";
-  }
-  const pickup = fill.pickupAvailable === true;
-  if (style === "vehicle" || style === "rental") {
-    return "Feel free to get in touch if you'd like more information or to arrange a viewing.";
-  }
-  if (style === "service") {
-    return "Feel free to get in touch if you'd like more information or a quote.";
-  }
-  if (pickup) {
-    return "Feel free to get in touch if you'd like more information or would like to arrange pickup.";
-  }
-  return "Feel free to get in touch if you'd like more information.";
+function formatOdo(odo: string): string {
+  const raw = odo.replace(/,/g, "").trim();
+  if (/km/i.test(raw)) return raw.replace(/\s+/g, " ");
+  const n = Number(raw.replace(/[^\d]/g, ""));
+  if (!Number.isNaN(n) && n > 0) return `${n.toLocaleString("en-NZ")} km`;
+  return `${raw} km`;
 }
 
-function buildVehicleParagraphs(
-  fill: SkyAiListingFill,
-  quality: ListingDescriptionQuality
-): string[] {
+function listingSeed(fill: SkyAiListingFill): string {
+  return `${fill.title || ""}|${fill.price || fill.rentalPriceWeekly || ""}|${fill.location || ""}|${fill.condition || ""}`;
+}
+
+function polishParagraph(text: string): string {
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;])/g, "$1")
+    .replace(/,\s*,/g, ",")
+    .replace(/\.\s*\./g, ".")
+    .replace(/(?:^|[.!?]\s+)([a-z])/g, (m) => m.toUpperCase())
+    .trim()
+    .replace(/[.!?]?$/, (m) => m || ".");
+}
+
+function trimToWords(text: string, max: number): string {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length <= max) return polishParagraph(text);
+  return polishParagraph(`${words.slice(0, max).join(" ").replace(/[,:;]+$/, "")}.`);
+}
+
+/** Category bridges — expand flow without inventing product attributes. */
+const BRIDGE_BANK: Record<ListingDescriptionStyle, readonly string[]> = {
+  electronics: [
+    "Straightforward listing with the details we have — no guesswork on specs.",
+    "Kept this short and clear so you can decide quickly from the facts above.",
+    "Happy to share anything else you can see in the photos once you message.",
+  ],
+  gaming: [
+    "Kept it simple — what you see is what is listed, nothing added on.",
+    "Good one if you want a clean pickup without hunting through fluff.",
+    "Say if you want a different pickup window and we can work something out.",
+  ],
+  furniture: [
+    "Ready for collection when it suits — easy to check in person before you decide.",
+    "Would suit someone looking to furnish without a long wait.",
+    "Come have a look and see if it fits the space you have in mind.",
+  ],
+  clothing: [
+    "Clean listing focused on what is known — check photos for the look and fit cues.",
+    "Style-forward piece; message if you want more photos of the details.",
+    "Kept the write-up short so the item can speak for itself in the photos.",
+  ],
+  home_garden: [
+    "Simple practical listing — useful around the home or section as described.",
+    "No fluff here, just the known details so you can decide if it suits the job.",
+    "Happy to time collection around what works for both of us.",
+  ],
+  vehicle: [
+    "Solid everyday option with the known details above — inspect before you commit.",
+    "Worth a look if the numbers and location already sound right for you.",
+    "Happy to walk through anything you want to check on a viewing.",
+  ],
+  sports: [
+    "Ready for the next owner — check the photos and ask if you need another angle.",
+    "Straightforward sports gear listing with only the facts we know.",
+    "Pickup is easy to arrange once you are keen.",
+  ],
+  service: [
+    "Tell me roughly what you need and I can confirm timing and scope.",
+    "Local work — message with the job details and I will get back to you.",
+    "Happy to discuss what fits your place and schedule.",
+  ],
+  rental: [
+    "Message if you would like to arrange a viewing at a time that suits.",
+    "Happy to answer practical questions about the place before you visit.",
+    "Come take a look if the layout and rates already feel right.",
+  ],
+  general: [
+    "Straightforward marketplace listing with only the details we know.",
+    "Message if you want to arrange a time or need another photo.",
+    "Happy to help with the next step once you have had a look.",
+  ],
+};
+
+const CTA_BANK: Record<ListingDescriptionStyle, readonly string[]> = {
+  electronics: ["Happy to answer questions.", "Can arrange a time that suits.", ""],
+  gaming: ["Message if you are keen.", "Happy to sort a pickup time.", ""],
+  furniture: ["Collection welcome.", "Message if you want it.", ""],
+  clothing: ["Message if it fits what you need.", "Happy to chat.", ""],
+  home_garden: ["Happy to chat.", "Can arrange pickup.", ""],
+  vehicle: ["Happy to arrange a viewing.", "Come take a look if it sounds right.", ""],
+  sports: ["Happy to chat.", "Can arrange pickup.", ""],
+  service: ["Happy to chat about what you need.", "Message with the job details if you are keen.", ""],
+  rental: ["Happy to arrange a viewing.", "Message if you would like to take a look.", ""],
+  general: ["Happy to chat.", "Can arrange pickup.", ""],
+};
+
+function deliveryPhrase(fill: SkyAiListingFill, seed: string): string | null {
+  const d = deliveryShort(fill);
+  if (!d) return null;
+  if (d === "pickup only") return pickVariant(seed + ":d", ["local pickup only", "pickup only"]);
+  if (d === "pickup or shipping") {
+    return pickVariant(seed + ":d", ["pickup or shipping both fine", "happy with pickup or shipping"]);
+  }
+  if (d === "pickup") return pickVariant(seed + ":d", ["pickup is fine", "can do pickup"]);
+  return "shipping is available";
+}
+
+function pricePhrase(fill: SkyAiListingFill, seed: string, hourly?: boolean): string | null {
+  const money = formatMoneyPlain(fill.price);
+  if (!money) return null;
+  if (hourly) return pickVariant(seed + ":ph", [`Asking ${money} per hour`, `${money} an hour`]);
+  return pickVariant(seed + ":p", [`Asking ${money}`, `Priced at ${money}`]);
+}
+
+function assemblePremiumPlus(opts: {
+  fill: SkyAiListingFill;
+  style: ListingDescriptionStyle;
+  openers: readonly string[];
+  factBits: string[];
+  quality: ListingDescriptionQuality;
+}): string {
+  const seed = listingSeed(opts.fill);
+  const open = pickVariant(seed + ":open", opts.openers);
+  const location = (opts.fill.location || opts.fill.pickupArea || "").trim();
+  const facts = [...opts.factBits].filter(Boolean);
+  if (location && !new RegExp(location.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(open)) {
+    if (!facts.some((f) => new RegExp(location.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(f))) {
+      facts.push(`around ${location}`);
+    }
+  }
+  const delivery = deliveryPhrase(opts.fill, seed);
+  const price = pricePhrase(
+    opts.fill,
+    seed,
+    /hour/i.test(String(opts.fill.servicePricingType || opts.fill.pricingType || ""))
+  );
+  const extras = weaveableExtras(opts.fill);
+  const bridges = BRIDGE_BANK[opts.style] || BRIDGE_BANK.general;
+  const bridgeA = pickVariant(seed + ":bridge", bridges);
+  const bridgeB = pickVariant(seed + ":bridgeB", bridges.filter((b) => b !== bridgeA).concat(bridges[0]));
+
+  const mid: string[] = [];
+  if (facts.length) mid.push(facts.join(", "));
+  if (delivery) mid.push(delivery);
+  if (extras.length) mid.push(extras.join("; "));
+
+  let text = open.replace(/[.!?]?$/, ".");
+  if (mid.length) text += ` ${mid.join(". ").replace(/\.+$/, "")}.`;
+  if (price) text += ` ${price}.`;
+
+  const dense = wordCount(text) >= 70;
+  if (opts.quality === "standard") {
+    text += " Happy to answer questions.";
+  } else if (!dense) {
+    const cta = pickVariant(seed + ":cta", CTA_BANK[opts.style] || CTA_BANK.general);
+    if (cta) text += ` ${cta}`;
+  }
+
+  if (opts.quality !== "standard" && wordCount(text) < 40) {
+    text += ` ${bridgeA}`;
+  }
+  if (opts.quality !== "standard" && wordCount(text) < 40) {
+    text += ` ${bridgeB}`;
+  }
+
+  text = polishParagraph(text);
+  if (opts.quality !== "standard") text = trimToWords(text, 90);
+  return text;
+}
+
+function buildVehicleDescription(fill: SkyAiListingFill, quality: ListingDescriptionQuality): string {
   const year = fill.vehicleYear?.trim();
   const make = fill.vehicleMake?.trim();
   const model = fill.vehicleModel?.trim();
@@ -714,221 +901,151 @@ function buildVehicleParagraphs(
   const fuel = fill.vehicleFuelType?.trim();
   const body = fill.vehicleBodyType?.trim();
   const location = (fill.location || fill.pickupArea || "").trim();
-  const cond = conditionPhrase(fill.condition, quality);
-  const extras = weaveableExtras(fill);
+  const cond = conditionShort(fill.condition);
+  const name = [year, make, model].filter(Boolean).join(" ") || stripTitleConditionPrefix(fill.title || "vehicle");
 
-  const nameParts = [year, make, model].filter(Boolean);
-  const name =
-    nameParts.length > 0
-      ? nameParts.join(" ")
-      : stripTitleConditionPrefix(fill.title || "this vehicle");
+  const openers = [
+    colour ? `${colour} ${name}.` : `${name}.`,
+    colour ? `${name} in ${colour.toLowerCase()}, ready when you are.` : `${name}, ready when you are.`,
+    `${name}${colour ? ` in ${colour.toLowerCase()}` : ""} — here is what we know.`,
+  ];
 
-  const leadBits: string[] = [];
-  if (colour) {
-    leadBits.push(`Selling my ${name} in ${colour.toLowerCase()}`);
-  } else {
-    leadBits.push(`Selling my ${name}`);
-  }
-  if (location) leadBits[0] += ` — based in ${location}`;
-  leadBits[0] += ".";
+  const factBits: string[] = [];
+  if (odo) factBits.push(`${formatOdo(odo)} on the clock`);
+  if (trans) factBits.push(`${trans.toLowerCase()} transmission`);
+  if (fuel) factBits.push(`${fuel.toLowerCase()} fuel`);
+  if (body) factBits.push(`${body.toLowerCase()} body`);
+  if (cond && fill.condition !== "New") factBits.push(cond);
+  if (location) factBits.push(`available around ${location}`);
 
-  const detailBits: string[] = [];
-  if (odo) {
-    const km = /km/i.test(odo) ? odo : `${odo} km`;
-    detailBits.push(`It's done ${km}`);
-  }
-  if (trans) detailBits.push(`${trans.toLowerCase()} transmission`);
-  if (fuel) detailBits.push(`${fuel.toLowerCase()} fuel`);
-  if (body) detailBits.push(`${body.toLowerCase()} body`);
-  if (cond && fill.condition !== "New") detailBits.push(cond);
-
-  const paragraphs: string[] = [leadBits[0]];
-  if (detailBits.length) {
-    if (detailBits.length === 1) {
-      paragraphs.push(`${detailBits[0]}.`);
-    } else {
-      const last = detailBits.pop()!;
-      paragraphs.push(`${detailBits.join(", ")}, and ${last}.`);
-    }
-  }
-  if (extras.length) {
-    paragraphs.push(
-      quality === "premium_plus"
-        ? `Also worth noting: ${extras.join("; ")}.`
-        : `Includes: ${extras.join(", ")}.`
-    );
-  }
-  const ask = formatMoneyAsk(fill.price);
-  if (ask) paragraphs.push(`${ask}.`);
-  return paragraphs;
+  return assemblePremiumPlus({ fill, style: "vehicle", openers, factBits, quality });
 }
 
-function buildServiceParagraphs(
-  fill: SkyAiListingFill,
-  quality: ListingDescriptionQuality
-): string[] {
-  const title = stripTitleConditionPrefix(fill.title || "this service");
+function buildServiceDescription(fill: SkyAiListingFill, quality: ListingDescriptionQuality): string {
+  const title = stripTitleConditionPrefix(fill.title || "service");
   const location = (fill.location || fill.pickupArea || "").trim();
-  const extras = weaveableExtras(fill);
-  const paragraphs: string[] = [];
-
-  let lead = `Offering ${title}`;
-  if (location) lead += ` around ${location}`;
-  lead += ".";
-  paragraphs.push(lead);
-
-  if (fill.serviceDuration?.trim()) {
-    paragraphs.push(`Typical jobs run about ${fill.serviceDuration.trim()}.`);
-  }
-  if (extras.length) {
-    paragraphs.push(
-      quality === "premium_plus"
-        ? `${extras.join(". ")}.`
-        : `Details: ${extras.join(", ")}.`
-    );
-  }
-  const ask = formatMoneyAsk(fill.price);
-  const pricing = fill.servicePricingType || fill.pricingType;
-  if (ask) {
-    if (/hour/i.test(pricing || "")) paragraphs.push(`${ask} per hour.`);
-    else if (/quote/i.test(pricing || "")) paragraphs.push("Pricing by quote — get in touch with what you need.");
-    else paragraphs.push(`${ask}.`);
-  } else if (/quote/i.test(pricing || "")) {
-    paragraphs.push("Happy to provide a quote based on what you need.");
-  }
-  return paragraphs;
+  const openers = [
+    `${title}${location ? ` around ${location}` : ""} for local jobs.`,
+    location ? `Local ${title.toLowerCase()} available around ${location}.` : `${title} available for local work.`,
+    `${title}${location ? ` in ${location}` : ""} — message with what you need.`,
+  ];
+  const factBits: string[] = [];
+  if (fill.serviceDuration?.trim()) factBits.push(`typical jobs run about ${fill.serviceDuration.trim()}`);
+  return assemblePremiumPlus({ fill, style: "service", openers, factBits, quality });
 }
 
-function buildRentalParagraphs(
-  fill: SkyAiListingFill,
-  quality: ListingDescriptionQuality
-): string[] {
-  const title = stripTitleConditionPrefix(fill.title || "this rental");
+function buildRentalDescription(fill: SkyAiListingFill, quality: ListingDescriptionQuality): string {
+  const title = stripTitleConditionPrefix(fill.title || "rental");
   const location = (fill.location || fill.pickupArea || "").trim();
-  const paragraphs: string[] = [];
-  let lead = `Available to rent: ${title}`;
-  if (location) lead += ` in ${location}`;
-  lead += ".";
-  paragraphs.push(lead);
-
-  const facts: string[] = [];
-  if (fill.rentalBedrooms) facts.push(`${fill.rentalBedrooms} bedroom${fill.rentalBedrooms === "1" ? "" : "s"}`);
-  if (fill.rentalBathrooms) facts.push(`${fill.rentalBathrooms} bathroom${fill.rentalBathrooms === "1" ? "" : "s"}`);
-  if (fill.rentalFurnishedStatus) facts.push(fill.rentalFurnishedStatus.toLowerCase());
-  if (fill.rentalPetsPolicy) facts.push(fill.rentalPetsPolicy.toLowerCase());
-  if (fill.rentalParkingSpaces) facts.push(`parking for ${fill.rentalParkingSpaces}`);
-  if (facts.length) {
-    paragraphs.push(
-      quality === "premium_plus" ? `${facts.join(", ")}.` : `Features: ${facts.join(", ")}.`
-    );
+  const openers = [
+    `${title}${location ? ` in ${location}` : ""} is available to rent.`,
+    location ? `Renting out ${title.toLowerCase()} in ${location}.` : `Renting out ${title.toLowerCase()}.`,
+    `${title}${location ? `, ${location}` : ""} — up for rent with the details below.`,
+  ];
+  const factBits: string[] = [];
+  if (fill.rentalBedrooms) {
+    factBits.push(`${fill.rentalBedrooms} bedroom${fill.rentalBedrooms === "1" ? "" : "s"}`);
   }
+  if (fill.rentalBathrooms) {
+    factBits.push(`${fill.rentalBathrooms} bathroom${fill.rentalBathrooms === "1" ? "" : "s"}`);
+  }
+  if (fill.rentalFurnishedStatus) factBits.push(fill.rentalFurnishedStatus.toLowerCase());
+  if (fill.rentalPetsPolicy) factBits.push(fill.rentalPetsPolicy.toLowerCase());
+  if (fill.rentalParkingSpaces) factBits.push(`parking for ${fill.rentalParkingSpaces}`);
 
   const rates: string[] = [];
   if (fill.rentalPriceWeekly) rates.push(`$${fill.rentalPriceWeekly}/week`);
   if (fill.rentalPriceMonthly) rates.push(`$${fill.rentalPriceMonthly}/month`);
   if (fill.rentalPriceDaily) rates.push(`$${fill.rentalPriceDaily}/day`);
   if (fill.rentalDeposit) rates.push(`$${fill.rentalDeposit} bond`);
-  if (rates.length) paragraphs.push(`Rates: ${rates.join(", ")}.`);
-  else {
-    const ask = formatMoneyAsk(fill.price);
-    if (ask) paragraphs.push(`${ask}.`);
-  }
-  if (fill.rentalAvailableDate) {
-    paragraphs.push(`Available from ${fill.rentalAvailableDate}.`);
-  }
-  const extras = weaveableExtras(fill);
-  if (extras.length) paragraphs.push(`${extras.join("; ")}.`);
-  return paragraphs;
+  if (rates.length) factBits.push(rates.join(", "));
+  if (fill.rentalAvailableDate) factBits.push(`available from ${fill.rentalAvailableDate}`);
+
+  // Bypass normal pricePhrase when weekly/monthly already set
+  const fillForAssemble = rates.length ? { ...fill, price: undefined } : fill;
+  return assemblePremiumPlus({
+    fill: fillForAssemble,
+    style: "rental",
+    openers,
+    factBits,
+    quality,
+  });
 }
 
-function buildPhysicalParagraphs(
+function buildPhysicalDescription(
   fill: SkyAiListingFill,
   style: ListingDescriptionStyle,
   quality: ListingDescriptionQuality
-): string[] {
-  const title = (fill.title || "this item").trim();
+): string {
+  const title = (fill.title || "item").trim();
   const bare = stripTitleConditionPrefix(title);
-  const cond = conditionPhrase(fill.condition, quality);
+  const cond = conditionShort(fill.condition);
   const location = (fill.location || fill.pickupArea || "").trim();
-  const extras = weaveableExtras(fill);
-  const paragraphs: string[] = [];
+  const titleHasCond = /\b(brand\s+new|like\s+new)\b/i.test(title);
+  const display = titleHasCond
+    ? title.replace(/^Brand New\s+/i, "brand new ").replace(/^Like New\s+/i, "like-new ")
+    : bare;
+  const condBit = cond && !titleHasCond ? cond : null;
 
-  // Opening — category-aware, weave condition into prose (never "Condition: X")
-  const titleAlreadyHasNew = /\b(brand\s+new|like\s+new)\b/i.test(title);
-  let open: string;
-  if (style === "gaming" || style === "electronics") {
-    if (cond && !titleAlreadyHasNew) {
-      open =
-        quality === "standard"
-          ? `Selling ${bare}, ${cond}.`
-          : `I'm selling this ${bare} — ${cond}.`;
-    } else if (titleAlreadyHasNew || fill.condition === "New") {
-      open =
-        quality === "standard"
-          ? `Selling ${title}.`
-          : `I'm selling this ${title
-              .replace(/^brand\s+new\s+/i, "brand new ")
-              .replace(/^Brand New\s+/, "brand new ")
-              .replace(/^like\s+new\s+/i, "like-new ")
-              .replace(/^Like New\s+/, "like-new ")}.`;
-    } else {
-      open = quality === "standard" ? `Selling ${bare}.` : `I'm selling this ${bare}.`;
-    }
+  let openers: string[];
+  if (style === "electronics") {
+    openers = [
+      `${display[0].toUpperCase()}${display.slice(1)}${condBit ? `, ${condBit}` : ""}${location ? ` around ${location}` : ""}.`,
+      `${condBit ? `${condBit[0].toUpperCase()}${condBit.slice(1)} ` : ""}${display} available${location ? ` around ${location}` : ""}.`,
+      `${display[0].toUpperCase()}${display.slice(1)}${location ? ` from ${location}` : ""}${condBit ? ` — ${condBit}` : ""}.`,
+    ];
+  } else if (style === "gaming") {
+    openers = [
+      `${display[0].toUpperCase()}${display.slice(1)} ready to go${location ? ` in ${location}` : ""}.`,
+      `Got a ${display}${location ? ` here in ${location}` : ""}.`,
+      `${display[0].toUpperCase()}${display.slice(1)} up for grabs${condBit ? `, ${condBit}` : ""}.`,
+    ];
   } else if (style === "furniture") {
-    open =
-      cond && !titleAlreadyHasNew
-        ? `Selling this ${bare}, ${cond}.`
-        : `Selling this ${bare}.`;
+    openers = [
+      `${bare} ready for its next home${condBit ? ` — ${condBit}` : ""}.`,
+      `${bare}${location ? ` available for collection in ${location}` : ""}${condBit ? `, ${condBit}` : ""}.`,
+      `${bare}${condBit ? ` in ${condBit}` : ""}${location ? `, collection in ${location}` : ""}.`,
+    ];
   } else if (style === "clothing") {
-    open =
-      cond && !titleAlreadyHasNew
-        ? `Selling ${bare} — ${cond}.`
-        : `Selling ${bare}.`;
+    openers = [
+      `${bare}${condBit ? `, ${condBit}` : ""}${location ? ` from ${location}` : ""}.`,
+      `Clean ${bare}${location ? ` from ${location}` : ""}${condBit ? `, ${condBit}` : ""}.`,
+      `${bare}${condBit ? ` in ${condBit}` : ""} ready for a new wardrobe.`,
+    ];
+  } else if (style === "home_garden") {
+    openers = [
+      `${bare}${condBit ? `, ${condBit}` : ""}${location ? ` around ${location}` : ""}.`,
+      `${bare} ready for use${location ? ` around ${location}` : ""}${condBit ? `, ${condBit}` : ""}.`,
+      `${bare}${condBit ? ` in ${condBit}` : ""}${location ? `, ${location}` : ""}.`,
+    ];
   } else if (style === "sports") {
-    open =
-      cond && !titleAlreadyHasNew
-        ? `Selling my ${bare}, ${cond}.`
-        : `Selling my ${bare}.`;
+    openers = [
+      `${bare}${condBit ? `, ${condBit}` : ""}${location ? ` around ${location}` : ""}.`,
+      `${bare} ready for the next owner${condBit ? ` — ${condBit}` : ""}.`,
+      `${bare}${location ? ` from ${location}` : ""}${condBit ? `, ${condBit}` : ""}.`,
+    ];
   } else {
-    open =
-      cond && !titleAlreadyHasNew
-        ? `Selling ${bare}, ${cond}.`
-        : `Selling ${bare}.`;
-  }
-  paragraphs.push(open.replace(/\s+/g, " ").trim());
-
-  // Location + delivery as flowing prose (not separate label sentences)
-  const locationBit = location ? `based in ${location}` : null;
-  const deliveryBit = deliveryPhrase(fill);
-  if (locationBit && deliveryBit) {
-    paragraphs.push(
-      quality === "premium_plus"
-        ? `It's ${locationBit}, and I'm ${deliveryBit}.`
-        : `It's ${locationBit}. I'm ${deliveryBit}.`
-    );
-  } else if (locationBit) {
-    paragraphs.push(`It's ${locationBit}.`);
-  } else if (deliveryBit) {
-    paragraphs.push(`I'm ${deliveryBit}.`);
+    openers = [
+      `${bare}${condBit ? `, ${condBit}` : ""}${location ? ` around ${location}` : ""}.`,
+      `${bare} available${condBit ? ` in ${condBit}` : ""}.`,
+      `${bare}${location ? ` from ${location}` : ""}${condBit ? `, ${condBit}` : ""}.`,
+    ];
   }
 
-  if (extras.length) {
-    paragraphs.push(
-      quality === "premium_plus"
-        ? `Also included / noted: ${extras.join("; ")}.`
-        : `Includes: ${extras.join(", ")}.`
-    );
+  const factBits: string[] = [];
+  if (location && !openers.some((o) => o.toLowerCase().includes(location.toLowerCase()))) {
+    factBits.push(`around ${location}`);
+  }
+  if (condBit && style === "electronics") {
+    // already in opener often
   }
 
-  const ask = formatMoneyAsk(fill.price);
-  if (ask) paragraphs.push(`${ask}.`);
-
-  return paragraphs;
+  return assemblePremiumPlus({ fill, style, openers, factBits, quality });
 }
 
 /**
  * Marketplace description from known draft facts only — no hallucinations.
- * Āwhina always generates Premium Plus (highest truthful quality).
+ * Premium Plus: one natural paragraph (~40–90 words), category-aware phrase banks.
  */
 export function buildListingDescriptionFromFacts(
   fill: SkyAiListingFill,
@@ -937,34 +1054,60 @@ export function buildListingDescriptionFromFacts(
   const quality: ListingDescriptionQuality = opts?.quality ?? "premium_plus";
   const style = resolveListingDescriptionStyle(fill);
 
-  let paragraphs: string[];
-  if (style === "vehicle") {
-    paragraphs = buildVehicleParagraphs(fill, quality);
-  } else if (style === "service") {
-    paragraphs = buildServiceParagraphs(fill, quality);
-  } else if (style === "rental") {
-    paragraphs = buildRentalParagraphs(fill, quality);
-  } else {
-    paragraphs = buildPhysicalParagraphs(fill, style, quality);
-  }
+  let text: string;
+  if (style === "vehicle") text = buildVehicleDescription(fill, quality);
+  else if (style === "service") text = buildServiceDescription(fill, quality);
+  else if (style === "rental") text = buildRentalDescription(fill, quality);
+  else text = buildPhysicalDescription(fill, style, quality);
 
-  // Closing CTA — never "Message me with any questions."
-  paragraphs.push(naturalClose(fill, style, quality));
+  text = polishParagraph(text);
 
-  const joiner = quality === "standard" ? " " : "\n\n";
-  let text = paragraphs
-    .map((p) => p.replace(/\s+/g, " ").trim())
-    .filter(Boolean)
-    .join(joiner)
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-
-  // Safety: never invent warranty / authenticity / accessory claims
+  // Never invent warranty / authenticity / accessory claims
+  const extrasBlob = (fill.extras || []).join(" ").toLowerCase();
   if (/\b(authentic|genuine|warranty|factory sealed|unopened)\b/i.test(text)) {
-    // Only strip if we somehow introduced them — keep user extras that mention them
-    const extrasBlob = (fill.extras || []).join(" ").toLowerCase();
     if (!/\bwarrant/i.test(extrasBlob) && /\bwarrant/i.test(text)) {
       text = text.replace(/\s*[^.]*\bwarrant[^.]*\./gi, "").trim();
+    }
+    if (!/\b(authentic|genuine)\b/i.test(extrasBlob)) {
+      text = text.replace(/\b(authentic|genuine)\b/gi, "").replace(/\s{2,}/g, " ");
+    }
+    if (!/\b(factory sealed|unopened)\b/i.test(extrasBlob)) {
+      text = text.replace(/\b(factory sealed|unopened)\b/gi, "").replace(/\s{2,}/g, " ");
+    }
+    text = polishParagraph(text);
+  }
+
+  if (quality === "premium_plus") {
+    if (wordCount(text) < 40) {
+      const bridges = BRIDGE_BANK[style] || BRIDGE_BANK.general;
+      const used = bridges.find((b) => text.includes(b.slice(0, 24)));
+      const next = bridges.find((b) => b !== used) || bridges[0];
+      text = polishParagraph(`${text} ${next}`);
+    }
+    text = trimToWords(text, 90);
+    if (!passesListingDescriptionQualityGate(text) || isRoboticListingDescription(text)) {
+      const bare = stripTitleConditionPrefix(fill.title || "Item");
+      const loc = (fill.location || fill.pickupArea || "").trim();
+      const cond = conditionShort(fill.condition);
+      const money = formatMoneyPlain(fill.price);
+      const delivery = deliveryShort(fill);
+      text = polishParagraph(
+        [
+          `${bare}${cond ? `, ${cond}` : ""}${loc ? ` around ${loc}` : ""}.`,
+          delivery ? `${delivery[0].toUpperCase()}${delivery.slice(1)}.` : "",
+          money ? `Asking ${money}.` : "",
+          pickVariant(listingSeed(fill) + ":fb", BRIDGE_BANK[style] || BRIDGE_BANK.general),
+          pickVariant(listingSeed(fill) + ":cta", CTA_BANK[style] || CTA_BANK.general),
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
+      if (wordCount(text) < 40) {
+        text = polishParagraph(
+          `${text} ${pickVariant(listingSeed(fill) + ":fb2", BRIDGE_BANK[style] || BRIDGE_BANK.general)}`
+        );
+      }
+      text = trimToWords(text, 90);
     }
   }
 

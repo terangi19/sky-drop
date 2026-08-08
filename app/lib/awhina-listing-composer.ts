@@ -1,6 +1,6 @@
 /**
- * Structured listing composer — premium title + category-aware description.
- * Facts only; wraps / extends Premium Plus generators without regressing them.
+ * Structured listing composer — premium title + category-aware human description.
+ * Facts only; Premium Plus = one natural paragraph, never field-label templates.
  */
 
 import {
