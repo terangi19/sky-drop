@@ -27,6 +27,12 @@ import {
 import { hasActiveListingDraft, mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi, syncListingDraftToSkyAi, clearListingDraftFromSkyAi } from "../../lib/sky-ai-listing-context";
 import {
+  buildConfirmedListingContext,
+  markProvenance,
+  type ListingFieldProvenanceMap,
+  type ListingDraftFormSnapshot,
+} from "../../lib/listing-draft-confirmed";
+import {
   applySkyAiListingFill,
   consumePendingListingFill,
   SKY_AI_LISTING_FILL_EVENT,
@@ -82,8 +88,8 @@ export default function AIPostPage() {
   const [modelReady, setModelReady] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("Other");
-  const [condition, setCondition] = useState("New");
+  const [category, setCategory] = useState("");
+  const [condition, setCondition] = useState("");
   const [price, setPrice] = useState("");
   const [location, setLocation] = useState("");
   const [pickupAvailable, setPickupAvailable] = useState(false);
@@ -101,36 +107,36 @@ export default function AIPostPage() {
   const [listingType, setListingType] = useState<"physical" | "service" | "rental" | "event" | "vehicle" | "job" | "property" | "wanted">("physical");
   const [serviceDuration, setServiceDuration] = useState("");
   const [rentalSubType, setRentalSubType] = useState<"property" | "equipment" | "vehicle">("equipment");
-  const [rentalPropertyType, setRentalPropertyType] = useState("House");
+  const [rentalPropertyType, setRentalPropertyType] = useState("");
   const [rentalPriceWeekly, setRentalPriceWeekly] = useState("");
   const [rentalPriceMonthly, setRentalPriceMonthly] = useState("");
   const [rentalDeposit, setRentalDeposit] = useState("");
   const [rentalBedrooms, setRentalBedrooms] = useState("");
   const [rentalBathrooms, setRentalBathrooms] = useState("");
   const [rentalParkingSpaces, setRentalParkingSpaces] = useState("");
-  const [rentalFurnishedStatus, setRentalFurnishedStatus] = useState("Unfurnished");
-  const [rentalPetsPolicy, setRentalPetsPolicy] = useState("No Pets");
+  const [rentalFurnishedStatus, setRentalFurnishedStatus] = useState("");
+  const [rentalPetsPolicy, setRentalPetsPolicy] = useState("");
   const [rentalAvailableDate, setRentalAvailableDate] = useState("");
   const [rentalFeatures, setRentalFeatures] = useState<string[]>([]);
-  const [rentalMinTenancy, setRentalMinTenancy] = useState("Flexible");
+  const [rentalMinTenancy, setRentalMinTenancy] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("");
   const [venue, setVenue] = useState("");
   const [ticketQuantity, setTicketQuantity] = useState("");
-  const [ticketType, setTicketType] = useState("General Admission");
+  const [ticketType, setTicketType] = useState("");
   const [vehicleMake, setVehicleMake] = useState("");
   const [vehicleModel, setVehicleModel] = useState("");
   const [vehicleYear, setVehicleYear] = useState("");
   const [vehicleOdometer, setVehicleOdometer] = useState("");
-  const [vehicleBodyType, setVehicleBodyType] = useState("SUV");
-  const [vehicleFuelType, setVehicleFuelType] = useState("Petrol");
-  const [vehicleTransmission, setVehicleTransmission] = useState("Automatic");
+  const [vehicleBodyType, setVehicleBodyType] = useState("");
+  const [vehicleFuelType, setVehicleFuelType] = useState("");
+  const [vehicleTransmission, setVehicleTransmission] = useState("");
   const [vehicleColour, setVehicleColour] = useState("");
   const [jobCompany, setJobCompany] = useState("");
-  const [jobEmploymentType, setJobEmploymentType] = useState("Full-time");
+  const [jobEmploymentType, setJobEmploymentType] = useState("");
   const [salaryMin, setSalaryMin] = useState("");
   const [salaryMax, setSalaryMax] = useState("");
-  const [propertyType, setPropertyType] = useState("House");
+  const [propertyType, setPropertyType] = useState("");
   const [bedrooms, setBedrooms] = useState("");
   const [bathrooms, setBathrooms] = useState("");
   const [landArea, setLandArea] = useState("");
@@ -142,6 +148,11 @@ export default function AIPostPage() {
   const [paymentType, setPaymentType] = useState("contact");
   const [stripeConnected, setStripeConnected] = useState(false);
   const [stripeStatusLoaded, setStripeStatusLoaded] = useState(false);
+  /** Provenance: DEFAULT_UNTOUCHED must never sync as listingContext facts */
+  const [fieldProvenance, setFieldProvenance] = useState<ListingFieldProvenanceMap>({});
+  const markField = useCallback((key: keyof ListingDraftFormSnapshot, source: "USER" | "AWHINA" | "IMAGE" | "EDITED_EXISTING_LISTING" = "USER") => {
+    setFieldProvenance((prev) => ({ ...prev, [key]: source }));
+  }, []);
 
   const [editId, setEditId] = useState<string | null>(null);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -303,7 +314,7 @@ export default function AIPostPage() {
   }, []);
 
   useEffect(() => {
-    syncListingDraftToSkyAi({
+    const snapshot: ListingDraftFormSnapshot = {
       title,
       description,
       category,
@@ -335,7 +346,9 @@ export default function AIPostPage() {
       stockQuantity,
       serviceDuration,
       extras: draftExtras.length ? draftExtras : undefined,
-    });
+    };
+    // Only confirmed / meaningful values — never untouched visual defaults
+    syncListingDraftToSkyAi(buildConfirmedListingContext(snapshot, fieldProvenance));
   }, [
     title,
     description,
@@ -368,6 +381,7 @@ export default function AIPostPage() {
     stockQuantity,
     serviceDuration,
     draftExtras,
+    fieldProvenance,
   ]);
 
   const applyFill = useCallback((fill: SkyAiListingFill) => {
@@ -376,6 +390,7 @@ export default function AIPostPage() {
     // Explicit NEW sell: clear prior draft — do not keep stale price/year/vehicle fields
     if (replaceDraft) {
       clearListingDraftFromSkyAi();
+      setFieldProvenance({});
       setTitle("");
       setDescription("");
       setCategory("");
@@ -423,6 +438,46 @@ export default function AIPostPage() {
     const trackingSetLocation = (v: string) => { if (v !== beforeSnapshot.location) fieldsChanged++; setLocation(v); };
 
     if (merged.extras?.length) setDraftExtras(merged.extras);
+
+    // Mark fields Āwhina actually provided — enables confirmed sync
+    const awhinaKeys: (keyof ListingDraftFormSnapshot)[] = [];
+    const maybeMark = (key: keyof ListingDraftFormSnapshot, val: unknown) => {
+      if (typeof val === "string" && val.trim()) awhinaKeys.push(key);
+    };
+    maybeMark("title", merged.title);
+    maybeMark("description", merged.description);
+    maybeMark("category", merged.category);
+    maybeMark("condition", merged.condition);
+    maybeMark("price", merged.price);
+    maybeMark("listingType", merged.listingType);
+    maybeMark("location", merged.location);
+    maybeMark("paymentType", merged.paymentType);
+    maybeMark("vehicleMake", merged.vehicleMake);
+    maybeMark("vehicleModel", merged.vehicleModel);
+    maybeMark("vehicleYear", merged.vehicleYear);
+    maybeMark("vehicleOdometer", merged.vehicleOdometer);
+    maybeMark("vehicleColour", merged.vehicleColour);
+    maybeMark("vehicleBodyType", merged.vehicleBodyType);
+    maybeMark("vehicleFuelType", merged.vehicleFuelType);
+    maybeMark("vehicleTransmission", merged.vehicleTransmission);
+    maybeMark("rentalSubType", merged.rentalSubType);
+    maybeMark("rentalPropertyType", merged.rentalPropertyType);
+    maybeMark("rentalPriceWeekly", merged.rentalPriceWeekly);
+    maybeMark("rentalPriceMonthly", merged.rentalPriceMonthly);
+    maybeMark("rentalDeposit", merged.rentalDeposit);
+    maybeMark("rentalBedrooms", merged.rentalBedrooms);
+    maybeMark("rentalBathrooms", merged.rentalBathrooms);
+    maybeMark("rentalParkingSpaces", merged.rentalParkingSpaces);
+    maybeMark("rentalFurnishedStatus", merged.rentalFurnishedStatus);
+    maybeMark("rentalPetsPolicy", merged.rentalPetsPolicy);
+    maybeMark("rentalAvailableDate", merged.rentalAvailableDate);
+    maybeMark("rentalMinTenancy", merged.rentalMinTenancy);
+    maybeMark("stockQuantity", merged.stockQuantity);
+    maybeMark("serviceDuration", merged.serviceDuration);
+    if (awhinaKeys.length) {
+      setFieldProvenance((prev) => markProvenance(prev, awhinaKeys, "AWHINA"));
+    }
+
     const ok = applySkyAiListingFill(merged, {
       setTitle: trackingSetTitle,
       setDescription: trackingSetDescription,
@@ -788,9 +843,9 @@ export default function AIPostPage() {
       const data = snap.data() as any;
       setTitle(data.title || "");
       setDescription(data.description || "");
-      setCategory(data.category || "Other");
+      setCategory(data.category || "");
       setPrice(String(data.price || ""));
-      setCondition(data.condition || "New");
+      setCondition(data.condition || "");
       setListingType(data.type || "physical");
       setLocation(data.location || "");
       setPickupAvailable(!!data.pickupAvailable);
@@ -815,20 +870,20 @@ export default function AIPostPage() {
       setEventTime(data.eventTime || "");
       setVenue(data.venue || "");
       setTicketQuantity(data.ticketQuantity != null ? String(data.ticketQuantity) : "");
-      setTicketType(data.ticketType || "General Admission");
+      setTicketType(data.ticketType || "");
       setVehicleMake(data.vehicleMake || "");
       setVehicleModel(data.vehicleModel || "");
       setVehicleYear(data.vehicleYear != null ? String(data.vehicleYear) : "");
       setVehicleOdometer(data.vehicleOdometer != null ? String(data.vehicleOdometer) : "");
-      setVehicleBodyType(data.vehicleBodyType || "SUV");
-      setVehicleFuelType(data.vehicleFuelType || "Petrol");
-      setVehicleTransmission(data.vehicleTransmission || "Automatic");
+      setVehicleBodyType(data.vehicleBodyType || "");
+      setVehicleFuelType(data.vehicleFuelType || "");
+      setVehicleTransmission(data.vehicleTransmission || "");
       setVehicleColour(data.vehicleColour || "");
       setJobCompany(data.jobCompany || "");
-      setJobEmploymentType(data.jobEmploymentType || "Full-time");
+      setJobEmploymentType(data.jobEmploymentType || "");
       setSalaryMin(data.salaryMin != null ? String(data.salaryMin) : "");
       setSalaryMax(data.salaryMax != null ? String(data.salaryMax) : "");
-      setPropertyType(data.propertyType || "House");
+      setPropertyType(data.propertyType || "");
       setBedrooms(data.bedrooms != null ? String(data.bedrooms) : "");
       setBathrooms(data.bathrooms != null ? String(data.bathrooms) : "");
       setLandArea(data.landArea != null ? String(data.landArea) : "");
@@ -846,6 +901,17 @@ export default function AIPostPage() {
       setExistingImages(data.images || []);
       setExistingThumbnails(Array.isArray(data.thumbnails) ? data.thumbnails : []);
       if (data.images?.length) setImagePreviews(data.images);
+      // Existing listing values are confirmed — safe to sync as listingContext
+      const editKeys: (keyof ListingDraftFormSnapshot)[] = [
+        "title", "description", "category", "condition", "price", "listingType", "location",
+        "paymentType", "vehicleMake", "vehicleModel", "vehicleYear", "vehicleOdometer",
+        "vehicleColour", "vehicleBodyType", "vehicleFuelType", "vehicleTransmission",
+        "rentalSubType", "rentalPropertyType", "rentalPriceWeekly", "rentalPriceMonthly",
+        "rentalDeposit", "rentalBedrooms", "rentalBathrooms", "rentalParkingSpaces",
+        "rentalFurnishedStatus", "rentalPetsPolicy", "rentalAvailableDate", "rentalMinTenancy",
+        "stockQuantity", "serviceDuration",
+      ];
+      setFieldProvenance((prev) => markProvenance(prev, editKeys, "EDITED_EXISTING_LISTING"));
     }).catch(console.error).finally(() => setEditLoading(false));
   }, []);
 
@@ -1383,7 +1449,7 @@ export default function AIPostPage() {
     const typeConfig = [
       { key: "physical", icon: "📦", label: "Physical", desc: "Real items that can be picked up or shipped, including vehicles.", examples: "Phones, cars, furniture, tools, clothing, collectibles.", action: () => setAcceptOffers(false) },
       { key: "service", icon: "🛠️", label: "Service", desc: "Local services performed in person.", examples: "Lawn mowing, cleaning, tutoring, photography, trades, handyman work, personal training.", action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
-      { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Houses, rooms, trailers, equipment, party gear.", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
+      { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Houses, rooms, trailers, equipment, party gear.", action: () => { setCategory(""); markField("category"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition(""); markField("condition"); } },
       { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Motor vehicles for sale.", examples: "Cars, motorcycles, boats, caravans, trucks.", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
       { key: "wanted", icon: "📋", label: "Wanted", desc: "Post what you're looking for and let sellers come to you.", examples: "Looking for a car, need a service, want to rent something.", action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
     ].find(t => t.key === newType);
@@ -1635,7 +1701,7 @@ export default function AIPostPage() {
               {[
                 { key: "physical", icon: "📦", label: "Physical", desc: "Sell items for pickup or shipping, including vehicles.", tags: ["Phones", "Vehicles", "Furniture"], action: () => setAcceptOffers(false) },
                 { key: "service", icon: "🛠️", label: "Service", desc: "Offer local or online services.", tags: ["Cleaning", "Tutoring", "Photography"], action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
-                { key: "rental", icon: "🔑", label: "Rental", desc: "Rent equipment, vehicles or tools.", tags: ["Equipment", "Vehicles", "Tools"], action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
+                { key: "rental", icon: "🔑", label: "Rental", desc: "Rent equipment, vehicles or tools.", tags: ["Equipment", "Vehicles", "Tools"], action: () => { setCategory(""); markField("category"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition(""); markField("condition"); } },
                 { key: "wanted", icon: "📋", label: "Wanted", desc: "Tell sellers what you're looking for.", tags: ["Items", "Services", "Rentals"], action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
               ].map((t) => (
                 <button key={t.key} type="button" onClick={() => handleTypeChange(t.key, t.action)}
@@ -1721,7 +1787,8 @@ export default function AIPostPage() {
               <label className="text-sm font-semibold text-white">
                 {listingType === "service" ? "Service Category" : "Category"}
               </label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
+              <select value={category} onChange={(e) => { setCategory(e.target.value); markField("category"); }} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
+                <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select category</option>
                 {listingType === "service" ? (
                   <>{SERVICE_LISTING_CATEGORY_LIST.map((c) => <option key={c} className="bg-[var(--card)] text-[var(--foreground)]">{c}</option>)}</>
                 ) : listingType === "rental" ? (
@@ -1736,7 +1803,8 @@ export default function AIPostPage() {
             {listingType === "physical" && (
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-white">Condition</label>
-              <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
+              <select value={condition} onChange={(e) => { setCondition(e.target.value); markField("condition"); }} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
+                <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select condition</option>
                 <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
               </select>
             </div>
@@ -1777,8 +1845,9 @@ export default function AIPostPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Body type</label>
-                  <select value={vehicleBodyType} onChange={(e) => setVehicleBodyType(e.target.value)}
+                  <select value={vehicleBodyType} onChange={(e) => { setVehicleBodyType(e.target.value); markField("vehicleBodyType"); }}
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select body type</option>
                     {["SUV", "Sedan", "Hatchback", "Wagon", "Coupe", "Convertible", "Ute", "Van", "Truck", "Motorcycle", "Other"].map((opt) => (
                       <option key={opt} className="bg-[var(--card)] text-[var(--foreground)]">{opt}</option>
                     ))}
@@ -1786,8 +1855,9 @@ export default function AIPostPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Fuel</label>
-                  <select value={vehicleFuelType} onChange={(e) => setVehicleFuelType(e.target.value)}
+                  <select value={vehicleFuelType} onChange={(e) => { setVehicleFuelType(e.target.value); markField("vehicleFuelType"); }}
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select fuel</option>
                     {["Petrol", "Diesel", "Electric", "Hybrid", "Plug-in Hybrid", "Other"].map((opt) => (
                       <option key={opt} className="bg-[var(--card)] text-[var(--foreground)]">{opt}</option>
                     ))}
@@ -1795,8 +1865,9 @@ export default function AIPostPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Transmission</label>
-                  <select value={vehicleTransmission} onChange={(e) => setVehicleTransmission(e.target.value)}
+                  <select value={vehicleTransmission} onChange={(e) => { setVehicleTransmission(e.target.value); markField("vehicleTransmission"); }}
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select transmission</option>
                     {["Automatic", "Manual", "Other"].map((opt) => (
                       <option key={opt} className="bg-[var(--card)] text-[var(--foreground)]">{opt}</option>
                     ))}
@@ -2034,6 +2105,7 @@ export default function AIPostPage() {
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket type</label>
                   <select value={ticketType} onChange={(e) => setTicketType(e.target.value)}
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select ticket type</option>
                     <option className="bg-[var(--card)] text-[var(--foreground)]">General Admission</option>
                     <option className="bg-[var(--card)] text-[var(--foreground)]">VIP</option>
                     <option className="bg-[var(--card)] text-[var(--foreground)]">Early Bird</option>
@@ -2059,6 +2131,7 @@ export default function AIPostPage() {
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Employment type</label>
                   <select value={jobEmploymentType} onChange={(e) => setJobEmploymentType(e.target.value)}
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select employment type</option>
                     <option className="bg-[var(--card)] text-[var(--foreground)]">Full-time</option><option className="bg-[var(--card)] text-[var(--foreground)]">Part-time</option><option className="bg-[var(--card)] text-[var(--foreground)]">Contract</option><option className="bg-[var(--card)] text-[var(--foreground)]">Casual</option><option className="bg-[var(--card)] text-[var(--foreground)]">Fixed-term</option>
                   </select>
                 </div>
@@ -2237,8 +2310,9 @@ export default function AIPostPage() {
                     </div>
                     <div>
                       <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
-                      <select value={condition} onChange={(e) => setCondition(e.target.value)}
+                      <select value={condition} onChange={(e) => { setCondition(e.target.value); markField("condition"); }}
                         className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]">
+                        <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select condition</option>
                         <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
                       </select>
                     </div>

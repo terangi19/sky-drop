@@ -25,6 +25,7 @@ import {
   resolvePendingClarificationAnswer,
   type ClarificationResolution,
 } from "./sky-ai-intent";
+import { normalizedAwhinaText } from "./awhina-input-normalize";
 import { hasActiveListingDraft } from "./sky-ai-draft-merge";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SearchSessionFilters } from "./awhina-search-memory";
@@ -181,7 +182,7 @@ const ALL_CORE_TOOLS = [
 
 /** Extract obvious turn entities from raw text (facts only, no inventing). */
 export function extractTurnEntities(message: string): AwhinaTurnEntities {
-  const m = message.trim();
+  const m = normalizedAwhinaText(message);
   const out: AwhinaTurnEntities = {};
 
   const bucks = m.match(/\b([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?)\b/i);

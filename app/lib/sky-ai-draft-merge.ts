@@ -1,5 +1,9 @@
 import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
+import {
+  hasClassicVehicleDefaultCluster,
+  isForbiddenUntouchedDefault,
+} from "./listing-draft-confirmed";
 
 const MERGE_STRING_FIELDS = [
   "title",
@@ -34,13 +38,25 @@ const MERGE_STRING_FIELDS = [
   "serviceDuration",
 ] as const;
 
+/** Structural shells alone must not count as an active listing draft. */
+const STRUCTURAL_SHELL_FIELDS = new Set([
+  "listingType",
+  "paymentType",
+  "rentalSubType",
+  "pricingType",
+]);
+
 /** True when the sell form or session has an in-progress listing draft */
 export function hasActiveListingDraft(draft: SkyAiListingContext | null | undefined): boolean {
   if (!draft) return false;
   if (draft.extras?.length) return true;
   return MERGE_STRING_FIELDS.some((k) => {
+    if (STRUCTURAL_SHELL_FIELDS.has(k)) return false;
     const v = draft[k as keyof SkyAiListingContext];
-    return typeof v === "string" && v.trim().length > 0;
+    if (typeof v !== "string" || !v.trim()) return false;
+    // Untouched UI defaults (New/SUV/Petrol/Automatic/…) are not real progress
+    if (isForbiddenUntouchedDefault(k, v.trim())) return false;
+    return true;
   });
 }
 
@@ -69,11 +85,24 @@ export function mergeListingFillWithDraft(
 
   const merged: SkyAiListingFill = { ...incoming };
 
+  const pollutedVehicle = hasClassicVehicleDefaultCluster(draft);
+
   for (const key of MERGE_STRING_FIELDS) {
     const inc = merged[key as keyof SkyAiListingFill];
     const prev = draft[key as keyof SkyAiListingContext];
     if ((!inc || !String(inc).trim()) && typeof prev === "string" && prev.trim()) {
-      (merged as Record<string, string>)[key] = prev.trim();
+      const prevTrim = prev.trim();
+      // Never inherit the classic untouched vehicle select cluster
+      if (
+        pollutedVehicle &&
+        (key === "vehicleBodyType" ||
+          key === "vehicleFuelType" ||
+          key === "vehicleTransmission" ||
+          (key === "condition" && (prevTrim === "New" || prevTrim === "Brand New")))
+      ) {
+        continue;
+      }
+      (merged as Record<string, string>)[key] = prevTrim;
     }
   }
 

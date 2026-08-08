@@ -3,6 +3,8 @@
  * Loose natural language — users should not need exact commands.
  */
 
+import { normalizedAwhinaText } from "./awhina-input-normalize";
+
 export type SkyAiIntent =
   | "sell_list"
   | "find_buy"
@@ -76,7 +78,7 @@ const BUY_NOT_SELL =
 
 /** Service labour nouns / first-person offering verbs (not physical goods like lawn mower). */
 const SERVICE_OFFERING_NOUN_RE =
-  /\b(lawn\s*mowing|mow(?:ing)?(?:\s+lawns?)?|house\s*clean(?:ing)?|clean(?:ing)?\s+houses?|photographer|photography|tutor(?:ing)?|plumbing|plumber|electrician|handyman|fix(?:ing)?\s+computers?|walk(?:ing)?\s+dogs?|build(?:ing)?\s+decks?|paint(?:ing)?\s+houses?|dog\s*walking|pet\s*sitting|personal\s*train(?:er|ing)?|massage|landscap(?:e|ing)|gardening)\b/i;
+  /\b(lawn\s*mowing|mow(?:ing)?(?:\s+lawns?)?|house\s*clean(?:ing)?|clean(?:ing)?(?:\s+houses?)?|photographer|photography|tutor(?:ing)?|plumbing|plumber|electrician|handyman|fix(?:ing)?\s+computers?|walk(?:ing)?\s+dogs?|build(?:ing)?\s+decks?|paint(?:ing)?\s+houses?|dog\s*walking|pet\s*sitting|personal\s*train(?:er|ing)?|massage|landscap(?:e|ing)|gardening)\b/i;
 
 const SERVICE_FIRST_PERSON_RE =
   /\b(?:i\s+(?:mow|clean|fix|paint|build|walk|tutor|do|offer|provide)|i'?m\s+(?:a\s+)?(?:photographer|tutor|plumber|electrician|handyman|cleaner|painter)|i\s+(?:am|'m)\s+(?:a\s+)?(?:photographer|tutor|plumber|electrician|handyman|cleaner))\b/i;
@@ -86,14 +88,14 @@ const SERVICE_PRICE_SIGNAL_RE =
 
 /** Rent/hire-out language for creating a rental listing (not searching for rentals). */
 const RENTAL_OFFERING_RE =
-  /\b(rent(?:ing)?\s+out|hire\s+out|available\s+to\s+hire|for\s+hire|to\s+let)\b/i;
+  /\b(rent(?:ing)?\s+out|rent(?:ing)?\s+my|hire\s+out|hire\s+my|available\s+to\s+hire|for\s+hire|to\s+let)\b/i;
 
 /**
  * First-person service offering — e.g. "I mow lawns for $50", "photographer $120/hour".
  * Strong SELL signal for SERVICE listing type.
  */
 export function hasServiceOfferingIntent(message: string): boolean {
-  const m = message.trim();
+  const m = normalizedAwhinaText(message);
   if (!m) return false;
   if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
   // Physical product: "lawn mower for sale" is not a service
@@ -115,12 +117,13 @@ export function hasServiceOfferingIntent(message: string): boolean {
   ) {
     return true;
   }
+  if (/\bi\s+offer\s+\w+/i.test(m) && SERVICE_OFFERING_NOUN_RE.test(m)) return true;
   return false;
 }
 
 /** User is listing something for rent/hire (create RENTAL), not searching. */
 export function hasRentalOfferingIntent(message: string): boolean {
-  const m = message.trim();
+  const m = normalizedAwhinaText(message);
   if (!m) return false;
   if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
   if (RENTAL_OFFERING_RE.test(m)) return true;
@@ -146,7 +149,7 @@ export type ClarificationResolution = {
  * e.g. "it's a service", "I'm selling it", "looking to buy".
  */
 export function resolvePendingClarificationAnswer(message: string): ClarificationResolution {
-  const m = message.trim();
+  const m = normalizedAwhinaText(message);
   if (!m || m.split(/\s+/).length > 12) return { resolved: false };
 
   if (
@@ -203,7 +206,7 @@ export function extractServiceOfferingTitle(message: string): string | undefined
 
 /** Explicit sell / list language — required to leave sticky SEARCH. */
 export function hasExplicitSellSwitch(message: string): boolean {
-  const m = message.trim();
+  const m = normalizedAwhinaText(message);
   if (!m) return false;
   if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
   // "list it / post this / publish that" are active-draft ACTIONS, not new-sell switches
@@ -224,7 +227,7 @@ export function hasExplicitSellSwitch(message: string): boolean {
  * Follow-ups like "actually make it $250" must NOT match.
  */
 export function isExplicitNewSellListingMessage(message: string): boolean {
-  const m = message.trim();
+  const m = normalizedAwhinaText(message);
   if (!m) return false;
   if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
   return /\b(want\s+to\s+list|sell(?:ing)?\s+my|create\s+(?:a\s+)?listing|list(?:ing)?\s+my|post(?:ing)?\s+my)\b/i.test(
@@ -234,14 +237,14 @@ export function isExplicitNewSellListingMessage(message: string): boolean {
 
 /** True when message is buy/search language (not sell). */
 export function hasSearchIntentLanguage(message: string): boolean {
-  const m = message.trim();
+  const m = normalizedAwhinaText(message);
   if (!m) return false;
   return FIND_RE.test(m) || BUY_NOT_SELL.test(m);
 }
 
 /** True when user message should trigger LISTING_FILL (sell flow). */
 export function hasListingSellIntent(message: string): boolean {
-  const m = message.trim();
+  const m = normalizedAwhinaText(message);
   if (!m) return false;
   if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
   if (hasServiceOfferingIntent(m)) return true;
@@ -283,7 +286,7 @@ export function hasListingSellIntent(message: string): boolean {
 export function inferSellListingTypeHint(
   message: string
 ): "service" | "rental" | "physical" | "vehicle" | undefined {
-  const m = message.trim();
+  const m = normalizedAwhinaText(message);
   if (!m) return undefined;
   if (hasServiceOfferingIntent(m)) return "service";
   if (hasRentalOfferingIntent(m)) return "rental";
@@ -327,7 +330,7 @@ export function inferSellListingTypeHint(
 }
 
 export function detectSkyAiIntent(message: string): SkyAiIntent {
-  const m = message.trim();
+  const m = normalizedAwhinaText(message);
   if (!m) return "general";
   if (VISIBILITY_RE.test(m)) return "visibility_issue";
   if (CANCEL_DRAFT_RE.test(m)) return "cancel_draft";

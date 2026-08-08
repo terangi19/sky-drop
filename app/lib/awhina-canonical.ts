@@ -6,6 +6,8 @@
  */
 
 import { tryLocalExecution } from "./awhina-local-execution";
+import { normalizeAwhinaInput } from "./awhina-input-normalize";
+import { scrubLegacyFormPollution } from "./listing-draft-confirmed";
 import {
   validateToolCall,
   isStateChangingTool,
@@ -253,7 +255,13 @@ export function processCanonicalAwhina(
 ): CanonicalResult {
   const start = Date.now();
   const pathname = context.pathname || "/";
-  const trimmed = message.trim();
+  // Preserve raw for display/logging; interpret only normalized text
+  const { raw: rawMessage, normalized } = normalizeAwhinaInput(message);
+  const trimmed = normalized.trim();
+  const listingContext = scrubLegacyFormPollution(context.listingContext) ?? undefined;
+  // Re-bind context so all downstream paths see scrubbed draft (unknown stays unknown)
+  context = { ...context, listingContext: listingContext ?? null };
+  void rawMessage;
   const memKey = searchSessionKey({
     conversationId: context.conversationId,
     uid: context.uid,

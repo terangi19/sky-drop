@@ -331,19 +331,27 @@ const FUEL_TYPES = new Set([
 
 const TRANSMISSION_TYPES = new Set(["Automatic", "Manual", "Other"]);
 
-function normalizeBodyType(raw: string, model?: string): string {
-  const s = raw.trim();
-  if (BODY_TYPES.has(s)) return s;
-  const lower = `${s} ${model || ""}`.toLowerCase();
+function inferBodyTypeFromText(lower: string): string | undefined {
   if (/suv|4wd|4x4/.test(lower)) return "SUV";
   if (/ute|pickup|truck/.test(lower)) return "Ute";
-  if (/van/.test(lower)) return "Van";
+  if (/\bvan\b/.test(lower)) return "Van";
   if (/wagon|estate/.test(lower)) return "Wagon";
   if (/hatch/.test(lower)) return "Hatchback";
   if (/sedan|saloon/.test(lower)) return "Sedan";
   if (/convert/.test(lower)) return "Convertible";
   if (/coupe|gtr|911|mustang|sports car/.test(lower)) return "Coupe";
   if (/motorcycle|bike/.test(lower)) return "Motorcycle";
+  return undefined;
+}
+
+function normalizeBodyType(raw: string, model?: string): string | undefined {
+  const s = raw.trim();
+  if (BODY_TYPES.has(s)) return s;
+  const lower = `${s} ${model || ""}`.toLowerCase();
+  const inferred = inferBodyTypeFromText(lower);
+  if (inferred) return inferred;
+  // Unknown stays unknown — never invent "Other" / SUV from an empty select
+  if (!s) return undefined;
   return "Other";
 }
 
@@ -609,10 +617,13 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     if (raw.vehicleTransmission)
       out.vehicleTransmission = normalizeTransmission(raw.vehicleTransmission);
     if (raw.vehicleFuelType) out.vehicleFuelType = normalizeFuelType(raw.vehicleFuelType);
-    if (raw.vehicleBodyType)
-      out.vehicleBodyType = normalizeBodyType(raw.vehicleBodyType, raw.vehicleModel);
-    else if (raw.vehicleModel)
-      out.vehicleBodyType = normalizeBodyType("", raw.vehicleModel);
+    if (raw.vehicleBodyType) {
+      const body = normalizeBodyType(raw.vehicleBodyType, raw.vehicleModel);
+      if (body) out.vehicleBodyType = body;
+    } else if (raw.vehicleModel) {
+      const inferred = normalizeBodyType("", raw.vehicleModel);
+      if (inferred) out.vehicleBodyType = inferred;
+    }
   }
 
   if (raw.replaceDraft === true) out.replaceDraft = true;

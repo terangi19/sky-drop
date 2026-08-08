@@ -213,7 +213,8 @@ export type SlotParseResult = {
 
 const STORAGE_RE = /^\s*(\d+)\s?(gb|tb)\s*$/i;
 const YEAR_RE = /^\s*((?:19|20)\d{2})\s*$/;
-const ODO_RE = /^\s*([\d,]+)\s*(k|km|kms|kilometers|kilometres)?\s*$/i;
+const ODO_RE =
+  /^\s*([\d,]+)\s*(k|km|kms|kilometers|kilometres|miles?|mi)?\s*$/i;
 const SIZE_RE = /^\s*(?:size\s*)?(\d{1,2}(?:\.\d)?|XS|S|M|L|XL|XXL|XXXL)\s*$/i;
 const GRADE_RE = /^\s*(psa|bgs|cgc|sgc)\s*([0-9]{1,2}(?:\.\d)?)\s*$/i;
 const PRICE_RE = /^\s*\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\s*$/i;
@@ -316,7 +317,7 @@ export function parseShortReplyForPendingSlot(
     }
   }
 
-  // Odometer: 140k / 128000 km
+  // Odometer: 140k / 128000 km / 140k miles
   if (activeSlot === "odometer" && ODO_RE.test(t) && !STORAGE_RE.test(t)) {
     const m = t.match(ODO_RE)!;
     let n = Number(m[1].replace(/,/g, ""));
@@ -327,6 +328,20 @@ export function parseShortReplyForPendingSlot(
         filledSlot: "odometer",
         partial: { vehicleOdometer: String(Math.round(n)) },
       };
+    }
+  }
+  // "140k miles" as two-token odometer answer
+  if (activeSlot === "odometer") {
+    const miles = t.match(/^\s*([\d,]+)\s*k\s*(?:miles?|mi|km|kms)\s*$/i);
+    if (miles) {
+      const n = Number(miles[1].replace(/,/g, "")) * 1000;
+      if (n >= 100 && n < 2_000_000) {
+        return {
+          matched: true,
+          filledSlot: "odometer",
+          partial: { vehicleOdometer: String(Math.round(n)) },
+        };
+      }
     }
   }
 
@@ -361,19 +376,18 @@ export function parseShortReplyForPendingSlot(
     }
   }
 
-  // Don't treat bare "140k" as price when odometer pending was already handled;
-  // if price pending and looks like odo (large k), reject
-  if (activeSlot === "price" && /^\s*[\d,]+\s*k\s*$/i.test(t)) {
-    const n = Number(t.replace(/[^\d]/g, ""));
-    if (n >= 50 && n <= 500) {
-      // 140k could be odo — don't put as $140000 without $
-      return {
-        matched: false,
-        partial: {},
-        rejectedCorruption: true,
-        reason: "odo_like_not_price",
-      };
-    }
+  // When price is pending, bare "50k" / "15k" IS asking price.
+  // Only reject when explicitly odometer-shaped ("140k km", "140k miles").
+  if (
+    activeSlot === "price" &&
+    /^\s*[\d,]+\s*k\s*(km|kms|kilometers|kilometres|miles?|mi)\s*$/i.test(t)
+  ) {
+    return {
+      matched: false,
+      partial: {},
+      rejectedCorruption: true,
+      reason: "odo_not_price",
+    };
   }
 
   if (activeSlot === "condition" && CONDITION_WORDS.test(t)) {
@@ -730,7 +744,11 @@ export function extractCompoundListingFacts(
       .trim();
   }
 
-  // Price $900 / 900 bucks / 60 a day / 50 per lawn
+  // Price $900 / 900 bucks / 60 a day / 50 per lawn / bare 50k when price slot pending
+  const priceSlotPending =
+    opts?.activeSlot === "price" ||
+    opts?.activeSlot === "rental_rate" ||
+    opts?.activeSlot === "service_rate";
   const priceMatch =
     residual.match(/\$\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?/i) ||
     residual.match(
@@ -740,7 +758,11 @@ export function extractCompoundListingFacts(
       /\b([\d,]+(?:\.\d{1,2})?)\s*(?:\/\s*day|a\s+day|per\s+day|\/day|per\s+lawn|\/lawn)\b/i
     ) ||
     residual.match(/\bmake\s+(?:it\s+)?\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\b/i) ||
-    residual.match(/\b(?:for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\b/i);
+    residual.match(/\b(?:for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\b/i) ||
+    // Pending price slot: bare "50k" / "15k" is asking price, not odometer
+    (priceSlotPending
+      ? residual.match(/^\s*([\d,]+(?:\.\d{1,2})?)\s*(k)\s*$/i)
+      : null);
   if (priceMatch) {
     let n = Number(String(priceMatch[1]).replace(/,/g, ""));
     const kFlag = priceMatch[2];
@@ -791,18 +813,37 @@ export function extractCompoundListingFacts(
     residual = residual.replace(yearMatch[0], " ").replace(/\s+/g, " ").trim();
   }
 
-  // Odometer
-  const odoMatch = residual.match(
-    /\b([\d,]+)\s*(k|km|kms|kilometers|kilometres)\b/i
+  // Odometer — never steal bare "50k" while asking price.
+  // Accept: explicit distance units, odometer slot, or "140k miles"
+  const odoMiles = residual.match(
+    /^\s*([\d,]+)\s*k\s*(?:miles?|mi|km|kms|kilometers|kilometres)\s*$/i
   );
-  if (odoMatch) {
-    let n = Number(odoMatch[1].replace(/,/g, ""));
-    if (/^k$/i.test(odoMatch[2])) n *= 1000;
+  if (odoMiles) {
+    const n = Number(odoMiles[1].replace(/,/g, "")) * 1000;
     if (n >= 100 && n < 2_000_000) {
       partial.vehicleOdometer = String(Math.round(n));
       filledSlots.push("odometer");
       notes.push(`odometer ${partial.vehicleOdometer}`);
-      residual = residual.replace(odoMatch[0], " ").replace(/\s+/g, " ").trim();
+      residual = residual.replace(odoMiles[0], " ").replace(/\s+/g, " ").trim();
+    }
+  } else {
+    const odoMatch = residual.match(
+      /\b([\d,]+)\s*(k|km|kms|kilometers|kilometres|miles?|mi)\b/i
+    );
+    if (odoMatch && !priceSlotPending) {
+      const unit = String(odoMatch[2]);
+      const bareK = /^k$/i.test(unit);
+      const distanceUnit = /^(km|kms|kilometers|kilometres|miles?|mi)$/i.test(unit);
+      if (!bareK || distanceUnit || opts?.activeSlot === "odometer") {
+        let n = Number(odoMatch[1].replace(/,/g, ""));
+        if (bareK) n *= 1000;
+        if (n >= 100 && n < 2_000_000) {
+          partial.vehicleOdometer = String(Math.round(n));
+          filledSlots.push("odometer");
+          notes.push(`odometer ${partial.vehicleOdometer}`);
+          residual = residual.replace(odoMatch[0], " ").replace(/\s+/g, " ").trim();
+        }
+      }
     }
   }
 

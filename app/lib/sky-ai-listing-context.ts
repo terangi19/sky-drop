@@ -1,4 +1,5 @@
 import { hasActiveListingDraft } from "./sky-ai-draft-merge";
+import { scrubLegacyFormPollution } from "./listing-draft-confirmed";
 import type { SkyAiListingContext } from "./sky-ai-types";
 
 const STORAGE_KEY = "skyAiListingDraft";
@@ -22,7 +23,8 @@ export function readListingDraftFromSkyAi(): SkyAiListingContext | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as SkyAiListingContext;
+    const parsed = JSON.parse(raw) as SkyAiListingContext;
+    return scrubLegacyFormPollution(parsed);
   } catch {
     return null;
   }
