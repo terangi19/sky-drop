@@ -485,22 +485,415 @@ export function buildPremiumListingTitle(opts: {
   return title.slice(0, 120);
 }
 
-/** Description from known draft facts only — no hallucinations. */
-export function buildListingDescriptionFromFacts(fill: SkyAiListingFill): string {
-  const title = (fill.title || "this item").trim();
-  const bits: string[] = [`Selling ${title}.`];
-  if (fill.condition) bits.push(`Condition: ${fill.condition}.`);
-  if (fill.price) bits.push(`Asking $${fill.price}.`);
-  if (fill.location) bits.push(`Located in ${fill.location}.`);
-  if (fill.pickupAvailable === true && fill.shippingAvailable === false) {
-    bits.push("Pickup only.");
-  } else if (fill.pickupAvailable === true) {
-    bits.push("Pickup available.");
+/** Internal copy quality — Āwhina one-shot always uses Premium Plus. */
+export type ListingDescriptionQuality = "standard" | "premium" | "premium_plus";
+
+export type ListingDescriptionStyle =
+  | "vehicle"
+  | "electronics"
+  | "gaming"
+  | "furniture"
+  | "clothing"
+  | "sports"
+  | "service"
+  | "rental"
+  | "general";
+
+/** Robotic field-restating templates we always rewrite. */
+export function isRoboticListingDescription(text: string | undefined | null): boolean {
+  if (!text?.trim()) return true;
+  const t = text.trim();
+  if (t.length < 40) return true;
+  // Raw user paste openers — not polished "Selling my 2018 BMW…" marketplace copy
+  if (/^selling my .{1,40}$/i.test(t) && !/\n/.test(t)) return true;
+  if (/\bCondition:\s*/i.test(t)) return true;
+  if (/\bMessage me with any questions\b/i.test(t)) return true;
+  if (/\bOdometer:\s*/i.test(t) && /\bColour:\s*/i.test(t)) return true;
+  if (/^Selling .+\.\s*Condition:/i.test(t)) return true;
+  if (/\bLocated in\s+\w[\w\s]*\.\s*Pickup available\./i.test(t)) return true;
+  // Many short label-style sentences in a row
+  const sentences = t.split(/(?<=\.)\s+/).filter(Boolean);
+  if (
+    sentences.length >= 3 &&
+    sentences.filter((s) =>
+      /^(Condition:|Located in|Odometer:|Colour:|Pickup available\.|Pickup only\.)/i.test(s.trim())
+    ).length >= 2
+  ) {
+    return true;
   }
-  if (fill.vehicleOdometer) bits.push(`Odometer: ${fill.vehicleOdometer}.`);
-  if (fill.vehicleColour) bits.push(`Colour: ${fill.vehicleColour}.`);
-  bits.push("Message me with any questions.");
-  return bits.join(" ").slice(0, 8000);
+  return false;
+}
+
+export function resolveListingDescriptionStyle(fill: SkyAiListingFill): ListingDescriptionStyle {
+  const type = (fill.listingType || "").toLowerCase();
+  if (type === "vehicle") return "vehicle";
+  if (type === "service") return "service";
+  if (type === "rental") return "rental";
+
+  const blob = `${fill.category || ""} ${fill.title || ""}`.toLowerCase();
+  if (fill.category === "Cars" || /\b(bmw|toyota|mazda|honda|ford|nissan|subaru|ute|car)\b/i.test(blob)) {
+    return "vehicle";
+  }
+  if (fill.category === "Gaming" || /\b(ps5|ps4|playstation|xbox|nintendo|switch|console)\b/i.test(blob)) {
+    return "gaming";
+  }
+  if (
+    fill.category === "Tech" ||
+    /\b(iphone|ipad|airpods|samsung|pixel|laptop|macbook|tv|phone|tablet|headphones)\b/i.test(blob)
+  ) {
+    return "electronics";
+  }
+  if (fill.category === "Fashion" || /\b(jacket|shoe|sneaker|dress|hoodie|jeans|clothing)\b/i.test(blob)) {
+    return "clothing";
+  }
+  if (fill.category === "Home" || /\b(couch|sofa|table|chair|mattress|furniture|desk)\b/i.test(blob)) {
+    return "furniture";
+  }
+  if (fill.category === "Sports" || /\b(bike|bicycle|golf|tennis|gym|fitness)\b/i.test(blob)) {
+    return "sports";
+  }
+  return "general";
+}
+
+function formatMoneyAsk(price: string | undefined): string | null {
+  if (!price?.trim()) return null;
+  const n = price.replace(/,/g, "").trim();
+  if (!n) return null;
+  return `Asking $${n}`;
+}
+
+function conditionPhrase(condition: string | undefined, quality: ListingDescriptionQuality): string | null {
+  if (!condition?.trim()) return null;
+  const c = condition.trim();
+  if (c === "New") {
+    return quality === "standard" ? "in new condition" : "brand new";
+  }
+  if (c === "Used - Like New") return "in like-new condition";
+  if (c === "Used - Good") return "in good used condition";
+  if (c === "Used - Fair") return "in fair used condition";
+  return `in ${c.toLowerCase()} condition`;
+}
+
+function deliveryPhrase(fill: SkyAiListingFill): string | null {
+  const pickup = fill.pickupAvailable === true;
+  const ship = fill.shippingAvailable === true;
+  const shipOff = fill.shippingAvailable === false;
+  if (pickup && shipOff) return "happy to arrange local pickup only";
+  if (pickup && ship) return "happy to arrange pickup or shipping";
+  if (pickup) return "happy to arrange pickup";
+  if (ship) return "happy to arrange shipping";
+  return null;
+}
+
+/** User-stated extras only — skip SEO keyword tags auto-derived from titles. */
+function weaveableExtras(fill: SkyAiListingFill): string[] {
+  const raw = fill.extras || [];
+  return raw
+    .map((e) => String(e || "").trim())
+    .filter((e) => e.length >= 3)
+    .filter((e) => !/^kw:/i.test(e))
+    .filter((e) => !/^visual:/i.test(e))
+    .filter((e) => !/^(brand|new|like|console|the|and|for|with)$/i.test(e))
+    .filter((e) => e.split(/\s+/).length >= 2 || /servic|tyre|tire|receipt|paperwork|wof|rego|mod|include|controller|charger|box|manual|warranty/i.test(e))
+    .slice(0, 6);
+}
+
+function stripTitleConditionPrefix(title: string): string {
+  return title
+    .replace(/^(brand\s+new|like\s+new)\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function naturalClose(
+  fill: SkyAiListingFill,
+  style: ListingDescriptionStyle,
+  quality: ListingDescriptionQuality
+): string {
+  if (quality === "standard") {
+    return "Happy to answer questions.";
+  }
+  const pickup = fill.pickupAvailable === true;
+  if (style === "vehicle" || style === "rental") {
+    return "Feel free to get in touch if you'd like more information or to arrange a viewing.";
+  }
+  if (style === "service") {
+    return "Feel free to get in touch if you'd like more information or a quote.";
+  }
+  if (pickup) {
+    return "Feel free to get in touch if you'd like more information or would like to arrange pickup.";
+  }
+  return "Feel free to get in touch if you'd like more information.";
+}
+
+function buildVehicleParagraphs(
+  fill: SkyAiListingFill,
+  quality: ListingDescriptionQuality
+): string[] {
+  const year = fill.vehicleYear?.trim();
+  const make = fill.vehicleMake?.trim();
+  const model = fill.vehicleModel?.trim();
+  const colour = fill.vehicleColour?.trim();
+  const odo = fill.vehicleOdometer?.trim();
+  const trans = fill.vehicleTransmission?.trim();
+  const fuel = fill.vehicleFuelType?.trim();
+  const body = fill.vehicleBodyType?.trim();
+  const location = (fill.location || fill.pickupArea || "").trim();
+  const cond = conditionPhrase(fill.condition, quality);
+  const extras = weaveableExtras(fill);
+
+  const nameParts = [year, make, model].filter(Boolean);
+  const name =
+    nameParts.length > 0
+      ? nameParts.join(" ")
+      : stripTitleConditionPrefix(fill.title || "this vehicle");
+
+  const leadBits: string[] = [];
+  if (colour) {
+    leadBits.push(`Selling my ${name} in ${colour.toLowerCase()}`);
+  } else {
+    leadBits.push(`Selling my ${name}`);
+  }
+  if (location) leadBits[0] += ` — based in ${location}`;
+  leadBits[0] += ".";
+
+  const detailBits: string[] = [];
+  if (odo) {
+    const km = /km/i.test(odo) ? odo : `${odo} km`;
+    detailBits.push(`It's done ${km}`);
+  }
+  if (trans) detailBits.push(`${trans.toLowerCase()} transmission`);
+  if (fuel) detailBits.push(`${fuel.toLowerCase()} fuel`);
+  if (body) detailBits.push(`${body.toLowerCase()} body`);
+  if (cond && fill.condition !== "New") detailBits.push(cond);
+
+  const paragraphs: string[] = [leadBits[0]];
+  if (detailBits.length) {
+    if (detailBits.length === 1) {
+      paragraphs.push(`${detailBits[0]}.`);
+    } else {
+      const last = detailBits.pop()!;
+      paragraphs.push(`${detailBits.join(", ")}, and ${last}.`);
+    }
+  }
+  if (extras.length) {
+    paragraphs.push(
+      quality === "premium_plus"
+        ? `Also worth noting: ${extras.join("; ")}.`
+        : `Includes: ${extras.join(", ")}.`
+    );
+  }
+  const ask = formatMoneyAsk(fill.price);
+  if (ask) paragraphs.push(`${ask}.`);
+  return paragraphs;
+}
+
+function buildServiceParagraphs(
+  fill: SkyAiListingFill,
+  quality: ListingDescriptionQuality
+): string[] {
+  const title = stripTitleConditionPrefix(fill.title || "this service");
+  const location = (fill.location || fill.pickupArea || "").trim();
+  const extras = weaveableExtras(fill);
+  const paragraphs: string[] = [];
+
+  let lead = `Offering ${title}`;
+  if (location) lead += ` around ${location}`;
+  lead += ".";
+  paragraphs.push(lead);
+
+  if (fill.serviceDuration?.trim()) {
+    paragraphs.push(`Typical jobs run about ${fill.serviceDuration.trim()}.`);
+  }
+  if (extras.length) {
+    paragraphs.push(
+      quality === "premium_plus"
+        ? `${extras.join(". ")}.`
+        : `Details: ${extras.join(", ")}.`
+    );
+  }
+  const ask = formatMoneyAsk(fill.price);
+  const pricing = fill.servicePricingType || fill.pricingType;
+  if (ask) {
+    if (/hour/i.test(pricing || "")) paragraphs.push(`${ask} per hour.`);
+    else if (/quote/i.test(pricing || "")) paragraphs.push("Pricing by quote — get in touch with what you need.");
+    else paragraphs.push(`${ask}.`);
+  } else if (/quote/i.test(pricing || "")) {
+    paragraphs.push("Happy to provide a quote based on what you need.");
+  }
+  return paragraphs;
+}
+
+function buildRentalParagraphs(
+  fill: SkyAiListingFill,
+  quality: ListingDescriptionQuality
+): string[] {
+  const title = stripTitleConditionPrefix(fill.title || "this rental");
+  const location = (fill.location || fill.pickupArea || "").trim();
+  const paragraphs: string[] = [];
+  let lead = `Available to rent: ${title}`;
+  if (location) lead += ` in ${location}`;
+  lead += ".";
+  paragraphs.push(lead);
+
+  const facts: string[] = [];
+  if (fill.rentalBedrooms) facts.push(`${fill.rentalBedrooms} bedroom${fill.rentalBedrooms === "1" ? "" : "s"}`);
+  if (fill.rentalBathrooms) facts.push(`${fill.rentalBathrooms} bathroom${fill.rentalBathrooms === "1" ? "" : "s"}`);
+  if (fill.rentalFurnishedStatus) facts.push(fill.rentalFurnishedStatus.toLowerCase());
+  if (fill.rentalPetsPolicy) facts.push(fill.rentalPetsPolicy.toLowerCase());
+  if (fill.rentalParkingSpaces) facts.push(`parking for ${fill.rentalParkingSpaces}`);
+  if (facts.length) {
+    paragraphs.push(
+      quality === "premium_plus" ? `${facts.join(", ")}.` : `Features: ${facts.join(", ")}.`
+    );
+  }
+
+  const rates: string[] = [];
+  if (fill.rentalPriceWeekly) rates.push(`$${fill.rentalPriceWeekly}/week`);
+  if (fill.rentalPriceMonthly) rates.push(`$${fill.rentalPriceMonthly}/month`);
+  if (fill.rentalPriceDaily) rates.push(`$${fill.rentalPriceDaily}/day`);
+  if (fill.rentalDeposit) rates.push(`$${fill.rentalDeposit} bond`);
+  if (rates.length) paragraphs.push(`Rates: ${rates.join(", ")}.`);
+  else {
+    const ask = formatMoneyAsk(fill.price);
+    if (ask) paragraphs.push(`${ask}.`);
+  }
+  if (fill.rentalAvailableDate) {
+    paragraphs.push(`Available from ${fill.rentalAvailableDate}.`);
+  }
+  const extras = weaveableExtras(fill);
+  if (extras.length) paragraphs.push(`${extras.join("; ")}.`);
+  return paragraphs;
+}
+
+function buildPhysicalParagraphs(
+  fill: SkyAiListingFill,
+  style: ListingDescriptionStyle,
+  quality: ListingDescriptionQuality
+): string[] {
+  const title = (fill.title || "this item").trim();
+  const bare = stripTitleConditionPrefix(title);
+  const cond = conditionPhrase(fill.condition, quality);
+  const location = (fill.location || fill.pickupArea || "").trim();
+  const extras = weaveableExtras(fill);
+  const paragraphs: string[] = [];
+
+  // Opening — category-aware, weave condition into prose (never "Condition: X")
+  const titleAlreadyHasNew = /\b(brand\s+new|like\s+new)\b/i.test(title);
+  let open: string;
+  if (style === "gaming" || style === "electronics") {
+    if (cond && !titleAlreadyHasNew) {
+      open =
+        quality === "standard"
+          ? `Selling ${bare}, ${cond}.`
+          : `I'm selling this ${bare} — ${cond}.`;
+    } else if (titleAlreadyHasNew || fill.condition === "New") {
+      open =
+        quality === "standard"
+          ? `Selling ${title}.`
+          : `I'm selling this ${title
+              .replace(/^brand\s+new\s+/i, "brand new ")
+              .replace(/^Brand New\s+/, "brand new ")
+              .replace(/^like\s+new\s+/i, "like-new ")
+              .replace(/^Like New\s+/, "like-new ")}.`;
+    } else {
+      open = quality === "standard" ? `Selling ${bare}.` : `I'm selling this ${bare}.`;
+    }
+  } else if (style === "furniture") {
+    open =
+      cond && !titleAlreadyHasNew
+        ? `Selling this ${bare}, ${cond}.`
+        : `Selling this ${bare}.`;
+  } else if (style === "clothing") {
+    open =
+      cond && !titleAlreadyHasNew
+        ? `Selling ${bare} — ${cond}.`
+        : `Selling ${bare}.`;
+  } else if (style === "sports") {
+    open =
+      cond && !titleAlreadyHasNew
+        ? `Selling my ${bare}, ${cond}.`
+        : `Selling my ${bare}.`;
+  } else {
+    open =
+      cond && !titleAlreadyHasNew
+        ? `Selling ${bare}, ${cond}.`
+        : `Selling ${bare}.`;
+  }
+  paragraphs.push(open.replace(/\s+/g, " ").trim());
+
+  // Location + delivery as flowing prose (not separate label sentences)
+  const locationBit = location ? `based in ${location}` : null;
+  const deliveryBit = deliveryPhrase(fill);
+  if (locationBit && deliveryBit) {
+    paragraphs.push(
+      quality === "premium_plus"
+        ? `It's ${locationBit}, and I'm ${deliveryBit}.`
+        : `It's ${locationBit}. I'm ${deliveryBit}.`
+    );
+  } else if (locationBit) {
+    paragraphs.push(`It's ${locationBit}.`);
+  } else if (deliveryBit) {
+    paragraphs.push(`I'm ${deliveryBit}.`);
+  }
+
+  if (extras.length) {
+    paragraphs.push(
+      quality === "premium_plus"
+        ? `Also included / noted: ${extras.join("; ")}.`
+        : `Includes: ${extras.join(", ")}.`
+    );
+  }
+
+  const ask = formatMoneyAsk(fill.price);
+  if (ask) paragraphs.push(`${ask}.`);
+
+  return paragraphs;
+}
+
+/**
+ * Marketplace description from known draft facts only — no hallucinations.
+ * Āwhina always generates Premium Plus (highest truthful quality).
+ */
+export function buildListingDescriptionFromFacts(
+  fill: SkyAiListingFill,
+  opts?: { quality?: ListingDescriptionQuality }
+): string {
+  const quality: ListingDescriptionQuality = opts?.quality ?? "premium_plus";
+  const style = resolveListingDescriptionStyle(fill);
+
+  let paragraphs: string[];
+  if (style === "vehicle") {
+    paragraphs = buildVehicleParagraphs(fill, quality);
+  } else if (style === "service") {
+    paragraphs = buildServiceParagraphs(fill, quality);
+  } else if (style === "rental") {
+    paragraphs = buildRentalParagraphs(fill, quality);
+  } else {
+    paragraphs = buildPhysicalParagraphs(fill, style, quality);
+  }
+
+  // Closing CTA — never "Message me with any questions."
+  paragraphs.push(naturalClose(fill, style, quality));
+
+  const joiner = quality === "standard" ? " " : "\n\n";
+  let text = paragraphs
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join(joiner)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  // Safety: never invent warranty / authenticity / accessory claims
+  if (/\b(authentic|genuine|warranty|factory sealed|unopened)\b/i.test(text)) {
+    // Only strip if we somehow introduced them — keep user extras that mention them
+    const extrasBlob = (fill.extras || []).join(" ").toLowerCase();
+    if (!/\bwarrant/i.test(extrasBlob) && /\bwarrant/i.test(text)) {
+      text = text.replace(/\s*[^.]*\bwarrant[^.]*\./gi, "").trim();
+    }
+  }
+
+  return text.slice(0, 8000);
 }
 
 export function isCompleteListingDraft(fill: SkyAiListingFill): boolean {
@@ -536,10 +929,15 @@ export function autoImproveListingDraft(fill: SkyAiListingFill): SkyAiListingFil
       out.title = normalizeProductName(seed).slice(0, 120);
     }
   }
-  if (!out.description || out.description.length < 40 || /^selling my /i.test(out.description)) {
+  if (isRoboticListingDescription(out.description)) {
     out.description = buildListingDescriptionFromFacts(out);
-  } else {
-    out.description = normalizeProductName(out.description).slice(0, 8000);
+  } else if (out.description) {
+    // Normalize product tokens but preserve paragraph breaks
+    out.description = out.description
+      .split(/\n{2,}/)
+      .map((para) => normalizeProductName(para))
+      .join("\n\n")
+      .slice(0, 8000);
   }
   if (out.title && (!out.extras || out.extras.length === 0)) {
     const kw = out.title

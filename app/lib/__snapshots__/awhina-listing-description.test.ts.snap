@@ -1,0 +1,97 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`category-aware description snapshots > clothing snapshot 1`] = `
+"Selling North Face Jacket — in like-new condition.
+
+It's based in Hamilton, and I'm happy to arrange pickup.
+
+Asking $120.
+
+Feel free to get in touch if you'd like more information or would like to arrange pickup."
+`;
+
+exports[`category-aware description snapshots > furniture snapshot 1`] = `
+"Selling this 3 Seater Couch, in good used condition.
+
+It's based in Christchurch, and I'm happy to arrange local pickup only.
+
+Asking $250.
+
+Feel free to get in touch if you'd like more information or would like to arrange pickup."
+`;
+
+exports[`category-aware description snapshots > gaming electronics snapshot 1`] = `
+"I'm selling this brand new PlayStation 5 Console.
+
+It's based in Auckland, and I'm happy to arrange pickup.
+
+Asking $650.
+
+Feel free to get in touch if you'd like more information or would like to arrange pickup."
+`;
+
+exports[`category-aware description snapshots > phones / electronics snapshot 1`] = `
+"I'm selling this like-new iPhone 15 Pro.
+
+It's based in Wellington, and I'm happy to arrange pickup or shipping.
+
+Asking $950.
+
+Feel free to get in touch if you'd like more information or would like to arrange pickup."
+`;
+
+exports[`category-aware description snapshots > property rental snapshot 1`] = `
+"Available to rent: 2 Bedroom Apartment in Auckland.
+
+2 bedrooms, 1 bathroom, unfurnished.
+
+Rates: $520/week, $2080 bond.
+
+Feel free to get in touch if you'd like more information or to arrange a viewing."
+`;
+
+exports[`category-aware description snapshots > services snapshot 1`] = `
+"Offering Lawn Mowing around Hamilton.
+
+Asking $60 per hour.
+
+Feel free to get in touch if you'd like more information or a quote."
+`;
+
+exports[`category-aware description snapshots > sports snapshot 1`] = `
+"Selling my Mountain Bike, in good used condition.
+
+It's based in Dunedin, and I'm happy to arrange pickup.
+
+Asking $400.
+
+Feel free to get in touch if you'd like more information or would like to arrange pickup."
+`;
+
+exports[`category-aware description snapshots > vehicles snapshot 1`] = `
+"Selling my 2018 BMW 320i in blue — based in Auckland.
+
+It's done 85000 km, automatic transmission, and in good used condition.
+
+Asking $18500.
+
+Feel free to get in touch if you'd like more information or to arrange a viewing."
+`;
+
+exports[`one-shot sell uses Premium Plus description path > PS5 one-shot is natural marketplace copy 1`] = `
+"I'm selling this brand new PlayStation 5 Console.
+
+It's based in Auckland, and I'm happy to arrange pickup.
+
+Asking $200.
+
+Feel free to get in touch if you'd like more information or would like to arrange pickup."
+`;
+
+exports[`one-shot sell uses Premium Plus description path > vehicle one-shot description is category-styled 1`] = `
+"Selling my 2018 BMW 320i — based in Auckland.
+
+Asking $18500.
+
+Feel free to get in touch if you'd like more information or to arrange a viewing."
+`;

@@ -103,11 +103,14 @@ describe("premium title + description (reusable categories)", () => {
       condition: "New",
       location: "Auckland",
       pickupAvailable: true,
+      category: "Gaming",
     });
     expect(desc).toMatch(/PlayStation\s*5/i);
     expect(desc).toMatch(/\$200|Asking \$200/);
     expect(desc).toMatch(/Auckland/);
     expect(desc).not.toMatch(/controller|dualsense|games included|SSD/i);
+    expect(desc).not.toMatch(/Condition:|Message me with any questions/i);
+    expect(desc).toMatch(/Feel free to get in touch/i);
   });
 });
 
