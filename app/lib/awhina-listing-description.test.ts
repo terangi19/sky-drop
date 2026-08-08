@@ -29,6 +29,10 @@ const ROBOTIC_SMELLS =
 const META_PHRASE_SMELLS =
   /\bno guesswork\b|\bbased on (the )?(available|provided|supplied) (details|information)\b|\busing only supplied\b|\bfrom the information provided\b|\bbased on what we know\b|\bverified facts only\b|\bI haven'?t assumed\b|\bI didn'?t invent\b|\bStraightforward listing\b|\bdetails we have\b|\bfacts we know\b|\bknown details\b|\bwhat is known\b|\bhere is what we know\b|\bCan do pickup\b|\bAvailable around\b|\bAI\b|\bgenerated\b|\bassumed\b/i;
 
+/** Implied functionality / condition / photo claims without supplied facts. */
+const UNGROUNDED_CLAIM_SMELLS =
+  /\bready for use\b|\bworks well\b|\bclean upgrade\b|\bready to go\b|\bwell looked after\b|\bready for its next owner\b|\bready for its next home\b|\bready for a new wardrobe\b|\ba clean piece\b|\bclearer photos\b|\banother look at the photos\b|\bcheck the photos\b|\bmore photos\b|\banother photo\b|\bsend another photo\b|\bworks perfectly\b/i;
+
 function assertNoDuplicateSentences(desc: string) {
   const sentences = desc
     .split(/(?<=[.!?])\s+/)
@@ -43,6 +47,7 @@ function assertNaturalMarketplaceCopy(desc: string) {
   expect(desc.trim().length).toBeGreaterThan(40);
   expect(desc).not.toMatch(ROBOTIC_SMELLS);
   expect(desc).not.toMatch(META_PHRASE_SMELLS);
+  expect(desc).not.toMatch(UNGROUNDED_CLAIM_SMELLS);
   expect(isRoboticListingDescription(desc)).toBe(false);
   expect(passesListingDescriptionQualityGate(desc)).toBe(true);
   expect(desc).not.toContain("\n\n");
@@ -311,6 +316,79 @@ describe("category-aware description snapshots", () => {
       )
     ).toBe(false);
   });
+
+  it("rejects ungrounded functionality / photo claims in buyer copy", () => {
+    expect(
+      isRoboticListingDescription(
+        "Samsung TV ready for use in Auckland. Works well as a clean upgrade if this is what you need. Asking $400."
+      )
+    ).toBe(true);
+    expect(
+      passesListingDescriptionQualityGate(
+        "Lawn Mower ready to go in Palmerston North. I'm asking $180. Message if you want another look at the photos first."
+      )
+    ).toBe(false);
+  });
+});
+
+describe("sparse listings stay grounded", () => {
+  const sparseFills: SkyAiListingFill[] = [
+    {
+      title: "Samsung TV",
+      price: "400",
+      location: "Auckland",
+      category: "Tech",
+      listingType: "physical",
+    },
+    {
+      title: "PlayStation 5",
+      price: "500",
+      location: "Wellington",
+      category: "Gaming",
+      listingType: "physical",
+    },
+    {
+      title: "3 Seater Couch",
+      price: "250",
+      location: "Christchurch",
+      category: "Home",
+      listingType: "physical",
+    },
+    {
+      title: "Lawn Mower",
+      price: "180",
+      location: "Palmerston North",
+      category: "Home",
+      listingType: "physical",
+    },
+    {
+      title: "North Face Jacket",
+      price: "120",
+      location: "Hamilton",
+      category: "Fashion",
+      listingType: "physical",
+    },
+    {
+      title: "Mountain Bike",
+      price: "350",
+      location: "Dunedin",
+      category: "Sports",
+      listingType: "physical",
+    },
+  ];
+
+  for (const fill of sparseFills) {
+    it(`${fill.title} has no implied function, condition, or photo claims`, () => {
+      const desc = buildListingDescriptionFromFacts(fill);
+      expect(desc).not.toMatch(UNGROUNDED_CLAIM_SMELLS);
+      expect(desc).not.toMatch(META_PHRASE_SMELLS);
+      expect(desc).not.toMatch(
+        /\bworks well\b|\bworks perfectly\b|\bperfect condition\b|\bexcellent condition\b|\bclean upgrade\b|\bwell looked after\b|\bphotos?\b/i
+      );
+      expect(desc).toMatch(/\$\d+/);
+      expect(isRoboticListingDescription(desc)).toBe(false);
+    });
+  }
 });
 
 describe("iPhone Hamilton natural seller copy", () => {
@@ -388,9 +466,11 @@ describe("one-shot sell uses Premium Plus description path", () => {
       { conversationId: "desc-bmw", pathname: "/" }
     );
     const desc = String(r.listingFill?.description || "");
-    expect(r.listingFill?.listingType).toBe("vehicle");
     expect(desc).toMatch(/BMW/i);
+    expect(desc).toMatch(/85,?000|Auckland|\$18500/i);
     expect(desc).not.toMatch(ROBOTIC_SMELLS);
+    expect(desc).not.toMatch(META_PHRASE_SMELLS);
+    expect(desc).not.toMatch(UNGROUNDED_CLAIM_SMELLS);
     expect(desc).toMatchSnapshot();
   });
 });

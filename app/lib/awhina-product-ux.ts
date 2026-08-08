@@ -586,6 +586,10 @@ const BANNED_TEMPLATE_RE =
 const IMPLEMENTATION_LEAK_RE =
   /\bno guesswork\b|\bbased on (the )?(available|provided|supplied) (details|information)\b|\busing only supplied\b|\bfrom the information provided\b|\bbased on what we know\b|\bverified facts only\b|\bI haven'?t assumed\b|\bI didn'?t invent\b|\bStraightforward listing with the details we have\b|\bdetails we have\b|\bfacts we know\b|\bknown details\b|\bwhat is known\b|\bhere is what we know\b|\bonly the facts\b|\bAI\b|\bgenerated\b|\bassumed\b/i;
 
+/** Implied quality / functionality / photo claims without supplied facts. */
+const UNGROUNDED_CLAIM_RE =
+  /\bready for use\b|\bworks well\b|\bclean upgrade\b|\bready to go\b|\bwell looked after\b|\bready for its next owner\b|\bready for its next home\b|\bready for a new wardrobe\b|\ba clean piece\b|\bclearer photos\b|\banother look at the photos\b|\bcheck the photos\b|\bmore photos\b|\banother photo\b|\bsend another photo\b|\bworks perfectly\b/i;
+
 function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
@@ -614,6 +618,7 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   if (FIELD_LABEL_RE.test(t)) return true;
   if (BANNED_TEMPLATE_RE.test(t)) return true;
   if (IMPLEMENTATION_LEAK_RE.test(t)) return true;
+  if (UNGROUNDED_CLAIM_RE.test(t)) return true;
   if (/\bOdometer:\s*/i.test(t) && /\bColour:\s*/i.test(t)) return true;
   if (/^Selling .+\.\s*Condition:/i.test(t)) return true;
   if (/^selling my .{1,40}$/i.test(t) && !/\n/.test(t)) return true;
@@ -640,7 +645,12 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
 export function passesListingDescriptionQualityGate(text: string | undefined | null): boolean {
   if (!text?.trim()) return false;
   const t = text.trim();
-  if (FIELD_LABEL_RE.test(t) || BANNED_TEMPLATE_RE.test(t) || IMPLEMENTATION_LEAK_RE.test(t)) {
+  if (
+    FIELD_LABEL_RE.test(t) ||
+    BANNED_TEMPLATE_RE.test(t) ||
+    IMPLEMENTATION_LEAK_RE.test(t) ||
+    UNGROUNDED_CLAIM_RE.test(t)
+  ) {
     return false;
   }
   if (t.includes("\n\n")) return false;
@@ -779,32 +789,32 @@ function trimToWords(text: string, max: number): string {
   return polishParagraph(`${words.slice(0, max).join(" ").replace(/[,:;]+$/, "")}.`);
 }
 
-/** Natural seller bridges — never mention generation, facts, or guesswork. */
+/** Natural seller bridges — warm + neutral; never invent quality, function, or photos. */
 const BRIDGE_BANK: Record<ListingDescriptionStyle, readonly string[]> = {
   electronics: [
-    "Happy to share clearer photos of any detail once you message.",
-    "Works well as a clean upgrade if this is what you need.",
-    "Open to a chat if you want to confirm anything before buying.",
+    "Get in touch if you'd like more information.",
+    "Available for pickup once we arrange a time.",
+    "Message to arrange collection.",
   ],
   gaming: [
     "Happy to sort a time that works for both of us.",
-    "Message if you want another look at the photos first.",
-    "Keen to get it to a good home sooner rather than later.",
+    "Message to arrange collection.",
+    "Get in touch if you'd like more information.",
   ],
   furniture: [
-    "Ready for collection when it suits — easy to check in person before you decide.",
-    "Would suit someone looking to furnish without a long wait.",
-    "Come have a look and see if it fits the space you have in mind.",
+    "Available for pickup when it suits.",
+    "Message to arrange collection.",
+    "Get in touch if you'd like more information.",
   ],
   clothing: [
-    "Check the photos for the look and feel, and message if you want more angles.",
-    "Happy to help if you need another photo of the details.",
-    "A clean piece ready for a new wardrobe.",
+    "Get in touch if you'd like more information.",
+    "Message to arrange collection.",
+    "Happy to chat if you have any questions.",
   ],
   home_garden: [
-    "Practical option for home or section use as described.",
+    "Available for pickup once we arrange a time.",
     "Happy to time collection around what works for both of us.",
-    "Message if you want to confirm it suits the job you have in mind.",
+    "Get in touch if you'd like more information.",
   ],
   vehicle: [
     "Happy to arrange a viewing so you can inspect it properly.",
@@ -812,9 +822,9 @@ const BRIDGE_BANK: Record<ListingDescriptionStyle, readonly string[]> = {
     "Message with any questions before you come and see it.",
   ],
   sports: [
-    "Ready for the next owner — check the photos and ask if you need another angle.",
+    "Available for pickup once we arrange a time.",
     "Happy to arrange a time once you are keen.",
-    "Message if you want more photos before deciding.",
+    "Get in touch if you'd like more information.",
   ],
   service: [
     "Tell me roughly what you need and I can confirm timing and scope.",
@@ -827,9 +837,9 @@ const BRIDGE_BANK: Record<ListingDescriptionStyle, readonly string[]> = {
     "Come take a look if the layout and rates already feel right.",
   ],
   general: [
-    "Happy to arrange a time or send another photo if that helps.",
-    "Message if you want to take the next step.",
-    "Open to a chat once you have had a look.",
+    "Happy to arrange a time that works for both of us.",
+    "Message to arrange collection.",
+    "Get in touch if you'd like more information.",
   ],
 };
 
@@ -1028,7 +1038,9 @@ function buildVehicleDescription(fill: SkyAiListingFill, quality: ListingDescrip
 
   const openers = [
     colour ? `${colour} ${name}.` : `${name}.`,
-    colour ? `${name} in ${colour.toLowerCase()}, ready when you are.` : `${name}, ready when you are.`,
+    colour
+      ? `${name} in ${colour.toLowerCase()}${location ? `, available in ${location}` : ""}.`
+      : `${name}${location ? ` available in ${location}` : " available"}.`,
     `${name}${colour ? ` in ${colour.toLowerCase()}` : ""}${location ? ` in ${location}` : ""}.`,
   ];
 
@@ -1120,32 +1132,32 @@ function buildPhysicalDescription(
     ];
   } else if (style === "gaming") {
     openers = [
-      `${display[0].toUpperCase()}${display.slice(1)} ready to go${locForOpen ? ` in ${locForOpen}` : ""}.`,
+      `${display[0].toUpperCase()}${display.slice(1)}${locForOpen ? ` available in ${locForOpen}` : " available"}.`,
       `Got a ${display}${locForOpen ? ` here in ${locForOpen}` : ""}.`,
       `${display[0].toUpperCase()}${display.slice(1)} up for grabs${condBit ? `, ${condBit}` : ""}.`,
     ];
   } else if (style === "furniture") {
     openers = [
-      `${bare} ready for its next home${condBit ? ` — ${condBit}` : ""}.`,
+      `${bare}${location ? ` available for collection in ${location}` : " available for collection"}${condBit ? `, ${condBit}` : ""}.`,
       `${bare}${location ? ` available for collection in ${location}` : ""}${condBit ? `, ${condBit}` : ""}.`,
       `${bare}${condBit ? ` in ${condBit}` : ""}${location ? `, collection in ${location}` : ""}.`,
     ];
   } else if (style === "clothing") {
     openers = [
       `${bare}${condBit ? `, ${condBit}` : ""}${locForOpen ? ` from ${locForOpen}` : ""}.`,
-      `Clean ${bare}${locForOpen ? ` from ${locForOpen}` : ""}${condBit ? `, ${condBit}` : ""}.`,
-      `${bare}${condBit ? ` in ${condBit}` : ""} ready for a new wardrobe.`,
+      `${bare}${locForOpen ? ` available in ${locForOpen}` : " available"}${condBit ? `, ${condBit}` : ""}.`,
+      `${bare}${condBit ? ` in ${condBit}` : ""}${locForOpen ? ` from ${locForOpen}` : ""}.`,
     ];
   } else if (style === "home_garden") {
     openers = [
       `${bare}${condBit ? `, ${condBit}` : ""}${locForOpen ? ` in ${locForOpen}` : ""}.`,
-      `${bare} ready for use${locForOpen ? ` in ${locForOpen}` : ""}${condBit ? `, ${condBit}` : ""}.`,
+      `${bare}${locForOpen ? ` available in ${locForOpen}` : " available"}${condBit ? `, ${condBit}` : ""}.`,
       `${bare}${condBit ? ` in ${condBit}` : ""}${locForOpen ? `, ${locForOpen}` : ""}.`,
     ];
   } else if (style === "sports") {
     openers = [
       `${bare}${condBit ? `, ${condBit}` : ""}${locForOpen ? ` in ${locForOpen}` : ""}.`,
-      `${bare} ready for the next owner${condBit ? ` — ${condBit}` : ""}.`,
+      `${bare}${locForOpen ? ` available in ${locForOpen}` : " available"}${condBit ? ` — ${condBit}` : ""}.`,
       `${bare}${locForOpen ? ` from ${locForOpen}` : ""}${condBit ? `, ${condBit}` : ""}.`,
     ];
   } else {
