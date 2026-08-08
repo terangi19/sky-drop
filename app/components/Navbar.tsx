@@ -310,7 +310,7 @@ export default function Navbar() {
     );
 
   return (
-    <header className="relative sticky top-0 z-[9999] border-b border-white/[0.04] backdrop-blur-xl light:border-black/[0.08]" style={{ backgroundColor: "var(--nav-bg)" }}>
+    <header className="site-navbar relative sticky top-0 z-[9999] border-b border-white/[0.04] backdrop-blur-xl light:border-black/[0.08]" style={{ backgroundColor: "var(--nav-bg)" }}>
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/30 to-transparent light:via-sky-600/20" />
       <div className="mx-auto flex h-16 items-center justify-between px-4 md:px-6 lg:max-w-7xl">
 

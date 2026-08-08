@@ -17,8 +17,8 @@ export default function Background() {
   if (isLight) {
     return (
       <div className="fixed inset-0 -z-10 overflow-hidden" aria-hidden>
-        <div className="absolute inset-0 bg-white" />
-        <div className="absolute inset-x-0 top-0 h-[42%] bg-[radial-gradient(ellipse_at_top,rgba(14,165,233,0.08),transparent_70%)]" />
+        <div className="absolute inset-0 bg-[var(--background)]" />
+        <div className="absolute inset-x-0 top-0 h-[36%] bg-[radial-gradient(ellipse_at_top,rgba(14,165,233,0.045),transparent_72%)]" />
       </div>
     );
   }

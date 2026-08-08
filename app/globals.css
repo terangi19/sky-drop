@@ -71,16 +71,21 @@
   --touch-min: 44px;
   --page-gutter-mobile: 16px;
 
-  /* Theme tokens */
+  /* Theme tokens — dark (canonical semantic surface/text/accent) */
   --background: #111118;
   --foreground: #f0f0f5;
-  --card: rgba(25, 25, 33, 0.7);
+  --surface: rgba(25, 25, 33, 0.7);
+  --elevated: rgba(32, 32, 42, 0.92);
+  --card: var(--surface);
   --card-hover: rgba(35, 35, 48, 0.85);
   --card-border: rgba(255, 255, 255, 0.03);
   /* Alias used across forms/modals — keep in sync with card chrome */
   --border: var(--card-border);
+  --border-strong: rgba(255, 255, 255, 0.1);
   --border-hover: rgba(56, 189, 248, 0.28);
   --muted: #8b8d9a;
+  --text-secondary: #a1a1aa;
+  --text-muted: #8b8d9a;
   --soft-card: rgba(20, 20, 28, 0.8);
   --soft-card-border: rgba(255, 255, 255, 0.02);
   --nav-bg: rgba(17, 17, 24, 0.95);
@@ -93,11 +98,15 @@
   --pill-text: #8b8d9a;
   --card-shadow: var(--shadow-md);
   --glow-blue: rgba(14, 165, 233, 0.06);
-  --text-secondary: #8b8d9a;
   --accent-star: #38bdf8;
   --accent-star-hover: #0ea5e9;
   --accent-primary: #0ea5e9;
   --accent-hover: #0284c7;
+  --focus-ring: rgba(14, 165, 233, 0.28);
+  --overlay-backdrop: rgba(0, 0, 0, 0.55);
+  --modal-bg: rgba(22, 22, 30, 0.98);
+  --dropdown-bg: rgba(20, 20, 28, 0.98);
+  --dropdown-hover: rgba(255, 255, 255, 0.06);
 
   /* Listing card semantic tokens — dark */
   --lc-bg: rgba(16, 18, 26, 0.96);
@@ -143,36 +152,50 @@
 }
 
 :root.light {
-  --background: #ffffff;
-  --foreground: #000000;
+  /*
+   * Light theme — soft canvas, clean white surfaces, near-black type.
+   * Cyan is accent-only (CTA / focus / selected), never large washes.
+   */
+  --background: #f3f4f6;
+  --foreground: #0c0d10;
+  --surface: #ffffff;
+  --elevated: #ffffff;
   --card: #ffffff;
-  --card-hover: #f0f9ff;
-  --card-border: rgba(0, 0, 0, 0.08);
+  --card-hover: #f0f1f3;
+  --card-border: rgba(15, 23, 42, 0.08);
   --border: var(--card-border);
-  --border-hover: rgba(14, 165, 233, 0.35);
-  --muted: #666666;
-  --soft-card: #fafafa;
-  --soft-card-border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(15, 23, 42, 0.14);
+  --border-hover: rgba(14, 165, 233, 0.4);
+  --muted: #526074;
+  --text-secondary: #334155;
+  --text-muted: #526074;
+  --soft-card: #eceef2;
+  --soft-card-border: rgba(15, 23, 42, 0.06);
   --nav-bg: rgba(10, 22, 40, 0.97);
   --nav-ice: #ffffff;
   --nav-ice-muted: rgba(255, 255, 255, 0.82);
   --nav-ice-faint: rgba(255, 255, 255, 0.58);
   --input-bg: #ffffff;
-  --input-border: rgba(0, 0, 0, 0.12);
-  --pill-bg: #f5f5f5;
-  --pill-text: #666666;
-  --shadow-xs: 0 1px 2px rgba(10, 22, 40, 0.04);
-  --shadow-sm: 0 2px 8px rgba(10, 22, 40, 0.06);
-  --shadow-md: 0 4px 16px rgba(10, 22, 40, 0.08);
-  --shadow-lg: 0 8px 28px rgba(10, 22, 40, 0.1);
-  --shadow-focus: 0 0 0 3px rgba(14, 165, 233, 0.2);
+  --input-border: rgba(15, 23, 42, 0.14);
+  --pill-bg: #e8eaee;
+  --pill-text: #334155;
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 2px 8px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.1);
+  --shadow-focus: 0 0 0 3px rgba(14, 165, 233, 0.22);
   --card-shadow: var(--shadow-sm);
-  --glow-accent: rgba(14, 165, 233, 0.1);
-  --text-secondary: #666666;
+  --glow-accent: rgba(14, 165, 233, 0.08);
+  --glow-blue: rgba(14, 165, 233, 0.06);
   --accent-primary: #0ea5e9;
   --accent-hover: #0284c7;
-  --accent-star: #0ea5e9;
-  --accent-star-hover: #0284c7;
+  --accent-star: #0284c7;
+  --accent-star-hover: #0369a1;
+  --focus-ring: rgba(14, 165, 233, 0.22);
+  --overlay-backdrop: rgba(15, 23, 42, 0.4);
+  --modal-bg: #ffffff;
+  --dropdown-bg: #ffffff;
+  --dropdown-hover: rgba(15, 23, 42, 0.05);
   --success: #059669;
   --success-muted: rgba(5, 150, 105, 0.12);
   --warning: #d97706;
@@ -182,47 +205,47 @@
   --info: #0284c7;
   --info-muted: rgba(2, 132, 199, 0.1);
 
-  /* Listing card semantic tokens — light */
+  /* Listing card semantic tokens — light (neutral chrome, cyan accents only) */
   --lc-bg: #ffffff;
-  --lc-surface: #f8fafc;
-  --lc-border: rgba(14, 165, 233, 0.18);
-  --lc-border-hover: rgba(14, 165, 233, 0.44);
-  --lc-shadow: var(--shadow-sm);
-  --lc-shadow-hover: var(--shadow-md);
-  --lc-text-primary: #0a0a0a;
-  --lc-text-secondary: #374151;
-  --lc-text-muted: #6b7280;
-  --lc-price: #020617;
+  --lc-surface: #f7f8fa;
+  --lc-border: rgba(15, 23, 42, 0.08);
+  --lc-border-hover: rgba(14, 165, 233, 0.35);
+  --lc-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --lc-shadow-hover: 0 2px 8px rgba(15, 23, 42, 0.08);
+  --lc-text-primary: #0c0d10;
+  --lc-text-secondary: #475569;
+  --lc-text-muted: #64748b;
+  --lc-price: #0c0d10;
   --lc-accent: #0284c7;
-  --lc-accent-strong: #0369a1;
-  --lc-badge-bg: rgba(14, 165, 233, 0.14);
+  --lc-accent-strong: #0284c7;
+  --lc-badge-bg: rgba(14, 165, 233, 0.1);
   --lc-badge-text: #0369a1;
-  --lc-badge-border: rgba(14, 165, 233, 0.32);
-  --lc-chip-bg: #e0f2fe;
-  --lc-chip-text: #0369a1;
-  --lc-chip-border: rgba(14, 165, 233, 0.28);
-  --lc-neutral-chip-bg: #f3f4f6;
-  --lc-neutral-chip-text: #374151;
-  --lc-neutral-chip-border: rgba(0, 0, 0, 0.1);
-  --lc-seller-bg: #f0f9ff;
-  --lc-seller-border: rgba(14, 165, 233, 0.22);
-  --lc-seller-hover-bg: #e0f2fe;
-  --lc-seller-hover-border: rgba(14, 165, 233, 0.38);
-  --lc-btn-bg: #e0f2fe;
-  --lc-btn-text: #0369a1;
+  --lc-badge-border: rgba(14, 165, 233, 0.22);
+  --lc-chip-bg: #eef2f6;
+  --lc-chip-text: #334155;
+  --lc-chip-border: rgba(15, 23, 42, 0.08);
+  --lc-neutral-chip-bg: #eef0f3;
+  --lc-neutral-chip-text: #475569;
+  --lc-neutral-chip-border: rgba(15, 23, 42, 0.08);
+  --lc-seller-bg: #f7f8fa;
+  --lc-seller-border: transparent;
+  --lc-seller-hover-bg: #eef0f3;
+  --lc-seller-hover-border: rgba(15, 23, 42, 0.08);
+  --lc-btn-bg: #ffffff;
+  --lc-btn-text: #0284c7;
   --lc-btn-border: rgba(14, 165, 233, 0.35);
-  --lc-btn-hover-bg: #bae6fd;
-  --lc-btn-hover-text: #0c4a6e;
-  --lc-btn-ghost-border: rgba(0, 0, 0, 0.12);
-  --lc-btn-ghost-text: #374151;
-  --lc-btn-ghost-hover-bg: #f3f4f6;
-  --lc-placeholder-bg: #f3f4f6;
+  --lc-btn-hover-bg: rgba(14, 165, 233, 0.08);
+  --lc-btn-hover-text: #0369a1;
+  --lc-btn-ghost-border: rgba(15, 23, 42, 0.12);
+  --lc-btn-ghost-text: #475569;
+  --lc-btn-ghost-hover-bg: #eef0f3;
+  --lc-placeholder-bg: #eef0f3;
   --lc-img-badge-bg: rgba(15, 23, 42, 0.72);
   --lc-img-badge-text: #ffffff;
   --lc-saves-bg: rgba(15, 23, 42, 0.72);
-  --lc-saves-text: #0369a1;
-  --lc-saves-border: rgba(14, 165, 233, 0.35);
-  --lc-divider: rgba(0, 0, 0, 0.08);
+  --lc-saves-text: #e0f2fe;
+  --lc-saves-border: rgba(255, 255, 255, 0.12);
+  --lc-divider: rgba(15, 23, 42, 0.07);
 }
 
 html {
@@ -354,7 +377,15 @@ body {
 .lc-seller:hover {
   border-color: var(--lc-seller-hover-border);
   background: var(--lc-seller-hover-bg);
-  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.1);
+  box-shadow: var(--shadow-xs);
+}
+
+:root.light .lc-seller {
+  box-shadow: none;
+}
+
+:root.light .lc-seller:hover {
+  box-shadow: var(--shadow-xs);
 }
 
 .lc-seller-name {
@@ -646,13 +677,22 @@ select:focus-visible {
 
 /* ── LIGHT MODE FALLBACKS (prefer CSS vars in components; shrink this wall over time) ── */
 :root.light .bg-zinc-950,
+:root.light .bg-zinc-950\/95,
+:root.light .bg-zinc-950\/90,
+:root.light .bg-zinc-950\/80,
+:root.light .bg-zinc-950\/60,
+:root.light .bg-zinc-950\/55,
+:root.light .bg-zinc-950\/50,
 :root.light .bg-zinc-900,
 :root.light .bg-zinc-900\/80,
+:root.light .bg-zinc-900\/70,
 :root.light .bg-zinc-900\/60,
+:root.light .bg-zinc-900\/55,
 :root.light .bg-zinc-900\/50,
-:root.light .bg-zinc-900\/30 { background-color: var(--background) !important; }
+:root.light .bg-zinc-900\/45,
 :root.light .bg-zinc-900\/40,
-:root.light .bg-zinc-900\/20 { background-color: var(--soft-card) !important; }
+:root.light .bg-zinc-900\/30,
+:root.light .bg-zinc-900\/20 { background-color: var(--card) !important; }
 :root.light .bg-zinc-800,
 :root.light .bg-zinc-800\/80,
 :root.light .bg-zinc-800\/60 { background-color: var(--soft-card) !important; }
@@ -660,18 +700,23 @@ select:focus-visible {
 :root.light .bg-zinc-800\/40 { background-color: var(--pill-bg) !important; }
 :root.light .bg-zinc-700,
 :root.light .bg-zinc-700\/50 { background-color: var(--pill-bg) !important; }
-:root.light .bg-black\/40 { background-color: color-mix(in srgb, var(--card) 94%, transparent) !important; }
-:root.light .bg-black\/60 { background-color: var(--soft-card) !important; }
+:root.light .bg-black\/40 { background-color: var(--overlay-backdrop) !important; }
+:root.light .bg-black\/60 { background-color: var(--overlay-backdrop) !important; }
 :root:not(.light) .bg-white { background-color: var(--card) !important; }
 :root.light .bg-white\/\[0\.02\],
-:root.light .bg-white\/\[0\.03\] { background-color: var(--card) !important; }
+:root.light .bg-white\/\[0\.03\] { background-color: var(--soft-card) !important; }
 :root.light .bg-white\/\[0\.04\] { background-color: var(--soft-card) !important; }
+:root.light .bg-white\/\[0\.05\],
 :root.light .bg-white\/\[0\.06\] { background-color: var(--pill-bg) !important; }
+:root.light .bg-white\/\[0\.08\] { background-color: var(--card-hover) !important; }
 :root.light .hover\:bg-white\/\[0\.06\]:hover { background-color: var(--card-hover) !important; }
 :root.light .hover\:text-white:hover { color: var(--foreground) !important; }
 :root.light .bg-gradient-to-r.from-sky-500 {
   background-image: linear-gradient(to right, var(--accent-primary), #38bdf8) !important;
 }
+:root.light .border-white\/10,
+:root.light .border-white\/\[0\.08\],
+:root.light .border-white\/\[0\.1\] { border-color: var(--card-border) !important; }
 :root.light .border-zinc-800,
 :root.light .border-zinc-800\/50,
 :root.light .border-zinc-800\/30,
@@ -685,8 +730,8 @@ select:focus-visible {
 :root:not(.light) .text-\[\#6B7280\] { color: rgba(255, 255, 255, 0.7) !important; }
 :root:not(.light) .text-\[\#0a1628\] { color: #ffffff !important; }
 :root:not(.light) .text-\[\#1e4976\] { color: rgba(255, 255, 255, 0.8) !important; }
-:root.light .text-white { color: #000000 !important; }
-:root.light header .text-white { color: #ffffff !important; }
+:root.light .text-white { color: var(--foreground) !important; }
+:root.light header.site-navbar .text-white { color: #ffffff !important; }
 /* Keep white text on colored CTAs / badges in light mode */
 :root.light button.text-white,
 :root.light a.text-white,
@@ -716,20 +761,22 @@ select:focus-visible {
 .text-always-white\/80 { color: rgba(255, 255, 255, 0.8) !important; }
 :root.light .text-always-white\/90 { color: rgba(255, 255, 255, 0.9) !important; }
 :root.light .text-always-white\/80 { color: rgba(255, 255, 255, 0.8) !important; }
-/* Āwhina assistant panel — dark surface + white copy in all themes */
+/* Āwhina assistant panel — theme-aware surface */
 :root.light .awhina-panel {
-  background-color: rgba(10, 22, 40, 0.96) !important;
-  border-color: rgba(14, 165, 233, 0.35) !important;
+  background-color: var(--elevated) !important;
+  border-color: var(--card-border) !important;
+  color: var(--foreground);
+  box-shadow: var(--shadow-md);
 }
 :root.light .awhina-panel .awhina-panel-bubble {
-  background-color: rgba(0, 0, 0, 0.3) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background-color: var(--soft-card) !important;
+  border-color: var(--card-border) !important;
 }
 :root.light .awhina-panel .text-always-white,
 :root.light .awhina-panel .text-always-white\/90,
 :root.light .awhina-panel .text-always-white\/80,
 :root.light .awhina-panel .text-white {
-  color: #ffffff !important;
+  color: var(--foreground) !important;
 }
 
 /* Āwhina chat — dark surface + light copy in all themes (fixes light-mode global text flips) */
@@ -757,11 +804,25 @@ select:focus-visible {
 }
 
 :root.light .awhina-chat {
-  --awhina-chat-bg: rgba(10, 22, 40, 0.98);
-  --awhina-chat-surface: rgba(8, 18, 34, 0.96);
-  --awhina-chat-placeholder: #94a3b8;
+  /* Premium light creation chat — dark type on soft canvas, cyan accents only */
+  --awhina-chat-bg: #f3f4f6;
+  --awhina-chat-surface: #ffffff;
+  --awhina-chat-text: #0c0d10;
+  --awhina-chat-text-muted: #475569;
+  --awhina-chat-text-subtle: #526074;
+  --awhina-chat-accent: #0284c7;
+  --awhina-chat-accent-strong: #0ea5e9;
+  --awhina-chat-accent-muted: rgba(2, 132, 199, 0.8);
+  --awhina-chat-input-bg: #ffffff;
+  --awhina-chat-input-border: rgba(15, 23, 42, 0.14);
+  --awhina-chat-placeholder: #64748b;
+  --awhina-chat-chip-bg: rgba(14, 165, 233, 0.08);
+  --awhina-chat-assistant-bg: transparent;
+  --awhina-chat-user-bg: rgba(15, 23, 42, 0.06);
+  --awhina-chat-history-bg: #eceef2;
   background-color: var(--awhina-chat-bg) !important;
-  border-color: rgba(14, 165, 233, 0.35) !important;
+  border-color: var(--card-border) !important;
+  color: var(--awhina-chat-text);
 }
 
 .awhina-chat-shell {
@@ -776,7 +837,13 @@ select:focus-visible {
   background: linear-gradient(to bottom, rgba(16, 185, 129, 0.08), rgba(10, 22, 40, 0.95)) !important;
 }
 
+:root.light .awhina-chat-listing-preview {
+  background: linear-gradient(to bottom, rgba(5, 150, 105, 0.06), #ffffff) !important;
+  border-color: var(--card-border) !important;
+}
+
 :root.light .awhina-chat .text-white,
+:root.light .awhina-chat .text-zinc-50,
 :root.light .awhina-chat .text-zinc-100,
 :root.light .awhina-chat .text-zinc-200,
 :root.light .awhina-chat .text-zinc-300,
@@ -787,14 +854,23 @@ select:focus-visible {
 }
 
 :root.light .awhina-chat .text-always-white\/90 {
-  color: rgba(244, 244, 245, 0.92) !important;
+  color: var(--awhina-chat-text-muted) !important;
 }
 
 :root.light .awhina-chat .text-zinc-400,
 :root.light .awhina-chat .text-zinc-500,
 :root.light .awhina-chat .text-zinc-600,
-:root.light .awhina-chat .text-zinc-700 {
+:root.light .awhina-chat .text-zinc-700,
+:root.light .awhina-chat .placeholder\:text-zinc-600::placeholder {
   color: var(--awhina-chat-text-subtle) !important;
+}
+
+/* Force readable assistant/user copy even when dark utility classes remain */
+:root.light .awhina-chat .rounded-2xl.text-zinc-50,
+:root.light .awhina-chat .rounded-2xl.text-white,
+:root.light .awhina-chat p,
+:root.light .awhina-chat .leading-relaxed {
+  color: var(--awhina-chat-text) !important;
 }
 
 :root.light .awhina-chat .text-sky-200,
@@ -824,26 +900,46 @@ select:focus-visible {
   border-color: var(--awhina-chat-input-border) !important;
 }
 
+:root.light .awhina-chat textarea:focus,
+:root.light .awhina-chat input[type="text"]:focus {
+  border-color: var(--accent-primary) !important;
+  box-shadow: var(--shadow-focus) !important;
+}
+
 :root.light .awhina-chat textarea::placeholder,
 :root.light .awhina-chat input::placeholder {
   color: var(--awhina-chat-placeholder) !important;
   opacity: 1 !important;
 }
 
+/* Composer + soft surfaces in light chat */
 :root.light .awhina-chat .bg-zinc-950,
 :root.light .awhina-chat .bg-zinc-950\/50,
 :root.light .awhina-chat .bg-zinc-950\/80,
+:root.light .awhina-chat .bg-zinc-950\/55,
+:root.light .awhina-chat .bg-zinc-950\/95,
 :root.light .awhina-chat .bg-zinc-800,
 :root.light .awhina-chat .bg-black\/20,
 :root.light .awhina-chat .bg-black\/25,
+:root.light .awhina-chat.awhina-chat-shell {
+  background-color: var(--awhina-chat-bg) !important;
+}
+
+:root.light .awhina-chat .awhina-chat-surface {
+  background-color: var(--awhina-chat-surface) !important;
+}
+
 :root.light .awhina-chat .bg-white\/\[0\.02\],
 :root.light .awhina-chat .bg-white\/\[0\.03\],
 :root.light .awhina-chat .bg-white\/\[0\.04\],
-:root.light .awhina-chat .bg-white\/\[0\.05\],
+:root.light .awhina-chat .bg-white\/\[0\.05\] {
+  background-color: var(--awhina-chat-surface) !important;
+}
+
 :root.light .awhina-chat .bg-white\/\[0\.06\],
 :root.light .awhina-chat .bg-white\/\[0\.08\],
 :root.light .awhina-chat .bg-white\/\[0\.10\] {
-  background-color: var(--awhina-chat-input-bg) !important;
+  background-color: var(--awhina-chat-user-bg) !important;
 }
 
 :root.light .awhina-chat .bg-sky-500\/\[0\.04\],
@@ -858,7 +954,8 @@ select:focus-visible {
 
 :root.light .awhina-chat .from-sky-500\/25,
 :root.light .awhina-chat .to-sky-600\/15 {
-  background-image: linear-gradient(to bottom right, rgba(14, 165, 233, 0.28), rgba(2, 132, 199, 0.18)) !important;
+  background-image: none !important;
+  background-color: var(--awhina-chat-user-bg) !important;
 }
 
 :root.light .awhina-chat .border-white\/\[0\.04\],
@@ -866,24 +963,36 @@ select:focus-visible {
 :root.light .awhina-chat .border-white\/\[0\.06\],
 :root.light .awhina-chat .border-white\/\[0\.08\],
 :root.light .awhina-chat .border-white\/\[0\.10\],
-:root.light .awhina-chat .border-white\/\[0\.12\] {
-  border-color: rgba(255, 255, 255, 0.1) !important;
+:root.light .awhina-chat .border-white\/\[0\.12\],
+:root.light .awhina-chat .border-l,
+:root.light .awhina-chat.border-l {
+  border-color: var(--card-border) !important;
+}
+
+:root.light .awhina-chat .ring-white\/\[0\.08\],
+:root.light .awhina-chat .ring-1 {
+  --tw-ring-color: rgba(15, 23, 42, 0.08);
 }
 
 :root.light .awhina-chat .from-sky-500.to-sky-500,
 :root.light .awhina-chat .from-sky-500.to-sky-400,
-:root.light .awhina-chat .from-emerald-500.to-emerald-600 {
+:root.light .awhina-chat .from-emerald-500.to-emerald-600,
+:root.light .awhina-chat .bg-sky-500,
+:root.light .awhina-chat button.bg-sky-500 {
   color: #ffffff !important;
 }
 
-:root.light .awhina-chat .from-emerald-500.to-emerald-600 .text-always-white {
+:root.light .awhina-chat .from-emerald-500.to-emerald-600 .text-always-white,
+:root.light .awhina-chat .bg-sky-500 .text-white,
+:root.light .awhina-chat button.bg-sky-500 * {
   color: #ffffff !important;
 }
 
 :root.light .awhina-chat-fab-tooltip {
-  background-color: rgba(10, 22, 40, 0.96) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  color: #ffffff !important;
+  background-color: var(--dropdown-bg) !important;
+  border-color: var(--card-border) !important;
+  color: var(--foreground) !important;
+  box-shadow: var(--shadow-md);
 }
 
 /* FAB speed dial — light surfaces (global text flips turn white copy black on dark pills) */
@@ -1129,43 +1238,43 @@ select:focus-visible {
 }
 
 /* Header dropdown menus — light panel + dark text (header forces white on all descendants) */
-:root.light header .app-menu-panel,
-:root.light header .app-menu-panel * {
+:root.light header.site-navbar .app-menu-panel,
+:root.light header.site-navbar .app-menu-panel * {
   color: var(--foreground) !important;
 }
-:root.light header .app-menu-panel .text-red-500,
-:root.light header .app-menu-panel .text-red-500 * {
+:root.light header.site-navbar .app-menu-panel .text-red-500,
+:root.light header.site-navbar .app-menu-panel .text-red-500 * {
   color: #ef4444 !important;
 }
-:root.light header .app-menu-panel .text-sky-500,
-:root.light header .app-menu-panel .text-sky-500 * {
+:root.light header.site-navbar .app-menu-panel .text-sky-500,
+:root.light header.site-navbar .app-menu-panel .text-sky-500 * {
   color: #0ea5e9 !important;
 }
-:root.light header .app-menu-panel .bg-white\/\[0\.04\] {
+:root.light header.site-navbar .app-menu-panel .bg-white\/\[0\.04\] {
   background-color: rgba(0, 0, 0, 0.04) !important;
 }
-:root.light header .app-menu-panel .hover\:bg-white\/\[0\.06\]:hover,
-:root.light header .app-menu-panel .active\:bg-white\/\[0\.08\]:active {
+:root.light header.site-navbar .app-menu-panel .hover\:bg-white\/\[0\.06\]:hover,
+:root.light header.site-navbar .app-menu-panel .active\:bg-white\/\[0\.08\]:active {
   background-color: rgba(0, 0, 0, 0.06) !important;
 }
-:root.light header .app-menu-panel .bg-red-500\/10 {
+:root.light header.site-navbar .app-menu-panel .bg-red-500\/10 {
   background-color: rgba(239, 68, 68, 0.1) !important;
 }
-:root.light header .app-menu-panel .hover\:bg-red-500\/10:hover {
+:root.light header.site-navbar .app-menu-panel .hover\:bg-red-500\/10:hover {
   background-color: rgba(239, 68, 68, 0.12) !important;
 }
-:root.light header .app-menu-panel .bg-sky-500\/10 {
+:root.light header.site-navbar .app-menu-panel .bg-sky-500\/10 {
   background-color: rgba(14, 165, 233, 0.1) !important;
 }
 
 /* Navbar icon buttons — keep subtle light overlays on dark header */
-:root.light header a.rounded-xl.bg-white\/\[0\.08\],
-:root.light header .bg-white\/\[0\.08\] {
+:root.light header.site-navbar a.rounded-xl.bg-white\/\[0\.08\],
+:root.light header.site-navbar .bg-white\/\[0\.08\] {
   background-color: rgba(255, 255, 255, 0.1) !important;
 }
-:root.light header a.rounded-xl.hover\:bg-white\/\[0\.06\]:hover,
-:root.light header button.rounded-xl.hover\:bg-white\/\[0\.06\]:hover,
-:root.light header .hover\:bg-white\/\[0\.06\]:hover {
+:root.light header.site-navbar a.rounded-xl.hover\:bg-white\/\[0\.06\]:hover,
+:root.light header.site-navbar button.rounded-xl.hover\:bg-white\/\[0\.06\]:hover,
+:root.light header.site-navbar .hover\:bg-white\/\[0\.06\]:hover {
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
@@ -1235,25 +1344,26 @@ select:focus-visible {
   filter: saturate(1.05);
 }
 
-:root.light .text-white\/95 { color: #000000 !important; }
-:root.light header .text-white\/95 { color: #ffffff !important; }
-:root.light .text-white\/90 { color: #000000 !important; }
-:root.light header .text-white\/90 { color: #ffffff !important; }
-:root.light .text-white\/80 { color: #000000 !important; }
-:root.light header .text-white\/80 { color: #ffffff !important; }
-:root.light .text-white\/70 { color: #000000 !important; }
-:root.light header .text-white\/70 { color: #ffffff !important; }
-:root.light .text-white\/60 { color: #000000 !important; }
-:root.light header .text-white\/60 { color: #ffffff !important; }
-:root.light .text-white\/50 { color: #000000 !important; }
-:root.light header .text-white\/50 { color: #ffffff !important; }
-:root.light .text-white\/40 { color: #000000 !important; }
-:root.light header .text-white\/40 { color: #ffffff !important; }
-:root.light .text-white\/30 { color: #000000 !important; }
-:root.light header .text-white\/30 { color: #ffffff !important; }
-:root.light .text-white\/20 { color: #000000 !important; }
-:root.light .text-white\/10 { color: #000000 !important; }
+:root.light .text-white\/95 { color: var(--foreground) !important; }
+:root.light header.site-navbar .text-white\/95 { color: #ffffff !important; }
+:root.light .text-white\/90 { color: var(--foreground) !important; }
+:root.light header.site-navbar .text-white\/90 { color: #ffffff !important; }
+:root.light .text-white\/80 { color: var(--text-secondary) !important; }
+:root.light header.site-navbar .text-white\/80 { color: #ffffff !important; }
+:root.light .text-white\/70 { color: var(--text-secondary) !important; }
+:root.light header.site-navbar .text-white\/70 { color: #ffffff !important; }
+:root.light .text-white\/60 { color: var(--muted) !important; }
+:root.light header.site-navbar .text-white\/60 { color: #ffffff !important; }
+:root.light .text-white\/50 { color: var(--muted) !important; }
+:root.light header.site-navbar .text-white\/50 { color: #ffffff !important; }
+:root.light .text-white\/40 { color: var(--muted) !important; }
+:root.light header.site-navbar .text-white\/40 { color: #ffffff !important; }
+:root.light .text-white\/30 { color: var(--muted) !important; }
+:root.light header.site-navbar .text-white\/30 { color: #ffffff !important; }
+:root.light .text-white\/20 { color: var(--muted) !important; }
+:root.light .text-white\/10 { color: var(--muted) !important; }
 /* Preserve muted hierarchy — do not flatten all grays to pure black */
+:root.light .text-zinc-50,
 :root.light .text-zinc-100,
 :root.light .text-zinc-200,
 :root.light .text-zinc-300 { color: var(--foreground) !important; }
@@ -1311,9 +1421,24 @@ select:focus-visible {
 :root.light .text-blue-500,
 :root.light .text-blue-600 { color: #1d4ed8 !important; }
 :root.light .text-sky-300,
-:root.light .text-sky-400 { color: #0284c7 !important; }
+:root.light .text-sky-400 { color: #0369a1 !important; }
 :root.light .text-sky-500,
-:root.light .text-sky-600 { color: #0369a1 !important; }
+:root.light .text-sky-600 { color: #0284c7 !important; }
+
+/* Selected type / accent chips — readable cyan on soft tint, never washed white */
+:root.light button.bg-sky-500\/15,
+:root.light button.bg-sky-500\/10,
+:root.light button.bg-sky-500\/20 {
+  background-color: rgba(14, 165, 233, 0.12) !important;
+  color: #0c4a6e !important;
+}
+:root.light button.ring-sky-500\/35,
+:root.light button.ring-1.ring-sky-500\/35 {
+  --tw-ring-color: rgba(14, 165, 233, 0.45);
+}
+:root.light button.text-sky-300 {
+  color: #0c4a6e !important;
+}
 :root.light .text-cyan-300,
 :root.light .text-cyan-400 { color: #0891b2 !important; }
 :root.light .text-cyan-500,
@@ -1361,28 +1486,28 @@ select:focus-visible {
 :root.light .hover\:text-zinc-300:hover,
 :root.light .hover\:text-zinc-400:hover,
 :root.light .hover\:text-zinc-500:hover { color: #000000 !important; }
-:root.light header {
+:root.light header.site-navbar {
   border-bottom-color: rgba(14, 165, 233, 0.2) !important;
   background: rgba(10, 22, 40, 0.97) !important;
 }
-:root.light header *,
-:root.light header * *,
-:root.light header button,
-:root.light header button *,
-:root.light header a,
-:root.light header a *,
-:root.light header span,
-:root.light header div,
-:root.light header svg {
+:root.light header.site-navbar *,
+:root.light header.site-navbar * *,
+:root.light header.site-navbar button,
+:root.light header.site-navbar button *,
+:root.light header.site-navbar a,
+:root.light header.site-navbar a *,
+:root.light header.site-navbar span,
+:root.light header.site-navbar div,
+:root.light header.site-navbar svg {
   color: #ffffff !important;
 }
-:root.light header input,
-:root.light header textarea {
+:root.light header.site-navbar input,
+:root.light header.site-navbar textarea {
   color: #ffffff !important;
 }
 /* Logout button stays red */
-:root.light header button.text-red-400,
-:root.light header button.text-red-400 * {
+:root.light header.site-navbar button.text-red-400,
+:root.light header.site-navbar button.text-red-400 * {
   color: #f87171 !important;
 }
 :root.light .from-white { --tw-gradient-from: #000000 !important; }
@@ -1391,29 +1516,37 @@ select:focus-visible {
 :root.light .from-orange-500\/\[0\.04\] { --tw-gradient-from: rgba(14, 165, 233, 0.08) !important; }
 
 /* ── LIGHT INPUTS / SELECTS ── */
-:root.light input,
+:root.light input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
 :root.light textarea,
 :root.light select {
-  background-color: #ffffff !important;
-  border-color: rgba(0, 0, 0, 0.14) !important;
-  color: #000000 !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  background-color: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--foreground) !important;
+  box-shadow: none !important;
 }
-:root.light input:hover,
+:root.light input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):hover,
 :root.light textarea:hover,
 :root.light select:hover {
-  border-color: rgba(14, 165, 233, 0.35) !important;
+  border-color: var(--border-strong) !important;
 }
-:root.light input:focus,
+:root.light input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus,
 :root.light textarea:focus,
 :root.light select:focus {
-  border-color: #0ea5e9 !important;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.16) !important;
+  border-color: var(--accent-primary) !important;
+  box-shadow: var(--shadow-focus) !important;
+}
+:root.light input:disabled,
+:root.light textarea:disabled,
+:root.light select:disabled {
+  background-color: var(--soft-card) !important;
+  color: var(--muted) !important;
+  opacity: 0.72;
+  cursor: not-allowed;
 }
 :root.light input::placeholder,
 :root.light textarea::placeholder {
-  color: #000000 !important;
-  opacity: 0.5 !important;
+  color: var(--muted) !important;
+  opacity: 0.85 !important;
 }
 
 /* Hero search — clean single-field focus (no stacked glow layers) */
@@ -1446,15 +1579,15 @@ select:focus-visible {
 }
 
 :root.light .hero-search-field {
-  background: #ffffff !important;
-  border-color: rgba(0, 0, 0, 0.1) !important;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  background: var(--card) !important;
+  border-color: var(--input-border) !important;
+  box-shadow: var(--shadow-xs) !important;
 }
 
 :root.light .hero-search-field:focus-within {
-  border-color: #0ea5e9 !important;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1) !important;
-  background: #ffffff !important;
+  border-color: var(--accent-primary) !important;
+  box-shadow: var(--shadow-focus) !important;
+  background: var(--card) !important;
 }
 
 :root.light .hero-search-input:focus,
@@ -1464,33 +1597,51 @@ select:focus-visible {
 }
 
 :root.light .hero-search-pills button {
-  border-color: rgba(0, 0, 0, 0.1) !important;
+  border-color: var(--card-border) !important;
 }
 
 :root.light .hero-search-pills button.border-sky-400\/30 {
   border-color: rgba(14, 165, 233, 0.28) !important;
   background-color: rgba(14, 165, 233, 0.08) !important;
-  color: #0369a1 !important;
+  color: var(--accent-star) !important;
 }
 
 :root.light section select option {
-  background-color: #ffffff !important;
-  color: #000000 !important;
+  background-color: var(--card) !important;
+  color: var(--foreground) !important;
 }
 
 /* ── FIX FIELD INPUT CLASS IN LIGHT MODE ── */
 :root.light .w-full.rounded-xl.border.border-white\/\[0\.08\].bg-black\/20 {
-  background-color: #ffffff !important;
-  color: #000000 !important;
+  background-color: var(--input-bg) !important;
+  color: var(--foreground) !important;
+  border-color: var(--input-border) !important;
 }
 :root.light .w-full.rounded-xl.border.border-white\/\[0\.08\].bg-black\/20::placeholder {
-  color: #000000 !important;
-  opacity: 0.5 !important;
+  color: var(--muted) !important;
+  opacity: 0.85 !important;
+}
+
+/* Shared modal / dropdown language */
+.app-modal,
+.app-menu-panel {
+  background: var(--modal-bg);
+  border-color: var(--card-border);
+  box-shadow: var(--shadow-lg);
+  color: var(--foreground);
+}
+
+:root.light .app-modal,
+:root.light .app-menu-panel {
+  background: var(--dropdown-bg);
 }
 
 /* ── FIX LOADING OVERLAYS IN LIGHT MODE ── */
-:root.light .bg-black\/60 {
-  background-color: rgba(0, 0, 0, 0.4) !important;
+:root.light .fixed.inset-0.bg-black\/60,
+:root.light [role="dialog"] .bg-black\/60,
+:root.light .bg-black\/60.backdrop-blur,
+:root.light .bg-black\/60.backdrop-blur-sm {
+  background-color: var(--overlay-backdrop) !important;
 }
 
 /* ── PREMIUM HOMEPAGE LIGHT MODE ── */
@@ -1525,11 +1676,11 @@ select:focus-visible {
   color: #0284c7 !important;
 }
 
-:root.light header .text-sky-200,
-:root.light header .text-sky-300,
-:root.light header .text-sky-400,
-:root.light header .text-sky-500,
-:root.light header .text-accent {
+:root.light header.site-navbar .text-sky-200,
+:root.light header.site-navbar .text-sky-300,
+:root.light header.site-navbar .text-sky-400,
+:root.light header.site-navbar .text-sky-500,
+:root.light header.site-navbar .text-accent {
   color: #ffffff !important;
 }
 
@@ -1546,16 +1697,16 @@ select:focus-visible {
 /* ── PILLS / CHIPS ── */
 :root.light .rounded-full.bg-zinc-800,
 :root.light span.rounded-full.bg-zinc-800 {
-  background-color: #f0f0f0 !important;
-  color: #000000 !important;
-  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  background-color: var(--pill-bg) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--card-border) !important;
 }
 
 :root.light .bg-zinc-800\/60.rounded-full,
 :root.light [class*="rounded-full"].bg-zinc-800 {
-  background-color: #f0f0f0 !important;
-  color: #000000 !important;
-  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  background-color: var(--pill-bg) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--card-border) !important;
 }
 
 /* White text on filled/colored buttons and badges in light mode */
@@ -1591,25 +1742,25 @@ select:focus-visible {
 
 /* ── SPECIFIC CONTEXT OVERRIDES ── */
 :root.light .bg-\[var\(--soft-card\)\] {
-  background-color: #f0f7ff !important;
+  background-color: var(--soft-card) !important;
 }
 
 :root.light .bg-\[var\(--card\)\] {
-  background-color: #ffffff !important;
+  background-color: var(--card) !important;
 }
 
 /* ── BORDER RADIUS CARDS IN HERO ── */
 :root.light section > .rounded-3xl.border {
-  background: #ffffff !important;
-  border-color: rgba(14, 165, 233, 0.14) !important;
-  box-shadow: 0 2px 12px rgba(10, 22, 40, 0.06) !important;
+  background: var(--card) !important;
+  border-color: var(--card-border) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
 /* ── PREMIUM CARD STYLING — uses --lc-* tokens (see listing card design system) ── */
 
 /* ── SELLER TRUST CARDS ── */
 :root.light .bg-zinc-800\/20 {
-  background-color: rgba(224, 242, 254, 0.65) !important;
+  background-color: var(--soft-card) !important;
 }
 
 /* ── OFFER CARDS ── */
@@ -1619,31 +1770,30 @@ select:focus-visible {
 :root.light .bg-red-500\/10 { background-color: rgba(239, 68, 68, 0.08) !important; }
 :root.light .bg-red-900\/20 { background-color: rgba(239, 68, 68, 0.06) !important; }
 
-/* ── MESSAGE BUBBLES ── */
 :root.light .bg-sky-500\/15 {
-  background-color: rgba(14, 165, 233, 0.1) !important;
+  background-color: rgba(14, 165, 233, 0.12) !important;
 }
 
-/* ── TOGGLE BUTTON ── */
-:root.light .bg-black\/60 {
-  background-color: #f0f7ff !important;
-  border-color: rgba(14, 165, 233, 0.18) !important;
-}
+/* ── TOGGLE / FLOATING CONTROLS handled via overlay tokens above ── */
 
 /* ── FOOTER / BOTTOM BARS ── */
 :root.light .border-t.border-zinc-800 {
-  border-top-color: rgba(14, 165, 233, 0.14) !important;
+  border-top-color: var(--card-border) !important;
 }
 
 :root.light footer {
-  background-color: #ffffff !important;
-  border-top: 1px solid rgba(0, 0, 0, 0.12) !important;
-  color: #000000 !important;
+  background-color: var(--card) !important;
+  border-top: 1px solid var(--card-border) !important;
+  color: var(--foreground) !important;
 }
 
 :root.light footer a,
 :root.light footer p {
-  color: #000000 !important;
+  color: var(--text-secondary) !important;
+}
+
+:root.light footer a:hover {
+  color: var(--accent-primary) !important;
 }
 
 /* ── PREMIUM SCROLLBAR ── */
@@ -1653,21 +1803,21 @@ select:focus-visible {
 }
 
 :root.light ::-webkit-scrollbar-track {
-  background: rgba(14, 165, 233, 0.06);
+  background: rgba(15, 23, 42, 0.04);
 }
 
 :root.light ::-webkit-scrollbar-thumb {
-  background: rgba(14, 165, 233, 0.28);
+  background: rgba(15, 23, 42, 0.18);
   border-radius: 4px;
 }
 
 :root.light ::-webkit-scrollbar-thumb:hover {
-  background: rgba(2, 132, 199, 0.42);
+  background: rgba(15, 23, 42, 0.28);
 }
 
 /* ── SCROLLBAR LIGHT MODE ── */
 :root.light .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(14, 165, 233, 0.22);
+  background: rgba(15, 23, 42, 0.2);
 }
 
 /* ── FADE IN TRANSITION ── */
@@ -2162,10 +2312,10 @@ select:focus-visible {
   color: #f4f4f5;
 }
 :root.light .login-page-card {
-  background: #ffffff;
-  border-color: #d6ecff;
-  box-shadow: 0 2px 8px rgba(10, 22, 40, 0.06), 0 8px 24px rgba(14, 165, 233, 0.08);
-  color: #111827;
+  background: var(--card);
+  border-color: var(--card-border);
+  box-shadow: var(--shadow-md);
+  color: var(--foreground);
 }
 
 .login-page-title {
@@ -2222,16 +2372,16 @@ select:focus-visible {
   box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
 }
 :root.light .login-page-input {
-  background: #ffffff;
-  border-color: #d6ecff;
-  color: #111827;
+  background: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--foreground);
 }
 :root.light .login-page-input::placeholder {
-  color: #9ca3af;
+  color: var(--muted);
 }
 :root.light .login-page-input:focus {
-  border-color: #0ea5e9;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-focus);
 }
 
 .login-page-btn-primary {
@@ -2264,12 +2414,12 @@ select:focus-visible {
   color: #ffffff;
 }
 :root.light .login-page-btn-secondary {
-  border-color: #d6ecff;
-  color: #374151;
+  border-color: var(--card-border);
+  color: var(--text-secondary);
 }
 :root.light .login-page-btn-secondary:hover {
-  background: #f0f9ff;
-  color: #111827;
+  background: var(--card-hover);
+  color: var(--foreground);
 }
 
 .login-page-modal {
@@ -2284,9 +2434,9 @@ select:focus-visible {
   box-shadow: 0 0 24px rgba(14, 165, 233, 0.08);
 }
 :root.light .login-kyc-callout {
-  background: #f0f9ff;
-  border-color: #bae6fd;
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.06);
+  background: var(--soft-card);
+  border-color: var(--card-border);
+  box-shadow: var(--shadow-xs);
 }
 
 .login-kyc-title {
@@ -2308,8 +2458,8 @@ select:focus-visible {
   background: rgba(0, 0, 0, 0.25);
 }
 :root.light .login-kyc-upload {
-  border-color: #d6ecff;
-  background: #ffffff;
+  border-color: var(--input-border);
+  background: var(--input-bg);
 }
 
 .login-kyc-label {
@@ -2324,9 +2474,9 @@ select:focus-visible {
   border-color: #3f3f46;
 }
 :root.light .login-page-modal {
-  background: #ffffff;
-  border-color: #d6ecff;
-  box-shadow: 0 8px 32px rgba(10, 22, 40, 0.12);
+  background: var(--modal-bg);
+  border-color: var(--card-border);
+  box-shadow: var(--shadow-lg);
 }
 
 /* ── CUSTOM SCROLLBAR ── */
@@ -2486,19 +2636,19 @@ select:focus-visible {
 }
 
 /* FORCE ALL NAVBAR TEXT WHITE IN LIGHT MODE */
-:root.light header *,
-:root.light header button,
-:root.light header a,
-:root.light header span,
-:root.light header div,
-:root.light header svg,
-:root.light header p {
+:root.light header.site-navbar *,
+:root.light header.site-navbar button,
+:root.light header.site-navbar a,
+:root.light header.site-navbar span,
+:root.light header.site-navbar div,
+:root.light header.site-navbar svg,
+:root.light header.site-navbar p {
   color: #ffffff !important;
 }
 /* Logout button exception - keep red */
-:root.light header button.text-red-400,
-:root.light header button.text-red-400 *,
-:root.light header .text-red-400,
-:root.light header .text-red-400 * {
+:root.light header.site-navbar button.text-red-400,
+:root.light header.site-navbar button.text-red-400 *,
+:root.light header.site-navbar .text-red-400,
+:root.light header.site-navbar .text-red-400 * {
   color: #f87171 !important;
 }
