@@ -107,7 +107,8 @@ export function mergeKnowledgeHintsIntoFill<T extends Record<string, unknown>>(
   hints: MarketplaceListingHints,
   opts?: { allowTitle?: boolean }
 ): T {
-  const out = { ...fill } as T & Record<string, unknown>;
+  // Mutable plain record — avoid assigning through generic indexed access (TS2783).
+  const out: Record<string, unknown> = { ...fill };
   const set = (key: string, value: unknown) => {
     if (value == null || value === "") return;
     const cur = out[key];
