@@ -423,6 +423,125 @@ describe("category-aware description snapshots", () => {
       )
     ).toBe(true);
   });
+
+  it("rejects physical field-stitch available repetition", () => {
+    expect(
+      isRoboticListingDescription(
+        "PlayStation 5 Console, brand new available. Available in Auckland, asking $500. Message if you're keen."
+      )
+    ).toBe(true);
+    expect(
+      passesListingDescriptionQualityGate(
+        "PlayStation 5 Console, brand new available. Available in Auckland, asking $500. Message if you're keen."
+      )
+    ).toBe(false);
+  });
+});
+
+describe("physical description natural prose regressions", () => {
+  function assertPhysicalNatural(desc: string, opts?: { allowAvailable?: boolean }) {
+    assertNaturalMarketplaceCopy(desc);
+    expect(desc).not.toMatch(/brand new available|good condition available|like-new available/i);
+    expect(desc).not.toMatch(/available\.\s*Available/i);
+    expect(desc).not.toMatch(/up for grabs/i);
+    expect(desc).not.toMatch(/Message if you're keen/i);
+    const availableCount = (desc.match(/\bavailable\b/gi) || []).length;
+    if (!opts?.allowAvailable) {
+      expect(availableCount).toBeLessThanOrEqual(1);
+    }
+    expect((desc.match(/\basking\b/gi) || []).length).toBeLessThanOrEqual(1);
+    expect((desc.match(/\bmessage\b/gi) || []).length).toBeLessThanOrEqual(1);
+    expect((desc.match(/\bfor sale\b/gi) || []).length).toBeLessThanOrEqual(1);
+  }
+
+  it("PS5: merges condition/location/price into natural prose", () => {
+    const desc = buildListingDescriptionFromFacts({
+      title: "PlayStation 5 Console",
+      price: "500",
+      condition: "New",
+      location: "Auckland",
+      pickupAvailable: true,
+      category: "Gaming",
+      listingType: "physical",
+    });
+    expect(desc).toMatch(/brand new/i);
+    expect(desc).toMatch(/PlayStation\s*5/i);
+    expect(desc).toMatch(/Auckland/);
+    expect(desc).toMatch(/\$500/);
+    expect(desc).toMatch(/pickup/i);
+    expect(desc).toMatch(/message/i);
+    assertPhysicalNatural(desc);
+  });
+
+  it("iPhone: natural weave with pickup or shipping", () => {
+    const desc = buildListingDescriptionFromFacts({
+      title: "iPhone 15 Pro",
+      price: "900",
+      condition: "Used - Like New",
+      location: "Wellington",
+      pickupAvailable: true,
+      shippingAvailable: true,
+      category: "Tech",
+      listingType: "physical",
+    });
+    expect(desc).toMatch(/iPhone\s*15\s*Pro/i);
+    expect(desc).toMatch(/like-new|Wellington|\$900/i);
+    expect(desc).toMatch(/pickup/i);
+    expect(desc).toMatch(/shipping/i);
+    assertPhysicalNatural(desc);
+  });
+
+  it("couch: condition woven, not field-stitched", () => {
+    const desc = buildListingDescriptionFromFacts({
+      title: "3 Seater Couch",
+      price: "250",
+      condition: "Used - Good",
+      location: "Christchurch",
+      pickupAvailable: true,
+      shippingAvailable: false,
+      category: "Home",
+      listingType: "physical",
+    });
+    expect(desc).toMatch(/couch/i);
+    expect(desc).toMatch(/good used condition/i);
+    expect(desc).toMatch(/Christchurch/);
+    expect(desc).toMatch(/\$250/);
+    expect(desc).not.toMatch(/good used condition available/i);
+    assertPhysicalNatural(desc);
+  });
+
+  it("shoes: marketplace prose without template stubs", () => {
+    const desc = buildListingDescriptionFromFacts({
+      title: "Nike Air Force 1",
+      price: "80",
+      condition: "Used - Good",
+      location: "Auckland",
+      pickupAvailable: true,
+      category: "Fashion",
+      listingType: "physical",
+    });
+    expect(desc).toMatch(/Nike|Air Force/i);
+    expect(desc).toMatch(/Auckland/);
+    expect(desc).toMatch(/\$80/);
+    expect(desc).toMatch(/good used condition/i);
+    assertPhysicalNatural(desc);
+  });
+
+  it("cards: collectibles stay grounded and natural", () => {
+    const desc = buildListingDescriptionFromFacts({
+      title: "Pokemon Trading Cards Bundle",
+      price: "45",
+      condition: "Used - Good",
+      location: "Hamilton",
+      pickupAvailable: true,
+      category: "Gaming",
+      listingType: "physical",
+    });
+    expect(desc).toMatch(/Pokemon|Trading Cards|cards/i);
+    expect(desc).toMatch(/Hamilton/);
+    expect(desc).toMatch(/\$45/);
+    assertPhysicalNatural(desc);
+  });
 });
 
 describe("description quality suite — golden reference cases", () => {
@@ -756,9 +875,11 @@ describe("iPhone Hamilton natural seller copy", () => {
     expect(desc).toMatch(/iPhone\s*15\s*Pro/i);
     expect(desc).toMatch(/128\s*GB|128GB/i);
     expect(desc).toMatch(/good used condition/i);
-    expect(desc).toMatch(/Pickup is available in Hamilton/i);
+    expect(desc).toMatch(/Hamilton/i);
+    expect(desc).toMatch(/pickup/i);
     expect(desc).toMatch(/\$900/);
     expect(desc).toMatch(/message/i);
+    expect(desc).not.toMatch(/Pickup is available in/i);
     expect(desc).not.toMatch(META_PHRASE_SMELLS);
     expect(desc).not.toMatch(/Can do pickup|Available around/i);
     assertNaturalMarketplaceCopy(desc);

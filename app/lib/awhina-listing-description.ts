@@ -259,6 +259,64 @@ function polishParagraph(text: string): string {
   ).replace(/[.!?]?$/, (m) => m || ".");
 }
 
+/** Final grammar / stitch cleanup before return — never invent facts. */
+function finalGrammarCleanup(text: string): string {
+  let t = text;
+  // "brand new available" / "good condition available" → drop dangling available
+  t = t.replace(
+    /\b(brand new|like-new|good used condition|fair used condition)\s+available\b/gi,
+    "$1"
+  );
+  t = t.replace(
+    /\b,\s*(brand new|like-new|good used condition|fair used condition)\s+available\b/gi,
+    ", $1"
+  );
+  // "…. available. Available in X" → ". In X"
+  t = t.replace(/\bavailable\.\s*Available in\b/gi, ". In");
+  t = t.replace(/\bavailable\.\s*Available\b/gi, ".");
+  // "Pickup is available in" after an earlier available → "Pickup in"
+  t = t.replace(/\bPickup is available in\b/gi, "Pickup in");
+  t = t.replace(/\bShipping is available from\b/gi, "Shipping from");
+  t = t.replace(/\bPickup available\b/gi, "Pickup");
+  t = t.replace(/\s{2,}/g, " ");
+  t = t.replace(/\s+([,.;])/g, "$1");
+  return polishParagraph(t);
+}
+
+/**
+ * If "available" already appeared, rewrite later logistics so we don't stitch
+ * a second availability sentence.
+ */
+function collapseRepeatedAvailability(sentences: string[]): string[] {
+  let seenAvailable = false;
+  const out: string[] = [];
+  for (const s of sentences) {
+    if (!/\bavailable\b/i.test(s)) {
+      out.push(s);
+      continue;
+    }
+    if (!seenAvailable) {
+      seenAvailable = true;
+      out.push(s);
+      continue;
+    }
+    let rewritten = s
+      .replace(/\bPickup is available in\b/i, "Pickup in")
+      .replace(/\bShipping is available from\b/i, "Shipping from")
+      .replace(/\bPickup available\b/i, "Local pickup")
+      .replace(/^Available in\b/i, "In")
+      .replace(/\bavailable\b/gi, "")
+      .replace(/\s{2,}/g, " ")
+      .replace(/\s+([,.;])/g, "$1")
+      .trim();
+    if (!rewritten || /^[.!?]$/.test(rewritten)) continue;
+    rewritten = polishParagraph(rewritten);
+    if (/\bavailable\b/i.test(rewritten)) continue;
+    out.push(rewritten);
+  }
+  return out;
+}
+
 function splitSentences(text: string): string[] {
   return text
     .split(/(?<=[.!?])\s+/)
@@ -700,6 +758,42 @@ function countCtas(text: string): number {
   return splitSentences(text).filter((s) => classifySentence(s) === "cta").length;
 }
 
+/** Field-stitch / template smells for physical copy. */
+const AWKWARD_PHYSICAL_STITCH_RE =
+  /\b(brand new|like-new|good used condition|fair used condition)\s+available\b|\b,\s*(brand new|like-new|good used condition|fair used condition)\s+available\b|\bavailable\.\s*Available\b|\bup for grabs\b/i;
+
+/** True when the same marketplace filler word is used twice (field-stitch smell). */
+function hasSemanticWordRepetition(text: string): boolean {
+  const lower = text.toLowerCase();
+  for (const w of ["available", "asking", "located", "message"]) {
+    const re = new RegExp(`\\b${w}\\b`, "gi");
+    if ((lower.match(re) || []).length >= 2) return true;
+  }
+  if ((lower.match(/\bfor sale\b/gi) || []).length >= 2) return true;
+  return false;
+}
+
+/** Adjacent sentences repeating the same availability/price idea. */
+function hasAdjacentIdeaRepetition(sentences: string[]): boolean {
+  for (let i = 1; i < sentences.length; i++) {
+    const a = sentences[i - 1];
+    const b = sentences[i];
+    if (/\bavailable\b/i.test(a) && /\bavailable\b/i.test(b)) return true;
+    if (
+      classifySentence(a) === "price" &&
+      classifySentence(b) === "price"
+    ) {
+      return true;
+    }
+    // "…in Auckland…" then "Available in Auckland / Pickup is available in Auckland"
+    const locInA = a.match(/\bin\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/);
+    if (locInA && new RegExp(`\\bin\\s+${locInA[1]}\\b`, "i").test(b) && /\bavailable\b/i.test(b)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function isRoboticListingDescription(text: string | undefined | null): boolean {
   if (!text?.trim()) return true;
   const t = text.trim();
@@ -711,11 +805,14 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   if (IMPLY_CLAIMS_RE.test(t)) return true;
   if (SERVICE_INVENTION_RE.test(t)) return true;
   if (SERVICE_TEMPLATE_SMELL_RE.test(t)) return true;
+  if (AWKWARD_PHYSICAL_STITCH_RE.test(t)) return true;
+  if (hasSemanticWordRepetition(t)) return true;
   if (/\bOdometer:\s*/i.test(t) && /\bColour:\s*/i.test(t)) return true;
   if (/^Selling .+\.\s*Condition:/i.test(t)) return true;
   if (/^selling my .{1,40}$/i.test(t) && !/\n/.test(t)) return true;
   if (countCtas(t) > 1) return true;
   const sentences = splitSentences(t);
+  if (hasAdjacentIdeaRepetition(sentences)) return true;
   // Service sell copy must not open with buyer/wanted voice
   if (/^Looking for\b/i.test(sentences[0] || "") && !/\bwanted\b/i.test(t.slice(0, 40))) {
     // Only flag when it looks like a service offer (available / per job / per hour)
@@ -759,10 +856,12 @@ export function passesListingDescriptionQualityGate(
     SELLER_EDITOR_GUIDANCE_RE.test(t) ||
     IMPLY_CLAIMS_RE.test(t) ||
     SERVICE_INVENTION_RE.test(t) ||
-    SERVICE_TEMPLATE_SMELL_RE.test(t)
+    SERVICE_TEMPLATE_SMELL_RE.test(t) ||
+    AWKWARD_PHYSICAL_STITCH_RE.test(t)
   ) {
     return false;
   }
+  if (hasSemanticWordRepetition(t)) return false;
   if (t.includes("\n\n")) return false;
   if (countCtas(t) > 1) return false;
   const n = wordCount(t);
@@ -771,6 +870,7 @@ export function passesListingDescriptionQualityGate(
   if (n < min || n > 100) return false;
   const sentences = splitSentences(t);
   if (sentences.length < 1 || sentences.length > 5) return false;
+  if (hasAdjacentIdeaRepetition(sentences)) return false;
   return true;
 }
 
@@ -811,11 +911,20 @@ function defaultCta(facts: DescriptionFacts): string {
       "Get in touch if you can help.",
     ]);
   }
-  // physical
+  // physical — one warm CTA; weave pickup invite when that's the delivery mode
+  const pickup =
+    facts.delivery === "pickup" || facts.delivery === "pickup_only";
+  if (pickup) {
+    return pickVariant(seed, [
+      "Feel free to message me if you're interested or want to arrange pickup.",
+      "Message me if you're interested — happy to arrange pickup.",
+      "Message if you're interested or want to sort out pickup.",
+    ]);
+  }
   return pickVariant(seed, [
-    "Message if you're keen.",
+    "Feel free to message me if you're interested.",
+    "Message me if you're interested.",
     "Happy to answer questions — just message me.",
-    "Message if you have any questions.",
   ]);
 }
 
@@ -838,6 +947,7 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
   }
 
   sentences = semanticDedupe(sentences);
+  sentences = collapseRepeatedAvailability(sentences);
   sentences = enforceOneCta(sentences);
 
   const allowCta =
@@ -851,6 +961,7 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
     if (!hasCta) sentences.push(defaultCta(facts));
     sentences = enforceOneCta(sentences);
     sentences = semanticDedupe(sentences);
+    sentences = collapseRepeatedAvailability(sentences);
   } else if (!allowCta) {
     sentences = sentences.filter((s) => classifySentence(s) !== "cta");
   } else {
@@ -877,7 +988,7 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
     text = text.replace(/\b(authentic|genuine)\b/gi, "").replace(/\s{2,}/g, " ");
   }
 
-  text = polishParagraph(text);
+  text = finalGrammarCleanup(text);
 
   const sparse = facts.factRichness === "sparse";
   const maxWords = 90;
@@ -891,6 +1002,7 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
   sentences = splitSentences(text);
   sentences = stripBadSentences(sentences);
   sentences = semanticDedupe(sentences);
+  sentences = collapseRepeatedAvailability(sentences);
   sentences = enforceOneCta(sentences);
   if (
     allowCta &&
@@ -902,8 +1014,16 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
   } else if (!allowCta) {
     sentences = sentences.filter((s) => classifySentence(s) !== "cta");
   }
-  text = polishParagraph(sentences.join(" "));
+  text = finalGrammarCleanup(sentences.join(" "));
   text = trimToWords(text, maxWords);
+
+  // Last chance: if still stitching, force the safe physical/vehicle fallback
+  if (
+    !passesListingDescriptionQualityGate(text, { sparse }) ||
+    isRoboticListingDescription(text)
+  ) {
+    text = finalGrammarCleanup(safeFallbackDescription(facts));
+  }
 
   return text.slice(0, 8000);
 }
@@ -911,15 +1031,13 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
 /** Deterministic safe rewrite — no phrase banks, no stacking, no seller coaching. */
 function safeFallbackDescription(facts: DescriptionFacts): string {
   const parts: string[] = [];
-  const cond =
-    facts.conditionPhrase && !facts.titleHadCondition ? facts.conditionPhrase : null;
   const item = facts.item;
 
   if (facts.kind === "vehicle") {
     const colour = facts.vehicle?.colour;
     parts.push(
       polishParagraph(
-        `${colour ? `${colour} ` : ""}${item} available for sale${facts.location ? ` in ${facts.location}` : ""}.`
+        `${colour ? `${colour} ` : ""}${item}${facts.location ? ` in ${facts.location}` : " for sale"}.`
       )
     );
     const bits: string[] = [];
@@ -967,16 +1085,19 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
       )
     );
   } else {
-    const display =
-      facts.titleHadCondition && facts.conditionPhrase === "brand new"
-        ? `brand new ${item}`
-        : facts.titleHadCondition && facts.conditionPhrase === "like-new"
-          ? `like-new ${item}`
-          : item;
-    parts.push(polishParagraph(`${capFirst(display)}${cond ? ` in ${cond}` : ""}.`));
-    const logistics = logisticsSentence(facts, { includePrice: true });
-    if (logistics) parts.push(logistics);
-    else if (facts.money) parts.push(`Asking ${facts.money}.`);
+    // Physical: one natural lead sentence — never "Condition X. Available Y."
+    const noun = physicalNounPhrase(facts);
+    if (facts.location && facts.money) {
+      parts.push(
+        polishParagraph(`${capFirst(noun)} for sale in ${facts.location}, asking ${facts.money}.`)
+      );
+    } else if (facts.location) {
+      parts.push(polishParagraph(`${capFirst(noun)} for sale in ${facts.location}.`));
+    } else if (facts.money) {
+      parts.push(polishParagraph(`${capFirst(noun)}, asking ${facts.money}.`));
+    } else {
+      parts.push(polishParagraph(`${capFirst(noun)}.`));
+    }
   }
 
   if (facts.quality === "standard") {
@@ -985,105 +1106,77 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
     parts.push(defaultCta(facts));
   }
 
-  return polishParagraph(parts.filter(Boolean).join(" "));
-}
-
-/* ─── Logistics / price weaving ─────────────────────────────────────────── */
-
-function logisticsSentence(
-  facts: DescriptionFacts,
-  opts?: { includePrice?: boolean }
-): string | null {
-  const loc = facts.location;
-  const money = opts?.includePrice ? facts.money : null;
-  const d = facts.delivery;
-
-  if (d === "pickup_only" || d === "pickup") {
-    if (loc && money) {
-      return pickVariant(facts.seed + ":log", [
-        `Pickup is available in ${loc}, asking ${money}.`,
-        `Pickup is available in ${loc} for ${money}.`,
-        `Pickup is available in ${loc}, and I'm asking ${money}.`,
-      ]);
-    }
-    if (loc) return `Pickup is available in ${loc}.`;
-    if (money) return `Pickup available — asking ${money}.`;
-    return "Pickup is available.";
-  }
-  if (d === "pickup_or_shipping") {
-    if (loc && money) {
-      return `Pickup is available in ${loc}, or shipping can be arranged — asking ${money}.`;
-    }
-    if (loc) {
-      return `Pickup is available in ${loc}, or shipping can be arranged.`;
-    }
-    return money
-      ? `Pickup or shipping both fine — asking ${money}.`
-      : "Pickup or shipping both fine.";
-  }
-  if (d === "shipping") {
-    if (loc && money) return `Shipping is available from ${loc} — asking ${money}.`;
-    if (money) return `Shipping is available — asking ${money}.`;
-    return loc ? `Shipping is available from ${loc}.` : "Shipping is available.";
-  }
-  if (loc && money) {
-    return pickVariant(facts.seed + ":locp", [
-      `Available in ${loc}, asking ${money}.`,
-      `In ${loc}, asking ${money}.`,
-      `Asking ${money} in ${loc}.`,
-    ]);
-  }
-  if (loc) return `Available in ${loc}.`;
-  if (money) return `Asking ${money}.`;
-  return null;
+  return finalGrammarCleanup(parts.filter(Boolean).join(" "));
 }
 
 /* ─── Step 2: type-specific writers ─────────────────────────────────────── */
 
+/** Weave condition into the noun phrase once — never as a trailing field stub. */
+function physicalNounPhrase(facts: DescriptionFacts): string {
+  const item = facts.item;
+  const cond = facts.conditionPhrase;
+  if (!cond) return item;
+  if (/brand new/i.test(cond)) return `brand new ${item}`;
+  if (/like-new/i.test(cond)) return `like-new ${item}`;
+  return `${item} in ${cond}`;
+}
+
 function writePhysical(facts: DescriptionFacts): string {
   const seed = facts.seed;
-  const cond =
-    facts.conditionPhrase && !facts.titleHadCondition ? facts.conditionPhrase : null;
-  const item = facts.item;
-  const display =
-    facts.titleHadCondition && /brand new/i.test(facts.conditionPhrase || "")
-      ? `brand new ${item}`
-      : facts.titleHadCondition && /like-new/i.test(facts.conditionPhrase || "")
-        ? `like-new ${item}`
-        : item;
+  const noun = physicalNounPhrase(facts);
+  const loc = facts.location;
+  const money = facts.money;
+  const d = facts.delivery;
+  const struct = hashSeed(seed + ":struct") % 3;
+  const parts: string[] = [];
 
-  // Controlled opener variation — structure only, not CTA soup
-  const structure = hashSeed(seed + ":struct") % 3;
+  // One lead sentence: merge condition + item + place + price (no field stitching)
   let opener: string;
-  if (facts.style === "gaming") {
-    opener = pickVariant(seed + ":open", [
-      `${capFirst(display)}${cond ? `, ${cond}` : ""} available.`,
-      `${capFirst(display)} up for grabs${cond ? `, ${cond}` : ""}.`,
-      `Got a ${display}${cond ? ` in ${cond}` : ""}.`,
-    ]);
-  } else if (facts.style === "furniture") {
-    opener = pickVariant(seed + ":open", [
-      `${item}${cond ? ` in ${cond}` : ""}.`,
-      `${item}${cond ? `, ${cond}` : ""} available.`,
-      `${capFirst(item)}${cond ? ` in ${cond}` : ""}.`,
-    ]);
-  } else if (structure === 0) {
-    opener = `${capFirst(display)}${cond ? ` in ${cond}` : ""}.`;
-  } else if (structure === 1) {
-    opener = `${capFirst(display)}${cond ? `, ${cond}` : ""}.`;
+  if (loc && money) {
+    if (struct === 0) {
+      opener = `${capFirst(noun)} for sale in ${loc}, asking ${money}.`;
+    } else if (struct === 1) {
+      opener = `${capFirst(noun)} for sale in ${loc} for ${money}.`;
+    } else {
+      opener = `${capFirst(noun)} in ${loc}, asking ${money}.`;
+    }
+  } else if (loc) {
+    opener =
+      struct === 0
+        ? `${capFirst(noun)} for sale in ${loc}.`
+        : `${capFirst(noun)} in ${loc}.`;
+  } else if (money) {
+    opener =
+      struct === 0
+        ? `${capFirst(noun)}, asking ${money}.`
+        : `${capFirst(noun)} for sale, asking ${money}.`;
   } else {
-    opener = `${capFirst(display)}${cond ? ` in ${cond}` : ""} available.`;
+    opener = `${capFirst(noun)}.`;
   }
+  parts.push(polishParagraph(opener));
 
-  const parts: string[] = [polishParagraph(opener)];
-
-  // Avoid repeating location in opener+logistics when pickup carries location
-  const logistics = logisticsSentence(facts, { includePrice: true });
-  if (logistics) parts.push(logistics);
-  else if (facts.money) parts.push(`Asking ${facts.money}.`);
+  // Delivery only when it adds a real option — never "Available in X, asking Y"
+  if (d === "pickup_or_shipping") {
+    parts.push(
+      pickVariant(seed + ":ps", [
+        "Pickup or shipping can be arranged.",
+        "Happy to do local pickup or arrange shipping.",
+      ])
+    );
+  } else if (d === "shipping") {
+    parts.push(
+      loc
+        ? pickVariant(seed + ":ship", [
+            `Shipping from ${loc} can be arranged.`,
+            `Can ship from ${loc}.`,
+          ])
+        : "Shipping can be arranged."
+    );
+  }
+  // Simple pickup: weave into CTA ("arrange pickup") — avoids a second logistics stitch
 
   if (facts.extras.length) {
-    parts.push(`${facts.extras.join("; ")}.`);
+    parts.push(capFirst(`${facts.extras.join("; ")}.`));
   }
 
   return parts.join(" ");
