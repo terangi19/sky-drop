@@ -22,6 +22,10 @@ import {
   formatListingPriceMeta,
   listingPrimaryCtaLabel,
 } from "../../lib/listing-price-display";
+import {
+  isMessagingOnlyListingType,
+  listingSupportsCondition,
+} from "../../lib/listing-type-config";
 
 export type MarketplaceListingCardProps = {
   item: Record<string, any>;
@@ -88,8 +92,7 @@ export default memo(function MarketplaceListingCard({
   const priceLabel = formatListingPriceDisplay(item);
   const priceMeta = formatListingPriceMeta(item);
   const primaryCta = listingPrimaryCtaLabel(item);
-  const isMessagingOnlyType =
-    item.type === "service" || item.type === "rental" || item.type === "property";
+  const isMessagingOnlyType = isMessagingOnlyListingType(item.type);
   const ariaPrice =
     item.pricingType === "quote" || item.servicePricingType === "request_quote"
       ? "Quote required"
@@ -164,6 +167,9 @@ export default memo(function MarketplaceListingCard({
               )}
               {item.type === "rental" && isVisible && (
                 <span className={IMG_BADGE}>Rental</span>
+              )}
+              {item.type === "wanted" && isVisible && (
+                <span className={IMG_BADGE}>Wanted</span>
               )}
             </div>
             {themed && isVisible && saves > 0 && (
@@ -241,7 +247,7 @@ export default memo(function MarketplaceListingCard({
             <span className={`lc-chip rounded-md px-2 py-0.5 text-[10px] font-semibold`}>
               {categoryLabel}
             </span>
-            {item.condition && (
+            {listingSupportsCondition(item.type) && item.condition && (
               <span
                 className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${
                   item.condition === "New" ? "lc-chip" : "lc-chip-neutral"
@@ -282,23 +288,37 @@ export default memo(function MarketplaceListingCard({
         </div>
 
         <p className="lc-desc mt-1.5 line-clamp-2 text-[12px] leading-relaxed">
-          {item.description ||
-            [
-              item.vehicleMake && item.vehicleModel
-                ? `${item.vehicleMake} ${item.vehicleModel}`
-                : item.make && item.model
-                  ? `${item.make} ${item.model}`
-                  : "",
-              item.vehicleOdometer != null && item.vehicleOdometer !== ""
-                ? `${Number(item.vehicleOdometer).toLocaleString()} km`
-                : item.odometer != null
-                  ? `${Number(item.odometer).toLocaleString()} km`
-                  : "",
-              item.vehicleFuelType || item.fuelType,
-              item.vehicleTransmission || item.transmission,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
+          {item.type === "vehicle"
+            ? [
+                item.vehicleYear,
+                item.vehicleMake && item.vehicleModel
+                  ? `${item.vehicleMake} ${item.vehicleModel}`
+                  : null,
+                item.vehicleOdometer != null && item.vehicleOdometer !== ""
+                  ? `${Number(item.vehicleOdometer).toLocaleString()} km`
+                  : null,
+                item.vehicleTransmission || item.transmission,
+                item.vehicleFuelType || item.fuelType,
+              ]
+                .filter(Boolean)
+                .join(" · ") || item.description
+            : item.description ||
+              [
+                item.vehicleMake && item.vehicleModel
+                  ? `${item.vehicleMake} ${item.vehicleModel}`
+                  : item.make && item.model
+                    ? `${item.make} ${item.model}`
+                    : "",
+                item.vehicleOdometer != null && item.vehicleOdometer !== ""
+                  ? `${Number(item.vehicleOdometer).toLocaleString()} km`
+                  : item.odometer != null
+                    ? `${Number(item.odometer).toLocaleString()} km`
+                    : "",
+                item.vehicleFuelType || item.fuelType,
+                item.vehicleTransmission || item.transmission,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
         </p>
 
         <div className="mt-3 flex flex-col gap-0.5">

@@ -10,9 +10,17 @@ export {
   RENTAL_LISTING_CATEGORIES,
   RENTAL_LISTING_CATEGORY_LIST,
   SERVICE_LISTING_CATEGORY_LIST,
+  WANTED_LISTING_CATEGORIES,
   categoriesForListingType,
   browseFilterCategories,
   messageCtaLabel,
+  isMessagingOnlyListingType,
+  listingSupportsCondition,
+  listingSupportsSaleType,
+  listingSupportsPriceFilter,
+  emptyListCtaLabel,
+  emptyListHeadline,
+  emptyListBody,
 } from "./listing-type-config";
 
 const VALID_LISTING_TYPES = new Set<string>(ALL_LISTING_TYPES);
