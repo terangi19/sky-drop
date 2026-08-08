@@ -36,6 +36,8 @@ import {
   buildListingDescriptionFromFacts,
   autoImproveListingDraft,
   buildCompleteDraftReply,
+  buildIncompleteDraftReply,
+  buildDraftUpdateReply,
   isCompleteListingDraft,
   normalizeProductName,
 } from "./awhina-product-ux";
@@ -102,7 +104,7 @@ const MALFORMED_PRICE_RE =
 
 /** Storage / qty / size numbers that must never become listing price. */
 const NON_PRICE_NUMBER_RE =
-  /\b(\d+)\s*(gb|tb|mb|kg|km|sqm|m2|bed|beds|bedroom|bath|baths|seater|pack|pcs?|x\d)\b/i;
+  /\b(\d+)\s*(gb|tb|mb|kg|km|sqm|m2|inch|inches|"|bed|beds|bedroom|bath|baths|seater|pack|pcs?|x\d)\b/i;
 
 const CONDITION_RE =
   /\b(?:condition(?:\s+is)?|it'?s|its)\s+(new|used(?:\s*[-–]?\s*(?:like\s+new|good|fair))?|like\s+new|excellent|mint|good|fair|rough)\b|\b(new|used|like\s+new|excellent|mint)\b(?!\s+(?:zealand|listing))/i;
@@ -703,7 +705,7 @@ export function processListingFillMessage(
       if (seeded.vehicleMake) partial.vehicleMake = seeded.vehicleMake;
       if (seeded.vehicleModel) partial.vehicleModel = seeded.vehicleModel;
       if (seeded.vehicleYear) partial.vehicleYear = seeded.vehicleYear;
-      if (!notes.some((n) => n.startsWith("draft"))) notes.push(`draft for ${partial.title}`);
+      if (!notes.some((n) => n.startsWith("title"))) notes.push(`title ${partial.title}`);
       touched = true;
     }
   }
@@ -787,35 +789,20 @@ export function processListingFillMessage(
 
   const intent = hasDraft && !isNewSellSeed ? "listing_update" : "listing_create";
   let reply: string;
-  if (isCompleteListingDraft(validated.fill) && (isNewSellSeed || !hasDraft)) {
+  if (isCompleteListingDraft(validated.fill)) {
     reply = buildCompleteDraftReply(validated.fill);
   } else if (isNewSellSeed || !hasDraft) {
-    const title = validated.fill.title || "your listing";
     const missing: string[] = [];
     if (!validated.fill.price) missing.push("price");
     if (!validated.fill.condition) missing.push("condition");
     if (!validated.fill.location) missing.push("location");
-    reply =
-      missing.length > 0
-        ? `Started a draft for **${title}**. Still need: **${missing.join("**, **")}**.`
-        : `Started a draft for **${title}**. Add photos, then hit **Publish** when ready.`;
+    reply = buildIncompleteDraftReply(validated.fill, missing);
   } else {
-    const title = validated.fill.title || baseDraft.title || "your listing";
-    const changeNote =
-      notes.length > 0
-        ? notes.length === 1 && notes[0].startsWith("draft")
-          ? `Started a draft for **${title}**.`
-          : `Updated: **${notes.join("**, **")}**.`
-        : `Updated your listing draft.`;
-    const follow =
-      !validated.fill.price || !validated.fill.condition
-        ? ` Tell me price, condition, or pickup/shipping next — or add photos and publish when ready.`
-        : ` Add photos, then hit **Publish** when ready.`;
     const suggestion =
       validated.fill.price && validated.fill.condition
         ? suggestListingImprovements(validated.fill)
         : null;
-    reply = `${changeNote}${follow}${suggestion ? ` ${suggestion}` : ""}`;
+    reply = buildDraftUpdateReply(validated.fill, notes, { suggestion });
   }
 
   return finishFill(reply, validated.fill, intent);

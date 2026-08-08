@@ -579,6 +579,54 @@ export function buildCompleteDraftReply(fill: SkyAiListingFill): string {
   return lines.join("\n");
 }
 
+/** Incomplete new listing — never "Started a draft for…". */
+export function buildIncompleteDraftReply(fill: SkyAiListingFill, missing: string[]): string {
+  const title = fill.title || "your item";
+  if (missing.length > 0) {
+    return `I've put **${title}** on the form. Still need: **${missing.join("**, **")}**.`;
+  }
+  return `I've put **${title}** on the form. Add photos, then hit **Publish** when you're ready.`;
+}
+
+/**
+ * Natural follow-up after field changes — never "Updated: price, condition".
+ */
+export function buildDraftUpdateReply(
+  fill: SkyAiListingFill,
+  notes: string[],
+  opts?: { suggestion?: string | null }
+): string {
+  if (isCompleteListingDraft(fill)) {
+    return buildCompleteDraftReply(fill);
+  }
+  const cleaned = notes
+    .map((n) => n.trim())
+    .filter((n) => n && !/^draft\b/i.test(n));
+  let lead: string;
+  if (cleaned.length === 1) {
+    const n = cleaned[0];
+    if (/^price\s+\$/i.test(n)) lead = `Set ${n.replace(/^price\s+/i, "price to ")}.`;
+    else if (/^condition\b/i.test(n)) lead = `Noted — ${n}.`;
+    else if (/^location\b/i.test(n)) lead = `Location set to ${n.replace(/^location\s+/i, "")}.`;
+    else if (/^pickup\b/i.test(n)) lead = `Marked as ${n}.`;
+    else lead = `Got it — ${n}.`;
+  } else if (cleaned.length > 1) {
+    lead = `Got it — ${cleaned.join(", ")}.`;
+  } else {
+    lead = "Got those details on the form.";
+  }
+  const missing: string[] = [];
+  if (!fill.price) missing.push("price");
+  if (!fill.condition) missing.push("condition");
+  if (!fill.location) missing.push("location");
+  const follow =
+    missing.length > 0
+      ? ` Still need **${missing.join("**, **")}**.`
+      : " Add photos, then hit **Publish** when you're ready.";
+  const tip = opts?.suggestion ? ` ${opts.suggestion}` : "";
+  return `${lead}${follow}${tip}`.replace(/\s+/g, " ").trim();
+}
+
 /**
  * Replace giant post_listing chatbot menu with 1–2 contextual next actions.
  * No Facebook / Trade Me export.
@@ -843,22 +891,63 @@ export function polishAwhinaReplyStyle(reply: string): string {
   r = r.replace(/\bOpening\s+(?=\*\*)/gi, "Showing ");
   r = r.replace(/\n{3,}/g, "\n\n");
   r = r.replace(/^(Awesome!|Amazing!|Fantastic!|So excited!)\s*/i, "");
+  // Legacy field-mutation bot openers → premium operator tone
+  r = r.replace(/^Updated:\s*/i, "");
+  r = r.replace(/^Started a draft for\s+/i, "I've put ");
+  r = r.replace(/\bdraft for\b/gi, "listing for");
   // Only collapse giant export menus (Facebook / Trade Me), not normal capability lists
   if (/Facebook Marketplace|Trade Me listing/i.test(r)) {
-    const lines = r.split("\n");
-    const bullets = lines.filter((l) => /^[•\-\*]\s/.test(l.trim()));
-    if (bullets.length > 4) {
-      const kept = lines.filter((l) => !/^[•\-\*]\s/.test(l.trim()));
-      r = [...kept.slice(0, 2), ...bullets.slice(0, 2)].join("\n").trim();
+    if (/create listings for Facebook|Trade Me/i.test(r) || /What would you like to do next/i.test(r)) {
+      r =
+        "Your listing is ready. Add clear photos, then hit **Publish** when you're ready. Tell me if you want the title or description tightened.";
+    } else {
+      const lines = r.split("\n");
+      const bullets = lines.filter((l) => /^[•\-\*]\s/.test(l.trim()));
+      if (bullets.length > 4) {
+        const kept = lines.filter((l) => !/^[•\-\*]\s/.test(l.trim()));
+        r = [...kept.slice(0, 2), ...bullets.slice(0, 2)].join("\n").trim();
+      }
     }
   }
   return r.replace(/ {2,}/g, " ").trim();
 }
 
-export function progressStatesForRoute(kind: "search" | "compare" | "vision" | "freeform" | "local"): AwhinaProgressState[] {
+export function progressStatesForRoute(
+  kind: "search" | "compare" | "vision" | "freeform" | "local" | "sell"
+): AwhinaProgressState[] {
   if (kind === "local") return [];
   if (kind === "search") return ["understanding_request", "searching_listings", "preparing_answer"];
   if (kind === "compare") return ["understanding_request", "comparing_results", "preparing_answer"];
   if (kind === "vision") return ["understanding_request", "analysing_images", "preparing_answer"];
+  if (kind === "sell") return ["understanding_request", "preparing_answer"];
   return ["understanding_request", "preparing_answer"];
+}
+
+/** Map canonical intent/tool → honest SSE phases (not fake Navigating spam). */
+export function progressStatesForCanonical(opts: {
+  intent?: string;
+  tool?: string;
+}): AwhinaProgressState[] {
+  const intent = (opts.intent || "").toLowerCase();
+  const tool = (opts.tool || "").toLowerCase();
+  if (intent === "compare" || tool.includes("compare")) {
+    return progressStatesForRoute("compare");
+  }
+  if (
+    intent === "marketplace_search" ||
+    tool === "searchlistings" ||
+    intent.includes("search")
+  ) {
+    return progressStatesForRoute("search");
+  }
+  if (
+    intent === "listing_create" ||
+    intent === "listing_update" ||
+    tool === "createlisting" ||
+    tool === "updatelistingdraft"
+  ) {
+    return progressStatesForRoute("sell");
+  }
+  // Instant local nav / education — no fake progress
+  return progressStatesForRoute("local");
 }

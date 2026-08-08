@@ -87,9 +87,9 @@ export const SKY_AI_PROFILE_QUICK_PROMPTS: { label: string; query: string }[] = 
 
 /** User is asking what the assistant can do — not requesting navigation. */
 
-/** Shown after a listing fill when the model regurgitates the welcome opener. */
+/** Fallback after listing fill when welcome bleed is stripped — no export menus. */
 export const SKY_AI_LISTING_FILL_SUCCESS =
-  `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.`;
+  `Your listing is ready. Add clear photos, then hit **Publish** when you're ready. Tell me if you want the title or description tightened.`;
 
 /** True when assistant text is the initial welcome / opener — not a real answer. */
 export function isSkyAiWelcomeBleed(text: string): boolean {

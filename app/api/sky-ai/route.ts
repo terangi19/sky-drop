@@ -45,6 +45,7 @@ import {
   pickCompareFactsFromPage,
   polishAwhinaReplyStyle,
   progressStatesForRoute,
+  progressStatesForCanonical,
   shouldAutoNavigate,
   summarizeListingComparison,
   type AwhinaProgressState,
@@ -54,10 +55,7 @@ import { fetchListingFactsForCompare } from "../../lib/awhina-listing-compare.se
 
 function listingFillConfirmReply(fill: SkyAiListingFill | undefined): string {
   if (!fill) return "";
-  const title = fill.title?.trim();
-  return title
-    ? `Filled your listing — **${title}**. Add photos, then hit **Publish**. Want me to tweak anything?`
-    : `Filled your listing draft. Add photos, then hit **Publish**. Want me to tweak anything?`;
+  return buildPostListingNextActions(fill, { hasPhotos: false });
 }
 
 const NAVIGATE_PATTERNS =
@@ -74,6 +72,16 @@ function tryNavigationShortcut(message: string, pathname: string) {
   }
 
   if (isSkyAiGeneralQuestion(message)) return null;
+  // Help / how-to questions stay in place — only explicit action nav
+  if (
+    !shouldAutoNavigate({
+      message,
+      intent: "navigation",
+      hasExplicitNavAction: false,
+    })
+  ) {
+    return null;
+  }
 
   const dest = findBestDestination(message);
   if (!dest) return null;
@@ -617,6 +625,22 @@ export async function POST(req: NextRequest) {
       navigateTo = pageAware.navigateTo;
       if (pageAware.profileFill) profileFill = pageAware.profileFill;
 
+      // ANSWER vs ACTION: strip accidental nav on help/education replies
+      if (
+        navigateTo &&
+        !shouldAutoNavigate({
+          message,
+          intent: canonical.intent,
+          hasExplicitNavAction: Boolean(
+            canonical.tool === "navigate" ||
+              canonical.tool === "openMessages" ||
+              canonical.tool === "openCategory"
+          ),
+        })
+      ) {
+        navigateTo = undefined;
+      }
+
       recordAwhinaQuality(req, message, pathname, reply, "rules", listingFill, uid);
       recordAwhinaObs({
         intent: canonical.intent,
@@ -634,23 +658,34 @@ export async function POST(req: NextRequest) {
           appendSkyAiExchange(conversationId, uid, message, reply, navigateTo)
         );
       }
-      return respondPayload(stream, {
-        reply,
-        navigateTo,
-        listingFill,
-        profileFill: profileFill && hasProfileFillContent(profileFill) ? profileFill : undefined,
-        source: "rules" as const,
-        conversationId: conversationId || undefined,
-        awhinaSession: canonical.sessionState || undefined,
-        awhina: {
-          intent: canonical.intent,
-          tool: canonical.tool,
-          confidence: canonical.confidence,
-          usedLocalExecution: canonical.usedLocalExecution,
-          avoidedAi: canonical.avoidedAi,
-          routing: "canonical",
-        },
+      const progress = progressStatesForCanonical({
+        intent: canonical.intent,
+        tool: canonical.tool,
       });
+      const chunkReply =
+        progress.length > 0 && typeof reply === "string" && reply.length > 80;
+      return respondPayload(
+        stream,
+        {
+          reply,
+          navigateTo,
+          listingFill,
+          profileFill: profileFill && hasProfileFillContent(profileFill) ? profileFill : undefined,
+          source: "rules" as const,
+          conversationId: conversationId || undefined,
+          awhinaSession: canonical.sessionState || undefined,
+          awhina: {
+            intent: canonical.intent,
+            tool: canonical.tool,
+            confidence: canonical.confidence,
+            usedLocalExecution: canonical.usedLocalExecution,
+            avoidedAi: canonical.avoidedAi,
+            routing: "canonical",
+          },
+        },
+        200,
+        { progress, chunkReply }
+      );
     }
   }
 
@@ -712,7 +747,7 @@ export async function POST(req: NextRequest) {
       navigateTo: undefined,
       source: "rules",
       conversationId: conversationId || undefined,
-      awhina: { routing: "post_listing_actions", avoidedAi: true },
+      awhina: { routing: "post_listing_tip", avoidedAi: true },
     });
   }
 

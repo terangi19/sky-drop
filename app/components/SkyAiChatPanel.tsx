@@ -593,7 +593,7 @@ export default function SkyAiChatPanel({
                       const aiReply = evt.reply || stripSkyAiMachineTags(accumulated);
                       const cleanReply = aiReply && aiReply.length > 10
                         ? aiReply
-                        : `Done! I've filled your listing — add photos above, then hit **Publish** below to go live.`;
+                        : SKY_AI_LISTING_FILL_SUCCESS;
                       updateAssistant(assistantId, {
                         text: cleanReply,
                         _rawText: accumulated, // Preserve raw text with LISTING_FILL tags
@@ -651,7 +651,7 @@ export default function SkyAiChatPanel({
               const aiReply = data.reply || "";
               const cleanReply = aiReply && aiReply.length > 10
                 ? aiReply
-                : `Done! I've filled your listing — add photos above, then hit **Publish** below to go live.`;
+                : SKY_AI_LISTING_FILL_SUCCESS;
               updateAssistant(assistantId, {
                 text: cleanReply,
                 streaming: false,

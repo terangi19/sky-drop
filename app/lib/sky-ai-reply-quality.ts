@@ -117,6 +117,11 @@ export function scoreConversationReply(
   if (requirePricing && !hasPricingStructure(reply)) failures.push("missing_pricing_structure");
   if (roboticScore > maxRoboticPhrases) failures.push("robotic_tone");
   if (wordCount > 280) failures.push("too_verbose");
+  if (/^Updated:/i.test(reply.trim())) failures.push("legacy_updated_prefix");
+  if (/Started a draft for/i.test(reply)) failures.push("legacy_started_draft");
+  if (/Facebook Marketplace|Trade Me listing/i.test(reply)) {
+    failures.push("legacy_export_menu");
+  }
 
   return {
     pass: failures.length === 0,
