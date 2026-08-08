@@ -171,8 +171,14 @@ export default function AIPostPage() {
   const [stripeStatusLoaded, setStripeStatusLoaded] = useState(false);
   /** Provenance: DEFAULT_UNTOUCHED must never sync as listingContext facts */
   const [fieldProvenance, setFieldProvenance] = useState<ListingFieldProvenanceMap>({});
+  const fieldProvenanceRef = useRef<ListingFieldProvenanceMap>({});
+  fieldProvenanceRef.current = fieldProvenance;
   const markField = useCallback((key: keyof ListingDraftFormSnapshot, source: "USER" | "AWHINA" | "IMAGE" | "EDITED_EXISTING_LISTING" = "USER") => {
     setFieldProvenance((prev) => ({ ...prev, [key]: source }));
+  }, []);
+  const isUserLockedField = useCallback((key: keyof ListingDraftFormSnapshot) => {
+    const p = fieldProvenanceRef.current[key];
+    return p === "USER" || p === "EDITED_EXISTING_LISTING";
   }, []);
 
   const [editId, setEditId] = useState<string | null>(null);
@@ -444,24 +450,28 @@ export default function AIPostPage() {
     return "";
   };
 
-  // Real-time validation handlers
+  // Real-time validation handlers — manual edits are USER facts for Āwhina draft sync
   const handleTitleChange = (value: string) => {
     setTitle(value);
+    markField("title");
     setValidationErrors(prev => ({ ...prev, title: validateTitle(value) }));
   };
 
   const handlePriceChange = (value: string) => {
     setPrice(value);
+    markField("price");
     setValidationErrors(prev => ({ ...prev, price: validatePrice(value, listingType) }));
   };
 
   const handleDescriptionChange = (value: string) => {
     setDescription(value);
+    markField("description");
     setValidationErrors(prev => ({ ...prev, description: validateDescription(value) }));
   };
 
   const handleLocationChange = (value: string) => {
     setLocation(value);
+    markField("location");
     setValidationErrors(prev => ({ ...prev, location: validateLocation(value) }));
   };
 
@@ -619,10 +629,12 @@ export default function AIPostPage() {
 
     if (merged.extras?.length) setDraftExtras(merged.extras);
 
-    // Mark fields Āwhina actually provided — enables confirmed sync
+    // Mark fields Āwhina actually provided — never demote USER / edit locks
     const awhinaKeys: (keyof ListingDraftFormSnapshot)[] = [];
     const maybeMark = (key: keyof ListingDraftFormSnapshot, val: unknown) => {
-      if (typeof val === "string" && val.trim()) awhinaKeys.push(key);
+      if (typeof val !== "string" || !val.trim()) return;
+      if (!replaceDraft && isUserLockedField(key)) return;
+      awhinaKeys.push(key);
     };
     maybeMark("title", merged.title);
     maybeMark("description", merged.description);
@@ -659,36 +671,44 @@ export default function AIPostPage() {
       setFieldProvenance((prev) => markProvenance(prev, awhinaKeys, "AWHINA"));
     }
 
+    /** Manual USER facts stay authoritative — fill may still rewrite unlocked fields (e.g. description). */
+    const guardSet =
+      <T,>(key: keyof ListingDraftFormSnapshot, setter: (v: T) => void) =>
+      (v: T) => {
+        if (!replaceDraft && isUserLockedField(key)) return;
+        setter(v);
+      };
+
     const ok = applySkyAiListingFill(merged, {
-      setTitle: trackingSetTitle,
-      setDescription: trackingSetDescription,
-      setCategory: trackingSetCategory,
-      setCondition: trackingSetCondition,
-      setPrice: trackingSetPrice,
-      setListingType: trackingSetListingType,
-      setLocation: trackingSetLocation,
+      setTitle: guardSet("title", trackingSetTitle),
+      setDescription: guardSet("description", trackingSetDescription),
+      setCategory: guardSet("category", trackingSetCategory),
+      setCondition: guardSet("condition", trackingSetCondition),
+      setPrice: guardSet("price", trackingSetPrice),
+      setListingType: guardSet("listingType", trackingSetListingType),
+      setLocation: guardSet("location", trackingSetLocation),
       setPaymentType: choosePaymentType,
-      setVehicleMake,
-      setVehicleModel,
-      setVehicleGeneration,
-      setVehicleYear,
-      setVehicleOdometer,
-      setVehicleTransmission,
-      setVehicleFuelType,
-      setVehicleBodyType,
-      setVehicleColour,
+      setVehicleMake: guardSet("vehicleMake", setVehicleMake),
+      setVehicleModel: guardSet("vehicleModel", setVehicleModel),
+      setVehicleGeneration: guardSet("vehicleGeneration", setVehicleGeneration),
+      setVehicleYear: guardSet("vehicleYear", setVehicleYear),
+      setVehicleOdometer: guardSet("vehicleOdometer", setVehicleOdometer),
+      setVehicleTransmission: guardSet("vehicleTransmission", setVehicleTransmission),
+      setVehicleFuelType: guardSet("vehicleFuelType", setVehicleFuelType),
+      setVehicleBodyType: guardSet("vehicleBodyType", setVehicleBodyType),
+      setVehicleColour: guardSet("vehicleColour", setVehicleColour),
       setRentalSubType,
-      setRentalPropertyType,
-      setRentalPriceWeekly,
-      setRentalPriceMonthly,
-      setRentalDeposit,
-      setRentalBedrooms,
-      setRentalBathrooms,
-      setRentalParkingSpaces,
-      setRentalFurnishedStatus,
-      setRentalPetsPolicy,
-      setRentalAvailableDate,
-      setRentalMinTenancy,
+      setRentalPropertyType: guardSet("rentalPropertyType", setRentalPropertyType),
+      setRentalPriceWeekly: guardSet("rentalPriceWeekly", setRentalPriceWeekly),
+      setRentalPriceMonthly: guardSet("rentalPriceMonthly", setRentalPriceMonthly),
+      setRentalDeposit: guardSet("rentalDeposit", setRentalDeposit),
+      setRentalBedrooms: guardSet("rentalBedrooms", setRentalBedrooms),
+      setRentalBathrooms: guardSet("rentalBathrooms", setRentalBathrooms),
+      setRentalParkingSpaces: guardSet("rentalParkingSpaces", setRentalParkingSpaces),
+      setRentalFurnishedStatus: guardSet("rentalFurnishedStatus", setRentalFurnishedStatus),
+      setRentalPetsPolicy: guardSet("rentalPetsPolicy", setRentalPetsPolicy),
+      setRentalAvailableDate: guardSet("rentalAvailableDate", setRentalAvailableDate),
+      setRentalMinTenancy: guardSet("rentalMinTenancy", setRentalMinTenancy),
       setRentalFeatures,
       setPricingType: (v) => setPricingType(v === "quote" ? "quote" : "fixed"),
       setServicePricingType: (v) => setServicePricingType(normalizeServicePricingType(v)),
@@ -696,8 +716,8 @@ export default function AIPostPage() {
       setShippingAvailable,
       setAcceptOffers,
       setSaleType,
-      setStockQuantity,
-      setServiceDuration,
+      setStockQuantity: guardSet("stockQuantity", setStockQuantity),
+      setServiceDuration: guardSet("serviceDuration", setServiceDuration),
     });
     if (ok && fieldsChanged > 0) {
       const notes: string[] = [];
@@ -736,7 +756,7 @@ export default function AIPostPage() {
     } else if (!ok) {
       showToast("Āwhina couldn't fill your form — try describing the item again", "error");
     }
-  }, [imagePreviews.length, title, description, category, condition, price, listingType, location, autoPublish, choosePaymentType]);
+  }, [imagePreviews.length, title, description, category, condition, price, listingType, location, autoPublish, choosePaymentType, isUserLockedField]);
 
   // Homepage → workspace expand: same conversation, auto-open chat, zero reset
   useEffect(() => {
@@ -850,6 +870,7 @@ export default function AIPostPage() {
 
   const applyPriceSuggestion = (suggestedPrice: number) => {
     setPrice(String(suggestedPrice));
+    markField("price");
     setShowPriceModal(false);
     showToast(`Price updated to $${suggestedPrice}`, "success");
   };
@@ -1663,6 +1684,7 @@ export default function AIPostPage() {
 
     if (typeConfig) {
       setListingType(typeConfig.key as any);
+      markField("listingType");
       setPaymentType("contact");
       typeConfig.action();
     }
@@ -1838,16 +1860,21 @@ export default function AIPostPage() {
             </div>
           )}
 
-          {!editId && hasDraftContent && (
+          {!editId && (
             <div
               id="live-listing-draft"
               className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"
             >
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Your listing</p>
-                <p className="mt-1 truncate text-base font-semibold text-white">{liveDraftTitle}</p>
-                <p className="mt-0.5 text-xs text-zinc-500">{liveDraftTypeLabel}</p>
+                <p className="mt-1 truncate text-base font-semibold text-white">
+                  {hasDraftContent ? liveDraftTitle : "No details yet"}
+                </p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  {hasDraftContent ? liveDraftTypeLabel : "Talk with Āwhina, or edit details yourself"}
+                </p>
               </div>
+              {hasDraftContent && (
               <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-3">
                 {[
                   {
@@ -1918,7 +1945,8 @@ export default function AIPostPage() {
                   );
                 })}
               </div>
-              {/* One primary action — never compete with answering Āwhina */}
+              )}
+              {/* Primary action + always-available Edit details escape hatch */}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {awhinaIsAsking ? (
                   <button
@@ -1944,40 +1972,35 @@ export default function AIPostPage() {
                   >
                     Review listing
                   </button>
-                ) : (
+                ) : null}
+                {!showManualEditor && (
                   <button
                     type="button"
                     onClick={openManualEditor}
-                    className="rounded-lg px-3 py-2 text-[11px] font-semibold text-zinc-400 transition hover:text-zinc-200"
+                    className={`rounded-lg px-3 py-2 text-[11px] font-semibold transition ${
+                      isReadyToReview || awhinaIsAsking
+                        ? "text-zinc-400 hover:text-zinc-200"
+                        : "bg-white/[0.06] text-zinc-200 hover:bg-white/[0.1] hover:text-white"
+                    }`}
                   >
                     Edit details
                   </button>
                 )}
-                {isReadyToReview && imagePreviews.length === 0 && (
+                {showManualEditor && (
                   <button
                     type="button"
-                    onClick={openManualEditor}
+                    onClick={() => setShowManualEditor(false)}
                     className="rounded-lg px-3 py-2 text-[11px] font-semibold text-zinc-400 transition hover:text-zinc-200"
                   >
-                    Edit details
+                    Hide form
                   </button>
                 )}
               </div>
             </div>
           )}
 
-          {!editId && !hasDraftContent && (
-            <p className="px-1 text-xs leading-relaxed text-zinc-500">
-              Your listing will appear here as you talk with Āwhina.
-            </p>
-          )}
-        </div>
-
-        </div>
-
-        {/* Full manual form — behind Edit details / Review */}
-        <div className={`${!editId && !showManualEditor ? "hidden" : "mt-6 block"}`}>
-        {/* Form Card */}
+        {/* Full manual form — expands below compact preview (Edit details / Review) */}
+        <div className={`${!editId && !showManualEditor ? "hidden" : "mt-4 block"}`}>
         <div className="relative">
           <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-sky-500/10 via-transparent to-transparent blur-xl pointer-events-none" />
           <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--card)] p-4 sm:p-6 md:p-8">
@@ -2132,27 +2155,32 @@ export default function AIPostPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make *</label>
-                  <input type="text" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)} placeholder="e.g. Mazda"
+                  <input type="text" value={vehicleMake} onChange={(e) => { setVehicleMake(e.target.value); markField("vehicleMake"); }} placeholder="e.g. Mazda"
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model *</label>
-                  <input type="text" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} placeholder="e.g. Axela"
+                  <input type="text" value={vehicleModel} onChange={(e) => { setVehicleModel(e.target.value); markField("vehicleModel"); }} placeholder="e.g. Axela"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Generation / variant</label>
+                  <input type="text" value={vehicleGeneration} onChange={(e) => { setVehicleGeneration(e.target.value); markField("vehicleGeneration"); }} placeholder="e.g. R34"
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Year</label>
-                  <input type="number" value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)} placeholder="e.g. 2015"
+                  <input type="number" value={vehicleYear} onChange={(e) => { setVehicleYear(e.target.value); markField("vehicleYear"); }} placeholder="e.g. 2015"
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Odometer (km)</label>
-                  <input type="number" value={vehicleOdometer} onChange={(e) => setVehicleOdometer(e.target.value)} placeholder="e.g. 128000"
+                  <input type="number" value={vehicleOdometer} onChange={(e) => { setVehicleOdometer(e.target.value); markField("vehicleOdometer"); }} placeholder="e.g. 128000"
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Colour</label>
-                  <input type="text" value={vehicleColour} onChange={(e) => setVehicleColour(e.target.value)} placeholder="e.g. Blue"
+                  <input type="text" value={vehicleColour} onChange={(e) => { setVehicleColour(e.target.value); markField("vehicleColour"); }} placeholder="e.g. Blue"
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                 </div>
                 <div>
@@ -2196,7 +2224,7 @@ export default function AIPostPage() {
                 <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Salary / Price *</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                  <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="w-full rounded-xl bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04]" />
+                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0" className="w-full rounded-xl bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04]" />
                 </div>
                 <p className="text-[10px] text-[var(--muted)]">Set the salary range or fixed price for this position.</p>
               </div>
@@ -2263,7 +2291,7 @@ export default function AIPostPage() {
             {(listingType === "physical" || listingType === "wanted") && (
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Location</label>
-              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., Auckland, Wellington, Christchurch" className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04]" />
+              <input type="text" value={location} onChange={(e) => handleLocationChange(e.target.value)} placeholder="e.g., Auckland, Wellington, Christchurch" className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04]" />
               <p className="text-[10px] text-[var(--muted)]">City or region helps buyers find your item</p>
             </div>
             )}
@@ -2449,7 +2477,7 @@ export default function AIPostPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Location</label>
-                  <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Auckland"
+                  <input type="text" value={location} onChange={(e) => handleLocationChange(e.target.value)} placeholder="e.g. Auckland"
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                 </div>
               </div>
@@ -2558,7 +2586,7 @@ export default function AIPostPage() {
               {/* Location */}
               <div>
                 <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Where can this be collected?</label>
-                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
+                <input type="text" value={location} onChange={(e) => handleLocationChange(e.target.value)}
                   placeholder="City or suburb"
                   className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
               </div>
@@ -2578,7 +2606,7 @@ export default function AIPostPage() {
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                         <input type="number" value={price} onChange={(e) => {
-                          const v = e.target.value; setPrice(v);
+                          const v = e.target.value; setPrice(v); markField("price");
                           const d = Number(v);
                           if (d > 0) {
                             if (!manualEdit.current.has("weekly")) setRentalPriceWeekly(String(Math.round(d * 7)));
@@ -2635,13 +2663,13 @@ export default function AIPostPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make</label>
-                        <input type="text" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)}
+                        <input type="text" value={vehicleMake} onChange={(e) => { setVehicleMake(e.target.value); markField("vehicleMake"); }}
                           placeholder="e.g. Toyota"
                           className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
                       </div>
                       <div>
                         <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model</label>
-                        <input type="text" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)}
+                        <input type="text" value={vehicleModel} onChange={(e) => { setVehicleModel(e.target.value); markField("vehicleModel"); }}
                           placeholder="e.g. HiAce"
                           className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
                       </div>
@@ -2744,6 +2772,8 @@ export default function AIPostPage() {
           </div>
         </div>
         </div>
+        </div>
+      </div>
       </div>
 
       {/* SCAM ALERT MODAL - INSIDE MAIN CONTAINER */}
