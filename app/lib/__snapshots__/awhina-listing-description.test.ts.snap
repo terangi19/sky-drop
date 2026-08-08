@@ -52,4 +52,6 @@ exports[`service listing description snapshots > quote required cleaning snapsho
 
 exports[`service listing description snapshots > tutoring with duration fact snapshot 1`] = `"Maths Tutoring available in Christchurch for $40 per hour. Happy to discuss what you're after and arrange a time that suits. Typical jobs run about 1 hour. Drop me a message when you're ready to chat about the job."`;
 
-exports[`vehicle composer — make/model recognition + premium sparse copy > skyline r34: before/after quality — never title-echo CTA 1`] = `"Nissan Skyline R34 available for sale. Price, condition, and location still need adding to complete the listing. Message to arrange a viewing."`;
+exports[`vehicle composer — readiness + no seller coaching in buyer desc > rich one-shot 1999 Nissan Skyline R34 → premium title + buyer desc 1`] = `"1999 Nissan Skyline R34 in Auckland. Good used condition. Asking $30000. Happy to arrange a viewing — just message me."`;
+
+exports[`vehicle composer — readiness + no seller coaching in buyer desc > sparse R34 seed: blank buyer desc — no complete-the-listing leak 1`] = `""`;

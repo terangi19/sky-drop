@@ -14,6 +14,8 @@ import {
   passesListingDescriptionQualityGate,
   resolveListingDescriptionStyle,
   cleanRentalItemName,
+  getVehicleDraftReadiness,
+  isVehicleListingFill,
   IMPLY_CLAIMS_RE,
   SERVICE_INVENTION_RE,
   type ListingDescriptionQuality,
@@ -26,6 +28,8 @@ export {
   passesListingDescriptionQualityGate,
   resolveListingDescriptionStyle,
   cleanRentalItemName,
+  getVehicleDraftReadiness,
+  isVehicleListingFill,
   IMPLY_CLAIMS_RE,
   SERVICE_INVENTION_RE,
 };
@@ -898,7 +902,13 @@ export function isCompleteListingDraft(fill: SkyAiListingFill): boolean {
   const hasPrice = Boolean(fill.price && String(fill.price).trim());
   const hasCondition = Boolean(fill.condition?.trim());
   const hasLocation = Boolean(fill.location?.trim() || fill.pickupArea?.trim());
-  return hasTitle && hasPrice && hasCondition && hasLocation;
+  if (!(hasTitle && hasPrice && hasCondition && hasLocation)) return false;
+  if (isVehicleListingFill(fill)) {
+    const readiness = getVehicleDraftReadiness(fill);
+    // Vehicles need resolved identity + year before "ready"
+    return readiness.identityComplete && Boolean(fill.vehicleYear?.trim());
+  }
+  return true;
 }
 
 /** Normalize title/desc/category/keywords from extracted facts. */
@@ -927,7 +937,12 @@ export function autoImproveListingDraft(fill: SkyAiListingFill): SkyAiListingFil
     }
   }
   if (isRoboticListingDescription(out.description)) {
-    out.description = buildListingDescriptionFromFacts(out);
+    // Sparse vehicles stay blank — do not invent buyer copy or seller coaching
+    if (isVehicleListingFill(out) && !getVehicleDraftReadiness(out).worthGeneratingBuyerCopy) {
+      out.description = "";
+    } else {
+      out.description = buildListingDescriptionFromFacts(out);
+    }
   } else if (out.description) {
     // Normalize product tokens but preserve paragraph breaks
     out.description = out.description
@@ -974,9 +989,19 @@ export function buildCompleteDraftReply(fill: SkyAiListingFill): string {
   return lines.join("\n");
 }
 
-/** Incomplete new listing — never "Started a draft for…". */
+/** Incomplete new listing — never "Started a draft for…". Seller guidance only. */
 export function buildIncompleteDraftReply(fill: SkyAiListingFill, missing: string[]): string {
   const title = fill.title || "your item";
+  if (isVehicleListingFill(fill)) {
+    const readiness = getVehicleDraftReadiness(fill);
+    if (readiness.nextClarification) {
+      return `I've started the **${title}** listing. ${readiness.nextClarification}`;
+    }
+    if (missing.length > 0) {
+      return `I've started the **${title}** listing. Still need: **${missing.join("**, **")}**.`;
+    }
+    return `I've started the **${title}** listing. Add photos, then hit **Publish** when you're ready.`;
+  }
   if (missing.length > 0) {
     return `I've put **${title}** on the form. Still need: **${missing.join("**, **")}**.`;
   }
@@ -1011,6 +1036,14 @@ export function buildDraftUpdateReply(
     lead = "Got those details on the form.";
   }
   const missing: string[] = [];
+  if (isVehicleListingFill(fill)) {
+    const readiness = getVehicleDraftReadiness(fill);
+    const follow = readiness.nextClarification
+      ? ` ${readiness.nextClarification}`
+      : " Add photos, then hit **Publish** when you're ready.";
+    const tip = opts?.suggestion ? ` ${opts.suggestion}` : "";
+    return `${lead}${follow}${tip}`.replace(/\s+/g, " ").trim();
+  }
   if (!fill.price) missing.push("price");
   if (!fill.condition) missing.push("condition");
   if (!fill.location) missing.push("location");

@@ -6,12 +6,14 @@ import { describe, expect, it } from "vitest";
 import {
   buildListingDescriptionFromFacts,
   extractDescriptionFacts,
+  getVehicleDraftReadiness,
   isRoboticListingDescription,
   passesListingDescriptionQualityGate,
   resolveListingDescriptionStyle,
   cleanRentalItemName,
   IMPLY_CLAIMS_RE,
   CTA_PURPOSE_RE,
+  SELLER_EDITOR_GUIDANCE_RE,
   type ListingDescriptionQuality,
 } from "./awhina-listing-description";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
@@ -785,6 +787,7 @@ describe("never invent unstated details", () => {
       vehicleModel: "Axela",
       vehicleOdometer: "128000",
       price: "11500",
+      condition: "Used - Good",
       location: "Auckland",
       extras: ["Recently serviced", "kw:Mazda", "kw:Axela"],
     });
@@ -914,9 +917,9 @@ describe("live oneshot human-seller regressions", () => {
   });
 });
 
-describe("vehicle composer — make/model recognition + premium sparse copy", () => {
-  const PLACEHOLDER_DESC =
-    /^[\w\s.-]+\.\s*Message if you have any questions\.?$/i;
+describe("vehicle composer — readiness + no seller coaching in buyer desc", () => {
+  const SELLER_LEAK =
+    /complete the listing|still need|add the remaining|add photos|publish when ready|fill in/i;
 
   const vehicles: Array<{
     name: string;
@@ -925,14 +928,16 @@ describe("vehicle composer — make/model recognition + premium sparse copy", ()
     make: string;
     model: string;
     neverTrim?: RegExp;
+    askGeneration?: boolean;
   }> = [
     {
-      name: "Nissan Skyline R34",
-      message: "sell my skyline r34",
-      titleRe: /Nissan\s+Skyline\s+R34/i,
+      name: "Nissan Skyline",
+      message: "sell my skyline",
+      titleRe: /Nissan\s+Skyline/i,
       make: "Nissan",
-      model: "Skyline R34",
+      model: "Skyline",
       neverTrim: /\b(GT-?R|GTT|V-?Spec|Nismo)\b/i,
+      askGeneration: true,
     },
     {
       name: "BMW 335i",
@@ -947,13 +952,7 @@ describe("vehicle composer — make/model recognition + premium sparse copy", ()
       titleRe: /Toyota\s+Supra/i,
       make: "Toyota",
       model: "Supra",
-    },
-    {
-      name: "Mazda RX-8",
-      message: "sell my rx-8",
-      titleRe: /Mazda\s+RX-?8/i,
-      make: "Mazda",
-      model: "RX-8",
+      askGeneration: true,
     },
     {
       name: "Ford Ranger",
@@ -965,7 +964,7 @@ describe("vehicle composer — make/model recognition + premium sparse copy", ()
   ];
 
   for (const v of vehicles) {
-    it(`${v.name}: title gets make prefix and description is not a placeholder`, () => {
+    it(`${v.name}: sparse seed → title only, blank buyer desc, seller ask`, () => {
       wipe(`veh-${v.name.replace(/\s+/g, "-").toLowerCase()}`);
       const r = processCanonicalAwhina(v.message, {
         conversationId: `veh-${v.name.replace(/\s+/g, "-").toLowerCase()}`,
@@ -979,39 +978,116 @@ describe("vehicle composer — make/model recognition + premium sparse copy", ()
       expect(String(r.listingFill?.title || "")).toMatch(v.titleRe);
       if (v.neverTrim) {
         expect(String(r.listingFill?.title || "")).not.toMatch(v.neverTrim);
-        expect(String(r.listingFill?.description || "")).not.toMatch(v.neverTrim);
       }
       const desc = String(r.listingFill?.description || "");
-      expect(desc).not.toMatch(PLACEHOLDER_DESC);
-      expect(desc).not.toMatch(/^Skyline R34\./i);
-      expect(desc.split(/\s+/).length).toBeGreaterThan(18);
-      expect(desc).toMatch(/available for sale|for sale/i);
-      expect(desc).toMatch(/price|condition|location/i);
-      assertOneCtaMax(desc);
-      expect(isRoboticListingDescription(desc)).toBe(false);
-      expect(desc).not.toMatch(META_PHRASE_SMELLS);
-      expect(desc).not.toMatch(UNGROUNDED_CLAIM_SMELLS);
+      expect(desc.trim()).toBe("");
+      expect(desc).not.toMatch(SELLER_LEAK);
+      expect(String(r.reply || "")).toMatch(/I've started/i);
+      if (v.askGeneration) {
+        expect(String(r.reply || "")).toMatch(/generation/i);
+        expect(String(r.reply || "")).not.toMatch(/\bprice\b.*\bcondition\b.*\blocation\b/i);
+      } else {
+        expect(String(r.reply || "")).toMatch(/year/i);
+      }
     });
   }
 
-  it("skyline r34: before/after quality — never title-echo CTA", () => {
+  it("sell my skyline → ask generation; then R34 → 1999 → 30000 → good Auckland → premium desc", () => {
+    wipe("veh-skyline-regression");
+    const id = "veh-skyline-regression";
+    const first = processCanonicalAwhina("sell my skyline", {
+      conversationId: id,
+      pathname: "/post/ai",
+    });
+    expect(first.listingFill?.listingType).toBe("vehicle");
+    expect(first.listingFill?.vehicleMake).toBe("Nissan");
+    expect(String(first.listingFill?.vehicleModel || "")).toMatch(/^Skyline$/i);
+    expect(String(first.listingFill?.title || "")).toMatch(/Nissan\s+Skyline/i);
+    expect(String(first.listingFill?.title || "")).not.toMatch(/GT-?R|GTT/i);
+    expect(String(first.listingFill?.description || "").trim()).toBe("");
+    expect(String(first.reply || "")).toMatch(/R32|R33|R34|generation/i);
+    expect(String(first.reply || "")).not.toMatch(SELLER_LEAK);
+
+    const withGen = processCanonicalAwhina("R34", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: first.listingFill as never,
+    });
+    expect(String(withGen.listingFill?.vehicleModel || "")).toMatch(/Skyline\s+R34/i);
+    expect(String(withGen.listingFill?.title || "")).toMatch(/Nissan\s+Skyline\s+R34/i);
+    expect(String(withGen.listingFill?.description || "").trim()).toBe("");
+    expect(String(withGen.reply || "")).toMatch(/year/i);
+
+    const withYear = processCanonicalAwhina("1999", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: withGen.listingFill as never,
+    });
+    expect(withYear.listingFill?.vehicleYear).toBe("1999");
+    expect(String(withYear.listingFill?.description || "").trim()).toBe("");
+    expect(String(withYear.reply || "")).toMatch(/price|asking/i);
+
+    const withPrice = processCanonicalAwhina("30000", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: withYear.listingFill as never,
+    });
+    expect(withPrice.listingFill?.price).toBe("30000");
+    expect(String(withPrice.listingFill?.description || "").trim()).toBe("");
+
+    const rich = processCanonicalAwhina("good condition Auckland", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: withPrice.listingFill as never,
+    });
+    const desc = String(rich.listingFill?.description || "");
+    expect(desc.trim().length).toBeGreaterThan(40);
+    expect(desc).toMatch(/1999|Nissan|Skyline|R34/i);
+    expect(desc).toMatch(/Auckland/i);
+    expect(desc).toMatch(/\$30,?000|\$30000/);
+    expect(desc).toMatch(/good/i);
+    expect(desc).not.toMatch(SELLER_LEAK);
+    expect(desc).not.toMatch(SELLER_EDITOR_GUIDANCE_RE);
+    assertOneCtaMax(desc);
+    assertNaturalMarketplaceCopy(desc);
+  });
+
+  it("rich one-shot 1999 Nissan Skyline R34 → premium title + buyer desc", () => {
+    wipe("veh-skyline-oneshot");
+    const r = processCanonicalAwhina(
+      "sell my 1999 Nissan Skyline R34 Auckland $30000 good condition",
+      { conversationId: "veh-skyline-oneshot", pathname: "/" }
+    );
+    expect(r.listingFill?.listingType).toBe("vehicle");
+    expect(r.listingFill?.vehicleMake).toBe("Nissan");
+    expect(String(r.listingFill?.vehicleModel || "")).toMatch(/Skyline\s+R34/i);
+    expect(r.listingFill?.vehicleYear).toBe("1999");
+    expect(String(r.listingFill?.title || "")).toMatch(/1999.*Nissan.*Skyline.*R34/i);
+    expect(String(r.listingFill?.title || "")).not.toMatch(/GT-?R|GTT/i);
+    const desc = String(r.listingFill?.description || "");
+    expect(desc.trim().length).toBeGreaterThan(40);
+    expect(desc).toMatch(/1999|Nissan|Skyline|R34/i);
+    expect(desc).toMatch(/Auckland/i);
+    expect(desc).toMatch(/\$30,?000|\$30000/);
+    expect(desc).not.toMatch(SELLER_LEAK);
+    assertNaturalMarketplaceCopy(desc);
+    expect(desc).toMatchSnapshot();
+  });
+
+  it("sparse R34 seed: blank buyer desc — no complete-the-listing leak", () => {
     wipe("veh-skyline-quality");
     const r = processCanonicalAwhina("sell my skyline r34", {
       conversationId: "veh-skyline-quality",
       pathname: "/",
     });
     expect(r.listingFill?.title).toMatch(/Nissan\s+Skyline\s+R34/i);
-    const desc = String(r.listingFill?.description || "");
-    expect(desc).toMatch(/Nissan\s+Skyline\s+R34/i);
-    expect(desc).toMatch(/available for sale/i);
-    expect(desc).toMatch(/complete the listing|still need/i);
-    expect(desc).not.toMatch(/^Nissan Skyline R34\.\s*Message/i);
-    expect(desc).not.toMatch(PLACEHOLDER_DESC);
-    assertNaturalMarketplaceCopy(desc, { sparse: true });
-    expect(desc).toMatchSnapshot();
+    expect(String(r.listingFill?.description || "").trim()).toBe("");
+    expect(String(r.reply || "")).toMatch(/year/i);
+    expect(String(r.reply || "")).not.toMatch(SELLER_LEAK);
+    expect("").toMatchSnapshot();
   });
 
-  it("field updates regenerate vehicle description naturally", () => {
+  it("field updates stay blank until readiness threshold, then premium copy", () => {
     wipe("veh-skyline-followup");
     const id = "veh-skyline-followup";
     const first = processCanonicalAwhina("sell my skyline r34", {
@@ -1019,28 +1095,28 @@ describe("vehicle composer — make/model recognition + premium sparse copy", ()
       pathname: "/post/ai",
     });
     expect(first.listingFill?.title).toMatch(/Nissan\s+Skyline\s+R34/i);
-    const d1 = String(first.listingFill?.description || "");
-    expect(d1).toMatch(/price/i);
-    expect(d1).not.toMatch(/\$12000|Auckland|good used condition/i);
+    expect(String(first.listingFill?.description || "").trim()).toBe("");
 
-    const withPrice = processCanonicalAwhina("12000", {
+    const withYear = processCanonicalAwhina("1999", {
       conversationId: id,
       pathname: "/post/ai",
       listingContext: first.listingFill as never,
     });
-    const d2 = String(withPrice.listingFill?.description || "");
-    expect(d2).toMatch(/\$12,?000|\$12000/);
-    expect(d2).toMatch(/condition|location/i);
-    expect(d2).not.toMatch(PLACEHOLDER_DESC);
+    expect(String(withYear.listingFill?.description || "").trim()).toBe("");
+
+    const withPrice = processCanonicalAwhina("12000", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: withYear.listingFill as never,
+    });
+    expect(String(withPrice.listingFill?.description || "").trim()).toBe("");
 
     const withCond = processCanonicalAwhina("Good condition", {
       conversationId: id,
       pathname: "/post/ai",
       listingContext: withPrice.listingFill as never,
     });
-    const d3 = String(withCond.listingFill?.description || "");
-    expect(d3).toMatch(/good used condition|good condition/i);
-    expect(d3).toMatch(/\$12,?000|\$12000/);
+    expect(String(withCond.listingFill?.description || "").trim()).toBe("");
 
     const withLoc = processCanonicalAwhina("Auckland", {
       conversationId: id,
@@ -1051,11 +1127,11 @@ describe("vehicle composer — make/model recognition + premium sparse copy", ()
     expect(d4).toMatch(/Auckland/i);
     expect(d4).toMatch(/\$12,?000|\$12000/);
     expect(d4).toMatch(/good used condition|good condition/i);
-    expect(d4).not.toMatch(PLACEHOLDER_DESC);
+    expect(d4).not.toMatch(SELLER_LEAK);
     assertOneCtaMax(d4);
   });
 
-  it("facts writer alone never emits title-echo placeholder for sparse vehicles", () => {
+  it("facts writer leaves sparse vehicles blank; rich R34 is premium", () => {
     for (const fill of [
       {
         title: "Nissan Skyline R34",
@@ -1076,23 +1152,43 @@ describe("vehicle composer — make/model recognition + premium sparse copy", ()
         vehicleModel: "Supra",
       },
       {
-        title: "Mazda RX-8",
-        listingType: "vehicle" as const,
-        vehicleMake: "Mazda",
-        vehicleModel: "RX-8",
-      },
-      {
         title: "Ford Ranger",
         listingType: "vehicle" as const,
         vehicleMake: "Ford",
         vehicleModel: "Ranger",
       },
     ]) {
-      const desc = buildListingDescriptionFromFacts(fill);
-      expect(desc).not.toMatch(PLACEHOLDER_DESC);
-      expect(desc).toMatch(/available for sale|for sale/i);
-      expect(desc.split(/\s+/).length).toBeGreaterThan(18);
-      assertOneCtaMax(desc);
+      expect(getVehicleDraftReadiness(fill).worthGeneratingBuyerCopy).toBe(false);
+      expect(buildListingDescriptionFromFacts(fill)).toBe("");
     }
+
+    const rich = buildListingDescriptionFromFacts({
+      title: "1999 Nissan Skyline R34",
+      listingType: "vehicle",
+      vehicleYear: "1999",
+      vehicleMake: "Nissan",
+      vehicleModel: "Skyline R34",
+      price: "30000",
+      condition: "Used - Good",
+      location: "Auckland",
+    });
+    expect(rich).toMatch(/1999|Nissan|Skyline|R34/i);
+    expect(rich).toMatch(/Auckland/);
+    expect(rich).toMatch(/\$30,?000|\$30000/);
+    expect(rich).not.toMatch(SELLER_LEAK);
+    assertNaturalMarketplaceCopy(rich);
+  });
+
+  it("getVehicleDraftReadiness prioritises generation before price", () => {
+    const sparse = getVehicleDraftReadiness({
+      title: "Nissan Skyline",
+      listingType: "vehicle",
+      vehicleMake: "Nissan",
+      vehicleModel: "Skyline",
+    });
+    expect(sparse.identityComplete).toBe(false);
+    expect(sparse.worthGeneratingBuyerCopy).toBe(false);
+    expect(sparse.nextClarification).toMatch(/R32|R33|R34|generation/i);
+    expect(sparse.importantMissing[0]).toBe("generation");
   });
 });

@@ -113,6 +113,10 @@ const BANNED_TEMPLATE_RE =
 const IMPLEMENTATION_LEAK_RE =
   /\bno guesswork\b|\bbased on (the )?(available|provided|supplied) (details|information)\b|\busing only supplied\b|\bfrom the information provided\b|\bbased on what we know\b|\bverified facts only\b|\bI haven'?t assumed\b|\bI didn'?t invent\b|\bStraightforward listing with the details we have\b|\bdetails we have\b|\bfacts we know\b|\bknown details\b|\bwhat is known\b|\bhere is what we know\b|\bonly the facts\b|\bAI\b|\bgenerated\b|\bassumed\b/i;
 
+/** Seller-editor coaching — must never appear in buyer-facing descriptions. */
+export const SELLER_EDITOR_GUIDANCE_RE =
+  /\badd the remaining details\b|\bcomplete the listing\b|\bstill need(?:s)?\b|\bprice still needs\b|\b(?:condition|location|price) still need\b|\badd(?:ing)? (?:photos|the remaining)\b|\bpublish when ready\b|\bfill in\b|\bto complete the listing\b|\bmissing (?:price|condition|location)\b/i;
+
 export const IMPLY_CLAIMS_RE =
   /\bready for use\b|\bworks well\b|\bclean upgrade\b|\bready to go\b|\bwell looked after\b|\bready for its next owner\b|\bready for its next home\b|\bready for a new wardrobe\b|\ba clean piece\b|\bclearer photos\b|\banother look at the photos\b|\bcheck the photos\b|\bmore photos\b|\banother photo\b|\bsend another photo\b|\bworks perfectly\b|\bperfect condition\b|\bexcellent condition\b/i;
 
@@ -275,6 +279,137 @@ function listingSeed(fill: SkyAiListingFill): string {
 function capFirst(s: string): string {
   if (!s) return s;
   return s[0].toUpperCase() + s.slice(1);
+}
+
+/* ─── Vehicle draft readiness (seller guidance vs buyer copy) ───────────── */
+
+export type VehicleDraftReadiness = {
+  knownFacts: string[];
+  importantMissing: string[];
+  /** True only when enough meaningful facts exist for publish-ready buyer copy. */
+  worthGeneratingBuyerCopy: boolean;
+  /** Single next seller question — never baked into buyer description. */
+  nextClarification: string | null;
+  identityComplete: boolean;
+};
+
+const AMBIGUOUS_GENERATION_FAMILIES: ReadonlyArray<{
+  family: RegExp;
+  resolved: RegExp;
+  ask: string;
+}> = [
+  {
+    family: /\bskyline\b/i,
+    resolved: /\br[\s-]?3[2-4]\b/i,
+    ask: "What generation is it — R32, R33, or R34?",
+  },
+  {
+    family: /\bsupra\b/i,
+    resolved: /\b(a80|a90|mk\s?[45]|jza80|gr\s*supra)\b/i,
+    ask: "Which Supra generation is it — e.g. A80 (Mk4) or A90?",
+  },
+];
+
+function vehicleIdentityBlob(fill: SkyAiListingFill): string {
+  return [fill.vehicleYear, fill.vehicleMake, fill.vehicleModel, fill.title]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function ambiguousGenerationAsk(fill: SkyAiListingFill): string | null {
+  const blob = vehicleIdentityBlob(fill);
+  for (const row of AMBIGUOUS_GENERATION_FAMILIES) {
+    if (row.family.test(blob) && !row.resolved.test(blob)) return row.ask;
+  }
+  return null;
+}
+
+/**
+ * Vehicle-specific completeness for draft UX.
+ * Follow-up priority: generation → year → price → odometer → condition → location → transmission/fuel.
+ * One question at a time. Buyer copy only when identity + enough sale facts exist.
+ */
+export function getVehicleDraftReadiness(fill: SkyAiListingFill): VehicleDraftReadiness {
+  const make = fill.vehicleMake?.trim() || null;
+  const model = fill.vehicleModel?.trim() || null;
+  const year = fill.vehicleYear?.trim() || null;
+  const price = fill.price?.trim() || null;
+  const condition = fill.condition?.trim() || null;
+  const location = (fill.location || fill.pickupArea)?.trim() || null;
+  const odometer = fill.vehicleOdometer?.trim() || null;
+  const colour = fill.vehicleColour?.trim() || null;
+  const transmission = fill.vehicleTransmission?.trim() || null;
+  const fuel = fill.vehicleFuelType?.trim() || null;
+
+  const knownFacts: string[] = [];
+  if (make) knownFacts.push(`make:${make}`);
+  if (model) knownFacts.push(`model:${model}`);
+  if (year) knownFacts.push(`year:${year}`);
+  if (price) knownFacts.push(`price:${price}`);
+  if (condition) knownFacts.push(`condition:${condition}`);
+  if (location) knownFacts.push(`location:${location}`);
+  if (odometer) knownFacts.push(`odometer:${odometer}`);
+  if (colour) knownFacts.push(`colour:${colour}`);
+  if (transmission) knownFacts.push(`transmission:${transmission}`);
+  if (fuel) knownFacts.push(`fuel:${fuel}`);
+
+  const genAsk = ambiguousGenerationAsk(fill);
+  const identityComplete = Boolean(make && model) && !genAsk;
+
+  const importantMissing: string[] = [];
+  if (genAsk) importantMissing.push("generation");
+  else {
+    if (!make) importantMissing.push("make");
+    if (!model) importantMissing.push("model");
+  }
+  if (!year) importantMissing.push("year");
+  if (!price) importantMissing.push("price");
+  if (!odometer) importantMissing.push("odometer");
+  if (!condition) importantMissing.push("condition");
+  if (!location) importantMissing.push("location");
+  if (!transmission) importantMissing.push("transmission");
+  if (!fuel) importantMissing.push("fuel");
+
+  // Meaningful-fact score — not word count. Sparse make/model alone stays pending.
+  let score = 0;
+  if (make && model) score += 2;
+  if (year) score += 1;
+  if (price) score += 1;
+  if (condition) score += 1;
+  if (location) score += 1;
+  if (odometer) score += 1;
+  if (colour) score += 0.5;
+  if (transmission || fuel) score += 0.5;
+
+  const worthGeneratingBuyerCopy =
+    identityComplete &&
+    Boolean(year) &&
+    Boolean(price) &&
+    Boolean(location) &&
+    score >= 5;
+
+  let nextClarification: string | null = null;
+  if (genAsk) nextClarification = genAsk;
+  else if (!year) nextClarification = "What year is it?";
+  else if (!price) nextClarification = "What's the asking price?";
+  else if (!odometer) nextClarification = "Roughly how many kilometres are on it?";
+  else if (!condition) nextClarification = "What condition is it in?";
+  else if (!location) nextClarification = "Where is it located?";
+  else if (!transmission) nextClarification = "Is it manual or automatic?";
+  else if (!fuel) nextClarification = "Petrol, diesel, or hybrid?";
+
+  return {
+    knownFacts,
+    importantMissing,
+    worthGeneratingBuyerCopy,
+    nextClarification,
+    identityComplete,
+  };
+}
+
+export function isVehicleListingFill(fill: SkyAiListingFill): boolean {
+  const type = (fill.listingType || "").toLowerCase();
+  return type === "vehicle" || Boolean(fill.vehicleMake || fill.vehicleModel);
 }
 
 /* ─── Style / kind resolution ───────────────────────────────────────────── */
@@ -449,7 +584,13 @@ export function extractDescriptionFacts(
 function classifySentence(s: string): SentencePurpose {
   const t = s.trim();
   if (!t) return "other";
-  if (IMPLEMENTATION_LEAK_RE.test(t) || /\bAI\b|\bgenerated\b/i.test(t)) return "meta";
+  if (
+    IMPLEMENTATION_LEAK_RE.test(t) ||
+    SELLER_EDITOR_GUIDANCE_RE.test(t) ||
+    /\bAI\b|\bgenerated\b/i.test(t)
+  ) {
+    return "meta";
+  }
   if (IMPLY_CLAIMS_RE.test(t) || SERVICE_INVENTION_RE.test(t) || UNSUPPORTED_CLAIM_RE.test(t)) {
     return "unsupported";
   }
@@ -523,7 +664,7 @@ function stripBadSentences(sentences: string[]): string[] {
     const p = classifySentence(s);
     if (p === "meta" || p === "unsupported") return false;
     if (FIELD_LABEL_RE.test(s) || BANNED_TEMPLATE_RE.test(s)) return false;
-    if (IMPLEMENTATION_LEAK_RE.test(s)) return false;
+    if (IMPLEMENTATION_LEAK_RE.test(s) || SELLER_EDITOR_GUIDANCE_RE.test(s)) return false;
     if (IMPLY_CLAIMS_RE.test(s) || SERVICE_INVENTION_RE.test(s)) return false;
     if (SERVICE_TEMPLATE_SMELL_RE.test(s)) return false;
     // Drop robotic field sentences
@@ -543,6 +684,7 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   if (FIELD_LABEL_RE.test(t)) return true;
   if (BANNED_TEMPLATE_RE.test(t)) return true;
   if (IMPLEMENTATION_LEAK_RE.test(t)) return true;
+  if (SELLER_EDITOR_GUIDANCE_RE.test(t)) return true;
   if (IMPLY_CLAIMS_RE.test(t)) return true;
   if (SERVICE_INVENTION_RE.test(t)) return true;
   if (SERVICE_TEMPLATE_SMELL_RE.test(t)) return true;
@@ -591,6 +733,7 @@ export function passesListingDescriptionQualityGate(
     FIELD_LABEL_RE.test(t) ||
     BANNED_TEMPLATE_RE.test(t) ||
     IMPLEMENTATION_LEAK_RE.test(t) ||
+    SELLER_EDITOR_GUIDANCE_RE.test(t) ||
     IMPLY_CLAIMS_RE.test(t) ||
     SERVICE_INVENTION_RE.test(t) ||
     SERVICE_TEMPLATE_SMELL_RE.test(t)
@@ -654,6 +797,8 @@ function defaultCta(facts: DescriptionFacts): string {
 }
 
 function runQualityPass(draft: string, facts: DescriptionFacts): string {
+  if (!draft.trim()) return "";
+
   let sentences = splitSentences(draft);
   sentences = stripBadSentences(sentences);
 
@@ -672,14 +817,21 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
   sentences = semanticDedupe(sentences);
   sentences = enforceOneCta(sentences);
 
-  // Ensure exactly one CTA for non-standard quality
-  if (facts.quality !== "standard") {
+  const allowCta =
+    facts.kind !== "vehicle"
+      ? true
+      : facts.factRichness !== "sparse";
+
+  // CTA: never pad sparse vehicle drafts; other kinds keep one invite
+  if (allowCta && facts.quality !== "standard") {
     const hasCta = sentences.some((s) => classifySentence(s) === "cta");
     if (!hasCta) sentences.push(defaultCta(facts));
     sentences = enforceOneCta(sentences);
     sentences = semanticDedupe(sentences);
+  } else if (!allowCta) {
+    sentences = sentences.filter((s) => classifySentence(s) !== "cta");
   } else {
-    // standard: compact close, still one invite max
+    // standard + non-sparse vehicle: compact close, still one invite max
     sentences = sentences.filter((s) => classifySentence(s) !== "cta");
     sentences.push("Happy to answer questions.");
   }
@@ -717,9 +869,15 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
   sentences = stripBadSentences(sentences);
   sentences = semanticDedupe(sentences);
   sentences = enforceOneCta(sentences);
-  if (facts.quality !== "standard" && !sentences.some((s) => classifySentence(s) === "cta")) {
+  if (
+    allowCta &&
+    facts.quality !== "standard" &&
+    !sentences.some((s) => classifySentence(s) === "cta")
+  ) {
     sentences.push(defaultCta(facts));
     sentences = enforceOneCta(sentences);
+  } else if (!allowCta) {
+    sentences = sentences.filter((s) => classifySentence(s) !== "cta");
   }
   text = polishParagraph(sentences.join(" "));
   text = trimToWords(text, maxWords);
@@ -727,7 +885,7 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
   return text.slice(0, 8000);
 }
 
-/** Deterministic safe rewrite — no phrase banks, no stacking. */
+/** Deterministic safe rewrite — no phrase banks, no stacking, no seller coaching. */
 function safeFallbackDescription(facts: DescriptionFacts): string {
   const parts: string[] = [];
   const cond =
@@ -736,10 +894,6 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
 
   if (facts.kind === "vehicle") {
     const colour = facts.vehicle?.colour;
-    const missing: string[] = [];
-    if (!facts.money) missing.push("price");
-    if (!facts.conditionPhrase) missing.push("condition");
-    if (!facts.location) missing.push("location");
     parts.push(
       polishParagraph(
         `${colour ? `${colour} ` : ""}${item} available for sale${facts.location ? ` in ${facts.location}` : ""}.`
@@ -753,13 +907,6 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
     if (facts.conditionPhrase) bits.push(facts.conditionPhrase);
     if (bits.length) parts.push(capFirst(`${bits.join(", ")}.`));
     if (facts.money) parts.push(`Asking ${facts.money}.`);
-    if (missing.length >= 2) {
-      const list =
-        missing.length === 2
-          ? `${missing[0]} and ${missing[1]}`
-          : `${missing.slice(0, -1).join(", ")}, and ${missing[missing.length - 1]}`;
-      parts.push(`Add the remaining details such as ${list} to complete the listing.`);
-    }
   } else if (facts.kind === "service") {
     const priceBit =
       facts.priceMode === "hourly" && facts.money
@@ -811,7 +958,7 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
 
   if (facts.quality === "standard") {
     parts.push("Happy to answer questions.");
-  } else {
+  } else if (facts.kind !== "vehicle" || facts.factRichness !== "sparse") {
     parts.push(defaultCta(facts));
   }
 
@@ -926,11 +1073,6 @@ function writeVehicle(facts: DescriptionFacts): string {
   const loc = facts.location;
   const seed = facts.seed;
 
-  const missingBits: string[] = [];
-  if (!facts.money) missingBits.push("price");
-  if (!facts.conditionPhrase) missingBits.push("condition");
-  if (!loc) missingBits.push("location");
-
   const detailBits: string[] = [];
   if (v?.odometer) detailBits.push(`${formatOdo(v.odometer)} on the clock`);
   if (v?.transmission) detailBits.push(`${v.transmission.toLowerCase()} transmission`);
@@ -941,51 +1083,7 @@ function writeVehicle(facts: DescriptionFacts): string {
   }
   if (facts.extras.length) detailBits.push(...facts.extras);
 
-  const hasRichFacts =
-    Boolean(facts.money || loc || colour || detailBits.length) &&
-    facts.factRichness !== "sparse";
-
-  // Sparse / incomplete vehicle: introduce the car, acknowledge gaps, never title-echo
-  if (!hasRichFacts || missingBits.length >= 2) {
-    const opener = pickVariant(seed + ":vopen-sparse", [
-      `${name} available for sale.`,
-      `${name} is available for sale.`,
-      `For sale — ${name}.`,
-    ]);
-    const parts: string[] = [polishParagraph(opener)];
-
-    if (colour) {
-      parts.push(polishParagraph(`Finished in ${colour.toLowerCase()}.`));
-    }
-    if (detailBits.length) {
-      parts.push(capFirst(`${detailBits.join(", ")}.`));
-    }
-    if (facts.money && loc) {
-      parts.push(`Asking ${facts.money} in ${loc}.`);
-    } else if (facts.money) {
-      parts.push(`Asking ${facts.money}.`);
-    } else if (loc) {
-      parts.push(`Available in ${loc}.`);
-    }
-
-    if (missingBits.length > 0) {
-      const list =
-        missingBits.length === 1
-          ? missingBits[0]
-          : missingBits.length === 2
-            ? `${missingBits[0]} and ${missingBits[1]}`
-            : `${missingBits.slice(0, -1).join(", ")}, and ${missingBits[missingBits.length - 1]}`;
-      parts.push(
-        pickVariant(seed + ":vmiss", [
-          `Add the remaining details such as ${list} to complete the listing.`,
-          `${capFirst(list)} still need${missingBits.length === 1 ? "s" : ""} adding to complete the listing.`,
-        ])
-      );
-    }
-
-    return parts.join(" ");
-  }
-
+  // Buyer copy only — never seller "still need / complete the listing" coaching
   const opener = pickVariant(seed + ":vopen", [
     colour
       ? `${colour} ${name}${loc ? `, available in ${loc}` : " available for sale"}.`
@@ -1003,8 +1101,6 @@ function writeVehicle(facts: DescriptionFacts): string {
     parts.push(
       pickVariant(seed + ":vp", [`Asking ${facts.money}.`, `I'm asking ${facts.money}.`])
     );
-  } else if (missingBits.includes("price")) {
-    parts.push("Price still needs adding to complete the listing.");
   }
 
   return parts.join(" ");
@@ -1195,12 +1291,17 @@ function writeFromFacts(facts: DescriptionFacts): string {
 /**
  * Marketplace description from known draft facts only — no hallucinations.
  * Facts → type writer → quality pass. Default quality: Premium Plus.
+ * Vehicles: blank until getVehicleDraftReadiness says buyer copy is worth generating.
  */
 export function buildListingDescriptionFromFacts(
   fill: SkyAiListingFill,
   opts?: { quality?: ListingDescriptionQuality }
 ): string {
+  if (isVehicleListingFill(fill) && !getVehicleDraftReadiness(fill).worthGeneratingBuyerCopy) {
+    return "";
+  }
   const facts = extractDescriptionFacts(fill, opts);
   const draft = writeFromFacts(facts);
+  if (!draft.trim()) return "";
   return runQualityPass(draft, facts);
 }

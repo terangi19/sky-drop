@@ -48,11 +48,14 @@ import {
   normalizeProductName,
   cleanRentalItemName,
   buildPremiumListingTitle,
+  getVehicleDraftReadiness,
+  isVehicleListingFill,
 } from "./awhina-product-ux";
 import { composeListingTitleAndDescription } from "./awhina-listing-composer";
 import {
   looksLikeVehicleYearToken,
   parseVehicleYear,
+  resolveVehicleIdentity,
 } from "./sky-ai-find-routing";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
@@ -880,6 +883,54 @@ export function processListingFillMessage(
     }
   }
 
+  // Vehicle draft follow-ups: generation / year / odometer (seller path only)
+  if (hasDraft && isVehicleListingFill(baseDraft)) {
+    const identity = resolveVehicleIdentity(trimmed);
+    const genOrModel =
+      Boolean(identity.model) &&
+      (identity.confidence === "high" ||
+        /\br[\s-]?3[2-4]\b|\b(a80|a90|mk\s?[45])\b/i.test(trimmed));
+    if (genOrModel && identity.model) {
+      if (identity.make) partial.vehicleMake = identity.make;
+      else if (baseDraft.vehicleMake) partial.vehicleMake = baseDraft.vehicleMake;
+      partial.vehicleModel = identity.model;
+      if (identity.year) partial.vehicleYear = identity.year;
+      notes.push(`model ${identity.model}`);
+      touched = true;
+    }
+
+    const yearOnly = trimmed.match(/^\s*((?:19|20)\d{2})\s*$/);
+    if (yearOnly && looksLikeVehicleYearToken(yearOnly[1], trimmed)) {
+      partial.vehicleYear = yearOnly[1];
+      notes.push(`year ${yearOnly[1]}`);
+      touched = true;
+    } else if (!partial.vehicleYear) {
+      const yearInText = parseVehicleYear(trimmed);
+      if (
+        yearInText &&
+        looksLikeVehicleYearToken(yearInText, trimmed) &&
+        !partial.price &&
+        trimmed.split(/\s+/).length <= 6
+      ) {
+        partial.vehicleYear = yearInText;
+        notes.push(`year ${yearInText}`);
+        touched = true;
+      }
+    }
+
+    const odoMatch = trimmed.match(
+      /^\s*([\d,]+)\s*(km|kms|kilometers|kilometres)\s*$/i
+    );
+    if (odoMatch) {
+      const n = Number(odoMatch[1].replace(/,/g, ""));
+      if (Number.isFinite(n) && n >= 100 && n <= 2_000_000) {
+        partial.vehicleOdometer = String(Math.round(n));
+        notes.push(`odometer ${partial.vehicleOdometer}`);
+        touched = true;
+      }
+    }
+  }
+
   // New sell intent — one-pass seed (current message facts only)
   const sellItem = sellItemEarly || extractSellItem(trimmed);
   const serviceTitle = serviceTitleEarly || extractServiceOfferingTitle(trimmed);
@@ -948,6 +999,17 @@ export function processListingFillMessage(
   if (!touched && onSell && hasDraft) {
     // Missing info / vague
     if (/^(help|what(?:'s| is) missing|missing info|complete it|finish it)\??$/i.test(trimmed)) {
+      if (isVehicleListingFill(baseDraft)) {
+        const readiness = getVehicleDraftReadiness(baseDraft);
+        return {
+          handled: true,
+          reply: readiness.nextClarification
+            ? readiness.nextClarification
+            : `Your draft looks ready — add photos, then tap **Publish** when you're happy.`,
+          clarify: Boolean(readiness.nextClarification),
+          intent: "listing_update",
+        };
+      }
       const missing: string[] = [];
       if (!baseDraft.price) missing.push("price");
       if (!baseDraft.condition) missing.push("condition");
@@ -1014,6 +1076,8 @@ export function processListingFillMessage(
     partial.vehicleOdometer ||
     partial.vehicleColour ||
     partial.vehicleTransmission ||
+    partial.vehicleModel ||
+    partial.vehicleYear ||
     !merged.description ||
     merged.description.length < 40
   ) {
@@ -1055,9 +1119,13 @@ export function processListingFillMessage(
     reply = buildCompleteDraftReply(validated.fill);
   } else if (isNewSellSeed || !hasDraft) {
     const missing: string[] = [];
-    if (!validated.fill.price) missing.push("price");
-    if (!validated.fill.condition) missing.push("condition");
-    if (!validated.fill.location) missing.push("location");
+    if (isVehicleListingFill(validated.fill)) {
+      missing.push(...getVehicleDraftReadiness(validated.fill).importantMissing.slice(0, 3));
+    } else {
+      if (!validated.fill.price) missing.push("price");
+      if (!validated.fill.condition) missing.push("condition");
+      if (!validated.fill.location) missing.push("location");
+    }
     reply = buildIncompleteDraftReply(validated.fill, missing);
   } else {
     const suggestion =
