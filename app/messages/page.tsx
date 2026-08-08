@@ -84,23 +84,16 @@ function containsRiskyKeywords(text: string): string | null {
   return null;
 }
 
-const BUYER_QUICK_REPLIES = [
+/** Start-of-thread chips only — normal text messages, never Offers. */
+const BUYER_START_QUICK_REPLIES = [
   "Is this still available?",
-  "When can I pick up?",
-  "Can we meet in a public place?",
-  "Can you ship to my area?",
-  "Would you accept a lower offer?",
+  "When can I pick it up?",
+  "Whereabouts are you?",
 ];
-const SELLER_QUICK_REPLIES = [
+const SELLER_START_QUICK_REPLIES = [
   "Yes, still available.",
   "Pickup works — when suits you?",
-  "Happy to meet somewhere public for pickup.",
-  "I can ship — what's your suburb?",
-  "Happy to negotiate on price.",
-];
-const PUBLIC_MEETING_CHIPS = [
-  "Let's meet in a public place.",
-  "Happy to do a public pickup.",
+  "Happy to meet somewhere public.",
 ];
 function formatTime(timestamp: any) {
   if (!timestamp?.seconds) return "";
@@ -114,6 +107,32 @@ function formatTime(timestamp: any) {
 function formatFullTime(timestamp: any) {
   if (!timestamp?.seconds) return "";
   return new Date(timestamp.seconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+/** Same-sender consecutive bubbles within 3 minutes group together. */
+function isGroupedWithNeighbor(
+  a: { sender?: string; type?: string; createdAt?: { seconds?: number } } | null | undefined,
+  b: { sender?: string; type?: string; createdAt?: { seconds?: number } } | null | undefined
+): boolean {
+  if (!a || !b) return false;
+  const special = (t?: string) =>
+    t === "offer" || t === "order" || t === "order_event" || t === "system" || t === "purchase";
+  if (special(a.type) || special(b.type)) return false;
+  if (!a.sender || a.sender !== b.sender) return false;
+  const ta = a.createdAt?.seconds || 0;
+  const tb = b.createdAt?.seconds || 0;
+  return Math.abs(ta - tb) < 180;
+}
+function bubbleRadius(isOwn: boolean, groupStart: boolean, groupEnd: boolean): string {
+  if (isOwn) {
+    if (groupStart && groupEnd) return "rounded-2xl rounded-br-md";
+    if (groupStart) return "rounded-2xl rounded-br-sm";
+    if (groupEnd) return "rounded-2xl rounded-tr-sm rounded-br-md";
+    return "rounded-2xl rounded-r-sm";
+  }
+  if (groupStart && groupEnd) return "rounded-2xl rounded-bl-md";
+  if (groupStart) return "rounded-2xl rounded-bl-sm";
+  if (groupEnd) return "rounded-2xl rounded-tl-sm rounded-bl-md";
+  return "rounded-2xl rounded-l-sm";
 }
 export default function MessagesPageWrapper() {
   return (
@@ -142,6 +161,7 @@ function MessagesPage() {
   const [loadError, setLoadError] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
+  const [avatars, setAvatars] = useState<Record<string, string>>({});
   const [scamWarning, setScamWarning] = useState(false);
   const [pendingMessage, setPendingMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -169,16 +189,27 @@ function MessagesPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Keyboard-avoiding: scroll message input into view when keyboard opens on mobile
+  // Keyboard-avoiding: lift composer when mobile keyboard opens
   useEffect(() => {
     if (typeof window === "undefined" || !("visualViewport" in window)) return;
-    const onResize = () => {
-      if (window.innerWidth < 768) {
-        document.querySelector('[class*="px-5"][class*="py-2.5"]')?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const vv = window.visualViewport!;
+    const sync = () => {
+      if (window.innerWidth >= 768) {
+        setComposerPad(0);
+        return;
+      }
+      const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setComposerPad(overlap > 40 ? overlap : 0);
+      if (overlap > 40) {
+        composerBarRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
       }
     };
-    window.visualViewport!.addEventListener("resize", onResize);
-    return () => window.visualViewport!.removeEventListener("resize", onResize);
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    return () => {
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
+    };
   }, []);
   // Feature 3: Seller verification
   const [sellerProfile, setSellerProfile] = useState<any>(null);
@@ -195,13 +226,19 @@ function MessagesPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [blockConfirmTarget, setBlockConfirmTarget] = useState<string | null>(null);
   const [clearAllConfirm, setClearAllConfirm] = useState(false);
-  const messageInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [showSafetyWarning, setShowSafetyWarning] = useState(false);
   const [riskyKeyword, setRiskyKeyword] = useState<string | null>(null);
   const [showClearAll, setShowClearAll] = useState(false);
   const typingDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTypingSentRef = useRef<boolean | null>(null);
+  const lastTypingWriteAtRef = useRef(0);
+  const sendInFlightRef = useRef(false);
+  const avatarsRef = useRef<Record<string, string>>({});
   const lastMessageTime = useRef(0);
-  // â€”â€” Effects â€”â€”
+  const composerBarRef = useRef<HTMLDivElement>(null);
+  const [composerPad, setComposerPad] = useState(0);
+  // —— Effects ——
   // Auth listener
   useEffect(() => {
     let mounted = true;
@@ -212,6 +249,16 @@ function MessagesPage() {
     });
     return () => { mounted = false; unsub(); };
   }, []);
+  useEffect(() => {
+    avatarsRef.current = avatars;
+  }, [avatars]);
+  // Cleanup typing debounce / emit false on unmount or conversation switch
+  useEffect(() => {
+    return () => {
+      if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+      lastTypingSentRef.current = null;
+    };
+  }, [chatUser, chatListingId]);
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("blockedUsers") || "[]");
@@ -531,7 +578,7 @@ function MessagesPage() {
 
     return () => { cancelled = true; };
   }, [chatUser, user, messages, chatListingId]);
-  // Fetch usernames — session cache; do not force-refresh repeatedly
+  // Fetch usernames + avatars — session cache; do not force-refresh repeatedly
   async function fetchUsername(identifier: string, forceRefresh = false) {
     if (!identifier || identifier === "system") return;
     if (!forceRefresh && (usernamesRef.current[identifier] || usernames[identifier])) return;
@@ -541,8 +588,14 @@ function MessagesPage() {
       if (profile) {
         handle = publicHandleFromProfile(profile, "User");
         const profileEmail = profile.email;
+        const photo = typeof profile.photoURL === "string" ? profile.photoURL.trim() : "";
         if (profileEmail && profileEmail !== identifier) {
           setUsernames((prev) => ({ ...prev, [profileEmail]: handle }));
+          if (photo) {
+            setAvatars((prev) => ({ ...prev, [profileEmail]: photo, [identifier]: photo }));
+          }
+        } else if (photo) {
+          setAvatars((prev) => ({ ...prev, [identifier]: photo }));
         }
       }
       setUsernames((prev) => ({ ...prev, [identifier]: handle }));
@@ -647,6 +700,13 @@ function MessagesPage() {
     // â€”â€” Functions â€”â€”
     async function emitTyping(typing: boolean) {
       if (!chatUser || !user?.email) return;
+      // Throttle identical typing writes (400ms debounce upstream + 1.2s min gap)
+      if (lastTypingSentRef.current === typing) {
+        if (typing && Date.now() - lastTypingWriteAtRef.current < 1200) return;
+        if (!typing) return;
+      }
+      lastTypingSentRef.current = typing;
+      lastTypingWriteAtRef.current = Date.now();
       try {
         await setDoc(doc(db, "typing", `${user.email}_${chatUser}_${chatListingId || "general"}`), { typing, user: user.email, at: serverTimestamp() });
       } catch (e) { console.error("Failed to emit typing:", e); }
@@ -810,16 +870,24 @@ function MessagesPage() {
   const MAX_MESSAGE_LENGTH = 2000;
   const isOwnListing = listingCard?.sellerEmail === user?.email;
   const stripeCheckoutVisible = isStripeCheckoutVisibleClient();
-  const quickReplies = [
-    ...(isOwnListing ? SELLER_QUICK_REPLIES : BUYER_QUICK_REPLIES),
-    ...PUBLIC_MEETING_CHIPS.filter(
-      (chip) => !(isOwnListing ? SELLER_QUICK_REPLIES : BUYER_QUICK_REPLIES).includes(chip)
-    ),
-  ];
+  const threadHasUserChat = useMemo(
+    () =>
+      filteredMessages.some(
+        (m: any) =>
+          m.sender !== "system" &&
+          m.type !== "system" &&
+          m.type !== "order_event" &&
+          m.type !== "order" &&
+          (m.text || m.type === "image" || m.type === "file" || m.type === "offer")
+      ),
+    [filteredMessages]
+  );
+  const startQuickReplies = isOwnListing ? SELLER_START_QUICK_REPLIES : BUYER_START_QUICK_REPLIES;
+  const showStartQuickReplies = !!chatUser && !threadHasUserChat && !message.trim();
 
   // Send text message
   async function sendMessage(skipSafety = false, textOverride?: string) {
-    if (sendingMessage) return;
+    if (sendingMessage || sendInFlightRef.current) return;
     const textToSend = (textOverride ?? message).trim();
     if (!textToSend) return;
     if (!user?.email) { showToast("Please log in first", "info"); return; }
@@ -839,6 +907,7 @@ function MessagesPage() {
       if (kw) { setRiskyKeyword(kw); setShowSafetyWarning(true); return; }
     }
 
+    sendInFlightRef.current = true;
     setSendingMessage(true);
     const ownListing = listingCard?.sellerEmail === user.email;
     const activeListingTitle = listingCard?.title || null;
@@ -859,6 +928,9 @@ function MessagesPage() {
       };
       setMessages((prev) => [optimisticMsg, ...prev]);
       setMessage("");
+      if (messageInputRef.current) {
+        messageInputRef.current.style.height = "auto";
+      }
       // Auto-scroll after optimistic update
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
 
@@ -901,12 +973,13 @@ function MessagesPage() {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setMessage(textToSend);
     } finally {
+      sendInFlightRef.current = false;
       setSendingMessage(false);
     }
   }
 
   async function sendQuickReply(reply: string) {
-    if (sendingMessage || !reply.trim()) return;
+    if (sendingMessage || sendInFlightRef.current || !reply.trim()) return;
     await sendMessage(false, reply);
   }
   async function sendPendingMessage() {
@@ -1233,7 +1306,6 @@ function MessagesPage() {
     return time < Date.now();
   })();
   const isAuctionWinner = auctionEnded && listingCard?.highestBidder === user?.email;
-  const isAuctionSeller = auctionEnded && listingCard?.sellerEmail === user?.email;
   const [hasPurchaseInChat, setHasPurchaseInChat] = useState(false);
   const [purchaseData, setPurchaseData] = useState<any>(null);
   const [confirmingArrangeSale, setConfirmingArrangeSale] = useState(false);
@@ -1367,59 +1439,59 @@ function MessagesPage() {
           </div>
         </div>
       )}
-      <section className={`${PAGE_SHELL_CHAT} py-3 sm:py-6`}>
+      <section className={`${PAGE_SHELL_CHAT} py-2 sm:py-5`}>
         <div
-          className={`flex w-full overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--shadow-md)] sm:rounded-2xl ${
+          className={`mx-auto flex w-full max-w-[1100px] overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--shadow-sm)] sm:rounded-2xl ${
             !isMobile || mobileView === "list"
-              ? "h-[calc(100dvh-8.5rem-var(--mobile-nav-offset,0px))] sm:h-[calc(100dvh-16rem)]"
-              : "h-[calc(100dvh-5.5rem-var(--mobile-nav-offset,0px))] sm:h-[calc(100dvh-10rem)]"
+              ? "h-[calc(100dvh-7.5rem-var(--mobile-nav-offset,0px))] sm:h-[calc(100dvh-14rem)]"
+              : "h-[calc(100dvh-5rem-var(--mobile-nav-offset,0px))] sm:h-[calc(100dvh-10rem)]"
           }`}
         >
           {/* SIDEBAR */}
-          <div className={`flex w-[340px] flex-col border-r border-[var(--card-border)] ${isMobile && mobileView === "chat" ? "hidden" : "flex"} ${isMobile ? "w-full" : ""}`}>
-            <div className="border-b border-[var(--card-border)] p-4 sm:p-5">
-              <div className="flex items-start justify-between gap-3">
-                <h1 className="text-xl font-semibold text-[var(--foreground)] sm:text-2xl">Inbox</h1>
+          <div className={`flex w-full flex-col border-r border-[var(--card-border)] md:w-[300px] md:shrink-0 lg:w-[320px] ${isMobile && mobileView === "chat" ? "hidden" : "flex"}`}>
+            <div className="border-b border-[var(--card-border)] px-4 py-3 sm:px-4 sm:py-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="text-lg font-semibold tracking-tight text-[var(--foreground)] sm:text-xl">Messages</h1>
                 {messages.length > 0 && (
                   <button
                     onClick={() => setClearAllConfirm(true)}
-                    className="text-[10px] text-red-400 underline decoration-red-400/30 underline-offset-2 transition hover:text-red-300 hover:decoration-red-400/60"
+                    className="text-[10px] text-red-400/80 underline decoration-red-400/20 underline-offset-2 transition hover:text-red-400"
                   >
                     Clear all
                   </button>
                 )}
               </div>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-2.5 flex gap-1.5">
                 <div className="relative flex-1">
-                  <svg className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <svg className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <input type="text" placeholder="Search conversations..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] py-2.5 pl-9 pr-4 text-[13px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500" />
+                  <input type="text" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] py-2 pl-8 pr-3 text-[13px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/50" />
                 </div>
                 <select
                   value={conversationFilter}
                   onChange={(e) => setConversationFilter(e.target.value as "all" | "sellers" | "buyers")}
-                  className="h-[42px] shrink-0 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-3 text-[12px] text-[var(--foreground)] outline-none transition focus:border-sky-500"
+                  className="h-9 shrink-0 rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] px-2 text-[11px] text-[var(--foreground)] outline-none transition focus:border-sky-500/50"
                 >
                   <option value="all">All</option>
                   <option value="sellers">Sellers</option>
                   <option value="buyers">Buyers</option>
                 </select>
                 <button onClick={() => setShowUnreadOnly((prev) => !prev)}
-                  className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border transition ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition ${
                     showUnreadOnly
-                      ? "border-red-500/40 bg-red-500/10 text-red-400"
-                      : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] hover:border-red-400 hover:text-red-400"
+                      ? "border-sky-500/40 bg-sky-500/10 text-sky-500"
+                      : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] hover:text-[var(--foreground)]"
                   }`} title="Show unread only">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
                 </button>
                 <button onClick={markAllAsRead}
-                  className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:text-[var(--foreground)]"
                   title="Mark all as read">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </button>
@@ -1442,23 +1514,35 @@ function MessagesPage() {
                   />
                 </div>
               ) : conversations.length === 0 ? (
-                <div className="p-4">
-                  <EmptyState
-                    title="No conversations yet"
-                    description="Messages about listings will appear here when you contact a seller."
-                    actionLabel="Browse marketplace"
-                    actionHref="/"
-                    icon={
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                      </svg>
-                    }
-                  />
+                <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+                  <p className="text-[15px] font-medium text-[var(--foreground)]">Your messages will appear here.</p>
+                  <p className="mt-1.5 max-w-[220px] text-[13px] leading-relaxed text-[var(--muted)]">
+                    Message a seller from a listing to start arranging a purchase.
+                  </p>
+                  <Link href="/" className="mt-5 text-[13px] font-medium text-sky-500 transition hover:text-sky-400">
+                    Browse marketplace
+                  </Link>
                 </div>
               ) : (
                 conversations.map(([key, convo]: any) => {
                   const unreadCount = conversationUnread[key] || 0;
-                  const hasOffer = messages.some((m: any) => { const other = m.participants?.find((p: string) => p !== user?.email); return other === convo.participant && m.type === "offer"; });
+                  const selected = chatUser === convo.participant && chatListingId === convo.listingId;
+                  const displayName = getDisplayName(convo.participant);
+                  const avatarUrl = avatars[convo.participant];
+                  const preview =
+                    convo.msg.text
+                      ? formatMessageText(convo.msg.text)
+                      : convo.msg.type === "image"
+                        ? "Photo"
+                        : convo.msg.type === "file"
+                          ? `${convo.msg.fileName || "File"}`
+                          : convo.msg.type === "offer"
+                            ? `Offer: $${convo.msg.offerAmount || ""}`
+                            : convo.msg.type === "purchase"
+                              ? "Purchase request"
+                              : convo.msg.type === "system"
+                                ? "Update"
+                                : "";
                   return (
                     <button key={key}
                       onClick={() => { 
@@ -1466,50 +1550,37 @@ function MessagesPage() {
                         setChatListingId(convo.listingId); 
                         if (isMobile) setMobileView("chat"); 
                       }}
-                      className={`flex w-full items-start gap-3 border-b border-[var(--card-border)] px-4 py-3.5 text-left transition-colors duration-150 hover:bg-[var(--card-hover)] ${chatUser === convo.participant && chatListingId === convo.listingId ? "bg-sky-500/[0.07] shadow-[inset_3px_0_0_0_var(--accent-primary)]" : ""}`}>
-                      {/* Thumbnail */}
-                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)] ring-1 ring-[var(--card-border)]">
-                        {convo.msg.listingImage ? (
-                          <img src={convo.msg.listingImage} alt="" className="h-full w-full object-cover" />
+                      className={`flex w-full items-center gap-3 border-b border-[var(--card-border)]/70 px-3.5 py-3 text-left transition-colors duration-150 motion-reduce:transition-none hover:bg-[var(--card-hover)] active:bg-[var(--card-hover)] ${
+                        selected ? "bg-sky-500/[0.06] shadow-[inset_2px_0_0_0_var(--accent-primary)]" : ""
+                      } ${unreadCount > 0 && !selected ? "bg-[var(--soft-card)]/40" : ""}`}>
+                      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-[var(--soft-card)] ring-1 ring-[var(--card-border)]">
+                        {avatarUrl ? (
+                          <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-sm font-bold text-[var(--muted)]">
-                            SD
+                          <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-sky-500">
+                            {(displayName || "?").replace(/^@/, "").charAt(0).toUpperCase()}
                           </div>
                         )}
-                      </div>
-                      {/* Content */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className={`truncate text-[13px] ${unreadCount > 0 ? "font-bold text-[var(--foreground)]" : "font-medium text-[var(--foreground)]"}`}>
-                            {getDisplayName(convo.participant)}
+                        {unreadCount > 0 && (
+                          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-sky-500 px-1 text-[9px] font-bold text-white ring-2 ring-[var(--card)]">
+                            {unreadCount > 9 ? "9+" : unreadCount}
                           </span>
-                          <span className="shrink-0 text-[10px] text-[var(--muted)]">{formatTime(convo.msg.createdAt)}</span>
-                          {hasOffer && <span className="ml-1 shrink-0 text-[10px] text-amber-400">Offer</span>}
-                        </div>
-                        <p className={`mt-1 truncate text-[12px] leading-relaxed ${unreadCount > 0 ? "font-medium text-[var(--foreground)]" : "text-[var(--muted)]"}`}>
-                          {convo.msg.text
-                            ? formatMessageText(convo.msg.text)
-                            : convo.msg.type === "image"
-                              ? "Photo"
-                              : convo.msg.type === "file"
-                                ? `${convo.msg.fileName || "File"}`
-                                : convo.msg.type === "offer"
-                                  ? `Offer: $${convo.msg.offerAmount || ""}`
-                                  : convo.msg.type === "purchase"
-                                    ? "Purchase request"
-                                    : ""}
-                        </p>
-                        {convo.listingTitle && (
-                          <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[9px] font-medium text-sky-400 truncate max-w-full">{convo.listingTitle}</span>
                         )}
                       </div>
-                      {/* Unread badge */}
-                      {unreadCount > 0 && (
-                        <span className="flex h-5 min-w-[18px] items-center justify-center rounded-full bg-sky-500 px-1.5 text-[9px] font-bold text-always-white shrink-0 mt-0.5">
-                          {unreadCount > 9 ? "9+" : unreadCount}
-                        </span>
-                      )}
-
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className={`truncate text-[13px] leading-tight ${unreadCount > 0 ? "font-semibold text-[var(--foreground)]" : "font-medium text-[var(--foreground)]"}`}>
+                            {displayName}
+                          </span>
+                          <span className="shrink-0 text-[10px] tabular-nums text-[var(--muted)]">{formatTime(convo.msg.createdAt)}</span>
+                        </div>
+                        {convo.listingTitle && (
+                          <p className="mt-0.5 truncate text-[11px] text-[var(--muted)]">{convo.listingTitle}</p>
+                        )}
+                        <p className={`mt-0.5 truncate text-[12px] leading-snug ${unreadCount > 0 ? "font-medium text-[var(--foreground)]/85" : "text-[var(--muted)]"}`}>
+                          {preview}
+                        </p>
+                      </div>
                     </button>
                   );
                 })
@@ -1517,15 +1588,15 @@ function MessagesPage() {
             </div>
           </div>
           {/* CHAT AREA */}
-          <div className={`flex flex-1 flex-col ${isMobile && mobileView === "list" ? "hidden" : "flex"}`}>
-            {/* Chat header */}
-            <div className="flex items-center justify-between border-b border-[var(--card-border)] bg-white/[0.01] px-5 py-3.5">
-              <div className="flex items-center gap-3 min-w-0">
+          <div className={`flex min-w-0 flex-1 flex-col ${isMobile && mobileView === "list" ? "hidden" : "flex"}`}>
+            {/* Chat header — compact */}
+            <div className="flex items-center justify-between gap-2 border-b border-[var(--card-border)] bg-[var(--soft-card)]/30 px-3 py-2 sm:px-4">
+              <div className="flex min-w-0 items-center gap-2.5">
                 {isMobile && (
                   <button
                     onClick={() => setMobileView("list")}
                     aria-label="Back to conversations"
-                    className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[var(--muted)] hover:bg-white/[0.05] hover:text-[var(--foreground)] active:scale-[0.96]"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[var(--muted)] transition hover:bg-[var(--card-hover)] hover:text-[var(--foreground)] active:scale-[0.97] motion-reduce:active:scale-100"
                   >
                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -1534,36 +1605,29 @@ function MessagesPage() {
                 )}
                 {chatUser ? (
                   <>
-                    {/* Clickable avatar for profile preview */}
-                    <div className="relative">
+                    <div className="relative shrink-0">
                       <button onClick={() => setShowProfilePreview(!showProfilePreview)}
-                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-[14px] font-bold text-sky-400 transition hover:from-sky-500/30 hover:to-sky-500/20 ring-2 ring-white/[0.04]">
-                        {getDisplayName(chatUser)[0].toUpperCase()}
+                        className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[var(--soft-card)] text-[12px] font-semibold text-sky-500 ring-1 ring-[var(--card-border)] transition hover:ring-sky-500/40">
+                        {avatars[chatUser] ? (
+                          <img src={avatars[chatUser]} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          getDisplayName(chatUser).replace(/^@/, "").charAt(0).toUpperCase()
+                        )}
                       </button>
-                      {/* Profile preview popover */}
                       {showProfilePreview && (
-                        <div ref={profilePreviewRef} className="absolute left-0 top-12 z-50 w-60 overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--card)] shadow-2xl shadow-black/40 backdrop-blur-xl"
+                        <div ref={profilePreviewRef} className="absolute left-0 top-11 z-50 w-56 overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--shadow-md)]"
                           onClick={(e) => e.stopPropagation()}>
-                          <div className="relative h-16 bg-gradient-to-r from-sky-500/20 via-sky-500/10 to-sky-500/20">
-                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-[16px] font-bold text-sky-400 ring-4 ring-[var(--card)]">
-                              {getDisplayName(chatUser)[0].toUpperCase()}
+                          <div className="p-4 text-center">
+                            <div className="mx-auto flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[var(--soft-card)] text-[14px] font-semibold text-sky-500 ring-1 ring-[var(--card-border)]">
+                              {avatars[chatUser] ? (
+                                <img src={avatars[chatUser]} alt="" className="h-full w-full object-cover" />
+                              ) : (
+                                getDisplayName(chatUser).replace(/^@/, "").charAt(0).toUpperCase()
+                              )}
                             </div>
-                          </div>
-                          <div className="p-4 pt-8 text-center">
-                            <p className="text-[14px] font-bold text-[var(--foreground)]">{getDisplayName(chatUser)}</p>
+                            <p className="mt-2.5 text-[13px] font-semibold text-[var(--foreground)]">{getDisplayName(chatUser)}</p>
                             {sellerProfile && (
-                              <>
-                                <div className="mt-1 flex flex-wrap items-center justify-center gap-1 text-[10px] text-[var(--muted)]">
-                                  {sellerProfile.verified && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400">Verified</span>}
-                                  {sellerProfile.trustedSeller && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400">Trusted</span>}
-                                  {sellerProfile.profileBadge === "epic" && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400 font-semibold">Epic</span>}
-                                  {sellerProfile.profileBadge === "legendary" && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400 font-semibold">The Five</span>}
-                                </div>
-                                <p className="mt-2 text-[11px] text-[var(--muted)]">{sellerProfile.sales || 0} sales</p>
-                                {sellerProfile.memberSince && (
-                                  <p className="text-[10px] text-[var(--muted)]">Member since {new Date(sellerProfile.memberSince.seconds * 1000).getFullYear()}</p>
-                                )}
-                              </>
+                              <p className="mt-1 text-[11px] text-[var(--muted)]">{sellerProfile.sales || 0} sales{sellerTrust ? ` · ${sellerTrust.score}% trust` : ""}</p>
                             )}
                             <Link
                               href={`/seller/${encodeURIComponent(
@@ -1574,7 +1638,7 @@ function MessagesPage() {
                                 })
                               )}`}
                               onClick={() => setShowProfilePreview(false)}
-                              className="mt-3 inline-block w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-2 text-[11px] font-bold text-white transition hover:brightness-110">
+                              className="mt-3 inline-block w-full rounded-lg bg-sky-500 py-2 text-[11px] font-semibold text-white transition hover:bg-sky-400">
                               View Profile
                             </Link>
                           </div>
@@ -1582,62 +1646,51 @@ function MessagesPage() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <h2 className="truncate text-[15px] font-bold text-[var(--foreground)]">{getDisplayName(chatUser)}</h2>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {sellerProfile?.verified && (
-                          <span className="inline-flex items-center gap-1 text-[10px] text-sky-400">
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
-                            Verified
-                          </span>
-                        )}
-                        {sellerTrust && (
-                          <span className="text-[10px] text-[var(--muted)]">{sellerTrust.score}% Trust</span>
-                        )}
-                        {listingCard?.replyTime && (
-                          <span className="text-[10px] text-[var(--muted)]">Replies in {listingCard.replyTime}m</span>
-                        )}
-                        {otherTyping && (
-                          <span className="flex items-center gap-1 text-[10px] text-sky-400">
-                            Typing
-                            <span className="flex gap-0.5">
-                              <span className="h-1 w-1 animate-bounce rounded-full bg-sky-400" style={{ animationDelay: "0ms" }} />
-                              <span className="h-1 w-1 animate-bounce rounded-full bg-sky-400" style={{ animationDelay: "150ms" }} />
-                              <span className="h-1 w-1 animate-bounce rounded-full bg-sky-400" style={{ animationDelay: "300ms" }} />
-                            </span>
-                          </span>
+                      <h2 className="truncate text-[14px] font-semibold leading-tight text-[var(--foreground)]">{getDisplayName(chatUser)}</h2>
+                      <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--muted)]">
+                        {listingCard ? (
+                          <Link
+                            href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
+                            className="truncate transition hover:text-sky-500"
+                          >
+                            {listingCard.title || "Listing"}
+                            {listingCard.price ? ` · $${listingCard.price}` : ""}
+                          </Link>
+                        ) : otherTyping ? (
+                          <span className="text-sky-500">Typing…</span>
+                        ) : sellerProfile?.verified ? (
+                          <span>Verified</span>
+                        ) : null}
+                        {otherTyping && listingCard && (
+                          <span className="shrink-0 text-sky-500">· Typing…</span>
                         )}
                       </div>
                     </div>
                   </>
                 ) : (
-                  <h2 className="text-[15px] font-bold text-[var(--foreground)]">Select Conversation</h2>
+                  <h2 className="text-[14px] font-semibold text-[var(--muted)]">Select a conversation</h2>
                 )}
               </div>
-              {/* Options menu */}
               {chatUser && (
-                <div className="relative">
-                  <button onClick={() => setShowMenu(!showMenu)} className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted)] hover:bg-white/[0.06] hover:text-[var(--foreground)] transition-colors">
+                <div className="relative shrink-0">
+                  <button onClick={() => setShowMenu(!showMenu)} className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--muted)] transition hover:bg-[var(--card-hover)] hover:text-[var(--foreground)]">
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01" />
                     </svg>
                   </button>
                   {showMenu && (
-                    <div className="absolute right-0 top-11 z-40 w-52 overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--card)] shadow-2xl shadow-black/40 backdrop-blur-xl p-1.5">
-                      <button onClick={() => reportUser(chatUser)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.06] transition-colors">
-                        <svg className="h-3.5 w-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+                    <div className="absolute right-0 top-10 z-40 w-48 overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-1 shadow-[var(--shadow-md)]">
+                      <button onClick={() => reportUser(chatUser)} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12px] text-[var(--foreground)] transition hover:bg-[var(--card-hover)]">
                         Report user
                       </button>
-                      <button onClick={() => setBlockConfirmTarget(chatUser)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.06] transition-colors">
-                        <svg className="h-3.5 w-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                      <button onClick={() => setBlockConfirmTarget(chatUser)} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12px] text-[var(--foreground)] transition hover:bg-[var(--card-hover)]">
                         Block user
                       </button>
-                      <button onClick={clearConversation} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.06] transition-colors">
-                        <svg className="h-3.5 w-3.5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      <button onClick={clearConversation} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12px] text-[var(--foreground)] transition hover:bg-[var(--card-hover)]">
                         Clear conversation
                       </button>
                       {hasPurchaseInChat && purchaseData?.buyerEmail === user?.email && !purchaseData?.disputeStatus && (
-                        <button onClick={() => router.push("/purchases")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.06] transition-colors">
-                          <svg className="h-3.5 w-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+                        <button onClick={() => router.push("/purchases")} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12px] text-red-400 transition hover:bg-[var(--card-hover)]">
                           Open Dispute
                         </button>
                       )}
@@ -1648,81 +1701,54 @@ function MessagesPage() {
             </div>
             {/* Empty state */}
             {!chatUser ? (
-              <div className="flex flex-1 flex-col items-center justify-center px-6 py-8">
-                <EmptyState
-                  className="w-full max-w-md border-0 bg-transparent py-8 sm:py-10"
-                  title="Select a conversation"
-                  description="Pick a thread from the list to start messaging."
-                  icon={
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                  }
-                />
+              <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
+                <p className="text-[15px] font-medium text-[var(--foreground)]">Your messages will appear here.</p>
+                <p className="mt-1.5 max-w-xs text-[13px] leading-relaxed text-[var(--muted)]">
+                  Pick a conversation from the list, or message a seller from any listing.
+                </p>
               </div>
             ) : (
               <>
                 {/* Messages area */}
-                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4">
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-3 py-3 sm:px-5 sm:py-4">
                    {/* Listing context card — purchased */}
                   {hasPurchaseInChat && !isRefundedStatus(purchaseData?.status) && (
                     <StayOnSkyDropNotice paymentType={purchaseData?.paymentType} />
                   )}
                   {listingCard && hasPurchaseInChat && (
-                    <div className={`mb-2 overflow-hidden rounded-xl border ${
+                    <div className={`mb-2 overflow-hidden rounded-lg border ${
                       isRefundedStatus(purchaseData?.status)
                         ? "border-violet-500/25 bg-[var(--soft-card)]"
-                        : "border-[var(--card-border)]/50 bg-[var(--soft-card)]"
+                        : "border-[var(--card-border)] bg-[var(--soft-card)]/80"
                     }`}>
-                      <div className="flex items-center gap-3 p-3">
+                      <div className="flex items-center gap-2.5 px-2.5 py-2">
                         {listingCard.image ? (
-                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
+                          <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-md bg-[var(--soft-card)]">
                             <img src={listingCard.image} alt="" className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                           </div>
                         ) : (
-                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-sky-500/20 to-sky-600/10 flex items-center justify-center">
-                            <span className="text-sm font-black text-sky-400">SD</span>
+                          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--soft-card)]">
+                            <span className="text-[10px] font-bold text-sky-500">SD</span>
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
+                          <p className="truncate text-[12px] font-semibold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
                           {!isRefundedStatus(purchaseData?.status) && (
-                            <p className="text-[12px] font-black text-sky-400">${purchaseData?.total || listingCard.price}</p>
-                          )}
-                          {(purchaseData?.tracking || purchaseData?.trackingNumber) &&
-                            !isRefundedStatus(purchaseData?.status) &&
-                            ["shipped", "delivered", "ready_for_pickup"].includes(purchaseData?.status) && (
-                            <p className="mt-1 text-[10px] text-sky-400/90">
-                              Tracking: {purchaseData.tracking || purchaseData.trackingNumber}
+                            <p className="text-[11px] text-[var(--muted)]">
+                              ${purchaseData?.total || listingCard.price}
+                              {" · "}
+                              {purchaseData?.status === "arrange_requested"
+                                ? purchaseData?.sellerEmail === user?.email
+                                  ? "Awaiting your confirmation"
+                                  : "Purchase request sent"
+                                : purchaseData?.status === "pending"
+                                  ? "Awaiting seller confirmation"
+                                  : purchaseStatusLabel(purchaseData?.status)}
                             </p>
                           )}
-                          {!isRefundedStatus(purchaseData?.status) && (
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`text-[10px] ${
-                                purchaseData?.status === "delivered" || purchaseData?.status === "completed" ? "text-sky-400" :
-                                purchaseData?.status === "shipped" ? "text-sky-400" :
-                                purchaseData?.status === "seller_confirming" ? "text-sky-400" :
-                                purchaseData?.status === "cancelled" ? "text-red-400" :
-                                "text-sky-400"
-                              }`}>
-                                {purchaseData?.status === "arrange_requested"
-                                  ? purchaseData?.sellerEmail === user?.email
-                                    ? "Awaiting your confirmation"
-                                    : "Purchase request sent"
-                                  : purchaseData?.status === "pending"
-                                    ? "Awaiting seller confirmation"
-                                    : purchaseStatusLabel(purchaseData?.status)}
-                              </span>
-                              {purchaseData?.disputeStatus && (
-                                <span className="text-[10px] font-bold text-red-400">
-                                  {purchaseData.disputeStatus === "refunded" ? "Refunded" : "Disputed"}
-                                </span>
-                              )}
-                            </div>
-                          )}
                         </div>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex shrink-0 flex-col gap-1">
                           {purchaseData?.sellerEmail === user?.email &&
                             !isRefundedStatus(purchaseData?.status) &&
                             canSellerConfirmArrangeSale(
@@ -1733,21 +1759,15 @@ function MessagesPage() {
                               type="button"
                               onClick={confirmArrangeSaleInChat}
                               disabled={confirmingArrangeSale}
-                              className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-60"
+                              className="rounded-md bg-sky-500 px-2.5 py-1 text-[10px] font-semibold text-white transition hover:bg-sky-400 disabled:opacity-60"
                             >
                               {confirmingArrangeSale ? "Updating…" : "Mark sold"}
                             </button>
                           )}
                           <Link href={purchaseData?.sellerEmail === user?.email ? "/sales" : "/purchases"}
-                            className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white text-center transition hover:bg-sky-400">
+                            className="rounded-md border border-[var(--card-border)] px-2.5 py-1 text-center text-[10px] font-semibold text-[var(--foreground)] transition hover:bg-[var(--card-hover)]">
                             View Order
                           </Link>
-                          {purchaseData?.buyerEmail === user?.email && !purchaseData?.disputeStatus && !isRefundedStatus(purchaseData?.status) && (
-                            <button onClick={() => router.push("/purchases")}
-                              className="shrink-0 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[10px] font-bold text-red-400 transition hover:bg-red-500/20">
-                              ⚠️ Dispute
-                            </button>
-                          )}
                         </div>
                       </div>
                       {isRefundedStatus(purchaseData?.status) && (
@@ -1763,171 +1783,69 @@ function MessagesPage() {
                       )}
                     </div>
                   )}
-                  {/* Listing context card — auction ended */}
-                  {listingCard && !hasPurchaseInChat && auctionEnded && (
-                    <div className={`mb-3 overflow-hidden rounded-2xl border ${
-                      isAuctionWinner ? "border-sky-500/30 bg-sky-500/5" : "border-sky-500/10 bg-[var(--soft-card)]"
+                  {/* Compact listing context — non-purchase threads */}
+                  {listingCard && !hasPurchaseInChat && (
+                    <div className={`mb-2.5 flex items-center gap-2.5 overflow-hidden rounded-lg border px-2.5 py-2 ${
+                      auctionEnded && isAuctionWinner
+                        ? "border-sky-500/25 bg-sky-500/5"
+                        : listingCard.status === "sold"
+                          ? "border-[var(--card-border)] bg-[var(--soft-card)]/50 opacity-80"
+                          : "border-[var(--card-border)] bg-[var(--soft-card)]/70"
                     }`}>
-                      {/* Winner banner */}
-                      {isAuctionWinner && (
-                        <div className="flex items-center justify-center bg-sky-500/10 px-4 py-2.5 border-b border-sky-500/20">
-                          <span className="text-sm font-semibold tracking-wide text-sky-400">You won this auction</span>
+                      {listingCard.image ? (
+                        <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-md bg-[var(--soft-card)]">
+                          <img src={listingCard.image} alt="" className="h-full w-full object-cover"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                        </div>
+                      ) : (
+                        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-[var(--soft-card)]">
+                          <span className="text-[10px] font-bold text-sky-500">SD</span>
                         </div>
                       )}
-                      <div className="flex items-center gap-3 p-3">
-                        {listingCard.image ? (
-                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-[var(--soft-card)] shadow-md">
-                            <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                          </div>
-                        ) : (
-                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-600/10 shadow-md flex items-center justify-center">
-                            <span className="text-lg font-black text-sky-400">SD</span>
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
-                          <p className="text-[15px] font-black text-sky-400">${listingCard.currentBid || listingCard.price}</p>
-                          <span className={`text-[11px] font-medium ${
-                            isAuctionWinner ? "text-sky-400" : "text-sky-400"
-                          }`}>
-                            {isAuctionWinner ? "This listing is yours! Arrange pickup or payment below." : isAuctionSeller ? (listingCard.highestBidder ? `${listingCard.highestBidder} won` : "No bids received") : "Auction ended"}
-                          </span>
-                        </div>
-                        <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
-                          className={`shrink-0 rounded-xl px-4 py-2.5 text-[11px] font-bold shadow-lg transition hover:opacity-80 ${
-                            isAuctionWinner
-                              ? "bg-gradient-to-r from-sky-500 to-sky-400 text-black"
-                              : isAuctionSeller
-                                ? listingCard.highestBidder ? "bg-sky-500 text-black" : "bg-[var(--soft-card)] text-[var(--foreground)]"
-                                : "bg-[var(--soft-card)] text-[var(--foreground)]"
-                          }`}>
-                          {isAuctionWinner ? (listingCard.saleType === "auction_buy_now" ? (stripeCheckoutVisible ? "Proceed to Payment" : "Message to arrange") : "Arrange Pickup")
-                            : isAuctionSeller ? (listingCard.highestBidder ? "Awaiting Payment" : "View Listing")
-                            : "View Listing"}
-                        </Link>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12px] font-semibold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
+                        <p className="truncate text-[11px] text-[var(--muted)]">
+                          {listingCard.status === "sold"
+                            ? "Sold"
+                            : auctionEnded
+                              ? isAuctionWinner
+                                ? `Won · $${listingCard.currentBid || listingCard.price}`
+                                : "Auction ended"
+                              : isAuction
+                                ? `Auction · $${listingCard.currentBid || listingCard.price}`
+                                : listingCard.price
+                                  ? `$${listingCard.price}`
+                                  : "Listing"}
+                        </p>
                       </div>
-                    </div>
-                  )}
-                  {/* Listing context card — buy now */}
-                  {listingCard && !hasPurchaseInChat && !auctionEnded && listingCard?.saleType === "buy_now" && (
-                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80">
-                      <div className="flex items-center gap-3 p-3">
-                        {listingCard.image ? (
-                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
-                            <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                          </div>
-                        ) : (
-                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-sky-500/20 to-sky-600/10 flex items-center justify-center">
-                            <span className="text-sm font-black text-sky-400">SD</span>
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
-                          {listingCard.price && <p className="text-[12px] font-black text-sky-400">${listingCard.price}</p>}
-                        </div>
-                        <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
-                          className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
-                          View Listing
-                        </Link>
-                      </div>
-                    </div>
-                  )}
-                  {/* Listing context card — active auction */}
-                  {listingCard && !hasPurchaseInChat && !auctionEnded && isAuction && listingCard?.saleType !== "buy_now" && (
-                    <div className="mb-3 overflow-hidden rounded-2xl border border-sky-500/10 bg-[var(--soft-card)]">
-                      <div className="flex items-center gap-3 p-3">
-                        {listingCard.image ? (
-                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-[var(--soft-card)] shadow-md">
-                            <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                          </div>
-                        ) : (
-                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-600/10 shadow-md flex items-center justify-center">
-                            <span className="text-lg font-black text-sky-400">SD</span>
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
-                          <p className="text-[15px] font-black text-sky-400">${listingCard.currentBid || listingCard.price}</p>
-                          <span className="text-[11px] font-medium text-sky-400/80">Active auction</span>
-                        </div>
-                        <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
-                          className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
-                          View Listing
-                        </Link>
-                      </div>
-                    </div>
-                  )}
-                  {/* Listing context card — other listing type */}
-                  {listingCard && !hasPurchaseInChat && !auctionEnded && listingCard?.saleType && listingCard?.saleType !== "buy_now" && !isAuction && (
-                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80">
-                      <div className="flex items-center gap-3 p-3">
-                        {listingCard.image ? (
-                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
-                            <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                          </div>
-                        ) : (
-                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-sky-500/20 to-sky-600/10 flex items-center justify-center">
-                            <span className="text-sm font-black text-sky-400">SD</span>
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
-                          {listingCard.price && <p className="text-[12px] font-black text-sky-400">${listingCard.price}</p>}
-                        </div>
-                        <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
-                          className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
-                          View Listing
-                        </Link>
-                      </div>
-                    </div>
-                  )}
-                  {/* Listing context card — fallback */}
-                  {listingCard && !hasPurchaseInChat && !auctionEnded && !listingCard?.saleType && !isAuction && (
-                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80">
-                      <div className="flex items-center gap-3 p-3">
-                        {listingCard.image ? (
-                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
-                            <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                          </div>
-                        ) : (
-                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-sky-500/20 to-sky-600/10 flex items-center justify-center">
-                            <span className="text-sm font-black text-sky-400">SD</span>
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
-                          {listingCard.price && <p className="text-[12px] font-black text-[var(--muted)]">${listingCard.price}</p>}
-                        </div>
-                        <Link href={`/post/listing/${listingCard.id}`}
-                          className="shrink-0 rounded-lg bg-[var(--soft-card)] px-3 py-1.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-[var(--card-hover)]">
-                          View Listing
-                        </Link>
-                      </div>
+                      <Link
+                        href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
+                        className="shrink-0 rounded-md border border-[var(--card-border)] bg-[var(--card)] px-2.5 py-1.5 text-[10px] font-semibold text-[var(--foreground)] transition hover:border-sky-500/40 hover:text-sky-500"
+                      >
+                        {auctionEnded && isAuctionWinner
+                          ? (listingCard.saleType === "auction_buy_now"
+                              ? (stripeCheckoutVisible ? "Proceed to Payment" : "Arrange")
+                              : "Arrange Pickup")
+                          : "View listing"}
+                      </Link>
                     </div>
                   )}
                   {/* Messages */}
                   {filteredMessages.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center px-4">
-                      <EmptyState
-                        className="w-full max-w-sm border-0 bg-transparent py-8 sm:py-10"
-                        title="No messages yet"
-                        description="Send a message to start the conversation."
-                        icon={
-                          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                          </svg>
-                        }
-                      />
+                    <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+                      <p className="text-[14px] font-medium text-[var(--foreground)]">No messages yet</p>
+                      <p className="mt-1 text-[12px] text-[var(--muted)]">Say hello to start arranging.</p>
                     </div>
                   ) : (
-                    <div className="space-y-2.5">
-                      {filteredMessages.map((msg: any) => {
+                    <div className="mx-auto w-full max-w-[42rem] space-y-0.5">
+                      {filteredMessages.map((msg: any, idx: number) => {
                         const isOwn = user?.email === msg.sender;
+                        const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
+                        const nextMsg = idx < filteredMessages.length - 1 ? filteredMessages[idx + 1] : null;
+                        const groupStart = !isGroupedWithNeighbor(prevMsg, msg);
+                        const groupEnd = !isGroupedWithNeighbor(msg, nextMsg);
+                        const showTime = groupEnd;
+                        const gapClass = groupStart ? (idx === 0 ? "" : "mt-2.5") : "mt-0.5";
                         // Offer card
                         if (msg.type === "offer") {
                           const statusColors: Record<string, string> = {
@@ -2125,17 +2043,19 @@ function MessagesPage() {
                         // Image message
                         if (msg.type === "image") {
                           return (
-                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                              <div className="max-w-[75%]">
-                                <div className={`overflow-hidden rounded-2xl shadow-lg transition-all duration-200 hover:shadow-xl ${isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600" : "rounded-bl-md bg-[var(--card)]"}`}>
+                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} ${gapClass}`}>
+                              <div className="max-w-[min(75%,22rem)]">
+                                <div className={`overflow-hidden ${bubbleRadius(isOwn, groupStart, groupEnd)} ${isOwn ? "bg-sky-500" : "bg-[var(--soft-card)] ring-1 ring-[var(--card-border)]"}`}>
                                   {(msg.imageUrl || msg.imageData) && (
-                                    <img src={msg.imageUrl || msg.imageData} alt="Shared image" className="max-h-80 w-full object-cover"
+                                    <img src={msg.imageUrl || msg.imageData} alt="Shared image" className="max-h-72 w-full object-cover"
                                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                                   )}
-                                  {msg.text && <div className={`px-4 py-3 text-[14px] ${isOwn ? "text-always-white" : "text-[var(--foreground)]"}`}><p>{msg.text}</p></div>}
-                                  <div className={`flex items-center justify-end gap-1 px-4 pb-3 ${isOwn ? "" : ""}`}>
-                                    <span className={`text-[9px] ${isOwn ? "text-always-white/80" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
-                                  </div>
+                                  {msg.text && <div className={`px-3 py-2 text-[13px] ${isOwn ? "text-always-white" : "text-[var(--foreground)]"}`}><p>{msg.text}</p></div>}
+                                  {showTime && (
+                                    <div className="flex items-center justify-end gap-1 px-3 pb-1.5">
+                                      <span className={`text-[9px] ${isOwn ? "text-always-white/70" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -2145,109 +2065,112 @@ function MessagesPage() {
                         if (msg.type === "file") {
                           const isPdf = msg.fileName?.toLowerCase().endsWith(".pdf");
                           return (
-                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-                              <div className="max-w-[75%]">
+                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} ${gapClass}`}>
+                              <div className="max-w-[min(75%,22rem)]">
                                 <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer"
-                                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 shadow-lg transition hover:opacity-80 ${
-                                    isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-always-white" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)]"
+                                  className={`flex items-center gap-3 px-3 py-2.5 transition hover:opacity-90 ${bubbleRadius(isOwn, groupStart, groupEnd)} ${
+                                    isOwn ? "bg-sky-500 text-always-white" : "bg-[var(--soft-card)] text-[var(--foreground)] ring-1 ring-[var(--card-border)]"
                                   }`}>
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--soft-card)] text-[var(--muted)]">
+                                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-black/10 text-current">
                                     {isPdf ? (
-                                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                                     ) : (
-                                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                                     )}
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <p className="truncate text-[13px] font-medium text-[var(--foreground)]">{msg.fileName}</p>
-                                    <p className="text-[10px] text-[var(--muted)]">
+                                    <p className="truncate text-[13px] font-medium">{msg.fileName}</p>
+                                    <p className={`text-[10px] ${isOwn ? "text-always-white/70" : "text-[var(--muted)]"}`}>
                                       {msg.fileSize ? `${(msg.fileSize / 1024).toFixed(1)} KB` : ""}
                                       {isPdf && " · PDF"}
                                     </p>
                                   </div>
-                                  <svg className="h-4 w-4 shrink-0 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                  </svg>
                                 </a>
-                                <div className="mt-1 flex justify-end px-1">
-                                  <span className={`text-[9px] ${isOwn ? "text-always-white/80" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
-                                </div>
+                                {showTime && (
+                                  <div className="mt-0.5 flex justify-end px-1">
+                                    <span className={`text-[9px] ${isOwn ? "text-[var(--muted)]" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
                         }
                         // Order event (system message)
                         if (msg.type === "order_event") {
+                          const hasActionDetail = !!(msg.shippingAddress || msg.deliveryMethod === "pickup");
                           return (
-                            <div key={msg.id} className="flex justify-center">
-                              <div className="w-full max-w-sm rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-3 my-2">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                  <span className="text-[11px] font-semibold text-sky-400">Order update</span>
+                            <div key={msg.id} className={`flex justify-center ${gapClass} py-1`}>
+                              {hasActionDetail ? (
+                                <div className="w-full max-w-sm rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)]/80 px-3.5 py-2.5">
+                                  <p className="text-[12px] leading-relaxed text-[var(--foreground)]">{formatMessageText(msg.text)}</p>
+                                  {msg.shippingAddress && (
+                                    <div className="mt-2 rounded-lg bg-[var(--card)] px-3 py-2 text-[10px] text-[var(--muted)]">
+                                      <p className="text-[var(--foreground)]">
+                                        {msg.buyerName && !isEmailLike(msg.buyerName)
+                                          ? msg.buyerName.startsWith("@")
+                                            ? msg.buyerName
+                                            : `@${msg.buyerName}`
+                                          : "Buyer"}
+                                      </p>
+                                      <p className="text-[var(--foreground)]">{msg.shippingAddress}</p>
+                                      {msg.buyerPhone && <p className="text-[var(--foreground)]">{msg.buyerPhone}</p>}
+                                    </div>
+                                  )}
+                                  {msg.deliveryMethod === "pickup" && (
+                                    <p className="mt-1 text-[10px] text-[var(--muted)]">Pickup — arrange with seller</p>
+                                  )}
                                 </div>
-                                <p className="text-xs text-[var(--foreground)] leading-relaxed">{formatMessageText(msg.text)}</p>
-                                {msg.shippingAddress && (
-                                  <div className="mt-2 rounded-lg bg-[var(--soft-card)] px-3 py-2 text-[10px] text-[var(--muted)]">
-                                    <p>Shipping to:</p>
-                                    <p className="text-[var(--foreground)]">
-                                      {msg.buyerName && !isEmailLike(msg.buyerName)
-                                        ? msg.buyerName.startsWith("@")
-                                          ? msg.buyerName
-                                          : `@${msg.buyerName}`
-                                        : "Buyer"}
-                                    </p>
-                                    <p className="text-[var(--foreground)]">{msg.shippingAddress}</p>
-                                    {msg.buyerPhone && <p className="text-[var(--foreground)]">📞 {msg.buyerPhone}</p>}
-                                  </div>
-                                )}
-                                {msg.deliveryMethod === "pickup" && (
-                                  <p className="mt-1 text-[10px] text-[var(--muted)]">📍 Pickup — arrange with seller</p>
-                                )}
-                                <p className="mt-1 text-[8px] text-[var(--muted)] text-right">{formatTime(msg.createdAt)}</p>
-                              </div>
+                              ) : (
+                                <div className="max-w-[min(90%,24rem)] rounded-full border border-[var(--card-border)] bg-[var(--soft-card)]/80 px-3.5 py-1.5 text-center">
+                                  <p className="text-[11px] leading-snug text-[var(--muted)]">{formatMessageText(msg.text)}</p>
+                                </div>
+                              )}
                             </div>
                           );
                         }
                         // Arrange / system starter
                         if (msg.type === "system" && msg.sender === "system") {
                           return (
-                            <div key={msg.id} className="flex justify-center">
-                              <div className="max-w-[90%] rounded-xl bg-sky-500/5 px-4 py-3 text-left">
-                                <p className="whitespace-pre-line text-[13px] leading-relaxed text-[var(--foreground)]">
+                            <div key={msg.id} className={`flex justify-center ${gapClass} py-1`}>
+                              <div className="max-w-[min(92%,26rem)] rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)]/60 px-3.5 py-2.5 text-left">
+                                <p className="whitespace-pre-line text-[12px] leading-relaxed text-[var(--muted)]">
                                   {formatMessageText(msg.text)}
                                 </p>
                                 <ArrangePaymentCopyBar text={msg.text || ""} />
-                                <p className="mt-1.5 text-center text-[9px] text-[var(--muted)]">
-                                  {formatTime(msg.createdAt)}
-                                </p>
                               </div>
                             </div>
                           );
                         }
                         // Text message
                         return (
-                          <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                            <div className="max-w-[75%]">
-                              <div className={`rounded-2xl px-3.5 py-2.5 text-[14px] ${isOwn ? "rounded-br-md bg-sky-500 text-always-white" : "rounded-bl-md bg-[var(--soft-card)] text-[var(--foreground)] border border-[var(--card-border)]"}`}>
+                          <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} ${gapClass}`}>
+                            <div className="max-w-[min(78%,26rem)]">
+                              <div className={`px-3 py-1.5 text-[13.5px] leading-relaxed ${bubbleRadius(isOwn, groupStart, groupEnd)} ${
+                                isOwn
+                                  ? "bg-sky-500 text-always-white"
+                                  : "bg-[var(--soft-card)] text-[var(--foreground)] ring-1 ring-[var(--card-border)]"
+                              }`}>
                                 {!isOwn && (() => { const check = detectScam(msg.text || ""); return check.isScam ? (
-                                  <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 text-[9px] font-bold text-red-400 border border-red-500/20" title={`Flagged: ${check.keywords.join(", ")}`}>&#9888;&#65039; Caution</span>
+                                  <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[9px] font-semibold text-red-400" title={`Flagged: ${check.keywords.join(", ")}`}>Caution</span>
                                 ) : null; })()}
                                 {!isOwn && containsRiskyKeywords(msg.text || "") && (
-                                  <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-1 text-[9px] font-bold text-sky-400 border border-sky-500/20">&#9888;&#65039; Off-platform mention</span>
+                                  <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[9px] font-semibold text-sky-500">Off-platform mention</span>
                                 )}
-                                <p className="break-words whitespace-pre-line text-[14px] leading-relaxed">{formatMessageText(msg.text)}</p>
-                                {/* Status + timestamp */}
-                                <div className="mt-2 flex items-center justify-end gap-1">
-                                  <span className={`text-[9px] ${isOwn ? "text-always-white/80" : "text-[var(--muted)]"}`}>{formatTime(msg.createdAt)}</span>
-                                  {isOwn && (
-                                    <span className="text-[10px]">
-                                      {msg.read ? (
-                                        <svg className="h-3.5 w-3.5 text-sky-400" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 7.5l-12 12L5 13l1.5-1.5 5 5 10.5-10.5L23.5 7.5zM17.5 7.5l-6 6-1.5-1.5 6-6 1.5 1.5z" /></svg>
-                                      ) : (
-                                        <svg className="h-3.5 w-3.5 text-always-white/80" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
-                                      )}
-                                    </span>
-                                  )}
-                                </div>
+                                <p className="break-words whitespace-pre-line">{formatMessageText(msg.text)}</p>
+                                {showTime && (
+                                  <div className="mt-1 flex items-center justify-end gap-1">
+                                    <span className={`text-[9px] tabular-nums ${isOwn ? "text-always-white/70" : "text-[var(--muted)]"}`}>{formatTime(msg.createdAt)}</span>
+                                    {isOwn && (
+                                      <span className="text-[10px]">
+                                        {msg.read ? (
+                                          <svg className="h-3 w-3 text-sky-200" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 7.5l-12 12L5 13l1.5-1.5 5 5 10.5-10.5L23.5 7.5zM17.5 7.5l-6 6-1.5-1.5 6-6 1.5 1.5z" /></svg>
+                                        ) : (
+                                          <svg className="h-3 w-3 text-always-white/70" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
+                                        )}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -2258,77 +2181,101 @@ function MessagesPage() {
                   )}
                 </div>
                 {/* Safety warning above input */}
-                <div className="border-t border-[var(--card-border)] px-5 pt-2.5 pb-0">
+                <div className="border-t border-[var(--card-border)] px-3 pt-2 pb-0 sm:px-4">
                   <StayOnSkyDropNotice paymentType={purchaseData?.paymentType} compact />
                 </div>
-                {/* Input area */}
-                <div className={`px-5 py-2.5 ${MOBILE_FAB_CLEARANCE}`}>
-                  {/* Image preview */}
+                {/* Composer */}
+                <div
+                  ref={composerBarRef}
+                  className={`px-3 py-2 sm:px-4 sm:py-2.5 ${MOBILE_FAB_CLEARANCE}`}
+                  style={composerPad > 0 ? { paddingBottom: composerPad } : undefined}
+                >
                   {imagePreview && (
-                    <div className="mb-2 flex items-center gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] p-2">
-                      <img src={imagePreview} alt="Preview" className="h-12 w-12 rounded-lg object-cover" />
-                      <span className="flex-1 text-[11px] text-[var(--muted)] truncate">Image ready to send</span>
+                    <div className="mb-2 flex items-center gap-3 rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] p-2">
+                      <img src={imagePreview} alt="Preview" className="h-11 w-11 rounded-md object-cover" />
+                      <span className="flex-1 truncate text-[11px] text-[var(--muted)]">Image ready</span>
                       <button onClick={() => { setImagePreview(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="text-[11px] text-red-400 hover:text-red-300">Remove</button>
-                      <button onClick={sendImageMessage} className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-sky-400">Send</button>
+                      <button onClick={sendImageMessage} className="rounded-md bg-sky-500 px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-sky-400">Send</button>
                     </div>
                   )}
-                  {/* File attachment preview */}
                   {fileAttachment && (
-                    <div className="mb-2 flex items-center gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] p-2">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--soft-card)] text-[var(--muted)]">
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                        </svg>
-                      </span>
-                      <div className="flex-1 min-w-0">
+                    <div className="mb-2 flex items-center gap-3 rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] p-2">
+                      <div className="min-w-0 flex-1">
                         <p className="truncate text-[11px] font-medium text-[var(--foreground)]">{fileAttachment.name}</p>
                         <p className="text-[9px] text-[var(--muted)]">{(fileAttachment.size / 1024).toFixed(1)} KB</p>
                       </div>
                       <button onClick={() => { setFileAttachment(null); if (fileAttachInputRef.current) fileAttachInputRef.current.value = ""; }} className="text-[11px] text-red-400 hover:text-red-300">Remove</button>
-                      <button onClick={sendFileMessage} className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-sky-400">Send</button>
+                      <button onClick={sendFileMessage} className="rounded-md bg-sky-500 px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-sky-400">Send</button>
                     </div>
                   )}
-                  {!message.trim() && (
+                  {showStartQuickReplies && (
                     <div className="mb-2 flex flex-wrap gap-1.5">
-                      {quickReplies.map((reply) => (
+                      {startQuickReplies.map((reply) => (
                         <button
                           key={reply}
                           type="button"
                           disabled={sendingMessage}
                           onClick={() => sendQuickReply(reply)}
-                          className="rounded-md border border-[var(--card-border)] bg-[var(--soft-card)] px-2.5 py-1 text-[11px] font-medium text-[var(--muted)] transition hover:border-sky-500/30 hover:text-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-full border border-[var(--card-border)] bg-[var(--soft-card)] px-3 py-1 text-[11px] font-medium text-[var(--muted)] transition hover:border-sky-500/35 hover:text-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {reply}
                         </button>
                       ))}
                     </div>
                   )}
-                  <div className="flex gap-2.5">
-                    {/* Image attach button */}
-                    <button onClick={() => fileInputRef.current?.click()}
-                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400">
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                    {/* File attach button */}
-                    <button onClick={() => fileAttachInputRef.current?.click()}
-                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400">
+                  <div className="flex items-end gap-1.5">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        aria-label="Attach photo"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-500/40 hover:text-sky-500"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => fileAttachInputRef.current?.click()}
+                      aria-label="Attach file"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-500/40 hover:text-sky-500"
+                    >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                       </svg>
                     </button>
                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                     <input ref={fileAttachInputRef} type="file" onChange={handleFileSelect} className="hidden" />
-                    <input ref={messageInputRef} type="text" placeholder="Type a message..." value={message} maxLength={2000}
+                    <textarea
+                      ref={messageInputRef}
+                      rows={1}
+                      placeholder="Message…"
+                      value={message}
+                      maxLength={2000}
                       onChange={(e) => {
                         setMessage(e.target.value);
+                        const el = e.target;
+                        el.style.height = "auto";
+                        el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
                         if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
                         typingDebounceRef.current = setTimeout(() => emitTyping(e.target.value.length > 0), 400);
                       }}
-                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                      className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-2.5 text-[14px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500" />
-                    <button onClick={() => sendMessage()} disabled={sendingMessage || !message.trim()} className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white transition hover:bg-sky-400 disabled:opacity-50 disabled:cursor-not-allowed">
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
+                      className="max-h-[120px] min-h-[40px] flex-1 resize-none rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-3.5 py-2.5 text-[14px] leading-snug text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/50"
+                    />
+                    <button
+                      onClick={() => sendMessage()}
+                      disabled={sendingMessage || !message.trim()}
+                      aria-label="Send message"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
                       {sendingMessage ? (
                         <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
