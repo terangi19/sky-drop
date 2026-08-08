@@ -41,12 +41,12 @@ export const LISTING_GRID_DENSE =
   "grid items-stretch gap-2.5 grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4";
 
 /**
- * Sticky mobile CTA sits above the bottom nav via --mobile-nav-offset.
+ * Sticky mobile CTA sits above the home-indicator via --mobile-nav-offset.
  * CSS `.mobile-sticky-cta` ends short of the FAB (`right: var(--fab-clearance)`).
  */
 export const MOBILE_STICKY_CTA =
   "mobile-sticky-cta border-t border-[var(--card-border)] bg-[var(--card)]/95 backdrop-blur-xl px-4 py-3 flex gap-3 lg:hidden";
 
-/** Extra bottom/right pad on mobile when FAB + bottom nav are present (e.g. message composer). */
+/** Extra bottom/right pad on mobile when FAB is present (e.g. message composer). */
 export const MOBILE_FAB_CLEARANCE =
   "max-md:pr-[calc(4.5rem+env(safe-area-inset-right,0px))] max-md:pb-1";

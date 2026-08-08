@@ -1,6 +1,6 @@
-/** Shared positioning for bottom-right floating controls (above mobile nav + sticky CTAs). */
+/** Shared positioning for bottom-right floating controls (above safe-area + sticky CTAs). */
 
-/** FAB sits above sticky listing CTAs (z-10000) and bottom nav (z-9999); below Āwhina sheet. */
+/** FAB sits above sticky listing CTAs (z-10000); below Āwhina sheet. */
 export const FAB_Z = "z-[10020]";
 
 /** Extra inset from viewport corner so the pill never hugs chrome / sticky CTAs. */

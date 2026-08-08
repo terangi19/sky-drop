@@ -63,9 +63,11 @@
   --info: #38bdf8;
   --info-muted: rgba(56, 189, 248, 0.14);
 
-  /* Mobile chrome — bottom nav + safe area (updated by Navbar when logged in) */
+  /* Mobile chrome — top sticky header + bottom safe area (no permanent bottom nav) */
   --mobile-nav-height: 0px;
   --mobile-nav-offset: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+  --site-header-height: 52px;
+  --site-header-offset: calc(var(--site-header-height) + env(safe-area-inset-top, 0px));
   --fab-size: 3.625rem;
   --fab-clearance: 5.25rem;
   --touch-min: 44px;
@@ -570,13 +572,48 @@ body {
   flex-shrink: 0;
 }
 
+/* Smart sticky top navbar — hide/reveal via data attr (no React scroll state) */
+header.site-navbar {
+  padding-top: env(safe-area-inset-top, 0px);
+  transform: translate3d(0, 0, 0);
+  transition: transform 180ms ease;
+  will-change: transform;
+}
+
+header.site-navbar[data-nav-hidden="true"] {
+  transform: translate3d(0, calc(-100% - 1px), 0);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  header.site-navbar {
+    transition: none;
+  }
+  header.site-navbar[data-nav-hidden="true"] {
+    transform: translate3d(0, 0, 0);
+    pointer-events: auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --site-header-height: 64px;
+  }
+  header.site-navbar,
+  header.site-navbar[data-nav-hidden="true"] {
+    transform: none;
+    pointer-events: auto;
+    transition: none;
+  }
+}
+
 .mobile-sticky-cta {
   position: fixed;
   left: 0;
   /* Leave a FAB-sized hole on the right so the dock stays tappable */
   right: calc(var(--fab-clearance) + env(safe-area-inset-right, 0px));
   bottom: var(--mobile-nav-offset, 0px);
-  /* Above bottom nav (z-9999); below FAB dock (z-10020) */
+  /* Above page chrome; below FAB dock (z-10020) */
   z-index: 10000;
   background-color: color-mix(in srgb, var(--card) 96%, transparent);
   border-color: var(--card-border);

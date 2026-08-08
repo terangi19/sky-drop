@@ -213,7 +213,7 @@ export default function AwhinaGlobalAssistant() {
       />
 
       {/* Floating status card — bottom-left of viewport */}
-      <div className={`${FLOATING_LEFT_STACK} bottom-[calc(1.25rem+var(--mobile-nav-offset,0px))] z-[10002] max-md:bottom-[calc(5.5rem+var(--mobile-nav-offset,0px))]`}>
+      <div className={`${FLOATING_LEFT_STACK} bottom-[calc(1.25rem+var(--mobile-nav-offset,0px))] z-[10002]`}>
         <AwhinaVoiceStatusCard
           phase={voice.phase}
           voiceMode={voice.voiceMode}
