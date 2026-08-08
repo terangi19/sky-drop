@@ -2273,7 +2273,6 @@ export default function AIPostPage() {
             ) : saleType === "buy_now" ? (
               <div className="space-y-1.5">
                 {stripeDisabledV1 &&
-                  listingType !== "job" &&
                   listingType !== "wanted" &&
                   !(listingType === "service" && servicePricingType === "request_quote") && (
                   <div className="mb-1">
