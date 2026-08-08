@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import {
   getSellerDisplayName,
   resolveSellerCardDisplayName,
@@ -8,6 +8,13 @@ import {
   sellerProfileSlug,
 } from "./public-display";
 import { getListingOwnerId } from "./listing-owner";
+import {
+  clearSellerProfileBatchCache,
+  fetchSellerProfilesByListing,
+  invalidateSellerProfileBatchCache,
+  sellerLabelFromPublicProfile,
+  SELLER_PROFILE_BATCH_CACHE_TTL_MS,
+} from "./fetch-seller-profiles";
 
 describe("public display privacy helpers", () => {
   it("prefers public usernames for seller slugs", () => {
@@ -35,6 +42,15 @@ describe("public display privacy helpers", () => {
         sellerEmail: "seller@example.com",
       })
     ).toBe("Seller");
+  });
+
+  it("seller profile heading prefers username over displayName", () => {
+    expect(
+      sellerProfileDisplayName({
+        username: "sky50",
+        displayName: "Terangi",
+      })
+    ).toBe("sky50");
   });
 
   it("builds message urls without email fallbacks", () => {
@@ -76,23 +92,36 @@ describe("getListingOwnerId", () => {
 });
 
 describe("getSellerDisplayName", () => {
-  it("Seller A: displayName Terangi wins", () => {
+  it("username=sky50, displayName=Terangi → sky50", () => {
     expect(
       getSellerDisplayName({
         displayName: "Terangi",
-        username: "terangi34",
+        username: "sky50",
+        sellerName: "legacy",
+      })
+    ).toBe("sky50");
+  });
+
+  it("username missing, displayName=Terangi → Terangi", () => {
+    expect(
+      getSellerDisplayName({
+        displayName: "Terangi",
         sellerName: "legacy",
       })
     ).toBe("Terangi");
   });
 
-  it("Seller B: username when no displayName", () => {
+  it("both missing → Seller", () => {
+    expect(getSellerDisplayName({})).toBe("Seller");
+  });
+
+  it("legacy sellerUsername when username and displayName missing", () => {
     expect(
       getSellerDisplayName({
-        username: "sky123",
-        sellerName: "legacy",
+        sellerUsername: "TerangiOld",
+        sellerName: "NameLegacy",
       })
-    ).toBe("sky123");
+    ).toBe("TerangiOld");
   });
 
   it("keeps long alphanumeric usernames (not Firebase UIDs)", () => {
@@ -105,8 +134,7 @@ describe("getSellerDisplayName", () => {
     expect(getSellerDisplayName({ username: "terangi34" })).toBe("terangi34");
   });
 
-  it("Seller C: only Seller when no public identity", () => {
-    expect(getSellerDisplayName({})).toBe("Seller");
+  it("never email — email-like fields fall through to Seller", () => {
     expect(
       getSellerDisplayName({
         displayName: "user@example.com",
@@ -114,7 +142,6 @@ describe("getSellerDisplayName", () => {
         sellerName: "leak@example.com",
       })
     ).toBe("Seller");
-    // Real Firebase UID length (~28) must not become a card label
     expect(
       getSellerDisplayName({
         username: "IeS22bePWOQ5a5oTP1w7HlO5qNq2",
@@ -124,6 +151,33 @@ describe("getSellerDisplayName", () => {
 
   it("accepts legacy sellerName when safe", () => {
     expect(getSellerDisplayName({ sellerName: "KiwiTrader" })).toBe("KiwiTrader");
+  });
+});
+
+describe("sellerLabelFromPublicProfile", () => {
+  it("username beats displayName", () => {
+    expect(
+      sellerLabelFromPublicProfile({
+        uid: "u1",
+        username: "sky50",
+        displayName: "Terangi",
+      })
+    ).toBe("sky50");
+  });
+
+  it("displayName when username missing", () => {
+    expect(
+      sellerLabelFromPublicProfile({
+        uid: "u1",
+        displayName: "Terangi",
+      })
+    ).toBe("Terangi");
+  });
+
+  it("empty when both missing", () => {
+    expect(sellerLabelFromPublicProfile({ uid: "u1" }, "")).toBe("");
+    expect(sellerLabelFromPublicProfile({ uid: "u1" })).toBe("");
+    expect(sellerLabelFromPublicProfile({ uid: "u1" }, "Seller")).toBe("Seller");
   });
 });
 
@@ -146,23 +200,37 @@ describe("resolveSellerCardDisplayName", () => {
     ).toBe("philbrewerton868");
   });
 
-  it("prefers current profile over stale listing sellerUsername", () => {
+  it("old listing sellerUsername=TerangiOld, current profile username=sky50 → sky50", () => {
     expect(
       resolveSellerCardDisplayName(
         {
           sellerId: "uid-abc",
-          sellerUsername: "OldHandle",
+          sellerUsername: "TerangiOld",
+          displayName: "Terangi",
         },
-        { "uid-abc": "terangi34" }
+        { "uid-abc": "sky50" },
+        "Seller",
+        { "uid-abc": "Terangi" }
       )
-    ).toBe("terangi34");
+    ).toBe("sky50");
   });
 
-  it("resolves live identity by owner UID (canonical enrichment key)", () => {
+  it("prefers live username over live displayName", () => {
     expect(
       resolveSellerCardDisplayName(
         { sellerId: "uid-abc", sellerEmail: "test@example.com" },
-        { "uid-abc": "terangi34" },
+        { "uid-abc": "sky50" },
+        "Seller",
+        { "uid-abc": "Terangi" }
+      )
+    ).toBe("sky50");
+  });
+
+  it("live displayName when live username missing", () => {
+    expect(
+      resolveSellerCardDisplayName(
+        { sellerId: "uid-abc" },
+        {},
         "Seller",
         { "uid-abc": "Terangi" }
       )
@@ -214,6 +282,19 @@ describe("resolveSellerCardDisplayName", () => {
     ).toBe("SkyDavis");
   });
 
+  it("listing username beats listing displayName", () => {
+    expect(
+      resolveSellerCardDisplayName(
+        {
+          username: "sky50",
+          displayName: "Terangi",
+          sellerUsername: "TerangiOld",
+        },
+        {}
+      )
+    ).toBe("sky50");
+  });
+
   it("resolves profile slug from live handle without rewriting listing docs", () => {
     expect(
       resolveSellerCardProfileSlug(
@@ -234,5 +315,66 @@ describe("resolveSellerCardDisplayName", () => {
         { "uid-xyz": "terangi34" }
       )
     ).toBe("terangi34");
+  });
+});
+
+describe("seller profile batch cache", () => {
+  beforeEach(() => {
+    clearSellerProfileBatchCache();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body || "{}")) as {
+          uids?: string[];
+        };
+        const uid = body.uids?.[0] || "uid-1";
+        return {
+          ok: true,
+          json: async () => ({
+            profiles: {
+              [uid]: {
+                uid,
+                username: "sky50",
+                displayName: "Terangi",
+              },
+            },
+            emailToUid: {},
+          }),
+        };
+      })
+    );
+  });
+
+  afterEach(() => {
+    clearSellerProfileBatchCache();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("reuses cache within TTL then refetches after expiry", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-09T00:00:00Z"));
+
+    const first = await fetchSellerProfilesByListing([{ sellerId: "uid-1" }]);
+    expect(first.get("uid-1")?.username).toBe("sky50");
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    await fetchSellerProfilesByListing([{ sellerId: "uid-1" }]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    vi.setSystemTime(
+      new Date(Date.now() + SELLER_PROFILE_BATCH_CACHE_TTL_MS + 1)
+    );
+    await fetchSellerProfilesByListing([{ sellerId: "uid-1" }]);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("invalidateSellerProfileBatchCache forces refetch", async () => {
+    await fetchSellerProfilesByListing([{ sellerId: "uid-1" }]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    invalidateSellerProfileBatchCache("uid-1");
+    await fetchSellerProfilesByListing([{ sellerId: "uid-1" }]);
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 });

@@ -22,11 +22,38 @@ export type PublicSellerProfile = {
   [key: string]: unknown;
 };
 
-const batchCache = new Map<string, PublicSellerProfile | null>();
+type CacheEntry = {
+  profile: PublicSellerProfile | null;
+  fetchedAt: number;
+};
+
+/** SPA batch cache TTL — avoid sticky stale username after profile edits. */
+export const SELLER_PROFILE_BATCH_CACHE_TTL_MS = 60_000;
+
+const batchCache = new Map<string, CacheEntry>();
 const inflightBatches = new Map<string, Promise<Map<string, PublicSellerProfile>>>();
 
 function cacheKey(id: string): string {
   return id.trim().toLowerCase();
+}
+
+function isFresh(entry: CacheEntry | undefined): boolean {
+  if (!entry) return false;
+  return Date.now() - entry.fetchedAt < SELLER_PROFILE_BATCH_CACHE_TTL_MS;
+}
+
+function readFresh(key: string): PublicSellerProfile | null | undefined {
+  const entry = batchCache.get(key);
+  if (!entry) return undefined;
+  if (!isFresh(entry)) {
+    batchCache.delete(key);
+    return undefined;
+  }
+  return entry.profile;
+}
+
+function writeCache(key: string, profile: PublicSellerProfile | null): void {
+  batchCache.set(key, { profile, fetchedAt: Date.now() });
 }
 
 type BatchResponse = {
@@ -77,9 +104,9 @@ export async function fetchSellerProfilesByListing(
     ),
   ];
 
-  const missingUids = ownerIds.filter((uid) => !batchCache.has(cacheKey(uid)));
+  const missingUids = ownerIds.filter((uid) => readFresh(cacheKey(uid)) === undefined);
   const missingEmails = emailsNeedingLookup.filter(
-    (email) => !batchCache.has(cacheKey(email))
+    (email) => readFresh(cacheKey(email)) === undefined
   );
 
   if (missingUids.length > 0 || missingEmails.length > 0) {
@@ -103,10 +130,10 @@ export async function fetchSellerProfilesByListing(
             const profile = profiles[uid];
             if (profile) {
               const normalized = { ...profile, uid };
-              batchCache.set(cacheKey(uid), normalized);
+              writeCache(cacheKey(uid), normalized);
               found.set(uid, normalized);
             } else {
-              batchCache.set(cacheKey(uid), null);
+              writeCache(cacheKey(uid), null);
             }
           }
 
@@ -115,17 +142,17 @@ export async function fetchSellerProfilesByListing(
             const profile = uid ? profiles[uid] : undefined;
             if (profile && uid) {
               const normalized = { ...profile, uid };
-              batchCache.set(cacheKey(uid), normalized);
-              batchCache.set(cacheKey(email), normalized);
+              writeCache(cacheKey(uid), normalized);
+              writeCache(cacheKey(email), normalized);
               found.set(uid, normalized);
               found.set(email, normalized);
             } else {
-              batchCache.set(cacheKey(email), null);
+              writeCache(cacheKey(email), null);
             }
           }
         } catch {
-          for (const uid of missingUids) batchCache.set(cacheKey(uid), null);
-          for (const email of missingEmails) batchCache.set(cacheKey(email), null);
+          for (const uid of missingUids) writeCache(cacheKey(uid), null);
+          for (const email of missingEmails) writeCache(cacheKey(email), null);
         }
         return found;
       })();
@@ -144,8 +171,8 @@ export async function fetchSellerProfilesByListing(
     const ownerId = getListingOwnerId(listing);
     const email = String(listing.sellerEmail || "").trim();
     const profile =
-      (ownerId && batchCache.get(cacheKey(ownerId))) ||
-      (email && batchCache.get(cacheKey(email))) ||
+      (ownerId ? readFresh(cacheKey(ownerId)) : undefined) ??
+      (email ? readFresh(cacheKey(email)) : undefined) ??
       null;
     if (!profile) continue;
     if (ownerId) byKey.set(ownerId, profile);
@@ -156,7 +183,7 @@ export async function fetchSellerProfilesByListing(
   return byKey;
 }
 
-/** Best public card label from a public profile doc. */
+/** Best public card label from a public profile doc (username-first). */
 export function sellerLabelFromPublicProfile(
   profile: PublicSellerProfile | null | undefined,
   fallback = ""
@@ -164,8 +191,8 @@ export function sellerLabelFromPublicProfile(
   if (!profile) return fallback;
   return getSellerDisplayName(
     {
-      displayName: profile.displayName || profile.name,
       username: profile.username,
+      displayName: profile.displayName || profile.name,
     },
     fallback
   );
@@ -173,4 +200,15 @@ export function sellerLabelFromPublicProfile(
 
 export function clearSellerProfileBatchCache(): void {
   batchCache.clear();
+}
+
+/** Drop cached entries for a seller after profile update (uid and/or email keys). */
+export function invalidateSellerProfileBatchCache(
+  ...ids: Array<string | null | undefined>
+): void {
+  for (const id of ids) {
+    const raw = String(id || "").trim();
+    if (!raw) continue;
+    batchCache.delete(cacheKey(raw));
+  }
 }

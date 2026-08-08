@@ -5,7 +5,6 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "./firebase";
 import {
   fetchSellerProfilesByListing,
-  sellerLabelFromPublicProfile,
 } from "./fetch-seller-profiles";
 import { getListingOwnerId } from "./listing-owner";
 import { isSafePublicHandle } from "./public-display";
@@ -30,9 +29,9 @@ export function useSellerListingMeta(
     Record<string, { avg: number; count: number }>
   >({});
   const [sellerBadges, setSellerBadges] = useState<Record<string, string>>({});
-  /** Live usernames keyed by owner UID + sellerEmail — used for profile slugs */
+  /** Live usernames keyed by owner UID + sellerEmail — canonical card / slug identity */
   const [sellerHandles, setSellerHandles] = useState<Record<string, string>>({});
-  /** Live display names keyed by owner UID + sellerEmail — preferred card labels */
+  /** Live optional display names keyed by owner UID + sellerEmail — fallback when no username */
   const [sellerDisplayNames, setSellerDisplayNames] = useState<Record<string, string>>({});
   const [sellerAvatars, setSellerAvatars] = useState<Record<string, string>>({});
   const [sellerFullyVerified, setSellerFullyVerified] = useState<Record<string, boolean>>({});
@@ -108,13 +107,15 @@ export function useSellerListingMeta(
 
         const applyKeys = (keys: string[], data: Record<string, unknown>) => {
           const username = safeUsername(data.username);
-          const label = sellerLabelFromPublicProfile(data as any, "");
+          const displayName = safeUsername(
+            String(data.displayName || data.name || "")
+          );
           const photo = String(data.photoURL || "").trim();
           for (const key of keys) {
             if (!key) continue;
             if (data.profileBadge) badges[key] = data.profileBadge as string;
             if (username) handles[key] = username;
-            if (label) displayNames[key] = label;
+            if (displayName) displayNames[key] = displayName;
             if (photo) avatars[key] = photo;
             if (isFullyVerifiedSeller(data)) verifiedMap[key] = true;
             if (data.createdAt || data.memberSince) {

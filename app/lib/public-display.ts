@@ -121,8 +121,9 @@ export function sellerProfileDisplayName(
 ): string {
   const fromCanonical = getSellerDisplayName(
     {
+      username: fields?.username,
       displayName: fields?.displayName || fields?.name,
-      username: fields?.username || fields?.sellerUsername,
+      sellerUsername: fields?.sellerUsername,
       sellerName: fields?.sellerName,
     },
     ""
@@ -145,8 +146,9 @@ export function isSafePublicHandle(value: string | undefined | null): string | n
 }
 
 /**
- * Canonical public seller label.
- * Priority: displayName → username → legacy sellerName → sellerUsername → fallback.
+ * Canonical public marketplace seller label.
+ * Priority: username → displayName → legacy sellerUsername → sellerName → fallback.
+ * Never email. Username is the Sky Drop public handle.
  */
 export function getSellerDisplayName(
   input: {
@@ -159,10 +161,10 @@ export function getSellerDisplayName(
 ): string {
   if (!input) return fallback;
   for (const raw of [
-    input.displayName,
     input.username,
-    input.sellerName,
+    input.displayName,
     input.sellerUsername,
+    input.sellerName,
   ]) {
     const safe = isSafePublicHandle(raw);
     if (safe) return safe;
@@ -189,9 +191,9 @@ function lookupKeyedValue(
  * Never falls back to email.
  *
  * Priority:
- * 1. live displayNames[ownerId|email]
- * 2. live sellerHandles[ownerId|email] (username / best label)
- * 3. listing displayName / username / sellerName / sellerUsername
+ * 1. live sellerHandles[ownerId|email] (username — canonical marketplace identity)
+ * 2. live displayNames[ownerId|email] (optional friendly name)
+ * 3. listing username → displayName → sellerUsername → sellerName
  * 4. fallback ("Seller")
  */
 export function resolveSellerCardDisplayName(
@@ -203,30 +205,30 @@ export function resolveSellerCardDisplayName(
   const ownerId = getListingOwnerId(fields);
   const email = String(fields?.sellerEmail || "").trim();
 
-  const liveDisplay = lookupKeyedValue(sellerDisplayNames, ownerId, email);
-  if (liveDisplay) return liveDisplay;
-
   const liveHandle = lookupKeyedValue(sellerHandles, ownerId, email);
   if (liveHandle) return liveHandle;
+
+  const liveDisplay = lookupKeyedValue(sellerDisplayNames, ownerId, email);
+  if (liveDisplay) return liveDisplay;
 
   const emailLocal =
     email && isEmailLike(email)
       ? email.split("@")[0]?.toLowerCase() || ""
       : "";
 
-  const listingUsername = isSafePublicHandle(fields?.sellerUsername || fields?.username);
-  const listingUsernameOk =
-    listingUsername &&
-    (!emailLocal || listingUsername.toLowerCase() !== emailLocal)
-      ? listingUsername
-      : null;
+  const rejectEmailLocal = (raw: string | null | undefined): string | null => {
+    const safe = isSafePublicHandle(raw);
+    if (!safe) return null;
+    if (emailLocal && safe.toLowerCase() === emailLocal) return null;
+    return safe;
+  };
 
   return getSellerDisplayName(
     {
+      username: rejectEmailLocal(fields?.username),
       displayName: fields?.displayName || fields?.name,
-      username: listingUsernameOk,
+      sellerUsername: rejectEmailLocal(fields?.sellerUsername),
       sellerName: fields?.sellerName,
-      sellerUsername: listingUsernameOk,
     },
     fallback
   );

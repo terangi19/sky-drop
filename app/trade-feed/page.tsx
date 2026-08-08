@@ -11,7 +11,7 @@ import PromoteModal from "../components/PromoteModal";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
-import { fetchSellerProfilesByListing, sellerLabelFromPublicProfile } from "../lib/fetch-seller-profiles";
+import { fetchSellerProfilesByListing } from "../lib/fetch-seller-profiles";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
@@ -241,8 +241,10 @@ export default function TradeFeedPage() {
           if (data.profileBadge) badges[key] = data.profileBadge as string;
           const username = String(data.username || "").trim();
           if (username && !username.includes("@")) handles[key] = username.replace(/^@/, "");
-          const label = sellerLabelFromPublicProfile(data, "");
-          if (label) displayNames[key] = label;
+          const displayName = String(data.displayName || data.name || "").trim();
+          if (displayName && !displayName.includes("@")) {
+            displayNames[key] = displayName.replace(/^@/, "");
+          }
         });
       } catch {
         /* optional */

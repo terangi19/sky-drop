@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { sellerProfileSlug } from "../lib/public-display";
+import {
+  clearSellerProfileBatchCache,
+  invalidateSellerProfileBatchCache,
+} from "../lib/fetch-seller-profiles";
+import { clearPublicProfileCache } from "../lib/fetch-public-profile-client";
 import { sanitizeHtml } from "../lib/sanitize";
 import {
   arrayUnion,
@@ -959,6 +964,10 @@ const tabGroups = [
         bankAccountNumber: bankAccountNumber.trim(),
         bankReference: bankReference.trim(),
       }));
+      // Drop SPA seller-identity caches so marketplace cards pick up the new handle.
+      clearSellerProfileBatchCache();
+      invalidateSellerProfileBatchCache(user.uid, user.email);
+      clearPublicProfileCache();
       flashSaved();
       if (opts?.bankOnly) showToast("Bank details saved.", "success");
     } catch (e: unknown) {
