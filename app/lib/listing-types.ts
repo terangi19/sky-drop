@@ -1,28 +1,21 @@
-/** Categories that always imply a service listing — not physical goods. */
-export const SERVICE_LISTING_CATEGORIES = new Set([
-  "Trades & Repairs",
-  "Cleaning & Maintenance",
-  "Tutoring & Lessons",
-  "Photography",
-  "Personal Training",
-  "Events & Catering",
-  "Other Services",
-]);
+import {
+  ALL_LISTING_TYPES,
+  SERVICE_LISTING_CATEGORIES,
+  isServiceListingCategory,
+} from "./listing-type-config";
 
-const VALID_LISTING_TYPES = new Set([
-  "physical",
-  "service",
-  "rental",
-  "event",
-  "vehicle",
-  "job",
-  "property",
-  "wanted",
-]);
+export {
+  SERVICE_LISTING_CATEGORIES,
+  isServiceListingCategory,
+  RENTAL_LISTING_CATEGORIES,
+  RENTAL_LISTING_CATEGORY_LIST,
+  SERVICE_LISTING_CATEGORY_LIST,
+  categoriesForListingType,
+  browseFilterCategories,
+  messageCtaLabel,
+} from "./listing-type-config";
 
-export function isServiceListingCategory(category?: string | null): boolean {
-  return !!category && SERVICE_LISTING_CATEGORIES.has(category);
-}
+const VALID_LISTING_TYPES = new Set<string>(ALL_LISTING_TYPES);
 
 /** Resolve persisted listing `type` — service categories must never save as physical. */
 export function resolveListingType(input: {

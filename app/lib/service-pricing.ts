@@ -60,7 +60,9 @@ export function normalizeServicePricingType(
     return "request_quote";
   }
   if (
-    /\$?\d+(\.\d+)?\s*(\/|\s*per\s*)?hr\b|\ban hour\b|\bper hour\b|\bhourly\b/i.test(blob)
+    /\$?\d+(\.\d+)?\s*(\/|\s*per\s*)h(?:ou)?r\b|\ban hour\b|\bper hour\b|\bhourly\b|\/hr\b|\/hour\b/i.test(
+      blob
+    )
   ) {
     return "hourly";
   }
@@ -88,9 +90,9 @@ export function formatServicePriceDisplay(listing: {
   const price =
     listing.price != null && String(listing.price).trim() !== "" ? String(listing.price) : "";
 
-  if (type === "request_quote") return "Contact Seller for Quote";
+  if (type === "request_quote") return "Contact for quote";
   if (type === "hourly") {
-    return price ? `$${price}/hr` : "Hourly rate on request";
+    return price ? `$${price} / hr` : "Hourly rate on request";
   }
   if (!price) return "Contact for price";
   return `$${price}`;
@@ -135,9 +137,8 @@ export function getServicePrimaryCta(
   price?: string | number | null
 ): string {
   const type = normalizeServicePricingType(pricingType, price);
-  if (type === "fixed") return "Purchase Service";
-  if (type === "hourly") return "Message Seller";
-  return "Request Quote";
+  if (type === "request_quote") return "Request Quote";
+  return "Message Provider";
 }
 
 export type ServiceBuyerAction = "checkout" | "inquiry";

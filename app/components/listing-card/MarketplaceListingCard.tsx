@@ -17,6 +17,11 @@ import {
   sellerProfileSlug,
 } from "../../lib/public-display";
 import { isStripeCheckoutVisibleClient } from "../../lib/stripe-checkout-flags";
+import {
+  formatListingPriceDisplay,
+  formatListingPriceMeta,
+  listingPrimaryCtaLabel,
+} from "../../lib/listing-price-display";
 
 export type MarketplaceListingCardProps = {
   item: Record<string, any>;
@@ -80,13 +85,22 @@ export default memo(function MarketplaceListingCard({
     item.type === "vehicle"
       ? "Cars"
       : item.category || "Other";
+  const priceLabel = formatListingPriceDisplay(item);
+  const priceMeta = formatListingPriceMeta(item);
+  const primaryCta = listingPrimaryCtaLabel(item);
+  const isMessagingOnlyType =
+    item.type === "service" || item.type === "rental" || item.type === "property";
+  const ariaPrice =
+    item.pricingType === "quote" || item.servicePricingType === "request_quote"
+      ? "Quote required"
+      : priceLabel;
 
   return (
     <div className="relative h-full">
       <div
         role="button"
         tabIndex={0}
-        aria-label={`View listing: ${item.title}. ${item.price ? `Price: $${item.price}.` : ""} ${categoryLabel}`}
+        aria-label={`View listing: ${item.title}. ${ariaPrice ? `Price: ${ariaPrice}.` : ""} ${categoryLabel}`}
         className={`listing-card group relative z-[1] flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border animate-fade-in-up focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] ${neonGlow ? "listing-card--neon" : ""}`}
         style={{
           animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
@@ -144,6 +158,12 @@ export default memo(function MarketplaceListingCard({
               )}
               {item.type === "vehicle" && isVisible && (
                 <span className={IMG_BADGE}>Vehicle</span>
+              )}
+              {item.type === "service" && isVisible && (
+                <span className={IMG_BADGE}>Service</span>
+              )}
+              {item.type === "rental" && isVisible && (
+                <span className={IMG_BADGE}>Rental</span>
               )}
             </div>
             {themed && isVisible && saves > 0 && (
@@ -281,19 +301,27 @@ export default memo(function MarketplaceListingCard({
               .join(" · ")}
         </p>
 
-        <div className="mt-3 flex items-baseline gap-2">
-          {item.pricingType === "quote" ? (
-            <>
-              <p className="lc-price text-2xl font-bold tracking-tight sm:text-3xl">Contact Seller for Quote</p>
-              <span className="lc-quote-badge rounded-full px-2 py-0.5 text-[9px] font-semibold">Quote Required</span>
-            </>
-          ) : (
-            <p className="lc-price text-2xl font-bold tracking-tight sm:text-3xl">${item.price}</p>
-          )}
-          {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
-            <span className="lc-bid rounded-md px-2 py-0.5 text-sm font-bold">
-              Bid: ${item.currentBid || item.startingBid || 0}
-            </span>
+        <div className="mt-3 flex flex-col gap-0.5">
+          <div className="flex items-baseline gap-2">
+            {item.pricingType === "quote" ||
+            item.servicePricingType === "request_quote" ? (
+              <>
+                <p className="lc-price text-2xl font-bold tracking-tight sm:text-3xl">{priceLabel}</p>
+                <span className="lc-quote-badge rounded-full px-2 py-0.5 text-[9px] font-semibold">
+                  Quote Required
+                </span>
+              </>
+            ) : (
+              <p className="lc-price text-2xl font-bold tracking-tight sm:text-3xl">{priceLabel}</p>
+            )}
+            {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
+              <span className="lc-bid rounded-md px-2 py-0.5 text-sm font-bold">
+                Bid: ${item.currentBid || item.startingBid || 0}
+              </span>
+            )}
+          </div>
+          {priceMeta && (
+            <p className="lc-meta text-[11px] opacity-70">{priceMeta}</p>
           )}
         </div>
 
@@ -319,7 +347,8 @@ export default memo(function MarketplaceListingCard({
         <div className="flex min-h-10 gap-2">
           {user && user.email !== item.sellerEmail && (
             <>
-              {item.pricingType === "quote" ? (
+              {item.pricingType === "quote" ||
+              item.servicePricingType === "request_quote" ? (
                 <Link
                   href={`/post/listing/${item.id}`}
                   onClick={(e) => e.stopPropagation()}
@@ -336,13 +365,19 @@ export default memo(function MarketplaceListingCard({
                   }}
                   disabled={loading}
                   className={`lc-btn-primary flex-1 rounded-md py-2.5 text-[12px] font-semibold active:scale-95 ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
-                  title={purchaseButtonTitle(item.paymentType)}
+                  title={
+                    isMessagingOnlyType
+                      ? `Message the ${item.type === "service" ? "provider" : "owner"} to arrange details in chat`
+                      : purchaseButtonTitle(item.paymentType)
+                  }
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
                       <div className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
                       Processing...
                     </span>
+                  ) : isMessagingOnlyType ? (
+                    primaryCta
                   ) : (
                     shortPurchaseLabel(item.paymentType)
                   )}

@@ -1,5 +1,9 @@
 import { normalizeServicePricingType } from "./service-pricing";
 import { SKY_AI_NAV_TAG, sanitizeNavigateTo } from "./sky-ai-prompt";
+import {
+  RENTAL_LISTING_CATEGORIES as RENTAL_CATEGORIES,
+  SERVICE_LISTING_CATEGORIES as SERVICE_CATEGORIES,
+} from "./listing-type-config";
 
 export const SKY_AI_LISTING_FILL_TAG =
   /\[\[LISTING_FILL\]\]\s*([\s\S]*?)\s*\[\[\/LISTING_FILL\]\]/gi;
@@ -79,18 +83,6 @@ const LISTING_TYPES = new Set([
   "rental",
   "vehicle",
   "wanted",
-]);
-
-const RENTAL_CATEGORIES = new Set(["Other", "Vehicles", "Equipment", "Property"]);
-
-const SERVICE_CATEGORIES = new Set([
-  "Trades & Repairs",
-  "Cleaning & Maintenance",
-  "Tutoring & Lessons",
-  "Photography",
-  "Personal Training",
-  "Events & Catering",
-  "Other Services",
 ]);
 
 export function inferPhysicalCategoryFromText(text: string): string | undefined {
@@ -210,18 +202,61 @@ function inferListingType(
   blob: string
 ): string | undefined {
   if (raw.listingType) return normalizeListingType(raw.listingType, raw.category);
-  // Wanted signals — highest priority check
   const lower = blob.toLowerCase();
-  if (/\b(wanted|looking for|seeking|searching for|need|iso|in search of|want to buy)\b/.test(lower)) return "wanted";
-  // Rental signals — checked before vehicle brand detection
-  if (raw.rentalSubType || raw.rentalPriceWeekly || raw.rentalPriceMonthly || raw.rentalDeposit ||
-      raw.rentalBedrooms || raw.rentalAvailableDate) return "rental";
-  if (/\b(rent|rental|rent out|hire out|for hire|lease|for rent|to rent|renting out)\b/.test(lower)) return "rental";
-  if (/\b(per day|daily rate|\/day|a day|per night|\/night)\b/.test(lower)) return "rental";
-  if (/\b(service|freelance|i will design|logo design|consulting|coaching|per hour)\b/.test(lower))
+
+  // Wanted signals — highest priority
+  if (/\b(wanted|looking for|seeking|searching for|need|iso|in search of|want to buy)\b/.test(lower)) {
+    return "wanted";
+  }
+
+  // Explicit sale of a physical good beats hire/rate heuristics
+  const sellVerb =
+    /\b(sell(?:ing)?|for sale|selling my|get rid of|clearing out)\b/.test(lower) &&
+    !/\b(rent|hire|service|freelance)\b/.test(lower);
+  if (sellVerb && !/\b(\/day|per day|a day|\/week|per week|\/hr|\/hour|per hour)\b/.test(lower)) {
+    // Fall through only if strong service/rental nouns appear without sell — else physical
+    if (
+      !/\b(lawn\s*mowing|photographer|cleaner|tutor|handyman|plumber|electrician)\b/.test(lower)
+    ) {
+      return "physical";
+    }
+  }
+
+  // Rental: hire/rent verbs OR day/week rates (not hourly labour)
+  if (
+    raw.rentalSubType ||
+    raw.rentalPriceWeekly ||
+    raw.rentalPriceMonthly ||
+    raw.rentalDeposit ||
+    raw.rentalBedrooms ||
+    raw.rentalAvailableDate
+  ) {
+    return "rental";
+  }
+  if (/\b(rent|rental|rent out|hire out|for hire|lease|for rent|to rent|renting out)\b/.test(lower)) {
+    return "rental";
+  }
+  if (
+    /\b(per day|daily rate|\/day|a day|per night|\/night|per week|\/week|weekly rent)\b/.test(lower) &&
+    !/\b(\/hr|\/hour|per hour|an hour|hourly)\b/.test(lower)
+  ) {
+    return "rental";
+  }
+
+  // Service: labour / skills / hourly rates
+  if (
+    /\b(service|freelance|i will design|logo design|consulting|coaching)\b/.test(lower) ||
+    /\b(\/hr|\/hour|per hour|an hour|hourly)\b/.test(lower) ||
+    /\b(lawn\s*mowing|mow(?:ing)?(?:\s+lawns?)?|house\s*clean(?:ing)?|cleaner|handyman|plumber|plumbing|electrician|tutor(?:ing)?|photographer|photography|personal\s*train(?:er|ing)?|dog\s*walking|pet\s*sitting|massage|landscap(?:e|ing)|gardening)\b/.test(
+      lower
+    )
+  ) {
     return "service";
-  if (/\b(car|vehicle|ute|van|truck|motorcycle|gtr|bmw|toyota|nissan|ford|holden|mazda)\b/.test(lower))
+  }
+
+  if (/\b(car|vehicle|ute|van|truck|motorcycle|gtr|bmw|toyota|nissan|ford|holden|mazda)\b/.test(lower)) {
     return "vehicle";
+  }
   if (raw.vehicleMake || raw.vehicleModel) return "vehicle";
   if (SERVICE_CATEGORIES.has(raw.category || "")) return "service";
   if (raw.category === "Cars") return "vehicle";
@@ -458,7 +493,7 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
 
   if (listingType === "rental") {
     if (raw.category) out.category = normalizeRentalCategory(raw.category);
-    else out.category = "Other";
+    else out.category = normalizeRentalCategory(`${raw.title || ""} ${raw.description || ""}`);
     const dailyNum = Number(raw.price || raw.rentalPriceDaily);
     const weeklyNum = Number(raw.rentalPriceWeekly);
     const monthlyNum = Number(raw.rentalPriceMonthly);
@@ -519,7 +554,7 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     if (raw.rentalFeatures?.length) out.rentalFeatures = raw.rentalFeatures;
   } else if (listingType === "service") {
     if (raw.category) out.category = normalizeServiceCategory(raw.category);
-    else out.category = "Other Services";
+    else out.category = normalizeServiceCategory(`${raw.title || ""} ${raw.description || ""}`);
     if (!out.servicePricingType) {
       out.servicePricingType = inferServicePricingFromText(pricingHint, raw.price);
     }

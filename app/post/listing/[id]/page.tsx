@@ -41,6 +41,11 @@ import { ReviewStars } from "../../../components/SellerReviewStars";
 import { adjustListingWatchlistCount } from "../../../lib/listing-watchlist-count";
 import ServicePricingBadge from "../../../components/ServicePricingBadge";
 import { formatServicePriceDisplay } from "../../../lib/service-pricing";
+import {
+  formatListingPriceDisplay,
+  formatListingPriceMeta,
+  formatRentalRate,
+} from "../../../lib/listing-price-display";
 import { sendMessage } from "../../../lib/api-send-message";
 import ListingImage from "../../../components/ListingImage";
 import { paymentMethodSummary, primaryPurchaseLabel, purchaseButtonTitle, shortPurchaseLabel } from "../../../lib/purchase-button-labels";
@@ -1341,14 +1346,20 @@ export default function ListingPage() {
             <div className="flex flex-wrap items-baseline gap-3">
               {listing.type === "service" && <ServicePricingBadge listing={listing} />}
               <span className="text-3xl font-bold text-[var(--foreground)] tracking-tight sm:text-4xl">
-                {listing.type === "service"
-                  ? formatServicePriceDisplay(listing)
+                {listing.type === "service" || listing.type === "rental"
+                  ? formatListingPriceDisplay(listing)
                   : listing.pricingType === "quote"
                     ? "Contact Seller for Quote"
                     : listing.price
                       ? `$${listing.price}`
                       : "Price on request"}
               </span>
+              {(listing.type === "service" || listing.type === "rental") &&
+                formatListingPriceMeta(listing) && (
+                  <span className="text-sm text-[var(--muted)]">
+                    {formatListingPriceMeta(listing)}
+                  </span>
+                )}
               {!isListingVisibleInMarketplace(listing) && (
                 <span className="rounded-lg bg-red-600/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-always-white">Sold</span>
               )}
@@ -1555,7 +1566,7 @@ export default function ListingPage() {
                   <span>Rental — Pickup from {listing.location || "seller's location"}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-sky-400 font-bold">
-                  <span>${(Number(listing.price) || 0).toFixed(2)}/day{listing.rentalPriceWeekly ? ` · $${Number(listing.rentalPriceWeekly).toFixed(2)}/wk` : ""}{listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly).toFixed(2)}/mo` : ""}</span>
+                  <span>{formatRentalRate(listing)}{listing.rentalPriceWeekly && listing.rentalSubType !== "property" ? ` · $${Number(listing.rentalPriceWeekly)}/wk` : ""}{listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly)}/mo` : ""}</span>
                 </div>
                 {!!listing.rentalDeposit && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
@@ -2156,7 +2167,7 @@ Service Status: 🟢 Inquiry Active`;
                       }}
                       className="btn btn-primary w-full h-14 text-base"
                     >
-                      Message Seller
+                      Message Provider
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -2183,7 +2194,7 @@ Service Status: 🟢 Inquiry Active`;
                 </div>
               ) : (
                 <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
-                  Message Seller
+                  Message Provider
                 </button>
               )}
             </div>
@@ -2224,13 +2235,13 @@ Service Status: 🟢 Inquiry Active`;
                       <div className="rounded-lg bg-white/[0.02] px-3 py-2 text-xs">
                         <div className="space-y-1">
                           <p className="font-medium text-sky-400 text-[11px]">
-                            ${(Number(listing.price) || 0).toFixed(2)}/day
+                            {formatRentalRate(listing)}
                             {listing.rentalPriceWeekly ? ` · $${Number(listing.rentalPriceWeekly).toFixed(2)}/wk` : ""}
                             {listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly).toFixed(2)}/mo` : ""}
                           </p>
                         </div>
                         <div className="mt-1.5 flex items-center justify-between text-[var(--muted)]">
-                          <span>${Number(listing.price)}/day × {rentalDays} day{rentalDays > 1 ? "s" : ""}</span>
+                          <span>{formatRentalRate(listing)} × {rentalDays} day{rentalDays > 1 ? "s" : ""}</span>
                           <span className="font-bold text-[var(--foreground)]">${(Number(listing.price) * rentalDays).toFixed(2)}</span>
                         </div>
                         {!!listing.rentalDeposit && (
@@ -2257,7 +2268,7 @@ Service Status: 🟢 Inquiry Active`;
                     }}
                       className="btn btn-primary w-full h-14 text-base">
                       {stripeDisabledV1
-                        ? (rentalDays > 0 ? `Message to arrange — $${(Number(listing.price) * rentalDays).toFixed(2)}` : "Message Seller")
+                        ? (rentalDays > 0 ? `Message to arrange — $${(Number(listing.price) * rentalDays).toFixed(2)}` : "Message Owner")
                         : `Rent Now ${rentalDays > 0 ? `— $${(Number(listing.price) * rentalDays + 1).toFixed(2)}` : ""}`}
                     </button>
                   </div>
@@ -2269,7 +2280,7 @@ Service Status: 🟢 Inquiry Active`;
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
                       </svg>
-                      Message Seller
+                      Message Owner
                     </Link>
                   </div>
                 </>
@@ -2284,7 +2295,7 @@ Service Status: 🟢 Inquiry Active`;
                 </div>
               ) : (
                 <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
-                  Message Seller
+                  Message Owner
                 </button>
               )}
             </div>

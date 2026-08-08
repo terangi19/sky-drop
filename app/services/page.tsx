@@ -13,16 +13,14 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  getDocs,
+  onSnapshot,
   query,
   setDoc,
   where,
 } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
-import { listingBuyHref } from "../lib/buy-listing-route";
 import { listingPrimaryActionHref } from "../lib/listing-message-href";
-import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import {
   getRecentlyViewed,
   isInWatchlist,
@@ -32,7 +30,6 @@ import {
 import {
   adjustListingWatchlistCount,
   listingWatchlistCount,
-  listingWatchlistGlowIntensity,
 } from "../lib/listing-watchlist-count";
 import ListingImage, { listingHasImage } from "../components/ListingImage";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
@@ -40,20 +37,29 @@ import HotThisWeek from "../components/HotThisWeek";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
+import {
+  browseFilterCategories,
+  emptyListBody,
+  emptyListCtaLabel,
+  emptyListHeadline,
+} from "../lib/listing-type-config";
+import {
+  formatListingPriceDisplay,
+  formatListingPriceMeta,
+} from "../lib/listing-price-display";
+import { LoadingCard } from "../components/LoadingSpinner";
 
-const CATEGORIES = [
-  { name: "All" },
-  { name: "Trades & Repairs" },
-  { name: "Cleaning & Maintenance" },
-  { name: "Tutoring & Lessons" },
-  { name: "Photography" },
-  { name: "Personal Training" },
-  { name: "Events & Catering" },
-  { name: "Other Services" },
-];
+const CATEGORIES = browseFilterCategories("service");
 
 function serviceSearchText(item: Record<string, unknown>): string {
-  return [item.title, item.description, item.category, item.location]
+  return [
+    item.title,
+    item.description,
+    item.category,
+    item.location,
+    item.servicePricingType,
+    item.serviceDuration,
+  ]
     .filter(Boolean)
     .map(String)
     .join(" ")
@@ -70,6 +76,7 @@ function listingMatchesSearch(item: Record<string, unknown>, query: string): boo
 export default function ServicesPage() {
   const router = useRouter();
   const [listings, setListings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState<User | null>(null);
@@ -92,25 +99,30 @@ export default function ServicesPage() {
 
   useEffect(() => {
     const q = query(collection(db, "listings"), where("type", "==", "service"));
-    getDocs(q).then((snap) => {
-      const items: any[] = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() } as any))
-        .filter((i: any) => isListingVisibleInMarketplace(i));
-      items.sort(
-        (a: any, b: any) =>
-          (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
-      );
-      setListings(items.slice(0, 60));
-    }).catch((err) => { console.error("Failed to load service listings:", err); });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const items: any[] = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as any))
+          .filter((i: any) => isListingVisibleInMarketplace(i));
+        items.sort(
+          (a: any, b: any) =>
+            (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+        );
+        setListings(items);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Failed to load service listings:", err);
+        setLoading(false);
+      }
+    );
+    return () => unsub();
   }, []);
 
-  function handleBuyNow(item: any) {
+  function handlePrimaryAction(item: any) {
     if (!isListingVisibleInMarketplace(item)) return;
-    router.push(
-      isStripeCheckoutVisibleClient()
-        ? listingBuyHref(item.id)
-        : listingPrimaryActionHref(item)
-    );
+    router.push(listingPrimaryActionHref(item));
   }
 
   async function toggleWatchlist(item: any) {
@@ -204,90 +216,86 @@ export default function ServicesPage() {
       <Navbar />
 
       <section className={`${PAGE_SHELL_MARKETPLACE} pb-8 pt-2 sm:pt-3`}>
-        <BrowseMarketplaceHero
-          badge="Freelance Services"
-          title="Services"
-        >
-            <div className="group relative mt-4 w-full max-w-2xl">
-              <div className={`absolute -inset-1 rounded-xl bg-gradient-to-r ${t.searchGlow} opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100`} />
-              <div className={`relative flex items-center rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ring-0 transition-all duration-300 ${t.searchFocus}`}>
-                <div className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04]">
-                  <svg
-                    className="h-4 w-4 text-[var(--muted)]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-                    />
-                  </svg>
-                </div>
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search services, skills, location..."
-                  className="min-w-0 flex-1 bg-transparent px-3 py-3.5 text-[15px] text-white outline-none placeholder:text-white/60"
-                  aria-label="Search services"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white/60 transition hover:bg-white/[0.06] hover:text-white"
-                    aria-label="Clear search"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-                <Link
-                  href="/post/ai?type=service"
-                  className={`mr-1.5 ml-1 flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r ${t.listBtn} px-3 py-2 text-[13px] font-bold text-white shadow-lg transition-all duration-200 hover:brightness-110 active:scale-[0.97] sm:gap-2 sm:px-4`}
+        <BrowseMarketplaceHero badge="Freelance Services" title="Services">
+          <div className="group relative mt-4 w-full max-w-2xl">
+            <div
+              className={`absolute -inset-1 rounded-xl bg-gradient-to-r ${t.searchGlow} opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100`}
+            />
+            <div
+              className={`relative flex items-center rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ring-0 transition-all duration-300 ${t.searchFocus}`}
+            >
+              <div className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04]">
+                <svg
+                  className="h-4 w-4 text-[var(--muted)]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
                 >
-                  <svg
-                    className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span className="hidden sm:inline">Offer a Service</span>
-                  <span className="sm:hidden">List</span>
-                </Link>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                  />
+                </svg>
               </div>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search services, skills, location..."
+                className="min-w-0 flex-1 bg-transparent px-3 py-3.5 text-[15px] text-white outline-none placeholder:text-white/60"
+                aria-label="Search services"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white/60 transition hover:bg-white/[0.06] hover:text-white"
+                  aria-label="Clear search"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+              <Link
+                href="/post/ai?type=service"
+                className={`mr-1.5 ml-1 flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r ${t.listBtn} px-3 py-2 text-[13px] font-bold text-white shadow-lg transition-all duration-200 hover:brightness-110 active:scale-[0.97] sm:gap-2 sm:px-4`}
+              >
+                <svg
+                  className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="hidden sm:inline">Offer a Service</span>
+                <span className="sm:hidden">List</span>
+              </Link>
             </div>
+          </div>
         </BrowseMarketplaceHero>
 
-        {listings.length > 0 && (
+        {!loading && (
           <div className="mb-5 flex flex-wrap items-center justify-center gap-2">
             {CATEGORIES.map((cat) => (
               <button
-                key={cat.name}
-                onClick={() => setSelectedCategory(cat.name)}
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all ${
-                  selectedCategory === cat.name
+                  selectedCategory === cat
                     ? "border-sky-400/30 bg-sky-500/10 text-white"
                     : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:border-white/10 hover:text-[var(--foreground)]"
                 }`}
               >
-                {cat.name}
+                {cat}
               </button>
             ))}
-            <span className="text-[11px] text-white/50 ml-2">
+            <span className="ml-2 text-[11px] text-white/50">
               {filteredListings.length} listing{filteredListings.length !== 1 ? "s" : ""}
             </span>
             {hasActiveFilters && (
@@ -311,34 +319,38 @@ export default function ServicesPage() {
           sellerBadges={sellerBadges}
         />
 
-        {listings.length === 0 ? (
-          <div className="mx-auto max-w-md mt-12 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-              <span className="text-3xl">💾</span>
+        {loading ? (
+          <div className={LISTING_GRID_MT}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <LoadingCard key={i} />
+            ))}
+          </div>
+        ) : listings.length === 0 ? (
+          <div className="mx-auto mt-12 max-w-md text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.03]">
+              <span className="text-3xl">🛠️</span>
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-white">No services yet</h2>
-            <p className="mt-2 text-sm text-white/60">Be the first to list a service.</p>
+            <h2 className="text-2xl font-black tracking-tight text-white">{emptyListHeadline("service")}</h2>
+            <p className="mt-2 text-sm text-white/60">{emptyListBody("service")}</p>
             <Link
               href="/post/ai?type=service"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:scale-105 hover:shadow-xl hover:shadow-sky-500/30 active:scale-95"
             >
-              Offer a Service
+              {emptyListCtaLabel("service")}
             </Link>
           </div>
         ) : filteredListings.length === 0 ? (
-          <div className="mx-auto max-w-md mt-12 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
+          <div className="mx-auto mt-12 max-w-md text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.03]">
               <span className="text-3xl">🔍</span>
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">
-              {searchQuery.trim()
-                ? "No matching listings"
-                : `No listings in ${selectedCategory}`}
+              {searchQuery.trim() ? "No matching listings" : `No listings in ${selectedCategory}`}
             </h2>
             <p className="mt-2 text-sm text-white/60">
               {searchQuery.trim()
                 ? "Try different keywords or browse all services."
-                : "Try another category or list your product here."}
+                : "Try another category or offer a service here."}
             </p>
             <button
               type="button"
@@ -350,7 +362,7 @@ export default function ServicesPage() {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-1.5 mt-4">
+            <div className="mb-1.5 mt-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-7 w-1 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
                 <div>
@@ -363,10 +375,7 @@ export default function ServicesPage() {
                 </div>
               </div>
             </div>
-            <div
-              key={watchlistTick}
-              className={LISTING_GRID_MT}
-            >
+            <div key={watchlistTick} className={LISTING_GRID_MT}>
               {filteredListings.map((item, cardIndex) => (
                 <MarketplaceListingCard
                   key={item.id}
@@ -380,7 +389,7 @@ export default function ServicesPage() {
                     saveRecentlyViewed(item);
                     router.push(`/post/listing/${item.id}`);
                   }}
-                  onBuyNow={handleBuyNow}
+                  onBuyNow={handlePrimaryAction}
                   onMakeOffer={(listing) => router.push(`/post/listing/${listing.id}`)}
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
@@ -397,9 +406,7 @@ export default function ServicesPage() {
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
               <div className="flex items-center gap-2 pt-3">
                 <div className="h-5 w-1 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
-                <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-white">
-                  Recently Viewed
-                </p>
+                <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-white">Recently Viewed</p>
               </div>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -407,6 +414,7 @@ export default function ServicesPage() {
                 const live = listings.find((l) => l.id === item.id);
                 const card = live ? { ...item, ...live } : item;
                 const hasImage = listingHasImage(card);
+                const meta = formatListingPriceMeta(card);
                 return (
                   <div
                     key={item.id}
@@ -425,33 +433,29 @@ export default function ServicesPage() {
                       />
                     ) : (
                       <div className="flex h-20 w-full items-center justify-center rounded-lg bg-gradient-to-br from-sky-500/15 via-sky-500/15 to-sky-600/15 text-xs text-white/60">
-                        💾
+                        🛠️
                       </div>
                     )}
-                    <p className="mt-2.5 truncate text-[15px] font-bold text-white">
-                      {card.title}
+                    <p className="mt-2.5 truncate text-[15px] font-bold text-white">{card.title}</p>
+                    <p className="mt-0.5 text-base font-black text-sky-400">
+                      {formatListingPriceDisplay(card)}
                     </p>
-                    <p className="mt-0.5 text-base font-black text-sky-400">${card.price}</p>
+                    {meta && <p className="mt-0.5 truncate text-[10px] text-white/50">{meta}</p>}
                     {card.category && (
                       <p className="mt-1 truncate text-[10px] text-white/60">{card.category}</p>
                     )}
-                    <p className="mt-1 text-[10px] text-white/60">
-                      ⭐ {listingWatchlistCount(card).toLocaleString()}{" "}
-                      {listingWatchlistCount(card) === 1 ? "save" : "saves"}
-                    </p>
                   </div>
                 );
               })}
             </div>
           </div>
         )}
-      
-        {/* Trust strip */}
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-sm">
+
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-6 py-4 backdrop-blur-sm sm:gap-x-14 lg:gap-x-20">
           {[
-            { label: "Flexible payments", sub: "Stripe or Arrange Purchase" },
-            { label: "Dispute protection", sub: "7-day window" },
-            { label: "Verified sellers", sub: "Profiles & reviews" },
+            { label: "Message to arrange", sub: "Agree in chat" },
+            { label: "Stay safe", sub: "Verify before paying" },
+            { label: "Verified providers", sub: "Profiles & reviews" },
             { label: "NZ community", sub: "Built for Aotearoa" },
           ].map((item) => (
             <div key={item.label} className="flex items-center gap-2.5">
@@ -461,14 +465,8 @@ export default function ServicesPage() {
               </div>
             </div>
           ))}
-        </div></section>
+        </div>
+      </section>
     </main>
   );
 }
-
-
-
-
-
-
-

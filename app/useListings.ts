@@ -5,6 +5,9 @@ import { collection, limit, onSnapshot, orderBy, query, where } from "firebase/f
 import { db } from "./lib/firebase";
 import { Listing } from "../types/firestore";
 
+/** Marketplace search / browse needs services + rentals, not only the newest physicals. */
+const GLOBAL_LISTINGS_LIMIT = 400;
+
 export function useListings(sellerEmail?: string) {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +19,7 @@ export function useListings(sellerEmail?: string) {
       constraints.push(where("sellerEmail", "==", sellerEmail));
     }
     constraints.push(orderBy("createdAt", "desc"));
-    constraints.push(limit(sellerEmail ? 100 : 50));
+    constraints.push(limit(sellerEmail ? 100 : GLOBAL_LISTINGS_LIMIT));
 
     const listingsQuery = query(collection(db, "listings"), ...constraints);
 

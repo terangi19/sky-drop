@@ -18,6 +18,12 @@ import { detectSuspiciousPrice } from "../../lib/pricedetection";
 import { getListingBlockReason } from "../../lib/seller-eligibility";
 import { STRIPE_CONNECT_REQUIRED_MSG, sellerCanUseStripeCheckout } from "../../lib/seller-payments";
 import { resolveListingType } from "../../lib/listing-types";
+import {
+  PHYSICAL_LISTING_CATEGORIES,
+  RENTAL_LISTING_CATEGORY_LIST,
+  SERVICE_LISTING_CATEGORY_LIST,
+  WANTED_LISTING_CATEGORIES,
+} from "../../lib/listing-type-config";
 import { hasActiveListingDraft, mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi, syncListingDraftToSkyAi, clearListingDraftFromSkyAi } from "../../lib/sky-ai-listing-context";
 import {
@@ -1717,13 +1723,13 @@ export default function AIPostPage() {
               </label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
                 {listingType === "service" ? (
-                  <><option className="bg-[var(--card)] text-[var(--foreground)]">Trades & Repairs</option><option className="bg-[var(--card)] text-[var(--foreground)]">Cleaning & Maintenance</option><option className="bg-[var(--card)] text-[var(--foreground)]">Tutoring & Lessons</option><option className="bg-[var(--card)] text-[var(--foreground)]">Photography</option><option className="bg-[var(--card)] text-[var(--foreground)]">Personal Training</option><option className="bg-[var(--card)] text-[var(--foreground)]">Events & Catering</option><option className="bg-[var(--card)] text-[var(--foreground)]">Other Services</option></>
+                  <>{SERVICE_LISTING_CATEGORY_LIST.map((c) => <option key={c} className="bg-[var(--card)] text-[var(--foreground)]">{c}</option>)}</>
                 ) : listingType === "rental" ? (
-                  <><option className="bg-[var(--card)] text-[var(--foreground)]">Other</option><option className="bg-[var(--card)] text-[var(--foreground)]">Vehicles</option><option className="bg-[var(--card)] text-[var(--foreground)]">Equipment</option></>
+                  <>{RENTAL_LISTING_CATEGORY_LIST.map((c) => <option key={c} className="bg-[var(--card)] text-[var(--foreground)]">{c}</option>)}</>
                 ) : listingType === "wanted" ? (
-                  <><option className="bg-[var(--card)] text-[var(--foreground)]">Items</option><option className="bg-[var(--card)] text-[var(--foreground)]">Services</option><option className="bg-[var(--card)] text-[var(--foreground)]">Rentals</option><option className="bg-[var(--card)] text-[var(--foreground)]">Vehicles</option></>
+                  <>{WANTED_LISTING_CATEGORIES.map((c) => <option key={c} className="bg-[var(--card)] text-[var(--foreground)]">{c}</option>)}</>
                 ) : (
-                  <><option className="bg-[var(--card)] text-[var(--foreground)]">Tech</option><option className="bg-[var(--card)] text-[var(--foreground)]">Cars</option><option className="bg-[var(--card)] text-[var(--foreground)]">Gaming</option><option className="bg-[var(--card)] text-[var(--foreground)]">Fashion</option><option className="bg-[var(--card)] text-[var(--foreground)]">Home</option><option className="bg-[var(--card)] text-[var(--foreground)]">Sports</option><option className="bg-[var(--card)] text-[var(--foreground)]">Other</option></>
+                  <>{PHYSICAL_LISTING_CATEGORIES.map((c) => <option key={c} className="bg-[var(--card)] text-[var(--foreground)]">{c}</option>)}</>
                 )}
               </select>
             </div>
@@ -2103,16 +2109,13 @@ export default function AIPostPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-bold text-[var(--foreground)]">Pricing</label>
-                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {[
-                    { value: "fixed", label: "Fixed Price" },
-                    { value: "request_quote", label: "Quote Required" },
-                  ].map((opt) => (
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {SERVICE_PRICING_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => {
-                        setServicePricingType(opt.value as "fixed" | "request_quote");
+                        setServicePricingType(opt.value);
                         if (opt.value === "request_quote") {
                           setPrice("");
                           setAcceptOffers(false);

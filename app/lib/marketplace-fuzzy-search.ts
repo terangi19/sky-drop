@@ -27,6 +27,13 @@ export type ListingSearchRecord = Record<string, unknown> & {
   vehicleYear?: string | number;
   year?: string | number;
   location?: string;
+  servicePricingType?: string;
+  serviceDuration?: string;
+  rentalSubType?: string;
+  rentalDeposit?: string | number;
+  rentalAvailableDate?: string;
+  rentalPriceWeekly?: string | number;
+  rentalPriceMonthly?: string | number;
 };
 
 export type RankedListing = {
@@ -108,7 +115,18 @@ export function buildListingSearchBlob(listing: ListingSearchRecord): string {
     listing.vehicleYear != null ? String(listing.vehicleYear) : "",
     listing.year != null ? String(listing.year) : "",
     listing.location || "",
+    listing.servicePricingType || "",
+    listing.serviceDuration || "",
+    listing.rentalSubType || "",
+    listing.rentalDeposit != null ? String(listing.rentalDeposit) : "",
+    listing.rentalAvailableDate || "",
+    listing.rentalPriceWeekly != null ? String(listing.rentalPriceWeekly) : "",
+    listing.rentalPriceMonthly != null ? String(listing.rentalPriceMonthly) : "",
   ];
+  // Synonyms so "photographer" / "trailer rental" / "cleaner" hit typed listings
+  const t = (listing.type || "").toLowerCase();
+  if (t === "service") parts.push("service", "provider", "hire");
+  if (t === "rental") parts.push("rental", "rent", "hire", "for hire");
 
   for (const key of ["tags", "keywords", "searchKeywords", "aiKeywords"] as const) {
     const val = listing[key];
@@ -209,7 +227,20 @@ export function scoreListingMatch(
         score += 2.5;
       }
     }
-    
+
+    // Service queries (photographer, cleaner, lawn mowing, etc.)
+    if (
+      /\b(photographer|photography|cleaner|cleaning|lawn|mowing|handyman|tutor|tutoring|plumber|electrician|service)\b/.test(
+        queryLower
+      )
+    ) {
+      if ((listing.type || "").toLowerCase() === "service") score += 3.5;
+    }
+
+    // Rental / hire queries
+    if (/\b(rent|rental|hire|trailer|bond|per day|\/day)\b/.test(queryLower)) {
+      if ((listing.type || "").toLowerCase() === "rental") score += 3.5;
+    }
     // Service-related terms
     if (queryLower.match(/\b(service|design|cleaning|mowing|repair|install|consult|freelance)\b/)) {
       if (categoryLower.includes("service") || categoryLower.includes("services")) {

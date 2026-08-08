@@ -24,7 +24,12 @@ export function primaryPurchaseLabel(opts: {
   return price ? `Buy Now — ${price}` : "Buy Now";
 }
 
-export function shortPurchaseLabel(paymentType?: string | null): string {
+export function shortPurchaseLabel(
+  paymentType?: string | null,
+  listingType?: string | null
+): string {
+  if (listingType === "service") return "Message Provider";
+  if (listingType === "rental" || listingType === "property") return "Message Owner";
   if (!isStripeCheckoutVisibleClient()) return "Message Seller";
   return isContactPayment(paymentType) ? "Contact Seller" : "Buy Now";
 }
