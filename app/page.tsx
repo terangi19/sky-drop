@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 
 import { AWHINA_NAME } from "./lib/awhina-brand";
 import Navbar from "./components/Navbar";
+import SkyDropLogo from "./components/SkyDropLogo";
 import Background from "./components/Background";
 import PageTransition from "./components/PageTransition";
 import { showToast } from "./components/Toast";
@@ -976,7 +977,10 @@ export default function Home() {
         <div className="relative overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--shadow-xs)]">
           <div className="relative z-10 px-3 py-2.5 sm:px-4 sm:py-3">
             <div className="mx-auto max-w-2xl text-center">
-              <h1 className="text-base font-semibold tracking-tight text-[var(--foreground)] sm:text-lg">
+              <div className="flex justify-center">
+                <SkyDropLogo size="md" href="/" />
+              </div>
+              <h1 className="mt-1.5 text-base font-semibold tracking-tight text-[var(--foreground)] sm:text-lg">
                 Local listings across New Zealand
               </h1>
             </div>
