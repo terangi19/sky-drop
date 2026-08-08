@@ -24,6 +24,8 @@ import {
   visionCacheKey,
 } from "./awhina-vision-cache";
 import { clearAllListingDraftCacheForTests } from "./awhina-listing-fill-tools";
+import { enrichObservationWithKnowledge } from "./awhina-vision-knowledge";
+import { retrieveKnowledgePack } from "./awhina-knowledge-packs";
 
 function field(
   value: string,
@@ -260,5 +262,37 @@ describe("never invent high-risk fields from vision", () => {
     expect(adapted.listingFill.price).toBeUndefined();
     expect(adapted.listingFill.location).toBeUndefined();
     expect(adapted.listingFill.vehicleOdometer).toBeUndefined();
+  });
+});
+
+describe("shared knowledge enrichment", () => {
+  it("PS5 / Xbox / iPhone / Skyline / cards / unbranded", () => {
+    expect(retrieveKnowledgePack({ identityText: "three PS5 photos" }).canonicalIdentity).toMatch(
+      /PlayStation 5/i
+    );
+    expect(retrieveKnowledgePack({ identityText: "Xbox Series S" }).packId).toBe("gaming");
+    expect(retrieveKnowledgePack({ identityText: "iPhone 15" }).packId).toBe("phones");
+    expect(retrieveKnowledgePack({ identityText: "Skyline R34 GTR" }).generation).toMatch(/R34/i);
+    expect(retrieveKnowledgePack({ identityText: "PSA 10 Messi card" }).packId).toMatch(
+      /trading-cards|collectibles|generic/
+    );
+    expect(retrieveKnowledgePack({ identityText: "random unbranded widget" }).matched).toBe(
+      false
+    );
+  });
+
+  it("enrichment → adapter stays one listing brain", () => {
+    const enriched = enrichObservationWithKnowledge(
+      obs({
+        displayIdentity: "PS5",
+        itemIdentity: field("PS5", "HIGH", "VISIBLE"),
+        category: field("Gaming", "MEDIUM", "VISIBLE"),
+        overallConfidence: "HIGH",
+        visibleFacts: ["black console"],
+      })
+    );
+    expect(enriched.domain).toBe("gaming");
+    const adapted = adaptVisionObservationToListing(enriched.observation);
+    expect(adapted.listingFill.title).toMatch(/PlayStation 5/i);
   });
 });

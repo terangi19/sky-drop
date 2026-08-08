@@ -1,28 +1,43 @@
 /**
- * Camera-first Āwhina vision listing — feature flags.
+ * Shared multimodal vision listings - feature flags.
  *
- * AWHINA_VISION_LISTING_ENABLED — server authority (API route + OpenAI calls).
- * NEXT_PUBLIC_AWHINA_VISION_LISTING_ENABLED — UI only (Take/Choose photos, result card).
- *
- * Default OFF — only the literal string "true" enables.
+ * AWHINA_VISION_LISTINGS_ENABLED - server authority.
+ * NEXT_PUBLIC_AWHINA_VISION_LISTINGS_ENABLED - UI only.
+ * Backward-compat: also accepts singular AWHINA_VISION_LISTING_ENABLED.
+ * Default OFF - only literal "true" enables.
  */
 
 function envTruthy(raw: string | undefined): boolean {
   return String(raw || "").trim().toLowerCase() === "true";
 }
 
-/** Build-time UI switch (folded by next.config env). */
-export const AWHINA_VISION_LISTING_UI_ENABLED =
-  process.env.NEXT_PUBLIC_AWHINA_VISION_LISTING_ENABLED === "true";
-
-/** Server source of truth — never authorize vision from NEXT_PUBLIC_*. */
-export function isAwhinaVisionListingEnabledServer(): boolean {
-  return envTruthy(process.env.AWHINA_VISION_LISTING_ENABLED);
+function publicFlagOn(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_AWHINA_VISION_LISTINGS_ENABLED === "true" ||
+    process.env.NEXT_PUBLIC_AWHINA_VISION_LISTING_ENABLED === "true"
+  );
 }
 
-/** Client/UI visibility. Safe in client components. */
+export const AWHINA_VISION_LISTING_UI_ENABLED = publicFlagOn();
+export const AWHINA_VISION_LISTINGS_UI_ENABLED = AWHINA_VISION_LISTING_UI_ENABLED;
+
+export function isAwhinaVisionListingEnabledServer(): boolean {
+  return (
+    envTruthy(process.env.AWHINA_VISION_LISTINGS_ENABLED) ||
+    envTruthy(process.env.AWHINA_VISION_LISTING_ENABLED)
+  );
+}
+
+export function isAwhinaVisionListingsEnabledServer(): boolean {
+  return isAwhinaVisionListingEnabledServer();
+}
+
 export function isAwhinaVisionListingVisibleClient(): boolean {
-  return process.env.NEXT_PUBLIC_AWHINA_VISION_LISTING_ENABLED === "true";
+  return publicFlagOn();
+}
+
+export function isAwhinaVisionListingsVisibleClient(): boolean {
+  return isAwhinaVisionListingVisibleClient();
 }
 
 export function isAwhinaVisionListingProductEnabled(): boolean {

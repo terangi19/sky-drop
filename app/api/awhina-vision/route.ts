@@ -112,10 +112,12 @@ export async function POST(req: NextRequest) {
             }
           : undefined,
         suggestions: result.adapted?.suggestions,
+        domain: result.domain,
         awhina: {
           intent: "vision_listing",
-          routing: "awhina_vision_adapter",
+          routing: "awhina_vision_shared_pipeline",
           model: result.model,
+          domain: result.domain,
           confidenceLevel: result.observation?.overallConfidence,
           latencyMs: result.latencyMs,
           promptTokens: result.promptTokens,

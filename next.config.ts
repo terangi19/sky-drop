@@ -27,8 +27,17 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED:
       process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED === "true" ? "true" : "false",
+    NEXT_PUBLIC_AWHINA_VISION_LISTINGS_ENABLED:
+      process.env.NEXT_PUBLIC_AWHINA_VISION_LISTINGS_ENABLED === "true" ||
+      process.env.NEXT_PUBLIC_AWHINA_VISION_LISTING_ENABLED === "true"
+        ? "true"
+        : "false",
+    // Back-compat alias for older client imports
     NEXT_PUBLIC_AWHINA_VISION_LISTING_ENABLED:
-      process.env.NEXT_PUBLIC_AWHINA_VISION_LISTING_ENABLED === "true" ? "true" : "false",
+      process.env.NEXT_PUBLIC_AWHINA_VISION_LISTINGS_ENABLED === "true" ||
+      process.env.NEXT_PUBLIC_AWHINA_VISION_LISTING_ENABLED === "true"
+        ? "true"
+        : "false",
   },
 
   images: {

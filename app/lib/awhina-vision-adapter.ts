@@ -141,9 +141,16 @@ export function observationToListingFacts(
     setFact(facts, "itemIdentity", identity, "IMAGE", obs.overallConfidence);
   }
 
-  // Description: safe visual observations only — never marketing
+  // Description: natural prose from safe visual + readable facts — never marketing
   if (obs.visualDescription && obs.overallConfidence !== "LOW") {
-    setFact(facts, "description", obs.visualDescription, "IMAGE", obs.overallConfidence);
+    const prose = composeVisionAwareDescription({
+      visualDescription: obs.visualDescription,
+      facts: [
+        ...(obs.visibleFacts || []).slice(0, 3),
+        ...(obs.readableFacts || []).slice(0, 2),
+      ].filter((f) => !(obs.inferredFacts || []).includes(f)),
+    });
+    if (prose) setFact(facts, "description", prose, "IMAGE", obs.overallConfidence);
   }
 
   facts.visibleAttributes = [

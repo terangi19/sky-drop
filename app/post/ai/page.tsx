@@ -2001,6 +2001,7 @@ export default function AIPostPage() {
           <SellPhotoUpload
             className="mb-0"
             cameraFirst={AWHINA_VISION_LISTING_UI_ENABLED}
+            enableDrop={AWHINA_VISION_LISTING_UI_ENABLED}
             ctaTitle={
               AWHINA_VISION_LISTING_UI_ENABLED
                 ? photoSubject
@@ -2010,7 +2011,7 @@ export default function AIPostPage() {
             }
             ctaSubtitle={
               AWHINA_VISION_LISTING_UI_ENABLED
-                ? "Āwhina identifies the item — you confirm and add what's missing"
+                ? "Āwhina identifies the item — same brain on phone or desktop"
                 : photoSubject
                   ? "Up to 8 photos — first is the cover"
                   : "Up to 8 photos — first is the cover"

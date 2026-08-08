@@ -21,6 +21,7 @@ import {
 } from "./awhina-vision-observation";
 import { isAwhinaVisionListingEnabledServer } from "./awhina-vision-listing-flags";
 import { mergeVisionWithSellerText } from "./awhina-vision-compound";
+import { enrichObservationWithKnowledge } from "./awhina-vision-knowledge";
 
 export const AWHINA_VISION_MAX_IMAGES = 4;
 /** Prefer gpt-4o-mini: vision + structured outputs, low cost/latency for listing ID. */
@@ -49,6 +50,7 @@ export type VisionListingResult = {
   needsIdentityConfirm?: boolean;
   missingPrompts?: string[];
   model?: string;
+  domain?: string;
   latencyMs: number;
   promptTokens?: number;
   completionTokens?: number;
@@ -234,8 +236,22 @@ export async function runVisionListing(
       };
     }
 
-    const observation = parseVisionObservation(parsedJson);
+    const rawObservation = parseVisionObservation(parsedJson);
+    // Shared pipeline: recognition -> knowledge packs -> existing listing adapter
+    const { observation, knowledge, domain } =
+      enrichObservationWithKnowledge(rawObservation);
     let adapted = adaptVisionObservationToListing(observation, request.listingContext);
+    if (
+      knowledge.matched &&
+      knowledge.confidence !== "LOW" &&
+      knowledge.clarificationChoices.length &&
+      adapted.needsIdentityConfirm
+    ) {
+      adapted = {
+        ...adapted,
+        foundReply: `${adapted.foundReply} (${knowledge.clarificationChoices[0]})`,
+      };
+    }
     if (message) {
       adapted = mergeVisionWithSellerText(adapted, message, request.listingContext);
     }
@@ -265,6 +281,7 @@ export async function runVisionListing(
       needsIdentityConfirm: adapted.needsIdentityConfirm,
       missingPrompts: adapted.missingPrompts,
       model,
+      domain,
       latencyMs: Date.now() - start,
       promptTokens,
       completionTokens,

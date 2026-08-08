@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ChangeEvent, type RefObject } from "react";
+import { useCallback, useRef, useState, type ChangeEvent, type DragEvent, type RefObject } from "react";
 
 type Props = {
   imagePreviews: string[];
@@ -12,10 +12,12 @@ type Props = {
   ctaSubtitle?: string;
   className?: string;
   /**
-   * Camera-first UX: [Take photos] [Choose photos] with native capture.
-   * When false, keeps the classic single dropzone.
+   * Mobile camera-first: [Take photos] [Choose photos] with native capture.
+   * Same recognition pipeline as desktop — only INPUT UX differs.
    */
   cameraFirst?: boolean;
+  /** Desktop drag/drop + click multi-select (shared intelligence path). */
+  enableDrop?: boolean;
 };
 
 export default function SellPhotoUpload({
@@ -27,16 +29,65 @@ export default function SellPhotoUpload({
   ctaSubtitle = "Up to 8 photos — first is the cover",
   className = "",
   cameraFirst = false,
+  enableDrop = false,
 }: Props) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
   const openPicker = () => fileInputRef.current?.click();
   const openCamera = () => cameraInputRef.current?.click();
+
+  const ingestFiles = useCallback(
+    (fileList: FileList | File[] | null | undefined) => {
+      if (!fileList || (fileList as FileList).length === 0) return;
+      const input = fileInputRef.current;
+      if (!input) return;
+      const dt = new DataTransfer();
+      Array.from(fileList).forEach((f) => {
+        if (f.type.startsWith("image/")) dt.items.add(f);
+      });
+      if (!dt.files.length) return;
+      input.files = dt.files;
+      onUpload({
+        target: input,
+        currentTarget: input,
+      } as ChangeEvent<HTMLInputElement>);
+    },
+    [fileInputRef, onUpload]
+  );
+
+  const onDragOver = (e: DragEvent) => {
+    if (!enableDrop) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+  const onDragLeave = (e: DragEvent) => {
+    if (!enableDrop) return;
+    e.preventDefault();
+    setDragOver(false);
+  };
+  const onDrop = (e: DragEvent) => {
+    if (!enableDrop) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    ingestFiles(e.dataTransfer?.files);
+  };
+
+  const dropClass = dragOver
+    ? "border-sky-500/50 bg-sky-500/[0.06]"
+    : "border-white/[0.12] bg-white/[0.02]";
 
   return (
     <div className={className || undefined}>
       {imagePreviews.length === 0 ? (
         cameraFirst ? (
-          <div className="flex min-h-[14rem] flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.02] px-5 py-10 text-center sm:min-h-[16rem]">
+          <div
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            className={`flex min-h-[14rem] flex-col items-center justify-center rounded-2xl border border-dashed px-5 py-10 text-center transition sm:min-h-[16rem] ${dropClass}`}
+          >
             <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] text-zinc-400">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path
@@ -52,12 +103,16 @@ export default function SellPhotoUpload({
               </svg>
             </div>
             <span className="mt-4 text-base font-medium text-white">{ctaTitle}</span>
-            <span className="mt-1.5 text-sm text-zinc-500">{ctaSubtitle}</span>
+            <span className="mt-1.5 text-sm text-zinc-500">
+              {enableDrop
+                ? `${ctaSubtitle} · drop photos on desktop`
+                : ctaSubtitle}
+            </span>
             <div className="mt-5 flex w-full max-w-sm flex-col gap-2 sm:flex-row">
               <button
                 type="button"
                 onClick={openCamera}
-                className="flex-1 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-400"
+                className="flex-1 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-400 sm:hidden"
               >
                 Take photos
               </button>
@@ -66,7 +121,14 @@ export default function SellPhotoUpload({
                 onClick={openPicker}
                 className="flex-1 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-white/25 hover:text-white"
               >
-                Choose photos
+                {enableDrop ? "Choose photos" : "Choose photos"}
+              </button>
+              <button
+                type="button"
+                onClick={openCamera}
+                className="hidden flex-1 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-400 sm:inline-flex sm:items-center sm:justify-center"
+              >
+                Take photos
               </button>
             </div>
           </div>
@@ -81,7 +143,10 @@ export default function SellPhotoUpload({
                 openPicker();
               }
             }}
-            className="sd-photo-dropzone group flex min-h-[14rem] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.02] px-5 py-10 text-center transition hover:border-sky-500/35 hover:bg-white/[0.03] focus-visible:border-sky-500/45 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-500/25 sm:min-h-[16rem]"
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            className={`sd-photo-dropzone group flex min-h-[14rem] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-5 py-10 text-center transition hover:border-sky-500/35 hover:bg-white/[0.03] focus-visible:border-sky-500/45 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-500/25 sm:min-h-[16rem] ${dropClass}`}
           >
             <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] text-zinc-400 transition group-hover:border-sky-500/30 group-hover:text-sky-300">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -89,11 +154,18 @@ export default function SellPhotoUpload({
               </svg>
             </div>
             <span className="mt-4 text-base font-medium text-white">{ctaTitle}</span>
-            <span className="mt-1.5 text-sm text-zinc-500">{ctaSubtitle}</span>
+            <span className="mt-1.5 text-sm text-zinc-500">
+              {enableDrop ? "Drop photos here or click to upload" : ctaSubtitle}
+            </span>
           </div>
         )
       ) : (
-        <div className="space-y-3">
+        <div
+          className="space-y-3"
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+        >
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-sm font-medium text-white">{ctaTitle}</p>
             <p className="text-[11px] text-zinc-500">{imagePreviews.length}/8</p>
@@ -141,6 +213,9 @@ export default function SellPhotoUpload({
             >
               Choose more from library
             </button>
+          ) : null}
+          {enableDrop && dragOver ? (
+            <p className="text-center text-xs text-sky-300">Drop to add photos</p>
           ) : null}
         </div>
       )}
