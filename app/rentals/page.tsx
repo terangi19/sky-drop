@@ -86,7 +86,7 @@ export default function RentalsPage() {
   const [watchlistTick, setWatchlistTick] = useState(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
 
-  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerHandles, sellerDisplayNames, sellerAvatars, sellerFullyVerified, sellerMetaReady } = useSellerListingMeta(listings);
 
   useEffect(() => {
     const refreshRecentlyViewed = () => setRecentlyViewed(getRecentlyViewed());
@@ -305,6 +305,8 @@ export default function RentalsPage() {
           sellerReviewStats={sellerReviewStats}
           sellerBadges={sellerBadges}
           sellerHandles={sellerHandles}
+        sellerDisplayNames={sellerDisplayNames}
+        sellerMetaReady={sellerMetaReady}
         />
 
         {loading ? (
@@ -375,7 +377,10 @@ export default function RentalsPage() {
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
                   sellerHandles={sellerHandles}
+                  sellerDisplayNames={sellerDisplayNames}
+                  sellerAvatars={sellerAvatars}
                   sellerFullyVerified={sellerFullyVerified}
+                  sellerMetaReady={sellerMetaReady}
                 />
               ))}
             </div>

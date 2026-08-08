@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  getSellerDisplayName,
   resolveSellerCardDisplayName,
   resolveSellerCardProfileSlug,
   sellerMessagesUrl,
   sellerProfileDisplayName,
   sellerProfileSlug,
 } from "./public-display";
+import { getListingOwnerId } from "./listing-owner";
 
 describe("public display privacy helpers", () => {
   it("prefers public usernames for seller slugs", () => {
@@ -62,6 +64,53 @@ describe("public display privacy helpers", () => {
   });
 });
 
+describe("getListingOwnerId", () => {
+  it("prefers sellerId then legacy owner fields", () => {
+    expect(getListingOwnerId({ sellerId: "a", userId: "b" })).toBe("a");
+    expect(getListingOwnerId({ userId: "b", ownerId: "c" })).toBe("b");
+    expect(getListingOwnerId({ ownerId: "c", sellerUid: "d" })).toBe("c");
+    expect(getListingOwnerId({ sellerUid: "d", uid: "e" })).toBe("d");
+    expect(getListingOwnerId({ uid: "e" })).toBe("e");
+    expect(getListingOwnerId({})).toBe("");
+  });
+});
+
+describe("getSellerDisplayName", () => {
+  it("Seller A: displayName Terangi wins", () => {
+    expect(
+      getSellerDisplayName({
+        displayName: "Terangi",
+        username: "terangi34",
+        sellerName: "legacy",
+      })
+    ).toBe("Terangi");
+  });
+
+  it("Seller B: username when no displayName", () => {
+    expect(
+      getSellerDisplayName({
+        username: "sky123",
+        sellerName: "legacy",
+      })
+    ).toBe("sky123");
+  });
+
+  it("Seller C: only Seller when no public identity", () => {
+    expect(getSellerDisplayName({})).toBe("Seller");
+    expect(
+      getSellerDisplayName({
+        displayName: "user@example.com",
+        username: "uid-abcdefghijklmnop",
+        sellerName: "leak@example.com",
+      })
+    ).toBe("Seller");
+  });
+
+  it("accepts legacy sellerName when safe", () => {
+    expect(getSellerDisplayName({ sellerName: "KiwiTrader" })).toBe("KiwiTrader");
+  });
+});
+
 describe("resolveSellerCardDisplayName", () => {
   it("uses live profile username when listing has no sellerUsername", () => {
     expect(
@@ -70,6 +119,17 @@ describe("resolveSellerCardDisplayName", () => {
         { "test@example.com": "SkyDavis" }
       )
     ).toBe("SkyDavis");
+  });
+
+  it("resolves live identity by owner UID (canonical enrichment key)", () => {
+    expect(
+      resolveSellerCardDisplayName(
+        { sellerId: "uid-abc", sellerEmail: "test@example.com" },
+        { "uid-abc": "terangi34" },
+        "Seller",
+        { "uid-abc": "Terangi" }
+      )
+    ).toBe("Terangi");
   });
 
   it("prefers current profile username over stale listing username", () => {
@@ -128,5 +188,14 @@ describe("resolveSellerCardDisplayName", () => {
         { "test@example.com": "SkyDavis" }
       )
     ).toBe("SkyDavis");
+  });
+
+  it("uses owner-UID keyed live handle for profile slug", () => {
+    expect(
+      resolveSellerCardProfileSlug(
+        { sellerId: "uid-xyz", sellerEmail: "a@b.com" },
+        { "uid-xyz": "terangi34" }
+      )
+    ).toBe("terangi34");
   });
 });

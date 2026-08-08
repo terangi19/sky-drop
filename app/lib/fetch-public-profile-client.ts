@@ -3,6 +3,8 @@ import { publicHandleFromProfile } from "./public-display";
 export type ClientPublicProfile = {
   uid?: string;
   username?: string;
+  displayName?: string;
+  name?: string;
   email?: string;
   photoURL?: string;
   bannerURL?: string;

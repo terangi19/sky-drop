@@ -574,7 +574,9 @@ export default function ListingPage() {
       const sellerSlug = sellerProfileSlug({
         sellerUsername: listingData.sellerUsername as string | undefined,
         sellerEmail,
-        sellerId: listingData.sellerId as string | undefined,
+        sellerId: (listingData.sellerId || listingData.userId || listingData.ownerId) as
+          | string
+          | undefined,
       });
 
       if (sellerSlug) {
@@ -748,7 +750,17 @@ export default function ListingPage() {
     if (!listing) return;
     try {
       const recent = JSON.parse(localStorage.getItem("recentlyViewed") || "[]").filter((r: any) => r.id !== listing.id);
-      recent.unshift({ id: listing.id, title: listing.title, price: listing.price, images: listing.images, imageUrl: listing.imageUrl || listing.image });
+      recent.unshift({
+        id: listing.id,
+        title: listing.title,
+        price: listing.price,
+        images: listing.images,
+        imageUrl: listing.imageUrl || listing.image,
+        sellerId: listing.sellerId || listing.userId || "",
+        sellerEmail: listing.sellerEmail || "",
+        sellerUsername: listing.sellerUsername || "",
+        sellerName: listing.sellerName || "",
+      });
       localStorage.setItem("recentlyViewed", JSON.stringify(recent.slice(0, 8)));
     } catch {}
   }, [listing]);
@@ -1082,11 +1094,35 @@ export default function ListingPage() {
     );
   }
 
+  const ownerId = listing.sellerId || listing.userId || "";
+  const profileUsername =
+    typeof sellerProfile?.username === "string" ? sellerProfile.username.trim() : "";
+  const profileDisplayName =
+    typeof (sellerProfile as { displayName?: string } | null)?.displayName === "string"
+      ? String((sellerProfile as { displayName?: string }).displayName).trim()
+      : typeof (sellerProfile as { name?: string } | null)?.name === "string"
+        ? String((sellerProfile as { name?: string }).name).trim()
+        : "";
   const sellerHandles =
-    listing.sellerEmail && typeof sellerProfile?.username === "string" && sellerProfile.username.trim()
-      ? { [listing.sellerEmail]: sellerProfile.username }
+    profileUsername
+      ? {
+          ...(ownerId ? { [ownerId]: profileUsername } : {}),
+          ...(listing.sellerEmail ? { [listing.sellerEmail]: profileUsername } : {}),
+        }
       : undefined;
-  const sellerName = resolveSellerCardDisplayName(listing, sellerHandles, "Seller");
+  const sellerDisplayNames =
+    profileDisplayName
+      ? {
+          ...(ownerId ? { [ownerId]: profileDisplayName } : {}),
+          ...(listing.sellerEmail ? { [listing.sellerEmail]: profileDisplayName } : {}),
+        }
+      : undefined;
+  const sellerName = resolveSellerCardDisplayName(
+    listing,
+    sellerHandles,
+    "Seller",
+    sellerDisplayNames
+  );
   const sellerInitial = sellerName.charAt(0).toUpperCase();
   const sellerSlug = resolveSellerCardProfileSlug(listing, sellerHandles);
   async function sendMessageToSeller() {

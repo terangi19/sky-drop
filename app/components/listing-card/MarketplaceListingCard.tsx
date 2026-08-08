@@ -13,9 +13,11 @@ import { SellerReviewSummary } from "../SellerReviewStars";
 import ListingImage, { listingHasImage } from "../ListingImage";
 import { purchaseButtonTitle, shortPurchaseLabel } from "../../lib/purchase-button-labels";
 import {
+  lookupSellerMetaValue,
   resolveSellerCardDisplayName,
   resolveSellerCardProfileSlug,
 } from "../../lib/public-display";
+import { getListingOwnerId } from "../../lib/listing-owner";
 import { isStripeCheckoutVisibleClient } from "../../lib/stripe-checkout-flags";
 import {
   formatListingPriceDisplay,
@@ -38,11 +40,16 @@ export type MarketplaceListingCardProps = {
   onMakeOffer: (item: Record<string, any>) => void;
   sellerReviewStats: Record<string, { avg: number; count: number }>;
   sellerBadges: Record<string, string>;
-  /** Live profile usernames keyed by seller email — preferred over stale listing docs */
+  /** Live profile usernames keyed by owner UID / seller email */
   sellerHandles?: Record<string, string>;
+  /** Live display names keyed by owner UID / seller email — preferred over handles */
+  sellerDisplayNames?: Record<string, string>;
+  sellerAvatars?: Record<string, string>;
   sellerFullyVerified?: Record<string, boolean>;
   sellerJoinedDate?: Record<string, string>;
   sellerListingCount?: Record<string, number>;
+  /** When false, avoid flashing the "Seller" fallback before enrichment */
+  sellerMetaReady?: boolean;
   onPromote?: (item: Record<string, any>) => void;
   onDelete?: (item: Record<string, any>) => void;
   accent?: "sky";
@@ -72,9 +79,12 @@ export default memo(function MarketplaceListingCard({
   sellerReviewStats,
   sellerBadges,
   sellerHandles = {},
+  sellerDisplayNames = {},
+  sellerAvatars = {},
   sellerFullyVerified = {},
   sellerJoinedDate = {},
   sellerListingCount = {},
+  sellerMetaReady = true,
   onPromote,
   onDelete,
   accent = "sky",
@@ -452,46 +462,57 @@ export default memo(function MarketplaceListingCard({
         >
           {(() => {
             const email = item.sellerEmail;
-            const username = resolveSellerCardDisplayName(item, sellerHandles, "Seller");
-            const initial = username.charAt(0).toUpperCase();
-            const stats = sellerReviewStats[email || ""];
+            const ownerId = getListingOwnerId(item);
+            const resolvedName = resolveSellerCardDisplayName(
+              item,
+              sellerHandles,
+              "Seller",
+              sellerDisplayNames
+            );
+            const showSkeleton =
+              !sellerMetaReady &&
+              resolvedName === "Seller" &&
+              Boolean(ownerId || email);
+            const username = showSkeleton ? "" : resolvedName;
+            const initial = username ? username.charAt(0).toUpperCase() : "?";
+            const avatarUrl =
+              lookupSellerMetaValue(sellerAvatars, item) || "";
+            const stats =
+              lookupSellerMetaValue(sellerReviewStats, item) ||
+              sellerReviewStats[email || ""];
             const avgRating = stats ? stats.avg : 0;
             const reviewCount = stats ? stats.count : null;
-            const joinedDate = sellerJoinedDate[email || ""] || "";
-            const listingCount = Math.max(0, sellerListingCount[email || ""] || 0);
-            const isVerified = sellerFullyVerified?.[email || ""];
-            
-            const formatDate = (dateVal: unknown) => {
-              if (!dateVal) return "";
-              try {
-                if (typeof dateVal === "object" && dateVal !== null) {
-                  if (typeof (dateVal as any).toDate === "function") {
-                    return (dateVal as any).toDate().toLocaleDateString("en-NZ", { month: "short", year: "numeric" });
-                  }
-                  if ((dateVal as any).seconds != null) {
-                    return new Date((dateVal as any).seconds * 1000).toLocaleDateString("en-NZ", { month: "short", year: "numeric" });
-                  }
-                }
-                const date = new Date(dateVal as any);
-                if (isNaN(date.getTime())) return "";
-                return date.toLocaleDateString("en-NZ", { month: "short", year: "numeric" });
-              } catch {
-                return "";
-              }
-            };
+            const isVerified =
+              lookupSellerMetaValue(sellerFullyVerified, item) ||
+              sellerFullyVerified?.[email || ""];
             
             return (
               <div className="lc-seller group rounded-lg p-2 hover:-translate-y-0.5">
                 <div className="flex items-center gap-2">
-                  <div className="lc-avatar relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ring-1">
-                    {initial}
+                  <div className="lc-avatar relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[12px] font-bold ring-1">
+                    {avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={avatarUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : showSkeleton ? (
+                      <span className="h-3 w-3 animate-pulse rounded-full bg-current opacity-30" />
+                    ) : (
+                      initial
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1">
-                      <span className="lc-seller-name truncate text-[13px] font-semibold">
-                        {username}
-                      </span>
-                      {isVerified && (
+                      {showSkeleton ? (
+                        <span className="lc-seller-name inline-block h-3.5 w-20 animate-pulse rounded bg-current opacity-20" />
+                      ) : (
+                        <span className="lc-seller-name truncate text-[13px] font-semibold">
+                          {username}
+                        </span>
+                      )}
+                      {isVerified && !showSkeleton && (
                         <span className="lc-chip rounded px-1 py-0.5 text-[8px] font-bold">
                           ✓
                         </span>

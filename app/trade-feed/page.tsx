@@ -11,7 +11,7 @@ import PromoteModal from "../components/PromoteModal";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
-import { fetchSellerProfilesByListing } from "../lib/fetch-seller-profiles";
+import { fetchSellerProfilesByListing, sellerLabelFromPublicProfile } from "../lib/fetch-seller-profiles";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
@@ -23,8 +23,8 @@ import { useProfile } from "../contexts/ProfileContext";
 import { REVIEW_STAR_CLASS } from "../components/SellerReviewStars";
 import {
   sellerMessagesUrl,
-  sellerProfileDisplayName,
-  sellerProfileSlug,
+  resolveSellerCardDisplayName,
+  resolveSellerCardProfileSlug,
 } from "../lib/public-display";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 
@@ -171,6 +171,8 @@ export default function TradeFeedPage() {
   // Seller review stats
   const [sellerReviewStats, setSellerReviewStats] = useState<Record<string, { avg: number; count: number }>>({});
   const [sellerBadges, setSellerBadges] = useState<Record<string, string>>({});
+  const [sellerHandles, setSellerHandles] = useState<Record<string, string>>({});
+  const [sellerDisplayNames, setSellerDisplayNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
@@ -220,25 +222,34 @@ export default function TradeFeedPage() {
     fetchStats();
   }, [posts.length]);
 
-  // Fetch seller profile badges (legendary/epic)
+  // Fetch seller public identity + badges (Admin-backed batch — profiles are owner-only client-side)
   useEffect(() => {
     if (posts.length === 0) return;
     const fetchBadges = async () => {
       const badges: Record<string, string> = {};
+      const handles: Record<string, string> = {};
+      const displayNames: Record<string, string> = {};
       try {
         const profiles = await fetchSellerProfilesByListing(
-          posts.map((p: { sellerEmail?: string; sellerId?: string }) => ({
+          posts.map((p: { sellerEmail?: string; sellerId?: string; userId?: string }) => ({
             sellerEmail: p.sellerEmail,
             sellerId: p.sellerId,
+            userId: p.userId,
           }))
         );
-        profiles.forEach((data, email) => {
-          if (data.profileBadge) badges[email] = data.profileBadge as string;
+        profiles.forEach((data, key) => {
+          if (data.profileBadge) badges[key] = data.profileBadge as string;
+          const username = String(data.username || "").trim();
+          if (username && !username.includes("@")) handles[key] = username.replace(/^@/, "");
+          const label = sellerLabelFromPublicProfile(data, "");
+          if (label) displayNames[key] = label;
         });
       } catch {
         /* optional */
       }
       setSellerBadges(badges);
+      setSellerHandles(handles);
+      setSellerDisplayNames(displayNames);
     };
     fetchBadges();
   }, [posts.length]);
@@ -876,8 +887,13 @@ export default function TradeFeedPage() {
                   const postOffers = post.offers || 0;
                   const isPopular = post.promotedUntil?.toMillis?.() > Date.now() || postViews >= 10;
                   const imgs = post.images || (post.image ? [post.image] : []);
-                  const sellerName = sellerProfileDisplayName(post);
-                  const sellerSlug = sellerProfileSlug(post);
+                  const sellerName = resolveSellerCardDisplayName(
+                    post,
+                    sellerHandles,
+                    "Seller",
+                    sellerDisplayNames
+                  );
+                  const sellerSlug = resolveSellerCardProfileSlug(post, sellerHandles);
 
                   return (
                     <div key={post.id}>

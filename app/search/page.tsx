@@ -319,8 +319,7 @@ export default function SearchPage() {
     return sorted;
   }, [listings, query, heardRaw, categoryFilter, minPrice, maxPrice, condition, location, sortBy, saleType, typeFilter, servicePricingFilter, rentalPeriodFilter]);
 
-  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified } =
-    useSellerListingMeta(filteredListings);
+  const { sellerReviewStats, sellerBadges, sellerHandles, sellerDisplayNames, sellerAvatars, sellerFullyVerified, sellerMetaReady } = useSellerListingMeta(filteredListings);
 
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -546,7 +545,10 @@ export default function SearchPage() {
                 sellerReviewStats={sellerReviewStats}
                 sellerBadges={sellerBadges}
                 sellerHandles={sellerHandles}
+                sellerDisplayNames={sellerDisplayNames}
+                sellerAvatars={sellerAvatars}
                 sellerFullyVerified={sellerFullyVerified}
+                sellerMetaReady={sellerMetaReady}
                 onPromote={handlePromote}
                 onDelete={handleDelete}
                 neonGlow={false}

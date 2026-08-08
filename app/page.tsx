@@ -161,7 +161,17 @@ function timeAgo(seconds: number): string {
 
 function saveRecentlyViewed(item: any) {
   const recent = getRecentlyViewed().filter(r => r.id !== item.id);
-  recent.unshift({ id: item.id, title: item.title, price: item.price, images: item.images, imageUrl: item.imageUrl });
+  recent.unshift({
+    id: item.id,
+    title: item.title,
+    price: item.price,
+    images: item.images,
+    imageUrl: item.imageUrl || item.image,
+    sellerId: item.sellerId || item.userId || item.ownerId || "",
+    sellerEmail: item.sellerEmail || "",
+    sellerUsername: item.sellerUsername || "",
+    sellerName: item.sellerName || "",
+  });
   localStorage.setItem("recentlyViewed", JSON.stringify(recent.slice(0, 8)));
 }
 
@@ -209,7 +219,17 @@ export default function Home() {
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const [authReady, setAuthReady] = useState(false);
   const [listingsRetry, setListingsRetry] = useState(0);
-  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified, sellerJoinedDate, sellerListingCount } = useSellerListingMeta(listings);
+  const {
+    sellerReviewStats,
+    sellerBadges,
+    sellerHandles,
+    sellerDisplayNames,
+    sellerAvatars,
+    sellerFullyVerified,
+    sellerJoinedDate,
+    sellerListingCount,
+    sellerMetaReady,
+  } = useSellerListingMeta(listings);
   const [savedSearches, setSavedSearches] = useState<Array<{query: string; category: string; label: string}>>([]);
   const [showSaveSearch, setShowSaveSearch] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Listing | null>(null);
@@ -381,6 +401,7 @@ export default function Home() {
             images: data.images,
             sellerEmail: data.sellerEmail,
             sellerUsername: data.sellerUsername,
+            sellerId: data.sellerId || data.userId || data.ownerId,
             createdAt: data.createdAt,
             status: data.status,
             type: data.type,
@@ -1231,9 +1252,12 @@ export default function Home() {
                 sellerReviewStats={sellerReviewStats}
                 sellerBadges={sellerBadges}
                 sellerHandles={sellerHandles}
+                sellerDisplayNames={sellerDisplayNames}
+                sellerAvatars={sellerAvatars}
                 sellerFullyVerified={sellerFullyVerified}
                 sellerJoinedDate={sellerJoinedDate}
                 sellerListingCount={sellerListingCount}
+                sellerMetaReady={sellerMetaReady}
                 onPromote={(listing) => setPromoteItem(listing)}
                 onDelete={(listing) => setDeleteConfirm(listing as Listing)}
               />

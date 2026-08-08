@@ -3,21 +3,44 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "./firebase";
-import { fetchSellerProfilesByListing } from "./fetch-seller-profiles";
+import {
+  fetchSellerProfilesByListing,
+  sellerLabelFromPublicProfile,
+} from "./fetch-seller-profiles";
+import { getListingOwnerId } from "./listing-owner";
 import { isFullyVerifiedSeller } from "./seller-verified";
 
-/** Seller review averages and profile badges for listing cards. */
+function safeUsername(value: unknown): string | null {
+  const raw = String(value || "").trim();
+  if (!raw || raw.includes("@")) return null;
+  if (/^[A-Za-z0-9_-]{16,}$/.test(raw) || /^uid[-_]/i.test(raw)) return null;
+  return raw.startsWith("@") ? raw.slice(1) : raw;
+}
+
+/** Seller review averages and public-profile identity for listing cards. */
 export function useSellerListingMeta(
-  listings: { sellerEmail?: string; sellerId?: string }[]
+  listings: {
+    sellerEmail?: string;
+    sellerId?: string;
+    userId?: string;
+    ownerId?: string;
+    sellerUid?: string;
+    uid?: string;
+  }[]
 ) {
   const [sellerReviewStats, setSellerReviewStats] = useState<
     Record<string, { avg: number; count: number }>
   >({});
   const [sellerBadges, setSellerBadges] = useState<Record<string, string>>({});
+  /** Live usernames keyed by owner UID + sellerEmail — used for profile slugs */
   const [sellerHandles, setSellerHandles] = useState<Record<string, string>>({});
+  /** Live display names keyed by owner UID + sellerEmail — preferred card labels */
+  const [sellerDisplayNames, setSellerDisplayNames] = useState<Record<string, string>>({});
+  const [sellerAvatars, setSellerAvatars] = useState<Record<string, string>>({});
   const [sellerFullyVerified, setSellerFullyVerified] = useState<Record<string, boolean>>({});
   const [sellerJoinedDate, setSellerJoinedDate] = useState<Record<string, string>>({});
   const [sellerListingCount, setSellerListingCount] = useState<Record<string, number>>({});
+  const [sellerMetaReady, setSellerMetaReady] = useState(false);
 
   useEffect(() => {
     if (listings.length === 0) return;
@@ -66,54 +89,95 @@ export function useSellerListingMeta(
   }, [listings]);
 
   useEffect(() => {
-    if (listings.length === 0) return;
+    if (listings.length === 0) {
+      setSellerMetaReady(true);
+      return;
+    }
     let cancelled = false;
+    setSellerMetaReady(false);
 
     (async () => {
-      if (cancelled) return;
-
       const badges: Record<string, string> = {};
       const handles: Record<string, string> = {};
+      const displayNames: Record<string, string> = {};
+      const avatars: Record<string, string> = {};
       const verifiedMap: Record<string, boolean> = {};
       const joinedDates: Record<string, string> = {};
-      const listingCounts: Record<string, number> = {};
 
       try {
         const profiles = await fetchSellerProfilesByListing(listings);
         if (cancelled) return;
-        profiles.forEach((data, email) => {
-          if (data.profileBadge) badges[email] = data.profileBadge as string;
-          if (data.username) handles[email] = data.username as string;
-          if (isFullyVerifiedSeller(data)) verifiedMap[email] = true;
-          if (data.createdAt) {
-            const val = data.createdAt as any;
-            if (typeof val?.toDate === "function") {
-              joinedDates[email] = val.toDate().toISOString();
-            } else if (typeof val === "string") {
-              joinedDates[email] = val;
-            } else if (val?.seconds != null) {
-              joinedDates[email] = new Date(val.seconds * 1000).toISOString();
+
+        const applyKeys = (keys: string[], data: Record<string, unknown>) => {
+          const username = safeUsername(data.username);
+          const label = sellerLabelFromPublicProfile(data as any, "");
+          const photo = String(data.photoURL || "").trim();
+          for (const key of keys) {
+            if (!key) continue;
+            if (data.profileBadge) badges[key] = data.profileBadge as string;
+            if (username) handles[key] = username;
+            if (label) displayNames[key] = label;
+            if (photo) avatars[key] = photo;
+            if (isFullyVerifiedSeller(data)) verifiedMap[key] = true;
+            if (data.createdAt || data.memberSince) {
+              const val = (data.createdAt || data.memberSince) as any;
+              if (typeof val?.toDate === "function") {
+                joinedDates[key] = val.toDate().toISOString();
+              } else if (typeof val === "string") {
+                joinedDates[key] = val;
+              } else if (val?.seconds != null) {
+                joinedDates[key] = new Date(val.seconds * 1000).toISOString();
+              }
             }
           }
-        });
+        };
+
+        // Deduplicate profile applications by UID while dual-keying email.
+        const seen = new Set<string>();
+        for (const listing of listings) {
+          const ownerId = getListingOwnerId(listing);
+          const email = String(listing.sellerEmail || "").trim();
+          const profile =
+            (ownerId && profiles.get(ownerId)) ||
+            (email && profiles.get(email)) ||
+            null;
+          if (!profile) continue;
+          const uid = String(profile.uid || ownerId || "").trim();
+          if (uid && seen.has(uid)) {
+            // Still dual-key email if this listing introduces it
+            if (email && !handles[email] && !displayNames[email]) {
+              applyKeys([email], profile);
+            }
+            continue;
+          }
+          if (uid) seen.add(uid);
+          applyKeys([uid, email].filter(Boolean), profile);
+        }
       } catch {
-        /* badges are optional — skip on permission/offline errors */
+        /* identity is optional — skip on network errors */
       }
 
-      // Calculate listing count per seller from the listings array
       const counts: Record<string, number> = {};
       listings.forEach((listing) => {
+        const ownerId = getListingOwnerId(listing);
         const email = listing.sellerEmail;
-        if (email) {
-          counts[email] = (counts[email] || 0) + 1;
+        const key = ownerId || email;
+        if (key) counts[key] = (counts[key] || 0) + 1;
+        if (ownerId && email && ownerId !== email) {
+          counts[email] = counts[ownerId];
         }
       });
 
-      if (!cancelled) setSellerBadges(badges);
-      if (!cancelled) setSellerHandles(handles);
-      if (!cancelled) setSellerFullyVerified(verifiedMap);
-      if (!cancelled) setSellerJoinedDate(joinedDates);
-      if (!cancelled) setSellerListingCount(counts);
+      if (!cancelled) {
+        setSellerBadges(badges);
+        setSellerHandles(handles);
+        setSellerDisplayNames(displayNames);
+        setSellerAvatars(avatars);
+        setSellerFullyVerified(verifiedMap);
+        setSellerJoinedDate(joinedDates);
+        setSellerListingCount(counts);
+        setSellerMetaReady(true);
+      }
     })();
 
     return () => {
@@ -121,5 +185,15 @@ export function useSellerListingMeta(
     };
   }, [listings]);
 
-  return { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified, sellerJoinedDate, sellerListingCount };
+  return {
+    sellerReviewStats,
+    sellerBadges,
+    sellerHandles,
+    sellerDisplayNames,
+    sellerAvatars,
+    sellerFullyVerified,
+    sellerJoinedDate,
+    sellerListingCount,
+    sellerMetaReady,
+  };
 }

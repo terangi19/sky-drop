@@ -88,7 +88,7 @@ export default function WantedPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [loadingListings, setLoadingListings] = useState(true);
 
-  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerHandles, sellerDisplayNames, sellerAvatars, sellerFullyVerified, sellerMetaReady } = useSellerListingMeta(listings);
 
   useEffect(() => {
     const refreshRecentlyViewed = () => setRecentlyViewed(getRecentlyViewed());
@@ -481,7 +481,10 @@ export default function WantedPage() {
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
                   sellerHandles={sellerHandles}
+                  sellerDisplayNames={sellerDisplayNames}
+                  sellerAvatars={sellerAvatars}
                   sellerFullyVerified={sellerFullyVerified}
+                  sellerMetaReady={sellerMetaReady}
                 />
               ))}
             </div>

@@ -80,7 +80,7 @@ export default function OpportunitiesPage() {
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerHandles, sellerDisplayNames, sellerAvatars, sellerFullyVerified, sellerMetaReady } = useSellerListingMeta(listings);
 
   useEffect(() => {
     const refreshRecentlyViewed = () => setRecentlyViewed(getRecentlyViewed());
@@ -378,6 +378,8 @@ export default function OpportunitiesPage() {
           sellerReviewStats={sellerReviewStats}
           sellerBadges={sellerBadges}
           sellerHandles={sellerHandles}
+        sellerDisplayNames={sellerDisplayNames}
+        sellerMetaReady={sellerMetaReady}
         />
         {listings.length === 0 ? (
           <div className="mx-auto max-w-md mt-12 text-center">
@@ -452,7 +454,10 @@ export default function OpportunitiesPage() {
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
                   sellerHandles={sellerHandles}
+                  sellerDisplayNames={sellerDisplayNames}
+                  sellerAvatars={sellerAvatars}
                   sellerFullyVerified={sellerFullyVerified}
+                  sellerMetaReady={sellerMetaReady}
                 />
               ))}
             </div>

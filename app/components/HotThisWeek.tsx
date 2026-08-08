@@ -50,7 +50,9 @@ interface HotThisWeekProps {
   sellerReviewStats?: Record<string, { avg: number; count: number }>;
   sellerBadges?: Record<string, string>;
   sellerHandles?: Record<string, string>;
+  sellerDisplayNames?: Record<string, string>;
   sellerFullyVerified?: Record<string, boolean>;
+  sellerMetaReady?: boolean;
 }
 
 const IMG_BADGE = "lc-img-badge rounded-full px-2 py-0.5 text-[8px] font-bold";
@@ -63,6 +65,8 @@ export default function HotThisWeek({
   listingWatchlistGlowIntensity: watchlistGlowFn = listingWatchlistGlowIntensity,
   user: userProp,
   sellerHandles = {},
+  sellerDisplayNames = {},
+  sellerMetaReady = true,
 }: HotThisWeekProps) {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -94,7 +98,17 @@ export default function HotThisWeek({
           const hotGlow = watchlistGlowFn(hotSaves);
           const hasImage = listingHasImage(item);
           const sellerEmail = item.sellerEmail || "";
-          const username = resolveSellerCardDisplayName(item, sellerHandles);
+          const resolvedName = resolveSellerCardDisplayName(
+            item,
+            sellerHandles,
+            "Seller",
+            sellerDisplayNames
+          );
+          const showSkeleton =
+            !sellerMetaReady &&
+            resolvedName === "Seller" &&
+            Boolean(item.sellerId || sellerEmail);
+          const username = showSkeleton ? "" : resolvedName;
           const isOwnListing = Boolean(user?.email && user.email === sellerEmail);
           const profileSlug = resolveSellerCardProfileSlug(item, sellerHandles);
           const profileHref = isOwnListing
@@ -112,6 +126,8 @@ export default function HotThisWeek({
               hasImage={hasImage}
               username={username}
               sellerEmail={sellerEmail}
+              showSellerRow={Boolean(sellerEmail || item.sellerId || item.userId)}
+              showSkeleton={showSkeleton}
               isOwnListing={isOwnListing}
               profileHref={profileHref}
               messageHref={messageHref}
@@ -133,6 +149,8 @@ function HotWeekCard({
   hasImage,
   username,
   sellerEmail,
+  showSellerRow,
+  showSkeleton,
   isOwnListing,
   profileHref,
   messageHref,
@@ -146,6 +164,8 @@ function HotWeekCard({
   hasImage: boolean;
   username: string;
   sellerEmail: string;
+  showSellerRow: boolean;
+  showSkeleton: boolean;
   isOwnListing: boolean;
   profileHref: string;
   messageHref: string;
@@ -215,7 +235,7 @@ function HotWeekCard({
                 </div>
               </div>
 
-              {sellerEmail && (
+              {showSellerRow && (
                 <div
                   className="lc-seller mt-2 flex items-center gap-1.5 rounded-lg border-t pt-2"
                   style={{ borderTopColor: "var(--lc-divider)" }}
@@ -226,11 +246,15 @@ function HotWeekCard({
                     className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 transition hover:bg-[var(--lc-seller-hover-bg)]"
                   >
                     <div className="lc-avatar flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold">
-                      {username.charAt(0).toUpperCase()}
+                      {showSkeleton ? "·" : username.charAt(0).toUpperCase()}
                     </div>
-                    <span className="lc-seller-name truncate text-[10px] font-semibold">
-                      {username}
-                    </span>
+                    {showSkeleton ? (
+                      <span className="inline-block h-2.5 w-14 animate-pulse rounded bg-current opacity-20" />
+                    ) : (
+                      <span className="lc-seller-name truncate text-[10px] font-semibold">
+                        {username}
+                      </span>
+                    )}
                   </Link>
                   {!isOwnListing && (
                     <Link

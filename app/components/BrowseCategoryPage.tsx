@@ -131,7 +131,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
       ? (config.listingType as EmptyListKind)
       : "physical";
 
-  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerHandles, sellerDisplayNames, sellerAvatars, sellerFullyVerified, sellerMetaReady } = useSellerListingMeta(listings);
 
   useEffect(() => {
     const refreshRecentlyViewed = () => setRecentlyViewed(getRecentlyViewed());
@@ -568,7 +568,9 @@ export default function BrowseCategoryPage({ configKey }: Props) {
           sellerReviewStats={sellerReviewStats}
           sellerBadges={sellerBadges}
           sellerHandles={sellerHandles}
+          sellerDisplayNames={sellerDisplayNames}
           sellerFullyVerified={sellerFullyVerified}
+          sellerMetaReady={sellerMetaReady}
         />
 
         {loading ? (
@@ -668,7 +670,10 @@ export default function BrowseCategoryPage({ configKey }: Props) {
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
                   sellerHandles={sellerHandles}
+                  sellerDisplayNames={sellerDisplayNames}
+                  sellerAvatars={sellerAvatars}
                   sellerFullyVerified={sellerFullyVerified}
+                  sellerMetaReady={sellerMetaReady}
                 />
               ))}
             </div>

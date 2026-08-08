@@ -1,25 +1,29 @@
 /** Public-facing identity — never show raw emails in UI copy. */
 
+import { getListingOwnerId, type ListingOwnerFields } from "./listing-owner";
+
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 
 export type PublicProfileFields = {
   username?: string;
+  displayName?: string;
 };
 
-export type SellerLinkFields = PublicProfileFields & {
-  buyerUsername?: string;
-  reportedUsername?: string;
-  reporterUsername?: string;
-  sellerUsername?: string;
-  sellerEmail?: string;
-  buyerEmail?: string;
-  sellerId?: string;
-  buyerId?: string;
-  reportedUserId?: string;
-  reporterUserId?: string;
-  email?: string;
-  uid?: string;
-};
+export type SellerLinkFields = PublicProfileFields &
+  ListingOwnerFields & {
+    buyerUsername?: string;
+    reportedUsername?: string;
+    reporterUsername?: string;
+    sellerUsername?: string;
+    sellerName?: string;
+    sellerEmail?: string;
+    buyerEmail?: string;
+    buyerId?: string;
+    reportedUserId?: string;
+    reporterUserId?: string;
+    email?: string;
+    name?: string;
+  };
 
 export function isEmailLike(value: string | undefined | null): boolean {
   if (!value || typeof value !== "string") return false;
@@ -85,6 +89,9 @@ export function sellerProfileSlug(
     fields?.buyerId,
     fields?.reportedUserId,
     fields?.reporterUserId,
+    fields?.userId,
+    fields?.ownerId,
+    fields?.sellerUid,
     fields?.uid,
   ]) {
     const v = String(raw || "").trim();
@@ -98,6 +105,16 @@ export function sellerProfileDisplayName(
   fields: SellerLinkFields | null | undefined,
   fallback = "Seller"
 ): string {
+  const fromCanonical = getSellerDisplayName(
+    {
+      displayName: fields?.displayName || fields?.name,
+      username: fields?.username || fields?.sellerUsername,
+      sellerName: fields?.sellerName,
+    },
+    ""
+  );
+  if (fromCanonical) return fromCanonical;
+
   const slug = sellerProfileSlug(fields);
   const looksLikeUid =
     !slug ||
@@ -112,55 +129,108 @@ function isSafePublicHandle(value: string | undefined | null): string | null {
   if (!raw || isEmailLike(raw)) return null;
   const handle = stripAtPrefix(raw);
   if (!handle || isEmailLike(handle)) return null;
+  // Reject bare Firebase-style UIDs used as labels — not human identity.
   if (/^[A-Za-z0-9_-]{16,}$/.test(handle) || /^uid[-_]/i.test(handle)) return null;
   return handle;
 }
 
 /**
- * Listing-card seller label. Prefers live profile handles over stale listing docs.
+ * Canonical public seller label.
+ * Priority: displayName → username → legacy sellerName → sellerUsername → fallback.
+ */
+export function getSellerDisplayName(
+  input: {
+    displayName?: string | null;
+    username?: string | null;
+    sellerName?: string | null;
+    sellerUsername?: string | null;
+  } | null | undefined,
+  fallback = "Seller"
+): string {
+  if (!input) return fallback;
+  for (const raw of [
+    input.displayName,
+    input.username,
+    input.sellerName,
+    input.sellerUsername,
+  ]) {
+    const safe = isSafePublicHandle(raw);
+    if (safe) return safe;
+  }
+  return fallback;
+}
+
+function lookupKeyedValue(
+  map: Record<string, string> | null | undefined,
+  ...keys: Array<string | undefined | null>
+): string | null {
+  if (!map) return null;
+  for (const key of keys) {
+    const k = String(key || "").trim();
+    if (!k) continue;
+    const safe = isSafePublicHandle(map[k]);
+    if (safe) return safe;
+  }
+  return null;
+}
+
+/**
+ * Listing-card seller label. Prefers live public-profile identity over stale listing docs.
  * Never falls back to email.
  *
  * Priority:
- * 1. sellerHandles[sellerEmail] (fresh profile username)
- * 2. safe listing sellerUsername
- * 3. existing sellerProfileDisplayName logic
+ * 1. live displayNames[ownerId|email]
+ * 2. live sellerHandles[ownerId|email] (username / best label)
+ * 3. listing displayName / username / sellerName / sellerUsername
  * 4. fallback ("Seller")
  */
 export function resolveSellerCardDisplayName(
   fields: SellerLinkFields | null | undefined,
   sellerHandles?: Record<string, string> | null,
-  fallback = "Seller"
+  fallback = "Seller",
+  sellerDisplayNames?: Record<string, string> | null
 ): string {
+  const ownerId = getListingOwnerId(fields);
   const email = String(fields?.sellerEmail || "").trim();
-  if (email && sellerHandles) {
-    const fresh = isSafePublicHandle(sellerHandles[email]);
-    if (fresh) return fresh;
-  }
 
-  const listingUsername = isSafePublicHandle(fields?.sellerUsername);
-  if (listingUsername) {
-    const emailLocal =
-      email && isEmailLike(email)
-        ? email.split("@")[0]?.toLowerCase() || ""
-        : "";
-    if (!emailLocal || listingUsername.toLowerCase() !== emailLocal) {
-      return listingUsername;
-    }
-  }
+  const liveDisplay = lookupKeyedValue(sellerDisplayNames, ownerId, email);
+  if (liveDisplay) return liveDisplay;
 
-  return sellerProfileDisplayName(fields, fallback);
+  const liveHandle = lookupKeyedValue(sellerHandles, ownerId, email);
+  if (liveHandle) return liveHandle;
+
+  const emailLocal =
+    email && isEmailLike(email)
+      ? email.split("@")[0]?.toLowerCase() || ""
+      : "";
+
+  const listingUsername = isSafePublicHandle(fields?.sellerUsername || fields?.username);
+  const listingUsernameOk =
+    listingUsername &&
+    (!emailLocal || listingUsername.toLowerCase() !== emailLocal)
+      ? listingUsername
+      : null;
+
+  return getSellerDisplayName(
+    {
+      displayName: fields?.displayName || fields?.name,
+      username: listingUsernameOk,
+      sellerName: fields?.sellerName,
+      sellerUsername: listingUsernameOk,
+    },
+    fallback
+  );
 }
 
-/** Profile path segment for cards — prefer live handle, never email. */
+/** Profile path segment for cards — prefer live username handle, never email. */
 export function resolveSellerCardProfileSlug(
   fields: SellerLinkFields | null | undefined,
   sellerHandles?: Record<string, string> | null
 ): string {
+  const ownerId = getListingOwnerId(fields);
   const email = String(fields?.sellerEmail || "").trim();
-  if (email && sellerHandles) {
-    const fresh = isSafePublicHandle(sellerHandles[email]);
-    if (fresh) return fresh;
-  }
+  const live = lookupKeyedValue(sellerHandles, ownerId, email);
+  if (live) return live;
   return sellerProfileSlug(fields);
 }
 
@@ -199,6 +269,9 @@ export function sellerMessageTarget(
     fields?.buyerId,
     fields?.reportedUserId,
     fields?.reporterUserId,
+    fields?.userId,
+    fields?.ownerId,
+    fields?.sellerUid,
     fields?.uid,
   ]) {
     const v = String(raw || "").trim();
@@ -276,4 +349,17 @@ export function sanitizePublicText(
     return "Buyer";
   });
   return out;
+}
+
+/** Resolve seller meta maps by owner UID first, then email. */
+export function lookupSellerMetaValue<T>(
+  map: Record<string, T> | null | undefined,
+  fields: SellerLinkFields | null | undefined
+): T | undefined {
+  if (!map || !fields) return undefined;
+  const ownerId = getListingOwnerId(fields);
+  if (ownerId && map[ownerId] !== undefined) return map[ownerId];
+  const email = String(fields.sellerEmail || "").trim();
+  if (email && map[email] !== undefined) return map[email];
+  return undefined;
 }
