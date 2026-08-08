@@ -173,15 +173,29 @@ export function setActiveTask(
 ): TaskScopeSession {
   prune();
   const prior = sessions.get(key);
+  const priorPending = prior?.pendingClarification;
+  const extrasPending = extras?.pendingClarification;
+  // Preserve pendingSlot when updating listing_slots clarification
+  const shouldPreservePendingSlot = Boolean(
+    priorPending?.kind === "listing_slots" &&
+    extrasPending?.kind === "listing_slots" &&
+    priorPending?.pendingSlot &&
+    extrasPending &&
+    (!("pendingSlot" in extrasPending) || extrasPending.pendingSlot === undefined || extrasPending.pendingSlot === null)
+  );
+  const newPendingClarification =
+    extras && "pendingClarification" in extras && extrasPending
+      ? {
+          ...extrasPending,
+          ...(shouldPreservePendingSlot ? { pendingSlot: priorPending?.pendingSlot } : {}),
+        }
+      : priorPending;
   const next: TaskScopeSession = {
     task,
     pendingItem: extras?.pendingItem ?? (task === "shopping" ? prior?.pendingItem : undefined),
     compareCandidates:
       extras?.compareCandidates ?? (task === "shopping" ? prior?.compareCandidates : undefined),
-    pendingClarification:
-      extras && "pendingClarification" in extras
-        ? extras.pendingClarification
-        : prior?.pendingClarification,
+    pendingClarification: newPendingClarification,
     entityLockKey:
       extras && "entityLockKey" in extras ? extras.entityLockKey : prior?.entityLockKey,
     entityLocked:

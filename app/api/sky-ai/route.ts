@@ -162,6 +162,7 @@ function parseListingContext(body: unknown): SkyAiListingContext | null {
     paymentType: pick("paymentType"),
     vehicleMake: pick("vehicleMake"),
     vehicleModel: pick("vehicleModel"),
+    vehicleGeneration: pick("vehicleGeneration"),
     vehicleYear: pick("vehicleYear"),
     vehicleOdometer: pick("vehicleOdometer"),
     vehicleColour: pick("vehicleColour"),

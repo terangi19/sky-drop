@@ -1013,7 +1013,8 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
       pathname: "/post/ai",
       listingContext: first.listingFill as never,
     });
-    expect(String(withGen.listingFill?.vehicleModel || "")).toMatch(/Skyline\s+R34/i);
+    expect(String(withGen.listingFill?.vehicleModel || "")).toMatch(/^Skyline$/i);
+    expect(String(withGen.listingFill?.vehicleGeneration || "")).toMatch(/R34/i);
     expect(String(withGen.listingFill?.title || "")).toMatch(/Nissan\s+Skyline\s+R34/i);
     expect(String(withGen.listingFill?.description || "").trim()).toBe("");
     expect(String(withGen.reply || "")).toMatch(/year/i);
@@ -1060,7 +1061,10 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     );
     expect(r.listingFill?.listingType).toBe("vehicle");
     expect(r.listingFill?.vehicleMake).toBe("Nissan");
-    expect(String(r.listingFill?.vehicleModel || "")).toMatch(/Skyline\s+R34/i);
+    expect(String(r.listingFill?.vehicleModel || "")).toMatch(/Skyline/i);
+    expect(
+      String(r.listingFill?.vehicleGeneration || r.listingFill?.vehicleModel || "")
+    ).toMatch(/R34/i);
     expect(r.listingFill?.vehicleYear).toBe("1999");
     expect(String(r.listingFill?.title || "")).toMatch(/1999.*Nissan.*Skyline.*R34/i);
     expect(String(r.listingFill?.title || "")).not.toMatch(/GT-?R|GTT/i);

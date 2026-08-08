@@ -10,7 +10,8 @@ import {
 import {
   computeMissingListingSlots,
   nextListingSlotQuestion,
-  getVariantExtra,
+  composeVehicleIdentityTitle,
+  hydrateVehicleGeneration,
   SLOT_QUESTIONS,
 } from "./awhina-pending-slots";
 
@@ -74,18 +75,9 @@ export function readinessLabel(state: ListingReadinessState): string {
 
 /** Premium auto-title from sticky identity — includes USER variant when present. */
 export function buildStickyIdentityTitle(fill: Partial<SkyAiListingFill>): string {
-  const variant = getVariantExtra(fill);
-  if (fill.vehicleMake || fill.vehicleModel) {
-    const parts = [
-      fill.vehicleYear,
-      fill.vehicleMake,
-      fill.vehicleModel,
-      variant &&
-      !(fill.vehicleModel || "").toLowerCase().includes(variant.toLowerCase())
-        ? variant
-        : undefined,
-    ].filter(Boolean);
-    return parts.join(" ").replace(/\s+/g, " ").trim();
+  const hydrated = hydrateVehicleGeneration(fill);
+  if (hydrated.vehicleMake || hydrated.vehicleModel || hydrated.vehicleGeneration) {
+    return composeVehicleIdentityTitle(hydrated);
   }
   return (fill.title || "").trim();
 }

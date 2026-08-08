@@ -10,6 +10,8 @@ export type SkyAiListingContext = {
   pricingType?: string;
   vehicleMake?: string;
   vehicleModel?: string;
+  /** Canonical generation token e.g. R34 — never infer slot-complete from title/model alone */
+  vehicleGeneration?: string;
   vehicleYear?: string;
   vehicleOdometer?: string;
   vehicleColour?: string;

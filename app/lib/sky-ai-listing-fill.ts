@@ -31,6 +31,8 @@ export type SkyAiListingFill = {
   replaceDraft?: boolean;
   vehicleMake?: string;
   vehicleModel?: string;
+  /** Canonical generation token e.g. R34 */
+  vehicleGeneration?: string;
   vehicleYear?: string;
   vehicleOdometer?: string;
   vehicleTransmission?: string;
@@ -444,6 +446,7 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     paymentType: pickField(o, ["paymentType"]),
     vehicleMake: pickField(o, ["vehicleMake", "make"]),
     vehicleModel: pickField(o, ["vehicleModel", "model"]),
+    vehicleGeneration: pickField(o, ["vehicleGeneration", "generation"]),
     vehicleYear: pickNumField(o, ["vehicleYear", "year"]),
     vehicleOdometer: pickNumField(o, ["vehicleOdometer", "odometer", "kms", "km"]).replace(
       /[^\d]/g,
@@ -610,6 +613,7 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     if (!out.category && listingType !== "rental") out.category = "Cars";
     if (raw.vehicleMake) out.vehicleMake = raw.vehicleMake.slice(0, 60);
     if (raw.vehicleModel) out.vehicleModel = raw.vehicleModel.slice(0, 60);
+    if (raw.vehicleGeneration) out.vehicleGeneration = raw.vehicleGeneration.slice(0, 24);
     if (raw.vehicleYear) out.vehicleYear = raw.vehicleYear;
     if (raw.vehicleOdometer) out.vehicleOdometer = raw.vehicleOdometer;
     if (raw.vehicleColour)
@@ -749,6 +753,7 @@ export type ListingFillHandlers = {
   setPaymentType?: (v: string) => void;
   setVehicleMake?: (v: string) => void;
   setVehicleModel?: (v: string) => void;
+  setVehicleGeneration?: (v: string) => void;
   setVehicleYear?: (v: string) => void;
   setVehicleOdometer?: (v: string) => void;
   setVehicleTransmission?: (v: string) => void;
@@ -807,6 +812,7 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
   const applyVehicleFields = () => {
     if (normalized.vehicleMake) h.setVehicleMake?.(normalized.vehicleMake);
     if (normalized.vehicleModel) h.setVehicleModel?.(normalized.vehicleModel);
+    if (normalized.vehicleGeneration) h.setVehicleGeneration?.(normalized.vehicleGeneration);
     if (normalized.vehicleYear) h.setVehicleYear?.(normalized.vehicleYear);
     if (normalized.vehicleOdometer) h.setVehicleOdometer?.(normalized.vehicleOdometer);
     if (normalized.vehicleTransmission) h.setVehicleTransmission?.(normalized.vehicleTransmission);

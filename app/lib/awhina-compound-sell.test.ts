@@ -40,7 +40,8 @@ describe("compound sell turn — skyline exact session", () => {
     expect(t2.handled).toBe(true);
     expect(String(t2.reply || "")).not.toMatch(/Could you clarify/i);
     expect(t2.listingFill?.vehicleMake).toBe("Nissan");
-    expect(String(t2.listingFill?.vehicleModel || "")).toMatch(/Skyline\s+R34/i);
+    expect(String(t2.listingFill?.vehicleModel || "")).toMatch(/^Skyline$/i);
+    expect(String(t2.listingFill?.vehicleGeneration || "")).toMatch(/R34/i);
     expect(getVariantExtra(t2.listingFill || {})).toBe("GT-R");
     expect(String(t2.listingFill?.title || "")).toMatch(/Nissan\s+Skyline\s+R34/i);
     expect(String(t2.listingFill?.title || "")).toMatch(/GT-?R/i);
@@ -58,7 +59,8 @@ describe("compound sell turn — skyline exact session", () => {
     expect(String(t3.listingFill?.title || "")).toMatch(/Nissan\s+Skyline\s+R34/i);
     expect(String(t3.listingFill?.title || "")).toMatch(/GT-?R/i);
     expect(t3.listingFill?.vehicleMake).toBe("Nissan");
-    expect(String(t3.listingFill?.vehicleModel || "")).toMatch(/Skyline\s+R34/i);
+    expect(String(t3.listingFill?.vehicleModel || "")).toMatch(/^Skyline$/i);
+    expect(String(t3.listingFill?.vehicleGeneration || "")).toMatch(/R34/i);
     expect(getVariantExtra(t3.listingFill || {})).toBe("GT-R");
     expect(String(t3.reply || "")).not.toMatch(/Listing ready/i);
     expect(String(t3.reply || "")).toMatch(/year/i);

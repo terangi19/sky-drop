@@ -22,6 +22,7 @@ export const SEMANTIC_LISTING_FIELDS = [
   "vehicleTransmission",
   "vehicleMake",
   "vehicleModel",
+  "vehicleGeneration",
   "vehicleYear",
   "vehicleOdometer",
   "vehicleColour",
@@ -107,6 +108,7 @@ export type ListingDraftFormSnapshot = {
   paymentType?: string;
   vehicleMake?: string;
   vehicleModel?: string;
+  vehicleGeneration?: string;
   vehicleYear?: string;
   vehicleOdometer?: string;
   vehicleColour?: string;
@@ -172,6 +174,7 @@ export function buildConfirmedListingContext(
   putString("location", form.location);
   putString("vehicleMake", form.vehicleMake);
   putString("vehicleModel", form.vehicleModel);
+  putString("vehicleGeneration", form.vehicleGeneration);
   putString("vehicleYear", form.vehicleYear);
   putString("vehicleOdometer", form.vehicleOdometer);
   putString("vehicleColour", form.vehicleColour);

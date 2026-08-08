@@ -12,7 +12,7 @@ import {
   isClarificationOpen,
 } from "./awhina-task-scope";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
-import { isVehicleListingFill, getVehicleDraftReadiness } from "./awhina-listing-description";
+import { isVehicleListingFill } from "./awhina-listing-description";
 
 export type ListingMissingSlot =
   | "price"
@@ -95,30 +95,49 @@ function hasExtra(fill: Partial<SkyAiListingFill>, prefix: string): boolean {
   );
 }
 
+/** Skyline/Supra families need an explicit generation slot until vehicleGeneration is set. */
+export function needsVehicleGenerationSlot(
+  fill: Partial<SkyAiListingFill>
+): boolean {
+  const d = hydrateVehicleGeneration(fill);
+  if (d.vehicleGeneration?.trim()) return false;
+  const blob = [d.vehicleMake, d.vehicleModel, d.title].filter(Boolean).join(" ");
+  return /\b(skyline|supra)\b/i.test(blob);
+}
+
 /** Ordered missing slots for this draft (domain-smart, one follow-up at a time). */
 export function computeMissingListingSlots(
   fill: Partial<SkyAiListingFill>
 ): ListingMissingSlot[] {
-  const domain = detectSellDomain(fill);
+  const hydrated = hydrateVehicleGeneration(fill);
+  const domain = detectSellDomain(hydrated);
   const missing: ListingMissingSlot[] = [];
 
-  if (!fill.title?.trim()) missing.push("title");
+  if (
+    !hydrated.title?.trim() &&
+    !(domain === "vehicle" && (hydrated.vehicleMake || hydrated.vehicleModel))
+  ) {
+    missing.push("title");
+  }
 
   if (domain === "vehicle") {
-    const r = getVehicleDraftReadiness(fill as SkyAiListingFill);
-    for (const m of r.importantMissing) {
-      const map: Record<string, ListingMissingSlot | undefined> = {
-        generation: "generation",
-        year: "year",
-        price: "price",
-        odometer: "odometer",
-        condition: "condition",
-        location: "location",
-        transmission: "transmission",
-        fuel: "fuel",
-      };
-      const slot = map[m];
-      if (slot && !missing.includes(slot)) missing.push(slot);
+    const vehicleSlots: ListingMissingSlot[] = [
+      "generation",
+      "year",
+      "price",
+      "odometer",
+      "condition",
+      "colour",
+      "transmission",
+      "location",
+      "fuel",
+    ];
+    const needsGenerationAsk = needsVehicleGenerationSlot(hydrated);
+    for (const slot of vehicleSlots) {
+      if (slot === "generation" && !needsGenerationAsk) continue;
+      if (!isListingSlotComplete(slot, hydrated) && !missing.includes(slot)) {
+        missing.push(slot);
+      }
     }
     return missing;
   }
@@ -579,8 +598,115 @@ function normalizeGenerationToken(raw: string): string {
   return raw.trim();
 }
 
+const GEN_IN_TEXT_RE = /\b(r[\s-]?3[2-4]|a80|a90|mk\s?[45]|jza80)\b/i;
+
+/** Pull generation token out of legacy model/title blobs into vehicleGeneration. */
+export function hydrateVehicleGeneration(
+  fill: Partial<SkyAiListingFill>
+): Partial<SkyAiListingFill> {
+  if (fill.vehicleGeneration?.trim()) {
+    return {
+      ...fill,
+      vehicleGeneration: normalizeGenerationToken(fill.vehicleGeneration),
+    };
+  }
+  const blob = `${fill.vehicleModel || ""} ${fill.title || ""}`;
+  const m = blob.match(GEN_IN_TEXT_RE);
+  if (!m) return fill;
+  const gen = normalizeGenerationToken(m[1]);
+  const modelFamily = (fill.vehicleModel || "")
+    .replace(GEN_IN_TEXT_RE, "")
+    .replace(/\bGT[\s-]?R\b/gi, "")
+    .replace(/\bGT[\s-]?T\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return {
+    ...fill,
+    vehicleGeneration: gen,
+    ...(modelFamily ? { vehicleModel: modelFamily } : {}),
+  };
+}
+
 /**
- * Apply generation token onto an existing vehicle draft (Skyline → Skyline R34).
+ * Slot completeness from the authoritative draft only — never from title scan,
+ * last message, or temporary parser results.
+ */
+export function isListingSlotComplete(
+  slot: ListingMissingSlot,
+  draft: Partial<SkyAiListingFill>
+): boolean {
+  const d = hydrateVehicleGeneration(draft);
+  switch (slot) {
+    case "generation":
+      return Boolean(d.vehicleGeneration?.trim());
+    case "year":
+      return Boolean(d.vehicleYear?.trim());
+    case "price":
+      return Boolean(d.price?.trim());
+    case "odometer":
+      return Boolean(d.vehicleOdometer?.trim());
+    case "condition":
+      return Boolean(d.condition?.trim());
+    case "colour":
+      return Boolean(d.vehicleColour?.trim());
+    case "transmission":
+      return Boolean(d.vehicleTransmission?.trim());
+    case "fuel":
+      return Boolean(d.vehicleFuelType?.trim());
+    case "location":
+      return Boolean((d.location || d.pickupArea)?.trim());
+    case "title":
+      return Boolean(d.title?.trim());
+    case "variant":
+      return Boolean(getVariantExtra(d));
+    case "storage":
+      return hasExtra(d, "storage:") || /\d+\s?(gb|tb)\b/i.test([d.title, ...(d.extras || [])].join(" "));
+    case "size":
+      return hasExtra(d, "size:");
+    case "card_set":
+      return hasExtra(d, "set:");
+    case "card_subject":
+      return hasExtra(d, "subject:");
+    case "grade":
+      return hasExtra(d, "grade:");
+    case "rental_rate":
+      return Boolean(d.price || d.rentalPriceDaily || d.rentalPriceWeekly);
+    case "service_rate":
+      return Boolean(d.servicePricingType || d.price);
+    default:
+      return false;
+  }
+}
+
+/** year + make + model + generation + variant — each once */
+export function composeVehicleIdentityTitle(
+  fill: Partial<SkyAiListingFill>
+): string {
+  const d = hydrateVehicleGeneration(fill);
+  const model = (d.vehicleModel || "")
+    .replace(GEN_IN_TEXT_RE, "")
+    .replace(/\bGT[\s-]?R\b/gi, "")
+    .replace(/\bGT[\s-]?T\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const variant = getVariantExtra(d);
+  const parts = [
+    d.vehicleYear,
+    d.vehicleMake,
+    model,
+    d.vehicleGeneration,
+    variant &&
+    !model.toLowerCase().includes(variant.toLowerCase()) &&
+    !(d.vehicleGeneration || "").toLowerCase().includes(variant.toLowerCase())
+      ? variant
+      : undefined,
+  ].filter(Boolean);
+  return parts.join(" ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Apply generation token onto an existing vehicle draft.
+ * Canonical: vehicleGeneration=R34, vehicleModel stays family (Skyline).
  * Never invents GT-R; variant is separate.
  */
 export function applyVehicleGenerationToDraft(
@@ -590,9 +716,10 @@ export function applyVehicleGenerationToDraft(
   const gen = normalizeGenerationToken(generationRaw);
   const make = base.vehicleMake || "Nissan";
   const modelBase = (base.vehicleModel || base.title || "")
-    .replace(/\bR[\s-]?3[2-4]\b/gi, "")
+    .replace(GEN_IN_TEXT_RE, "")
     .replace(/\bGT[\s-]?R\b/gi, "")
     .replace(/\bGT[\s-]?T\b/gi, "")
+    .replace(/\bNissan\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
   const family = /\bskyline\b/i.test(modelBase)
@@ -600,20 +727,26 @@ export function applyVehicleGenerationToDraft(
     : /\bsupra\b/i.test(modelBase)
       ? "Supra"
       : modelBase || "Skyline";
-  let vehicleModel = family;
-  if (/^R3[2-4]$/i.test(gen)) {
-    vehicleModel = `${family} ${gen.toUpperCase()}`;
-  } else if (/^A80|^A90/i.test(gen)) {
-    vehicleModel = `${family} ${gen}`;
-  }
-  const variant = getVariantExtra(base);
-  const titleParts = [make, vehicleModel, variant].filter(Boolean);
-  return {
+  const vehicleGeneration = /^R3[2-4]$/i.test(gen)
+    ? gen.toUpperCase()
+    : /^A80|^A90/i.test(gen)
+      ? gen.toUpperCase().replace(/[^A0-9]/g, "")
+      : gen;
+  const withGen: Partial<SkyAiListingFill> = {
+    ...base,
     listingType: "vehicle",
     category: base.category || "Cars",
     vehicleMake: make,
-    vehicleModel,
-    title: titleParts.join(" "),
+    vehicleModel: family,
+    vehicleGeneration,
+  };
+  return {
+    listingType: "vehicle",
+    category: withGen.category,
+    vehicleMake: make,
+    vehicleModel: family,
+    vehicleGeneration,
+    title: composeVehicleIdentityTitle(withGen),
   };
 }
 
@@ -661,7 +794,7 @@ export function extractCompoundListingFacts(
       const applied = applyVehicleGenerationToDraft(base, genMatch[1]);
       Object.assign(partial, applied);
       filledSlots.push("generation");
-      notes.push(`model ${applied.vehicleModel}`);
+      notes.push(`generation ${applied.vehicleGeneration || applied.vehicleModel}`);
       residual = residual.replace(genMatch[0], " ").replace(/\s+/g, " ").trim();
     }
     if (VARIANT_GTR_RE.test(residual)) {

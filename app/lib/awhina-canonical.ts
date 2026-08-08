@@ -43,6 +43,8 @@ import {
   extractCompoundListingFacts,
   buildListingSlotPending,
   mergeExtras,
+  hydrateVehicleGeneration,
+  composeVehicleIdentityTitle,
   SLOT_QUESTIONS,
   type ListingMissingSlot,
 } from "./awhina-pending-slots";
@@ -238,12 +240,19 @@ function searchToolCall(merged: SearchSessionFilters, confidence = 0.9): AwhinaT
   };
 }
 
-/** Natural "Got it — …" ack for a filled pending slot (no "year 1999" / "price $50000"). */
+/** Natural "Got it — …" ack for a filled pending slot (echo VALUES, never slot names). */
 function naturalPendingSlotAck(
   slot: ListingMissingSlot,
   partial: Partial<SkyAiListingFill>,
   message: string
 ): string {
+  if (slot === "generation") {
+    const gen =
+      partial.vehicleGeneration ||
+      hydrateVehicleGeneration(partial).vehicleGeneration ||
+      message.trim().toUpperCase().replace(/\s+/g, "");
+    if (gen) return gen;
+  }
   if (slot === "year" && partial.vehicleYear) return String(partial.vehicleYear);
   if (slot === "price" && partial.price) {
     const n = Number(String(partial.price).replace(/[^\d.]/g, ""));
@@ -264,6 +273,11 @@ function naturalPendingSlotAck(
   if (slot === "transmission" && partial.vehicleTransmission) {
     return partial.vehicleTransmission;
   }
+  if (slot === "fuel" && partial.vehicleFuelType) return partial.vehicleFuelType;
+  if (slot === "variant") {
+    const v = (partial.extras || []).find((e) => e.toLowerCase().startsWith("variant:"));
+    if (v) return v.slice("variant:".length).trim();
+  }
   if (slot === "rental_rate" || slot === "service_rate") {
     const p = partial.price || partial.rentalPriceDaily;
     if (p) {
@@ -276,6 +290,9 @@ function naturalPendingSlotAck(
     const colon = e.indexOf(":");
     if (colon > 0) return e.slice(colon + 1).trim();
   }
+  // Last resort: echo the user message, never the bare slot name
+  const echoed = message.trim();
+  if (echoed && echoed.length <= 40) return echoed;
   return slot.replace(/_/g, " ");
 }
 
@@ -297,27 +314,54 @@ function applyPendingSlotFill(opts: {
   pendingClarification: ReturnType<typeof buildListingSlotPending>;
 } | null {
   const { base, partial, filledSlots, message, sessionKey, scopeKey, pathname } = opts;
-  let merged: SkyAiListingFill = { ...base, ...partial };
-  if (partial.extras || base.extras) {
-    merged.extras = mergeExtras(base.extras, partial.extras);
+  const baseHydrated = hydrateVehicleGeneration(base) as SkyAiListingFill;
+  let merged: SkyAiListingFill = { ...baseHydrated, ...partial };
+  if (partial.extras || baseHydrated.extras) {
+    merged.extras = mergeExtras(baseHydrated.extras, partial.extras);
   }
-  // Sticky identity — never drop established make/model/title facts
-  if (base.vehicleMake && !partial.vehicleMake) merged.vehicleMake = base.vehicleMake;
-  if (base.vehicleModel && !partial.vehicleModel) merged.vehicleModel = base.vehicleModel;
-  if (base.title && !partial.title) merged.title = base.title;
-  if (base.price && !partial.price) merged.price = base.price;
-  if (base.vehicleYear && !partial.vehicleYear) merged.vehicleYear = base.vehicleYear;
+  // Sticky identity — never drop established make/model/generation/title facts
+  if (baseHydrated.vehicleMake && !partial.vehicleMake) {
+    merged.vehicleMake = baseHydrated.vehicleMake;
+  }
+  if (baseHydrated.vehicleModel && !partial.vehicleModel) {
+    merged.vehicleModel = baseHydrated.vehicleModel;
+  }
+  if (baseHydrated.vehicleGeneration && !partial.vehicleGeneration) {
+    merged.vehicleGeneration = baseHydrated.vehicleGeneration;
+  }
+  if (baseHydrated.title && !partial.title) merged.title = baseHydrated.title;
+  if (baseHydrated.price && !partial.price) merged.price = baseHydrated.price;
+  if (baseHydrated.vehicleYear && !partial.vehicleYear) {
+    merged.vehicleYear = baseHydrated.vehicleYear;
+  }
+  if (baseHydrated.vehicleOdometer && !partial.vehicleOdometer) {
+    merged.vehicleOdometer = baseHydrated.vehicleOdometer;
+  }
+  if (baseHydrated.condition && !partial.condition) {
+    merged.condition = baseHydrated.condition;
+  }
+  if (baseHydrated.vehicleColour && !partial.vehicleColour) {
+    merged.vehicleColour = baseHydrated.vehicleColour;
+  }
+  if (baseHydrated.vehicleTransmission && !partial.vehicleTransmission) {
+    merged.vehicleTransmission = baseHydrated.vehicleTransmission;
+  }
+  if ((baseHydrated.location || baseHydrated.pickupArea) && !partial.location) {
+    merged.location = baseHydrated.location || baseHydrated.pickupArea;
+  }
+  // Follow-up slot fills must never re-trigger replaceDraft wipe on the client
+  delete merged.replaceDraft;
 
-  if (base.descriptionSource === "user" && base.description) {
-    merged.description = base.description;
+  merged = hydrateVehicleGeneration(merged) as SkyAiListingFill;
+
+  if (baseHydrated.descriptionSource === "user" && baseHydrated.description) {
+    merged.description = baseHydrated.description;
     merged.descriptionSource = "user";
   } else if (isVehicleListingFill(merged)) {
-    const titleCore = [merged.vehicleYear, merged.vehicleMake, merged.vehicleModel]
-      .filter(Boolean)
-      .join(" ");
-    if (titleCore) {
+    const composed = composeVehicleIdentityTitle(merged);
+    if (composed) {
       merged.title = buildPremiumListingTitle({
-        item: titleCore,
+        item: composed,
         condition: merged.condition,
         listingType: "vehicle",
         vehicleYear: merged.vehicleYear,
@@ -338,7 +382,7 @@ function applyPendingSlotFill(opts: {
 
   const primary = filledSlots[0];
   const ack = primary
-    ? naturalPendingSlotAck(primary, { ...partial, extras: merged.extras }, message)
+    ? naturalPendingSlotAck(primary, { ...partial, ...validated.fill, extras: merged.extras }, message)
     : null;
   const lead = ack ? `Got it — ${ack}.` : undefined;
   const reply = buildReadinessFollowUpReply(validated.fill, { lead });

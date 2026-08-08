@@ -16,6 +16,7 @@ const MERGE_STRING_FIELDS = [
   "paymentType",
   "vehicleMake",
   "vehicleModel",
+  "vehicleGeneration",
   "vehicleYear",
   "vehicleOdometer",
   "vehicleColour",
@@ -122,7 +123,7 @@ export function formatDraftPreview(draft: SkyAiListingContext): string {
   const type = draft.listingType || (draft.vehicleMake ? "vehicle" : "physical");
 
   if (type === "vehicle" || draft.vehicleMake || draft.vehicleModel) {
-    const vehicle = [draft.vehicleYear, draft.vehicleMake, draft.vehicleModel]
+    const vehicle = [draft.vehicleYear, draft.vehicleMake, draft.vehicleModel, draft.vehicleGeneration]
       .filter(Boolean)
       .join(" ")
       .trim();
@@ -151,7 +152,7 @@ export function formatDraftPreview(draft: SkyAiListingContext): string {
     }
     if (draft.rentalDeposit) lines.push(`Deposit/Bond: $${draft.rentalDeposit}`);
     if (draft.vehicleMake || draft.vehicleModel) {
-      const v = [draft.vehicleYear, draft.vehicleMake, draft.vehicleModel].filter(Boolean).join(" ");
+      const v = [draft.vehicleYear, draft.vehicleMake, draft.vehicleModel, draft.vehicleGeneration].filter(Boolean).join(" ");
       if (v) lines.push(`Vehicle: ${v}`);
       if (draft.vehicleTransmission) lines.push(`Transmission: ${draft.vehicleTransmission}`);
     }

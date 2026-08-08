@@ -311,14 +311,23 @@ const AMBIGUOUS_GENERATION_FAMILIES: ReadonlyArray<{
 ];
 
 function vehicleIdentityBlob(fill: SkyAiListingFill): string {
-  return [fill.vehicleYear, fill.vehicleMake, fill.vehicleModel, fill.title]
+  return [
+    fill.vehicleYear,
+    fill.vehicleMake,
+    fill.vehicleModel,
+    fill.vehicleGeneration,
+    fill.title,
+  ]
     .filter(Boolean)
     .join(" ");
 }
 
 function ambiguousGenerationAsk(fill: SkyAiListingFill): string | null {
+  // Authoritative: vehicleGeneration set → generation slot complete
+  if (fill.vehicleGeneration?.trim()) return null;
   const blob = vehicleIdentityBlob(fill);
   for (const row of AMBIGUOUS_GENERATION_FAMILIES) {
+    // Legacy drafts may still embed R34 in model/title — treat as resolved
     if (row.family.test(blob) && !row.resolved.test(blob)) return row.ask;
   }
   return null;
@@ -332,6 +341,7 @@ function ambiguousGenerationAsk(fill: SkyAiListingFill): string | null {
 export function getVehicleDraftReadiness(fill: SkyAiListingFill): VehicleDraftReadiness {
   const make = fill.vehicleMake?.trim() || null;
   const model = fill.vehicleModel?.trim() || null;
+  const generation = fill.vehicleGeneration?.trim() || null;
   const year = fill.vehicleYear?.trim() || null;
   const price = fill.price?.trim() || null;
   const condition = fill.condition?.trim() || null;
@@ -344,6 +354,7 @@ export function getVehicleDraftReadiness(fill: SkyAiListingFill): VehicleDraftRe
   const knownFacts: string[] = [];
   if (make) knownFacts.push(`make:${make}`);
   if (model) knownFacts.push(`model:${model}`);
+  if (generation) knownFacts.push(`generation:${generation}`);
   if (year) knownFacts.push(`year:${year}`);
   if (price) knownFacts.push(`price:${price}`);
   if (condition) knownFacts.push(`condition:${condition}`);
@@ -366,13 +377,15 @@ export function getVehicleDraftReadiness(fill: SkyAiListingFill): VehicleDraftRe
   if (!price) importantMissing.push("price");
   if (!odometer) importantMissing.push("odometer");
   if (!condition) importantMissing.push("condition");
-  if (!location) importantMissing.push("location");
+  if (!colour) importantMissing.push("colour");
   if (!transmission) importantMissing.push("transmission");
+  if (!location) importantMissing.push("location");
   if (!fuel) importantMissing.push("fuel");
 
   // Meaningful-fact score — not word count. Sparse make/model alone stays pending.
   let score = 0;
   if (make && model) score += 2;
+  if (generation) score += 0.5;
   if (year) score += 1;
   if (price) score += 1;
   if (condition) score += 1;
@@ -394,8 +407,9 @@ export function getVehicleDraftReadiness(fill: SkyAiListingFill): VehicleDraftRe
   else if (!price) nextClarification = "What's the asking price?";
   else if (!odometer) nextClarification = "Roughly how many kilometres are on it?";
   else if (!condition) nextClarification = "What condition is it in?";
-  else if (!location) nextClarification = "Where is it located?";
+  else if (!colour) nextClarification = "What colour is it?";
   else if (!transmission) nextClarification = "Is it manual or automatic?";
+  else if (!location) nextClarification = "Where is it located?";
   else if (!fuel) nextClarification = "Petrol, diesel, or hybrid?";
 
   return {

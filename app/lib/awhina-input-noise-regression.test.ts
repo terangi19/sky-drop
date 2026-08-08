@@ -91,7 +91,7 @@ describe("SE.LL MY SKYLINE R34 — exact live smoke", () => {
     expect(t1.listingFill?.listingType).toBe("vehicle");
     expect(t1.listingFill?.vehicleMake).toBe("Nissan");
     expect(String(t1.listingFill?.vehicleModel || "")).toMatch(/Skyline/i);
-    expect(String(t1.listingFill?.vehicleModel || "")).toMatch(/R34/i);
+    expect(String(t1.listingFill?.vehicleGeneration || t1.listingFill?.vehicleModel || "")).toMatch(/R34/i);
     assertNoInventedVehicleDefaults(t1.listingFill as never);
 
     const t2 = processCanonicalAwhina("1999", {

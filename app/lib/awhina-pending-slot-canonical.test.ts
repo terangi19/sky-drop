@@ -36,7 +36,7 @@ describe("canonical pending-slot wiring — skyline E2E", () => {
     expect(t1.handled).toBe(true);
     expect(t1.listingFill?.vehicleMake).toBe("Nissan");
     expect(String(t1.listingFill?.vehicleModel || "")).toMatch(/Skyline/i);
-    expect(String(t1.listingFill?.vehicleModel || "")).toMatch(/R34/i);
+    expect(String(t1.listingFill?.vehicleGeneration || "")).toMatch(/R34/i);
     expect(t1.sessionState?.pendingSlot).toBeTruthy();
     expect(String(t1.reply || "")).not.toMatch(/Could you clarify what you'd like me to do/i);
 
@@ -93,23 +93,31 @@ describe("canonical pending-slot wiring — skyline E2E", () => {
     });
     expect(String(t5.listingFill?.condition || "")).toMatch(/good/i);
     expect(String(t5.reply || "")).not.toMatch(/Could you clarify/i);
-    expect(t5.sessionState?.pendingSlot).toBe("location");
+    expect(t5.sessionState?.pendingSlot).toBe("colour");
 
-    const t6 = processCanonicalAwhina("Auckland", {
+    const t5b = processCanonicalAwhina("black", {
       conversationId: id,
       pathname: "/post/ai",
       listingContext: t5.listingFill as never,
     });
-    expect(String(t6.listingFill?.location || "")).toMatch(/Auckland/i);
-    expect(String(t6.reply || "")).not.toMatch(/Could you clarify/i);
-    expect(t6.sessionState?.pendingSlot).toBe("transmission");
+    expect(String(t5b.listingFill?.vehicleColour || "")).toMatch(/black/i);
+    expect(t5b.sessionState?.pendingSlot).toBe("transmission");
 
-    const t7 = processCanonicalAwhina("manual", {
+    const t6 = processCanonicalAwhina("manual", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: t5b.listingFill as never,
+    });
+    expect(String(t6.listingFill?.vehicleTransmission || "")).toMatch(/manual/i);
+    expect(String(t6.reply || "")).not.toMatch(/Could you clarify/i);
+    expect(t6.sessionState?.pendingSlot).toBe("location");
+
+    const t7 = processCanonicalAwhina("Auckland", {
       conversationId: id,
       pathname: "/post/ai",
       listingContext: t6.listingFill as never,
     });
-    expect(String(t7.listingFill?.vehicleTransmission || "")).toMatch(/manual/i);
+    expect(String(t7.listingFill?.location || "")).toMatch(/Auckland/i);
     expect(String(t7.reply || "")).not.toMatch(/Could you clarify what you'd like me to do/i);
   });
 
@@ -236,6 +244,7 @@ describe("table-driven pending-slot short answers", () => {
       message: "r34",
       assert: (r) => {
         expect(r.matched).toBe(true);
+        expect(r.partial.vehicleGeneration).toBe("R34");
       },
     },
     {

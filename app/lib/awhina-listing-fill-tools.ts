@@ -70,6 +70,8 @@ import {
   extractCompoundListingFacts,
   getVariantExtra,
   withVariantExtra,
+  composeVehicleIdentityTitle,
+  hydrateVehicleGeneration,
   SLOT_QUESTIONS,
   type ListingMissingSlot,
 } from "./awhina-pending-slots";
@@ -295,6 +297,7 @@ export function validateListingFillFields(
   for (const key of [
     "vehicleMake",
     "vehicleModel",
+    "vehicleGeneration",
     "vehicleYear",
     "vehicleOdometer",
     "vehicleColour",
@@ -346,7 +349,7 @@ export function validateListingFillFields(
     }
   }
   if (fill.replaceDraft === true) fillOut.replaceDraft = true;
-  return { ok: true, fill: fillOut };
+  return { ok: true, fill: hydrateVehicleGeneration(fillOut) as SkyAiListingFill };
 }
 
 export function validatePriceString(
@@ -654,16 +657,21 @@ export function reconstructListingDraftBase(opts: {
   const fromContext = contextToFill(opts.listingContext);
   const cacheDraft =
     opts.sessionKey != null ? getListingDraftSession(opts.sessionKey)?.draft : undefined;
-  if (!cacheDraft || Object.keys(cacheDraft).length === 0) return fromContext;
-  if (Object.keys(fromContext).length === 0) return { ...cacheDraft };
-  // Client wins on every set field; cache only supplies missing keys
-  const base: SkyAiListingFill = { ...cacheDraft, ...fromContext };
-  for (const [k, v] of Object.entries(fromContext)) {
-    if (v !== undefined && v !== null && v !== "") {
-      (base as Record<string, unknown>)[k] = v;
+  let base: SkyAiListingFill;
+  if (!cacheDraft || Object.keys(cacheDraft).length === 0) {
+    base = fromContext;
+  } else if (Object.keys(fromContext).length === 0) {
+    base = { ...cacheDraft };
+  } else {
+    // Client wins on every set field; cache only supplies missing keys
+    base = { ...cacheDraft, ...fromContext };
+    for (const [k, v] of Object.entries(fromContext)) {
+      if (v !== undefined && v !== null && v !== "") {
+        (base as Record<string, unknown>)[k] = v;
+      }
     }
   }
-  return base;
+  return hydrateVehicleGeneration(base) as SkyAiListingFill;
 }
 
 export type ListingFillToolResult =
@@ -757,17 +765,25 @@ export function processListingFillMessage(
         (draftCmds.commands.includes("list_publish") && extracted.filledSlots.length > 0);
 
       if (touchedCompound) {
-        let merged: SkyAiListingFill = { ...baseDraftEarly, ...extracted.partial };
+        let merged: SkyAiListingFill = {
+          ...hydrateVehicleGeneration(baseDraftEarly),
+          ...extracted.partial,
+        };
         if (extracted.partial.extras || baseDraftEarly.extras) {
           merged.extras = mergeExtras(baseDraftEarly.extras, extracted.partial.extras);
         }
-        // Sticky identity: never drop make/model once set
+        // Sticky identity: never drop make/model/generation once set
         if (baseDraftEarly.vehicleMake) {
           merged.vehicleMake = extracted.partial.vehicleMake || baseDraftEarly.vehicleMake;
         }
         if (baseDraftEarly.vehicleModel && !extracted.partial.vehicleModel) {
           merged.vehicleModel = baseDraftEarly.vehicleModel;
         }
+        const baseGen = hydrateVehicleGeneration(baseDraftEarly).vehicleGeneration;
+        if (baseGen && !extracted.partial.vehicleGeneration) {
+          merged.vehicleGeneration = baseGen;
+        }
+        merged = hydrateVehicleGeneration(merged) as SkyAiListingFill;
         // USER-stated price on a service upgrades quote → fixed (normalize strips price on quote)
         if (
           merged.listingType === "service" &&
@@ -784,17 +800,7 @@ export function processListingFillMessage(
         if (variant) merged.extras = withVariantExtra(merged.extras, variant);
 
         // Auto premium title (never tip "clearer title")
-        const titleCore = [
-          merged.vehicleYear,
-          merged.vehicleMake,
-          merged.vehicleModel,
-          variant &&
-          !(merged.vehicleModel || "").toLowerCase().includes(variant.toLowerCase())
-            ? variant
-            : undefined,
-        ]
-          .filter(Boolean)
-          .join(" ");
+        const titleCore = composeVehicleIdentityTitle(merged);
         if (titleCore || draftCmds.commands.includes("improve_title")) {
           merged.title = buildPremiumListingTitle({
             item: titleCore || merged.title || "listing",
@@ -901,15 +907,21 @@ export function processListingFillMessage(
               partial.extras = mergeExtras(baseDraftEarly.extras, fromCompound.partial.extras);
             }
           }
-          let merged: SkyAiListingFill = { ...baseDraftEarly, ...partial };
+          let merged: SkyAiListingFill = {
+            ...hydrateVehicleGeneration(baseDraftEarly),
+            ...partial,
+          };
           if (partial.extras) merged.extras = partial.extras;
+          if (baseDraftEarly.vehicleGeneration && !partial.vehicleGeneration) {
+            merged.vehicleGeneration = baseDraftEarly.vehicleGeneration;
+          }
+          merged = hydrateVehicleGeneration(merged) as SkyAiListingFill;
+          delete merged.replaceDraft;
           if (baseDraftEarly.descriptionSource === "user" && baseDraftEarly.description) {
             merged.description = baseDraftEarly.description;
             merged.descriptionSource = "user";
           } else if (isVehicleListingFill(merged)) {
-            const titleCore = [merged.vehicleYear, merged.vehicleMake, merged.vehicleModel]
-              .filter(Boolean)
-              .join(" ");
+            const titleCore = composeVehicleIdentityTitle(merged);
             if (titleCore) {
               merged.title = buildPremiumListingTitle({
                 item: titleCore,
@@ -1428,6 +1440,7 @@ export function processListingFillMessage(
     partial.vehicleColour ||
     partial.vehicleTransmission ||
     partial.vehicleModel ||
+    partial.vehicleGeneration ||
     partial.vehicleYear ||
     !merged.description ||
     merged.description.length < 40
@@ -1437,9 +1450,7 @@ export function processListingFillMessage(
     if (merged.descriptionSource === "user" && merged.description) {
       // keep user copy
     } else if (merged.listingType === "vehicle" || merged.vehicleMake || merged.vehicleModel) {
-      const titleCore = [merged.vehicleYear, merged.vehicleMake, merged.vehicleModel]
-        .filter(Boolean)
-        .join(" ");
+      const titleCore = composeVehicleIdentityTitle(merged);
       if (titleCore) {
         merged.title = buildPremiumListingTitle({
           item: titleCore,
