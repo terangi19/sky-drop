@@ -256,7 +256,9 @@ describe("exact clarification contamination conversation", () => {
     expect(sell.navigateTo || "").not.toMatch(/cleaner/i);
     expect(sell.reply?.toLowerCase() || "").not.toMatch(/cleaner sell|sell my ps5 listings/);
     scope = getTaskScope(taskScopeKey({ conversationId: id }));
-    expect(scope?.pendingClarification).toBeUndefined();
+    // Sell may open listing_slots — must not keep shopping search_slots / cleaner
+    expect(scope?.pendingClarification?.kind === "search_slots").toBe(false);
+    expect(JSON.stringify(scope?.pendingClarification || {}).toLowerCase()).not.toMatch(/cleaner/);
     expect(scope?.task).toBe("selling");
     const search = getSearchSession(searchSessionKey({ conversationId: id }));
     expect(search?.filters?.query?.toLowerCase() || "").not.toMatch(/cleaner/);
@@ -287,7 +289,9 @@ describe("clarification state-machine regressions A–E", () => {
     expect(JSON.stringify(sell.listingFill || {}).toLowerCase()).toMatch(/ps5|playstation/);
     expect(JSON.stringify(sell.listingFill || {}).toLowerCase()).not.toMatch(/cleaner/);
     expect(sell.navigateTo || "").not.toMatch(/cleaner/i);
-    expect(getTaskScope(taskScopeKey({ conversationId: id }))?.pendingClarification).toBeUndefined();
+    const pendingAfter = getTaskScope(taskScopeKey({ conversationId: id }))?.pendingClarification;
+    expect(pendingAfter?.kind === "search_slots").toBe(false);
+    expect(JSON.stringify(pendingAfter || {}).toLowerCase()).not.toMatch(/cleaner/);
     expect(getTaskScope(taskScopeKey({ conversationId: id }))?.task).toBe("selling");
   });
 
@@ -637,7 +641,7 @@ describe("marketplace education messaging-first", () => {
 });
 
 describe("listing improvement suggestions sparse", () => {
-  it("suggests clearer title for bare short title", () => {
+  it("does not tip clearer title — Āwhina auto-improves titles", () => {
     const tip = suggestListingImprovements({
       title: "Couch",
       category: "Home",
@@ -645,8 +649,7 @@ describe("listing improvement suggestions sparse", () => {
       condition: "Used - Good",
       description: "Comfy couch for sale",
     });
-    expect(tip).toBeTruthy();
-    expect(tip!.toLowerCase()).toMatch(/title|model|detail/);
+    expect(tip).toBeNull();
   });
 
   it("returns null when draft already solid", () => {

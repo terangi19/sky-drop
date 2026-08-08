@@ -67,11 +67,24 @@ import {
   nextListingSlotQuestion,
   buildListingSlotPending,
   mergeExtras,
+  extractCompoundListingFacts,
+  getVariantExtra,
+  withVariantExtra,
   SLOT_QUESTIONS,
   type ListingMissingSlot,
 } from "./awhina-pending-slots";
+import {
+  detectActiveDraftCommands,
+  isListPublishActionMessage,
+  isPronounTitleForbidden,
+  hasActiveDraftCommandLanguage,
+} from "./awhina-active-draft-commands";
 import type { PendingClarification } from "./awhina-task-scope";
 import { isClarificationOpen } from "./awhina-task-scope";
+import {
+  getListingReadinessState,
+  buildReadinessFollowUpReply,
+} from "./awhina-listing-readiness";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSIONS = 400;
@@ -524,6 +537,14 @@ export function parseListingPriceFromMessage(message: string): string | null | "
 }
 
 function extractSellItem(message: string): string | undefined {
+  // Action commands / pronouns are NEVER product titles
+  if (isListPublishActionMessage(message) || isPronounTitleForbidden(message.trim())) {
+    return undefined;
+  }
+  const cmds = detectActiveDraftCommands(message);
+  if (cmds.isActionOnly || (cmds.isPronounOnly && cmds.commands.length > 0)) {
+    return undefined;
+  }
   const m = message.match(SELL_ITEM_RE);
   if (!m?.[1]) return undefined;
   let item = m[1].replace(/\b(for sale|please|thanks)\b/gi, "").trim();
@@ -548,6 +569,7 @@ function extractSellItem(message: string): string | undefined {
     if (known) item = known[0];
   }
   if (item.length < 2 || item.length > 80) return undefined;
+  if (isPronounTitleForbidden(item)) return undefined;
   return item.replace(/\s+/g, " ").trim();
 }
 
@@ -677,63 +699,246 @@ export function processListingFillMessage(
   const trimmed = message.trim();
   if (!trimmed) return { handled: false };
 
-  // ── Pending listing slot: short replies fill THAT slot first ──
-  const activeSlot = getActiveListingSlot(opts.pendingClarification);
-  if (activeSlot && trimmed.length <= 80 && !opts.freshStart) {
-    const slotResult = parseShortReplyForPendingSlot(trimmed, activeSlot);
-    if (slotResult.rejectedCorruption) {
-      return {
-        handled: true,
-        reply: `${SLOT_QUESTIONS[activeSlot]} (that didn't look like a ${activeSlot.replace(/_/g, " ")} — try again?)`,
-        clarify: true,
-        intent: "listing_update",
-        pendingClarification: opts.pendingClarification || undefined,
-      };
-    }
-    if (slotResult.matched) {
-      const sessionKey = opts.sessionKey || listingDraftSessionKey({ pathname });
-      const baseDraft: SkyAiListingFill = reconstructListingDraftBase({
-        listingContext: opts.listingContext,
-        sessionKey,
-        freshStart: false,
+  const sessionKeyEarly = opts.sessionKey || listingDraftSessionKey({ pathname });
+  const draftCmds = detectActiveDraftCommands(trimmed);
+  const activeSlotEarly = getActiveListingSlot(opts.pendingClarification);
+
+  // ── Compound / active-draft turn (slot answer + facts + commands) ──
+  // Pending slot is a HINT, not a prison. Never discard R34 because user also said "write a description".
+  if (!opts.freshStart) {
+    const baseDraftEarly: SkyAiListingFill = reconstructListingDraftBase({
+      listingContext: opts.listingContext,
+      sessionKey: sessionKeyEarly,
+      freshStart: false,
+    });
+    const hasDraftEarly =
+      hasActiveListingDraft(opts.listingContext) ||
+      Object.keys(baseDraftEarly).length > 0 ||
+      isClarificationOpen(opts.pendingClarification);
+
+    const compoundWorthTrying =
+      hasDraftEarly &&
+      (Boolean(activeSlotEarly) ||
+        draftCmds.commands.length > 0 ||
+        isListPublishActionMessage(trimmed) ||
+        /\br[\s-]?3[2-4]\b|\bgtr\b|\bgt[\s-]?r\b|\bpsa\s*\d|\d+\s?(gb|tb)\b|\bsize\s*\d/i.test(
+          trimmed
+        ));
+
+    if (compoundWorthTrying) {
+      const residualForFacts = draftCmds.residualMessage || trimmed;
+      const extracted = extractCompoundListingFacts(residualForFacts, {
+        activeSlot: activeSlotEarly,
+        baseDraft: baseDraftEarly,
       });
-      const partial = { ...slotResult.partial };
-      if (partial.extras) {
-        partial.extras = mergeExtras(baseDraft.extras, partial.extras);
-      }
-      let merged: SkyAiListingFill = { ...baseDraft, ...partial };
-      if (partial.extras) merged.extras = partial.extras;
-      // Preserve user description
-      if (baseDraft.descriptionSource === "user" && baseDraft.description) {
-        merged.description = baseDraft.description;
-        merged.descriptionSource = "user";
-      } else if (
-        merged.listingType === "vehicle" ||
-        merged.vehicleMake ||
-        isVehicleListingFill(merged)
+
+      // list/publish/save alone — never title=It
+      if (
+        draftCmds.commands.includes("list_publish") &&
+        draftCmds.isActionOnly &&
+        !extracted.filledSlots.length
       ) {
-        merged.description = buildListingDescriptionFromFacts(merged);
-        merged.descriptionSource = "ai";
+        const pending = buildListingSlotPending(
+          baseDraftEarly,
+          baseDraftEarly.title || "listing"
+        );
+        const reply = buildReadinessFollowUpReply(baseDraftEarly, {
+          listPublishAsked: true,
+          lead: `I've kept **${baseDraftEarly.title || "your listing"}** on the form.`,
+        });
+        rememberListingDraft(sessionKeyEarly, baseDraftEarly);
+        return finishFill(reply, baseDraftEarly, "listing_update", pending || undefined);
       }
-      const validated = validateListingFillFields(merged);
-      if (!validated.ok) {
-        return {
-          handled: true,
-          reply: validated.error,
-          clarify: true,
-          intent: "listing_update",
-          pendingClarification: opts.pendingClarification || undefined,
-        };
+
+      const touchedCompound =
+        extracted.filledSlots.length > 0 ||
+        draftCmds.commands.includes("regenerate_description") ||
+        draftCmds.commands.includes("improve_title") ||
+        (draftCmds.commands.includes("list_publish") && extracted.filledSlots.length > 0);
+
+      if (touchedCompound) {
+        let merged: SkyAiListingFill = { ...baseDraftEarly, ...extracted.partial };
+        if (extracted.partial.extras || baseDraftEarly.extras) {
+          merged.extras = mergeExtras(baseDraftEarly.extras, extracted.partial.extras);
+        }
+        // Sticky identity: never drop make/model once set
+        if (baseDraftEarly.vehicleMake) {
+          merged.vehicleMake = extracted.partial.vehicleMake || baseDraftEarly.vehicleMake;
+        }
+        if (baseDraftEarly.vehicleModel && !extracted.partial.vehicleModel) {
+          merged.vehicleModel = baseDraftEarly.vehicleModel;
+        }
+        // USER-stated price on a service upgrades quote → fixed (normalize strips price on quote)
+        if (
+          merged.listingType === "service" &&
+          extracted.partial.price &&
+          (!merged.servicePricingType ||
+            merged.servicePricingType === "request_quote" ||
+            merged.servicePricingType === "Quote Required")
+        ) {
+          merged.servicePricingType = "fixed";
+        }
+        // Preserve USER variant
+        const variant =
+          getVariantExtra(merged) || getVariantExtra(extracted.partial) || getVariantExtra(baseDraftEarly);
+        if (variant) merged.extras = withVariantExtra(merged.extras, variant);
+
+        // Auto premium title (never tip "clearer title")
+        const titleCore = [
+          merged.vehicleYear,
+          merged.vehicleMake,
+          merged.vehicleModel,
+          variant &&
+          !(merged.vehicleModel || "").toLowerCase().includes(variant.toLowerCase())
+            ? variant
+            : undefined,
+        ]
+          .filter(Boolean)
+          .join(" ");
+        if (titleCore || draftCmds.commands.includes("improve_title")) {
+          merged.title = buildPremiumListingTitle({
+            item: titleCore || merged.title || "listing",
+            condition: merged.condition,
+            listingType: merged.listingType || (merged.vehicleMake ? "vehicle" : undefined),
+            vehicleYear: merged.vehicleYear,
+          });
+          if (variant && !merged.title.includes(variant)) {
+            merged.title = `${merged.title} ${variant}`.replace(/\s+/g, " ").trim();
+          }
+        }
+
+        const wantDesc =
+          draftCmds.commands.includes("regenerate_description") ||
+          draftCmds.commands.includes("improve_title");
+        if (baseDraftEarly.descriptionSource === "user" && baseDraftEarly.description && !wantDesc) {
+          merged.description = baseDraftEarly.description;
+          merged.descriptionSource = "user";
+        } else if (
+          wantDesc ||
+          extracted.filledSlots.includes("generation") ||
+          extracted.filledSlots.length > 0
+        ) {
+          // Explicit write-description OR new facts → recompose buyer copy when allowed
+          const forceDesc = draftCmds.commands.includes("regenerate_description");
+          const desc = buildListingDescriptionFromFacts(merged, { force: forceDesc });
+          if (desc) {
+            merged.description = desc;
+            merged.descriptionSource = "ai";
+          } else if (forceDesc && titleCore) {
+            // Minimal restrained starter when force still gated empty
+            merged.description = `${titleCore} available for sale.`;
+            merged.descriptionSource = "ai";
+          } else if (!forceDesc && merged.descriptionSource !== "user") {
+            // Keep prior AI/blank until readiness threshold — do not invent
+            if (baseDraftEarly.description) {
+              merged.description = baseDraftEarly.description;
+              merged.descriptionSource = baseDraftEarly.descriptionSource || "ai";
+            }
+          }
+        }
+
+        const validated = validateListingFillFields(merged);
+        if (!validated.ok) {
+          return {
+            handled: true,
+            reply: validated.error,
+            clarify: true,
+            intent: "listing_update",
+            pendingClarification: opts.pendingClarification || undefined,
+          };
+        }
+        rememberListingDraft(sessionKeyEarly, validated.fill);
+        const pending = buildListingSlotPending(
+          validated.fill,
+          validated.fill.title || "listing"
+        );
+        const noteBits = [...extracted.notes];
+        if (draftCmds.commands.includes("regenerate_description")) {
+          noteBits.push("updated the description");
+        }
+        if (draftCmds.commands.includes("improve_title") || extracted.filledSlots.includes("generation")) {
+          noteBits.push("updated the title");
+        }
+        const lead =
+          draftCmds.commands.includes("regenerate_description") &&
+          (extracted.filledSlots.includes("generation") || extracted.filledSlots.includes("variant"))
+            ? `Done — I've updated the title and description for your **${validated.fill.title}**.`
+            : noteBits.length
+              ? `Got it — ${noteBits.join(", ")}.`
+              : undefined;
+        const reply = buildReadinessFollowUpReply(validated.fill, {
+          lead,
+          listPublishAsked: draftCmds.commands.includes("list_publish"),
+        });
+        return finishFill(reply, validated.fill, "listing_update", pending || undefined);
       }
-      rememberListingDraft(sessionKey, validated.fill);
-      const next = nextListingSlotQuestion(validated.fill);
-      const pending = next
-        ? buildListingSlotPending(validated.fill, trimmed)
-        : undefined;
-      const reply = next
-        ? `Got it — ${slotResult.filledSlot?.replace(/_/g, " ")} updated. ${next.question}`
-        : buildCompleteDraftReply(validated.fill);
-      return finishFill(reply, validated.fill, "listing_update", pending || undefined);
+
+      // Short pure slot answer (no commands) — keep prior fast path
+      if (activeSlotEarly && trimmed.length <= 80 && draftCmds.commands.length === 0) {
+        const slotResult = parseShortReplyForPendingSlot(trimmed, activeSlotEarly);
+        if (slotResult.rejectedCorruption) {
+          return {
+            handled: true,
+            reply: `${SLOT_QUESTIONS[activeSlotEarly]} (that didn't look like a ${activeSlotEarly.replace(/_/g, " ")} — try again?)`,
+            clarify: true,
+            intent: "listing_update",
+            pendingClarification: opts.pendingClarification || undefined,
+          };
+        }
+        if (slotResult.matched) {
+          const partial = { ...slotResult.partial };
+          if (partial.extras) {
+            partial.extras = mergeExtras(baseDraftEarly.extras, partial.extras);
+          }
+          // Generation short answers need base identity
+          if (slotResult.filledSlot === "generation" && baseDraftEarly.vehicleMake) {
+            const fromCompound = extractCompoundListingFacts(trimmed, {
+              activeSlot: "generation",
+              baseDraft: baseDraftEarly,
+            });
+            Object.assign(partial, fromCompound.partial);
+            if (fromCompound.partial.extras) {
+              partial.extras = mergeExtras(baseDraftEarly.extras, fromCompound.partial.extras);
+            }
+          }
+          let merged: SkyAiListingFill = { ...baseDraftEarly, ...partial };
+          if (partial.extras) merged.extras = partial.extras;
+          if (baseDraftEarly.descriptionSource === "user" && baseDraftEarly.description) {
+            merged.description = baseDraftEarly.description;
+            merged.descriptionSource = "user";
+          } else if (isVehicleListingFill(merged)) {
+            const titleCore = [merged.vehicleYear, merged.vehicleMake, merged.vehicleModel]
+              .filter(Boolean)
+              .join(" ");
+            if (titleCore) {
+              merged.title = buildPremiumListingTitle({
+                item: titleCore,
+                condition: merged.condition,
+                listingType: "vehicle",
+                vehicleYear: merged.vehicleYear,
+              });
+            }
+            merged.description = buildListingDescriptionFromFacts(merged);
+            merged.descriptionSource = "ai";
+          }
+          const validated = validateListingFillFields(merged);
+          if (!validated.ok) {
+            return {
+              handled: true,
+              reply: validated.error,
+              clarify: true,
+              intent: "listing_update",
+              pendingClarification: opts.pendingClarification || undefined,
+            };
+          }
+          rememberListingDraft(sessionKeyEarly, validated.fill);
+          const pending = buildListingSlotPending(validated.fill, trimmed);
+          const reply = buildReadinessFollowUpReply(validated.fill, {
+            lead: `Got it — ${slotResult.filledSlot?.replace(/_/g, " ")} updated.`,
+          });
+          return finishFill(reply, validated.fill, "listing_update", pending || undefined);
+        }
+      }
     }
   }
 
@@ -774,17 +979,30 @@ export function processListingFillMessage(
   const serviceTitleEarly = extractServiceOfferingTitle(trimmed);
   const serviceOffer = hasServiceOfferingIntent(trimmed);
   const rentalOffer = hasRentalOfferingIntent(trimmed);
-  // New NL sell request (has item seed) — never inherit SEARCH/old unrelated draft
+  const activeDraftFollowUp =
+    hasActiveDraftCommandLanguage(trimmed) ||
+    isListPublishActionMessage(trimmed) ||
+    Boolean(getActiveListingSlot(opts.pendingClarification));
+  // New NL sell request (has item seed) — never inherit SEARCH/old unrelated draft.
+  // Active-draft compound follow-ups must NOT reset the draft.
   const isNewSellSeed =
     opts.freshStart === true ||
-    isExplicitNewSellListingMessage(trimmed) ||
-    serviceOffer ||
-    rentalOffer ||
-    (Boolean(sellItemEarly || serviceTitleEarly) &&
-      (hasListingSellIntent(trimmed) ||
-        /\b(want\s+to\s+list|list(?:ing)?\s+my|sell(?:ing)?\s+my|create\s+(?:a\s+)?listing)\b/i.test(
-          trimmed
-        )));
+    (!activeDraftFollowUp &&
+      (isExplicitNewSellListingMessage(trimmed) ||
+        ((serviceOffer || rentalOffer) &&
+          !hasActiveListingDraft(opts.listingContext) &&
+          !Object.keys(
+            reconstructListingDraftBase({
+              listingContext: opts.listingContext,
+              sessionKey,
+              freshStart: false,
+            })
+          ).length) ||
+        (Boolean(sellItemEarly || serviceTitleEarly) &&
+          (hasListingSellIntent(trimmed) ||
+            /\b(want\s+to\s+list|list(?:ing)?\s+my|sell(?:ing)?\s+my|create\s+(?:a\s+)?listing)\b/i.test(
+              trimmed
+            )))));
 
   if (isNewSellSeed) {
     clearListingDraftSession(sessionKey);
@@ -1013,21 +1231,27 @@ export function processListingFillMessage(
   // New sell intent — one-pass seed (current message facts only)
   const sellItem = sellItemEarly || extractSellItem(trimmed);
   const serviceTitle = serviceTitleEarly || extractServiceOfferingTitle(trimmed);
+  const listActionOnly =
+    isListPublishActionMessage(trimmed) ||
+    (detectActiveDraftCommands(trimmed).isActionOnly &&
+      detectActiveDraftCommands(trimmed).commands.includes("list_publish"));
   const wantsSell =
-    isNewSellSeed ||
-    hasListingSellIntent(trimmed) ||
-    serviceOffer ||
-    rentalOffer ||
-    (onSell && sellItem) ||
-    (onSell && /^(ps5|xbox|iphone|samsung|laptop|couch)/i.test(trimmed));
+    !listActionOnly &&
+    (isNewSellSeed ||
+      hasListingSellIntent(trimmed) ||
+      serviceOffer ||
+      rentalOffer ||
+      (onSell && sellItem) ||
+      (onSell && /^(ps5|xbox|iphone|samsung|laptop|couch)/i.test(trimmed)));
 
   if (
     wantsSell &&
+    !listActionOnly &&
     (sellItem ||
       serviceTitle ||
       serviceOffer ||
       rentalOffer ||
-      /selling|sell |list /i.test(trimmed))
+      (/selling|sell |list /i.test(trimmed) && Boolean(sellItem)))
   ) {
     const itemRaw =
       serviceTitle ||
@@ -1038,8 +1262,11 @@ export function processListingFillMessage(
         .replace(/\$[\d,]+.*$/, "")
         .trim()
         .slice(0, 80);
+    if (isPronounTitleForbidden(itemRaw || "")) {
+      // fall through — never seed title from it/this/that
+    } else {
     const item = rentalOffer && itemRaw ? cleanRentalItemName(itemRaw) || itemRaw : itemRaw;
-    if (item.length >= 2) {
+    if (item && item.length >= 2) {
       const typeHint =
         (serviceOffer || serviceTitle ? "service" : undefined) ||
         (rentalOffer ? "rental" : undefined) ||
@@ -1115,6 +1342,7 @@ export function processListingFillMessage(
 
       if (!notes.some((n) => n.startsWith("title"))) notes.push(`title ${partial.title}`);
       touched = true;
+    }
     }
   }
 
@@ -1333,12 +1561,17 @@ export function isListingFollowUp(message: string, hasDraft: boolean): boolean {
   if (!hasDraft) return false;
   const t = message.trim();
   if (t.length > 200) return false;
+  if (hasActiveDraftCommandLanguage(t) || isListPublishActionMessage(t)) return true;
   if (RELATIVE_PRICE_RE.test(t)) return true;
   if (PRICE_SET_RE.test(t) || CONDITION_RE.test(t)) return true;
   if (/\b(pickup|shipping|condition|price|title|description|keywords?|tags?|location)\b/i.test(t)) {
     return true;
   }
   if (/^(actually|make it|set|change|update)\b/i.test(t)) return true;
+  // Generation / variant / compound slot answers
+  if (/\br[\s-]?3[2-4]\b|\bgtr\b|\bgt[\s-]?r\b|\bpsa\s*\d|\d+\s?(gb|tb)\b/i.test(t)) {
+    return true;
+  }
   // Short slot-shaped answers (storage, year, grade, odo, size, bare price)
   if (t.length <= 40) {
     if (/^\d+\s?(gb|tb)$/i.test(t)) return true;

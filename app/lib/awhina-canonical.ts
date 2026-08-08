@@ -49,6 +49,7 @@ import {
   hasExplicitSellSwitch,
   hasSearchIntentLanguage,
 } from "./sky-ai-intent";
+import { isListPublishActionMessage } from "./awhina-active-draft-commands";
 import { hasActiveListingDraft } from "./sky-ai-draft-merge";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SkyAiProfileContext } from "./sky-ai-profile-context";
@@ -865,7 +866,8 @@ export function processCanonicalAwhina(
     hasActiveListingDraft(context.listingContext) || Boolean(listSessionEarly?.draft);
 
   const searchLang = hasSearchIntentLanguage(trimmed);
-  const explicitSell = hasExplicitSellSwitch(trimmed);
+  const explicitSell =
+    hasExplicitSellSwitch(trimmed) && !isListPublishActionMessage(trimmed);
   const stickyShopping = taskSession?.task === "shopping" && !explicitSell && !onSellPage;
 
   // Explicit NEW INTENT wins — cancel open clarification before applying it
@@ -1431,6 +1433,10 @@ export function processCanonicalAwhina(
           : priorListingForStale,
       sessionKey: listKey,
       freshStart: switchingFromSearch || domainShiftSell,
+      pendingClarification:
+        switchingFromSearch || domainShiftSell
+          ? null
+          : getTaskScope(scopeKey)?.pendingClarification,
     });
     if (listing.handled) {
       const sellTool = listing.toolCall?.tool || (listing.listingFill ? "createListing" : undefined);
@@ -1441,7 +1447,9 @@ export function processCanonicalAwhina(
       ) {
         // Fall through — should not sell while shopping / decision blocked
       } else {
-        setActiveTask(scopeKey, "selling");
+        setActiveTask(scopeKey, "selling", {
+          pendingClarification: listing.pendingClarification,
+        });
         const navigateTo =
           !onSell && listing.listingFill
             ? "/post/ai"

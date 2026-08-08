@@ -31,6 +31,7 @@ import type { SearchSessionFilters } from "./awhina-search-memory";
 import type { PendingClarification } from "./awhina-task-scope";
 import { resolveVehicleIdentity } from "./sky-ai-find-routing";
 import { knowledgeTurnPatch, marketplaceClarifyQuestion } from "./marketplace-knowledge";
+import { isListPublishActionMessage } from "./awhina-active-draft-commands";
 
 /** Values from the current turn that are allowed to appear in outputs. */
 function currentTurnValueSet(entities: AwhinaTurnEntities): Set<string> {
@@ -485,8 +486,12 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
   const searchLang = hasSearchIntentLanguage(trimmed);
   const serviceOffer = hasServiceOfferingIntent(trimmed);
   const rentalOffer = hasRentalOfferingIntent(trimmed);
-  const explicitSell = hasExplicitSellSwitch(trimmed) || serviceOffer || rentalOffer;
-  const sellIntent = hasListingSellIntent(trimmed) || explicitSell || serviceOffer || rentalOffer;
+  const explicitSell =
+    (hasExplicitSellSwitch(trimmed) || serviceOffer || rentalOffer) &&
+    !isListPublishActionMessage(trimmed);
+  const sellIntent =
+    (hasListingSellIntent(trimmed) || explicitSell || serviceOffer || rentalOffer) &&
+    !isListPublishActionMessage(trimmed);
   const priorTask = input.session?.task || "none";
   const stickyShopping = priorTask === "shopping" && !explicitSell && !onSell;
 
@@ -524,6 +529,7 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
   const domainShiftSell =
     activeTask === "selling" &&
     priorTask === "selling" &&
+    !isListPublishActionMessage(trimmed) &&
     Boolean(entities.listingType) &&
     Boolean(priorDraftType) &&
     entities.listingType !== priorDraftType;

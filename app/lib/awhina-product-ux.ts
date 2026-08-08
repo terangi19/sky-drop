@@ -792,11 +792,8 @@ export function suggestListingImprovements(fill: SkyAiListingFill): string | nul
   const tips: string[] = [];
   const title = (fill.title || "").trim();
   const price = Number(String(fill.price || "").replace(/[^\d.]/g, ""));
-  const desc = (fill.description || "").toLowerCase();
 
-  if (title && title.split(/\s+/).length <= 2 && !/\d/.test(title)) {
-    tips.push("a clearer title (model + key detail)");
-  }
+  // Never tip "clearer title" — Āwhina auto-improves titles when facts exist.
   if (!Number.isNaN(price) && price > 0) {
     if (price < 5) tips.push("double-checking that price — it looks unusually low");
     if (/\b(ps5|playstation\s*5)\b/i.test(title) && (price < 150 || price > 1200)) {

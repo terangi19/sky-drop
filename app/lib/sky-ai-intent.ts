@@ -206,6 +206,13 @@ export function hasExplicitSellSwitch(message: string): boolean {
   const m = message.trim();
   if (!m) return false;
   if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
+  // "list it / post this / publish that" are active-draft ACTIONS, not new-sell switches
+  if (
+    /\b(?:list|post|publish|create|put)\s+(?:it|this|that)(?:\s+up)?(?:\s+now)?\b/i.test(m) ||
+    /^(?:go\s+live|submit\s+(?:the\s+)?listing|make\s+it\s+live)\b/i.test(m)
+  ) {
+    return false;
+  }
   if (hasServiceOfferingIntent(m) || hasRentalOfferingIntent(m)) return true;
   return /\b(sell(?:ing)?|list(?:ing)?|post(?:ing)?|for sale|create (?:a )?listing|put up|advertise|get rid of|flog)\b/i.test(
     m

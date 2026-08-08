@@ -30,7 +30,9 @@ export type ListingMissingSlot =
   | "colour"
   | "rental_rate"
   | "service_rate"
-  | "title";
+  | "title"
+  | "generation"
+  | "variant";
 
 export const SLOT_QUESTIONS: Record<ListingMissingSlot, string> = {
   price: "What's the asking price?",
@@ -49,6 +51,8 @@ export const SLOT_QUESTIONS: Record<ListingMissingSlot, string> = {
   rental_rate: "What's the daily or weekly hire rate?",
   service_rate: "Fixed price, hourly, or quote required?",
   title: "What should we call this listing?",
+  generation: "What generation is it — R32, R33, or R34?",
+  variant: "Which variant / trim is it?",
 };
 
 /** Detect domain from draft for slot priority. */
@@ -104,6 +108,7 @@ export function computeMissingListingSlots(
     const r = getVehicleDraftReadiness(fill as SkyAiListingFill);
     for (const m of r.importantMissing) {
       const map: Record<string, ListingMissingSlot | undefined> = {
+        generation: "generation",
         year: "year",
         price: "price",
         odometer: "odometer",
@@ -218,6 +223,9 @@ const NZ_CITY =
   /^(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|rotorua|queenstown|nelson|whangarei)\b/i;
 const TRANS_RE = /^(manual|automatic|auto)\b/i;
 const FUEL_RE = /^(petrol|diesel|hybrid|electric|ev)\b/i;
+const GEN_TOKEN_RE = /\b(r[\s-]?3[2-4]|a80|a90|mk\s?[45]|jza80)\b/i;
+const VARIANT_GTR_RE = /\b(gt[\s-]?r|gtr)\b/i;
+const VARIANT_GTT_RE = /\b(gt[\s-]?t|gtt)\b/i;
 
 /**
  * Parse short reply against the ACTIVE pending slot only.
@@ -460,6 +468,34 @@ export function parseShortReplyForPendingSlot(
     return { matched: true, filledSlot: "title", partial: { title: t } };
   }
 
+  // Generation short answers: R34 / R33 / A80
+  if (activeSlot === "generation" && GEN_TOKEN_RE.test(t)) {
+    const m = t.match(GEN_TOKEN_RE)!;
+    return {
+      matched: true,
+      filledSlot: "generation",
+      partial: applyVehicleGenerationToDraft({}, m[1]),
+    };
+  }
+
+  // Variant short answers
+  if (activeSlot === "variant") {
+    if (VARIANT_GTR_RE.test(t)) {
+      return {
+        matched: true,
+        filledSlot: "variant",
+        partial: { extras: ["variant:GT-R"] },
+      };
+    }
+    if (VARIANT_GTT_RE.test(t)) {
+      return {
+        matched: true,
+        filledSlot: "variant",
+        partial: { extras: ["variant:GTT"] },
+      };
+    }
+  }
+
   return { matched: false, partial: {} };
 }
 
@@ -487,4 +523,335 @@ export function mergeExtras(
     else out.push(e);
   }
   return out.slice(0, 24);
+}
+
+export type CompoundFactExtract = {
+  partial: SkyAiListingFill;
+  filledSlots: ListingMissingSlot[];
+  /** Text after removing consumed fact tokens (commands already stripped upstream). */
+  residual: string;
+  notes: string[];
+};
+
+function normalizeGenerationToken(raw: string): string {
+  const t = raw.replace(/\s+/g, "").toUpperCase();
+  if (/^R[\s-]?3[2-4]$/i.test(raw) || /^R3[2-4]$/i.test(t)) {
+    return t.replace(/[^R0-9]/gi, "").toUpperCase();
+  }
+  if (/^A80$/i.test(t) || /^JZA80$/i.test(t) || /^MK4$/i.test(t)) return "A80";
+  if (/^A90$/i.test(t) || /^MK5$/i.test(t)) return "A90";
+  return raw.trim();
+}
+
+/**
+ * Apply generation token onto an existing vehicle draft (Skyline → Skyline R34).
+ * Never invents GT-R; variant is separate.
+ */
+export function applyVehicleGenerationToDraft(
+  base: Partial<SkyAiListingFill>,
+  generationRaw: string
+): Partial<SkyAiListingFill> {
+  const gen = normalizeGenerationToken(generationRaw);
+  const make = base.vehicleMake || "Nissan";
+  const modelBase = (base.vehicleModel || base.title || "")
+    .replace(/\bR[\s-]?3[2-4]\b/gi, "")
+    .replace(/\bGT[\s-]?R\b/gi, "")
+    .replace(/\bGT[\s-]?T\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const family = /\bskyline\b/i.test(modelBase)
+    ? "Skyline"
+    : /\bsupra\b/i.test(modelBase)
+      ? "Supra"
+      : modelBase || "Skyline";
+  let vehicleModel = family;
+  if (/^R3[2-4]$/i.test(gen)) {
+    vehicleModel = `${family} ${gen.toUpperCase()}`;
+  } else if (/^A80|^A90/i.test(gen)) {
+    vehicleModel = `${family} ${gen}`;
+  }
+  const variant = getVariantExtra(base);
+  const titleParts = [make, vehicleModel, variant].filter(Boolean);
+  return {
+    listingType: "vehicle",
+    category: base.category || "Cars",
+    vehicleMake: make,
+    vehicleModel,
+    title: titleParts.join(" "),
+  };
+}
+
+export function getVariantExtra(fill: Partial<SkyAiListingFill>): string | undefined {
+  const fromExtras = (fill.extras || []).find((e) =>
+    e.toLowerCase().startsWith("variant:")
+  );
+  if (fromExtras) return fromExtras.slice("variant:".length).trim();
+  const blob = `${fill.vehicleModel || ""} ${fill.title || ""}`;
+  if (/\bGT[\s-]?R\b/i.test(blob)) return "GT-R";
+  if (/\bGT[\s-]?T\b/i.test(blob)) return "GTT";
+  return undefined;
+}
+
+/** Append / replace variant: extra without inventing. */
+export function withVariantExtra(
+  extras: string[] | undefined,
+  variant: string
+): string[] {
+  return mergeExtras(extras, [`variant:${variant}`]) || [`variant:${variant}`];
+}
+
+/**
+ * Extract domain facts from a (possibly compound) follow-up.
+ * Pending slot is a HINT — we still harvest generation/variant/storage/etc. from free text.
+ */
+export function extractCompoundListingFacts(
+  message: string,
+  opts?: {
+    activeSlot?: ListingMissingSlot | null;
+    baseDraft?: Partial<SkyAiListingFill> | null;
+  }
+): CompoundFactExtract {
+  let residual = message.trim();
+  const partial: SkyAiListingFill = {};
+  const filledSlots: ListingMissingSlot[] = [];
+  const notes: string[] = [];
+  const base = opts?.baseDraft || {};
+  const domain = detectSellDomain(base.title || base.listingType ? base : { listingType: "physical", title: residual });
+
+  // Vehicle generation + variant (USER-stated only)
+  if (domain === "vehicle" || isVehicleListingFill(base as SkyAiListingFill) || GEN_TOKEN_RE.test(residual)) {
+    const genMatch = residual.match(GEN_TOKEN_RE);
+    if (genMatch) {
+      const applied = applyVehicleGenerationToDraft(base, genMatch[1]);
+      Object.assign(partial, applied);
+      filledSlots.push("generation");
+      notes.push(`model ${applied.vehicleModel}`);
+      residual = residual.replace(genMatch[0], " ").replace(/\s+/g, " ").trim();
+    }
+    if (VARIANT_GTR_RE.test(residual)) {
+      const variant = "GT-R";
+      partial.extras = withVariantExtra(
+        mergeExtras(base.extras, partial.extras),
+        variant
+      );
+      // Keep model generation-clean; title gains variant
+      if (partial.vehicleModel || base.vehicleModel) {
+        const model = partial.vehicleModel || base.vehicleModel || "";
+        const make = partial.vehicleMake || base.vehicleMake || "";
+        partial.title = [make, model, variant].filter(Boolean).join(" ");
+      }
+      filledSlots.push("variant");
+      notes.push("variant GT-R");
+      residual = residual.replace(VARIANT_GTR_RE, " ").replace(/\s+/g, " ").trim();
+    } else if (VARIANT_GTT_RE.test(residual)) {
+      const variant = "GTT";
+      partial.extras = withVariantExtra(
+        mergeExtras(base.extras, partial.extras),
+        variant
+      );
+      if (partial.vehicleModel || base.vehicleModel) {
+        const model = partial.vehicleModel || base.vehicleModel || "";
+        const make = partial.vehicleMake || base.vehicleMake || "";
+        partial.title = [make, model, variant].filter(Boolean).join(" ");
+      }
+      filledSlots.push("variant");
+      notes.push("variant GTT");
+      residual = residual.replace(VARIANT_GTT_RE, " ").replace(/\s+/g, " ").trim();
+    }
+  }
+
+  // Electronics storage
+  const storageMatch = residual.match(/\b(\d+)\s?(gb|tb)\b/i);
+  if (storageMatch) {
+    partial.extras = mergeExtras(partial.extras || base.extras, [
+      `storage:${storageMatch[1]}${storageMatch[2].toUpperCase()}`,
+    ]);
+    filledSlots.push("storage");
+    notes.push(`storage ${storageMatch[1]}${storageMatch[2].toUpperCase()}`);
+    residual = residual.replace(storageMatch[0], " ").replace(/\s+/g, " ").trim();
+  }
+
+  // Card grade
+  const gradeMatch = residual.match(/\b(psa|bgs|cgc|sgc)\s*([0-9]{1,2}(?:\.\d)?)\b/i);
+  if (gradeMatch) {
+    partial.extras = mergeExtras(partial.extras || base.extras, [
+      `grade:${gradeMatch[1].toUpperCase()} ${gradeMatch[2]}`,
+    ]);
+    partial.condition = partial.condition || "Used - Like New";
+    filledSlots.push("grade");
+    notes.push(`grade ${gradeMatch[1].toUpperCase()} ${gradeMatch[2]}`);
+    residual = residual.replace(gradeMatch[0], " ").replace(/\s+/g, " ").trim();
+  }
+
+  // Clothing size
+  const sizeMatch = residual.match(/\b(?:size\s*)?(\d{1,2}(?:\.\d)?|XS|S|M|L|XL|XXL)\b/i);
+  if (
+    sizeMatch &&
+    (opts?.activeSlot === "size" ||
+      domain === "clothing" ||
+      /\b(size|uk|us|eu)\b/i.test(message))
+  ) {
+    partial.extras = mergeExtras(partial.extras || base.extras, [
+      `size:${sizeMatch[1].toUpperCase()}`,
+    ]);
+    filledSlots.push("size");
+    notes.push(`size ${sizeMatch[1]}`);
+    residual = residual.replace(sizeMatch[0], " ").replace(/\s+/g, " ").trim();
+  }
+
+  // Condition
+  if (
+    /\bbrand\s*new\b|\blike\s*new\b|\b(new|used|good|fair|mint|excellent)\s+condition\b|\bcondition\s*(?:is\s*)?(new|used|good|fair|mint)/i.test(
+      residual
+    ) ||
+    /\b(brand\s*new|like\s*new|excellent|mint)\b/i.test(residual)
+  ) {
+    const raw = residual.toLowerCase();
+    let condition = "Used - Good";
+    if (/brand\s*new|sealed|unopened|(?:^|[^\w])new(?:\s+condition)?\b/.test(raw) && !/new\s+zealand/.test(raw)) {
+      condition = "New";
+    } else if (/like\s*new|mint|excellent/.test(raw)) {
+      condition = "Used - Like New";
+    } else if (/\bfair\b/.test(raw)) {
+      condition = "Used - Fair";
+    } else if (/\b(used|good)\b/.test(raw)) {
+      condition = "Used - Good";
+    }
+    partial.condition = condition;
+    filledSlots.push("condition");
+    notes.push(`condition ${condition}`);
+    residual = residual
+      .replace(/\bbrand\s*new\b/gi, " ")
+      .replace(/\blike\s*new\b/gi, " ")
+      .replace(/\b(good|fair|mint|excellent|used|new)\s+condition\b/gi, " ")
+      .replace(/\bcondition\s*(?:is\s*)?(new|used|good|fair|mint|excellent)\b/gi, " ")
+      .replace(/\b(brand\s*new|like\s*new|excellent|mint)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  // Price $900 / 900 bucks / 60 a day / 50 per lawn
+  const priceMatch =
+    residual.match(/\$\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?/i) ||
+    residual.match(
+      /\b([\d,]+(?:\.\d{1,2})?)\s*(k)?\s*(?:bucks|nzd|dollars?)\b/i
+    ) ||
+    residual.match(
+      /\b([\d,]+(?:\.\d{1,2})?)\s*(?:\/\s*day|a\s+day|per\s+day|\/day|per\s+lawn|\/lawn)\b/i
+    ) ||
+    residual.match(/\bmake\s+(?:it\s+)?\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\b/i) ||
+    residual.match(/\b(?:for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\b/i);
+  if (priceMatch) {
+    let n = Number(String(priceMatch[1]).replace(/,/g, ""));
+    const kFlag = priceMatch[2];
+    if (kFlag && /^k$/i.test(String(kFlag))) n *= 1000;
+    if (Number.isFinite(n) && n >= 1 && n <= 10_000_000) {
+      const rateLike =
+        domain === "rental" ||
+        /\b(?:\/\s*day|a\s+day|per\s+day|\/day)\b/i.test(message);
+      const serviceLike =
+        domain === "service" || /\bper\s+lawn|\/lawn\b/i.test(message);
+      if (rateLike) {
+        partial.rentalPriceDaily = String(Math.round(n));
+        partial.price = String(Math.round(n));
+        filledSlots.push("rental_rate");
+      } else if (serviceLike) {
+        partial.price = String(Math.round(n));
+        filledSlots.push("service_rate");
+      } else {
+        partial.price = String(Math.round(n));
+        filledSlots.push("price");
+      }
+      notes.push(`price $${Math.round(n)}`);
+      residual = residual.replace(priceMatch[0], " ").replace(/\s+/g, " ").trim();
+    }
+  }
+
+  // Location
+  const locMatch = residual.match(
+    /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei)\b/i
+  );
+  if (locMatch) {
+    const city = locMatch[1]
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+    partial.location = city;
+    filledSlots.push("location");
+    notes.push(`location ${city}`);
+    residual = residual.replace(locMatch[0], " ").replace(/\s+/g, " ").trim();
+  }
+
+  // Year
+  const yearMatch = residual.match(/\b((?:19|20)\d{2})\b/);
+  if (yearMatch) {
+    partial.vehicleYear = yearMatch[1];
+    filledSlots.push("year");
+    notes.push(`year ${yearMatch[1]}`);
+    residual = residual.replace(yearMatch[0], " ").replace(/\s+/g, " ").trim();
+  }
+
+  // Odometer
+  const odoMatch = residual.match(
+    /\b([\d,]+)\s*(k|km|kms|kilometers|kilometres)\b/i
+  );
+  if (odoMatch) {
+    let n = Number(odoMatch[1].replace(/,/g, ""));
+    if (/^k$/i.test(odoMatch[2])) n *= 1000;
+    if (n >= 100 && n < 2_000_000) {
+      partial.vehicleOdometer = String(Math.round(n));
+      filledSlots.push("odometer");
+      notes.push(`odometer ${partial.vehicleOdometer}`);
+      residual = residual.replace(odoMatch[0], " ").replace(/\s+/g, " ").trim();
+    }
+  }
+
+  // Transmission / fuel
+  if (/\b(manual|automatic|auto)\b/i.test(residual)) {
+    const auto = /\bauto/i.test(residual);
+    partial.vehicleTransmission = auto ? "Automatic" : "Manual";
+    filledSlots.push("transmission");
+    notes.push(`transmission ${partial.vehicleTransmission}`);
+    residual = residual
+      .replace(/\b(manual|automatic|auto)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  if (/\b(petrol|diesel|hybrid|electric|ev)\b/i.test(residual)) {
+    const m = residual.match(/\b(petrol|diesel|hybrid|electric|ev)\b/i)![1];
+    const map: Record<string, string> = {
+      petrol: "Petrol",
+      diesel: "Diesel",
+      hybrid: "Hybrid",
+      electric: "Electric",
+      ev: "Electric",
+    };
+    partial.vehicleFuelType = map[m.toLowerCase()] || m;
+    filledSlots.push("fuel");
+    notes.push(`fuel ${partial.vehicleFuelType}`);
+    residual = residual
+      .replace(/\b(petrol|diesel|hybrid|electric|ev)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  // If active slot was generation and we filled it — good.
+  // Soft: try classic short parser on leftover for the active slot
+  if (opts?.activeSlot && residual) {
+    const slotResult = parseShortReplyForPendingSlot(residual, opts.activeSlot);
+    if (slotResult.matched) {
+      Object.assign(partial, slotResult.partial);
+      if (slotResult.partial.extras) {
+        partial.extras = mergeExtras(partial.extras, slotResult.partial.extras);
+      }
+      if (slotResult.filledSlot && !filledSlots.includes(slotResult.filledSlot)) {
+        filledSlots.push(slotResult.filledSlot);
+      }
+      residual = "";
+    }
+  }
+
+  residual = residual.replace(/\b(?:and|then|also|please|make\s+it)\b/gi, " ").replace(/\s+/g, " ").trim();
+
+  return { partial, filledSlots, residual, notes };
 }

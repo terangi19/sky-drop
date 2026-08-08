@@ -1291,13 +1291,18 @@ function writeFromFacts(facts: DescriptionFacts): string {
 /**
  * Marketplace description from known draft facts only — no hallucinations.
  * Facts → type writer → quality pass. Default quality: Premium Plus.
- * Vehicles: blank until getVehicleDraftReadiness says buyer copy is worth generating.
+ * Vehicles: blank until getVehicleDraftReadiness says buyer copy is worth generating,
+ * unless the seller explicitly asked to write/improve the description (force).
  */
 export function buildListingDescriptionFromFacts(
   fill: SkyAiListingFill,
-  opts?: { quality?: ListingDescriptionQuality }
+  opts?: { quality?: ListingDescriptionQuality; force?: boolean }
 ): string {
-  if (isVehicleListingFill(fill) && !getVehicleDraftReadiness(fill).worthGeneratingBuyerCopy) {
+  if (
+    isVehicleListingFill(fill) &&
+    !opts?.force &&
+    !getVehicleDraftReadiness(fill).worthGeneratingBuyerCopy
+  ) {
     return "";
   }
   const facts = extractDescriptionFacts(fill, opts);
