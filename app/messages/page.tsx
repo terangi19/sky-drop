@@ -46,11 +46,17 @@ import EmptyState from "../components/EmptyState";
 import { STAY_ON_SKY_DROP_HEADLINE, V1_ARRANGE_SAFETY_ONE_LINER } from "../lib/conversation-safety";
 import { extractEmailsFromText,
   isEmailLike,
-  publicHandleFromProfile,
   sanitizePublicText,
   sellerProfileSlug,
 } from "../lib/public-display";
 import { fetchPublicProfileBySlug } from "../lib/fetch-public-profile-client";
+import {
+  getPublicIdentityMetrics,
+  peekPublicIdentity,
+  resolvePublicIdentities,
+  resolvePublicIdentity,
+  type PublicIdentity,
+} from "../lib/public-identity";
 import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
 import { purchaseStatusLabel } from "../lib/purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
@@ -162,6 +168,10 @@ function MessagesPage() {
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
   const [avatars, setAvatars] = useState<Record<string, string>>({});
+  /** Identifiers awaiting public identity — show skeleton, never fake "User"/Seller. */
+  const [identityPending, setIdentityPending] = useState<Record<string, true>>(
+    {}
+  );
   const [scamWarning, setScamWarning] = useState(false);
   const [pendingMessage, setPendingMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -390,7 +400,8 @@ function MessagesPage() {
   }, [usernames]);
 
   useEffect(() => {
-    if (chatUser) fetchUsername(chatUser);
+    if (chatUser) void resolveChatIdentity(chatUser);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resolveChatIdentity is stable enough per render
   }, [chatUser]);
 
   // Clear rate limiter when conversation changes
@@ -585,29 +596,184 @@ function MessagesPage() {
 
     return () => { cancelled = true; };
   }, [chatUser, user, messages, chatListingId]);
-  // Fetch usernames + avatars — session cache; do not force-refresh repeatedly
-  async function fetchUsername(identifier: string, forceRefresh = false) {
-    if (!identifier || identifier === "system") return;
-    if (!forceRefresh && (usernamesRef.current[identifier] || usernames[identifier])) return;
-    try {
-      const profile = await fetchPublicProfileBySlug(identifier, { forceRefresh });
-      let handle = "User";
-      if (profile) {
-        handle = publicHandleFromProfile(profile, "User");
-        const profileEmail = profile.email;
-        const photo = typeof profile.photoURL === "string" ? profile.photoURL.trim() : "";
-        if (profileEmail && profileEmail !== identifier) {
-          setUsernames((prev) => ({ ...prev, [profileEmail]: handle }));
-          if (photo) {
-            setAvatars((prev) => ({ ...prev, [profileEmail]: photo, [identifier]: photo }));
-          }
-        } else if (photo) {
-          setAvatars((prev) => ({ ...prev, [identifier]: photo }));
+  function applyIdentitiesToState(
+    entries: Array<{ identifier: string; identity: PublicIdentity }>
+  ) {
+    if (entries.length === 0) return;
+    setUsernames((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const { identifier, identity } of entries) {
+        if (next[identifier] !== identity.handle) {
+          next[identifier] = identity.handle;
+          changed = true;
+        }
+        if (identity.email && next[identity.email] !== identity.handle) {
+          next[identity.email] = identity.handle;
+          changed = true;
+        }
+        if (identity.uid && next[identity.uid] !== identity.handle) {
+          next[identity.uid] = identity.handle;
+          changed = true;
         }
       }
-      setUsernames((prev) => ({ ...prev, [identifier]: handle }));
+      return changed ? next : prev;
+    });
+    setAvatars((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const { identifier, identity } of entries) {
+        if (!identity.avatar) continue;
+        if (next[identifier] !== identity.avatar) {
+          next[identifier] = identity.avatar;
+          changed = true;
+        }
+        if (identity.email && next[identity.email] !== identity.avatar) {
+          next[identity.email] = identity.avatar;
+          changed = true;
+        }
+        if (identity.uid && next[identity.uid] !== identity.avatar) {
+          next[identity.uid] = identity.avatar;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    setIdentityPending((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const { identifier, identity } of entries) {
+        if (next[identifier]) {
+          delete next[identifier];
+          changed = true;
+        }
+        if (identity.email && next[identity.email]) {
+          delete next[identity.email];
+          changed = true;
+        }
+        if (identity.uid && next[identity.uid]) {
+          delete next[identity.uid];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }
+
+  function applyIdentityToState(identifier: string, identity: PublicIdentity) {
+    applyIdentitiesToState([{ identifier, identity }]);
+  }
+
+  function markIdentityPending(ids: string[]) {
+    setIdentityPending((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const id of ids) {
+        if (!id || id === "system") continue;
+        if (usernamesRef.current[id] || peekPublicIdentity(id)) continue;
+        if (!next[id]) {
+          next[id] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }
+
+  /** Shared with inbox batch — same cache/in-flight for chatUser + list. */
+  async function resolveChatIdentity(identifier: string) {
+    if (!identifier || identifier === "system") return;
+    const warm = peekPublicIdentity(identifier);
+    if (warm) applyIdentityToState(identifier, warm);
+    else if (!usernamesRef.current[identifier]) markIdentityPending([identifier]);
+    try {
+      const identity = await resolvePublicIdentity(identifier);
+      if (identity) applyIdentityToState(identifier, identity);
+      else {
+        setIdentityPending((prev) => {
+          if (!prev[identifier]) return prev;
+          const next = { ...prev };
+          delete next[identifier];
+          return next;
+        });
+      }
     } catch (e) {
-      console.error("Failed to fetch username:", e);
+      console.error("Failed to resolve chat identity:", e);
+      setIdentityPending((prev) => {
+        if (!prev[identifier]) return prev;
+        const next = { ...prev };
+        delete next[identifier];
+        return next;
+      });
+    }
+  }
+
+  async function resolveInboxIdentities(ids: string[]) {
+    const unique = [...new Set(ids.filter((id) => id && id !== "system"))];
+    if (unique.length === 0) return;
+
+    const snapshotStart =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+
+    // Warm session/memory → paint usernames immediately (no Seller→sky50 flash)
+    const missing: string[] = [];
+    const warmEntries: Array<{ identifier: string; identity: PublicIdentity }> =
+      [];
+    for (const id of unique) {
+      const warm = peekPublicIdentity(id);
+      if (warm) warmEntries.push({ identifier: id, identity: warm });
+      else if (!usernamesRef.current[id]) missing.push(id);
+    }
+    applyIdentitiesToState(warmEntries);
+    if (missing.length) markIdentityPending(missing);
+
+    try {
+      const map = await resolvePublicIdentities(unique);
+      const resolved: Array<{ identifier: string; identity: PublicIdentity }> =
+        [];
+      const unresolved: string[] = [];
+      for (const id of unique) {
+        const identity = map.get(id);
+        if (identity) resolved.push({ identifier: id, identity });
+        else unresolved.push(id);
+      }
+      applyIdentitiesToState(resolved);
+      if (unresolved.length) {
+        setIdentityPending((prev) => {
+          let changed = false;
+          const next = { ...prev };
+          for (const id of unresolved) {
+            if (next[id]) {
+              delete next[id];
+              changed = true;
+            }
+          }
+          return changed ? next : prev;
+        });
+      }
+      if (typeof window !== "undefined") {
+        const m = getPublicIdentityMetrics();
+        const elapsed =
+          (typeof performance !== "undefined" ? performance.now() : Date.now()) -
+          snapshotStart;
+        (window as unknown as { __skyMsgIdentity?: unknown }).__skyMsgIdentity = {
+          unique: unique.length,
+          missingAtStart: missing.length,
+          identityMs: Math.round(elapsed),
+          batchRequests: m.lastBatchRequests,
+          singleRequests: m.lastSingleRequests,
+          resolveMs: Math.round(m.lastResolveMs),
+          cacheHits: m.cacheHits,
+          sessionHits: m.sessionHits,
+        };
+      }
+    } catch (e) {
+      console.error("Failed to batch-resolve inbox identities:", e);
+      setIdentityPending((prev) => {
+        const next = { ...prev };
+        for (const id of missing) delete next[id];
+        return next;
+      });
     }
   }
   // Main messages listener — blockedUsers via ref to avoid resubscribe remounts
@@ -636,7 +802,7 @@ function MessagesPage() {
       setMessages(items);
       setLoading(false);
       if (snap.metadata?.hasPendingWrites) return;
-      // Dedupe profile resolution IDs across the inbox snapshot
+      // Batch public identity — one POST /api/public-profiles for unique emails/uids
       const ids = new Set<string>();
       for (const msg of items as any[]) {
         if (msg.sender) ids.add(msg.sender);
@@ -644,9 +810,7 @@ function MessagesPage() {
         msg.participants?.forEach((p: string) => ids.add(p));
         extractEmailsFromText(msg.text || "").forEach((e) => ids.add(e));
       }
-      ids.forEach((id) => {
-        if (!usernamesRef.current[id]) fetchUsername(id);
-      });
+      void resolveInboxIdentities([...ids]);
     }, (err) => {
       console.error("Messages snapshot error:", err);
       if (mounted) {
@@ -1276,7 +1440,7 @@ function MessagesPage() {
   if (searchQuery.trim()) {
     const q = searchQuery.toLowerCase();
     conversations = conversations.filter(([_, c]) => {
-      const name = getDisplayName(c.participant).toLowerCase();
+      const name = (getDisplayName(c.participant) || "").toLowerCase();
       const title = (c.listingTitle || "").toLowerCase();
       const text = (c.msg.text || "").toLowerCase();
       return name.includes(q) || title.includes(q) || text.includes(q);
@@ -1291,9 +1455,28 @@ function MessagesPage() {
   if (conversationFilter === "buyers") {
     conversations = conversations.filter(([_, c]) => c.listingId === null);
   }
-  function getDisplayName(email: string) {
+  /** Resolved handle, or null while identity is pending (skeleton — no fake User/Seller). */
+  function getDisplayName(email: string): string | null {
     if (!email || email === "system") return "System";
-    return usernames[email] || "User";
+    if (usernames[email]) return usernames[email];
+    if (identityPending[email]) return null;
+    return null;
+  }
+  function IdentityName({
+    id,
+    className,
+  }: {
+    id: string;
+    className?: string;
+  }) {
+    const name = getDisplayName(id);
+    if (name) return <span className={className}>{name}</span>;
+    return (
+      <span
+        className={`inline-block h-3 w-[4.5rem] max-w-full animate-pulse rounded bg-[var(--card-border)]/80 ${className || ""}`}
+        aria-label="Loading name"
+      />
+    );
   }
   function formatMessageText(text: string) {
     return sanitizePublicText(text || "", usernames);
@@ -1387,7 +1570,7 @@ function MessagesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setBlockConfirmTarget(null)}>
           <div className="mx-4 w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-black text-red-400">Block User</h3>
-            <p className="mt-2 text-sm text-[var(--foreground)]">Block {getDisplayName(blockConfirmTarget)}? They won&apos;t be able to message you, and their messages will be hidden.</p>
+            <p className="mt-2 text-sm text-[var(--foreground)]">Block <IdentityName id={blockConfirmTarget} />? They won&apos;t be able to message you, and their messages will be hidden.</p>
             <div className="mt-5 flex gap-3">
               <button onClick={() => setBlockConfirmTarget(null)} className="flex-1 rounded-xl border border-white/[0.08] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Cancel</button>
               <button onClick={() => { blockUser(blockConfirmTarget); setBlockConfirmTarget(null); }} className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-400">Block</button>
@@ -1573,10 +1756,12 @@ function MessagesPage() {
                       <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-[var(--soft-card)] ring-1 ring-[var(--card-border)]">
                         {avatarUrl ? (
                           <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-                        ) : (
+                        ) : displayName ? (
                           <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-sky-500">
-                            {(displayName || "?").replace(/^@/, "").charAt(0).toUpperCase()}
+                            {displayName.replace(/^@/, "").charAt(0).toUpperCase()}
                           </div>
+                        ) : (
+                          <div className="h-full w-full animate-pulse bg-[var(--card-border)]/60" aria-hidden />
                         )}
                         {unreadCount > 0 && (
                           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-sky-500 px-1 text-[9px] font-bold text-white ring-2 ring-[var(--card)]">
@@ -1587,7 +1772,7 @@ function MessagesPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-2">
                           <span className={`truncate text-[13px] leading-tight ${unreadCount > 0 ? "font-semibold text-[var(--foreground)]" : "font-medium text-[var(--foreground)]"}`}>
-                            {displayName}
+                            <IdentityName id={convo.participant} />
                           </span>
                           <span className="shrink-0 text-[10px] tabular-nums text-[var(--muted)]">{formatTime(convo.msg.createdAt)}</span>
                         </div>
@@ -1627,8 +1812,10 @@ function MessagesPage() {
                         className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[var(--soft-card)] text-[12px] font-semibold text-sky-500 ring-1 ring-[var(--card-border)] transition hover:ring-sky-500/40">
                         {avatars[chatUser] ? (
                           <img src={avatars[chatUser]} alt="" className="h-full w-full object-cover" />
+                        ) : getDisplayName(chatUser) ? (
+                          getDisplayName(chatUser)!.replace(/^@/, "").charAt(0).toUpperCase()
                         ) : (
-                          getDisplayName(chatUser).replace(/^@/, "").charAt(0).toUpperCase()
+                          <span className="block h-full w-full animate-pulse bg-[var(--card-border)]/60" aria-hidden />
                         )}
                       </button>
                       {showProfilePreview && (
@@ -1638,11 +1825,15 @@ function MessagesPage() {
                             <div className="mx-auto flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[var(--soft-card)] text-[14px] font-semibold text-sky-500 ring-1 ring-[var(--card-border)]">
                               {avatars[chatUser] ? (
                                 <img src={avatars[chatUser]} alt="" className="h-full w-full object-cover" />
+                              ) : getDisplayName(chatUser) ? (
+                                getDisplayName(chatUser)!.replace(/^@/, "").charAt(0).toUpperCase()
                               ) : (
-                                getDisplayName(chatUser).replace(/^@/, "").charAt(0).toUpperCase()
+                                <span className="block h-full w-full animate-pulse bg-[var(--card-border)]/60" aria-hidden />
                               )}
                             </div>
-                            <p className="mt-2.5 text-[13px] font-semibold text-[var(--foreground)]">{getDisplayName(chatUser)}</p>
+                            <p className="mt-2.5 text-[13px] font-semibold text-[var(--foreground)]">
+                              <IdentityName id={chatUser} />
+                            </p>
                             {sellerProfile && (
                               <p className="mt-1 text-[11px] text-[var(--muted)]">{sellerProfile.sales || 0} sales{sellerTrust ? ` · ${sellerTrust.score}% trust` : ""}</p>
                             )}
@@ -1663,7 +1854,9 @@ function MessagesPage() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <h2 className="truncate text-[14px] font-semibold leading-tight text-[var(--foreground)]">{getDisplayName(chatUser)}</h2>
+                      <h2 className="truncate text-[14px] font-semibold leading-tight text-[var(--foreground)]">
+                        <IdentityName id={chatUser} />
+                      </h2>
                       <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--muted)]">
                         {listingCard ? (
                           <Link

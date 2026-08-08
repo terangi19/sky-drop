@@ -1,4 +1,10 @@
 import { publicHandleFromProfile } from "./public-display";
+import {
+  clearPublicIdentityCache,
+  hydrateIdentityFromProfile,
+  peekPublicProfileRecord,
+  resolvePublicIdentity,
+} from "./public-identity";
 
 export type ClientPublicProfile = {
   uid?: string;
@@ -20,18 +26,14 @@ export type ClientPublicProfile = {
   kycStatus?: string;
 };
 
-const profileCache = new Map<string, Promise<ClientPublicProfile | null>>();
-
-function cacheKey(slug: string): string {
-  return slug.trim().toLowerCase();
-}
-
 export function clearPublicProfileCache(slug?: string): void {
-  if (slug) profileCache.delete(cacheKey(slug));
-  else profileCache.clear();
+  clearPublicIdentityCache(slug);
 }
 
-/** Resolve a public profile by username, uid slug, or email via server API. */
+/**
+ * Resolve a public profile by username, uid slug, or email via shared
+ * public-identity cache (batch + single + session warm).
+ */
 export async function fetchPublicProfileBySlug(
   slug: string,
   options?: { forceRefresh?: boolean }
@@ -39,28 +41,26 @@ export async function fetchPublicProfileBySlug(
   const trimmed = slug.trim();
   if (!trimmed) return null;
 
-  const key = cacheKey(trimmed);
-  if (options?.forceRefresh) profileCache.delete(key);
-
-  if (!profileCache.has(key)) {
-    profileCache.set(
-      key,
-      (async () => {
-        try {
-          const res = await fetch(
-            `/api/public-profile?slug=${encodeURIComponent(trimmed)}`
-          );
-          if (!res.ok) return null;
-          const data = (await res.json()) as { profile?: ClientPublicProfile | null };
-          return data.profile ?? null;
-        } catch {
-          return null;
-        }
-      })()
-    );
+  if (!options?.forceRefresh) {
+    const cached = peekPublicProfileRecord(trimmed);
+    if (cached) return cached as ClientPublicProfile;
   }
 
-  return profileCache.get(key)!;
+  const identity = await resolvePublicIdentity(trimmed, options);
+  if (!identity) return null;
+
+  const fromCache = peekPublicProfileRecord(trimmed);
+  if (fromCache) return fromCache as ClientPublicProfile;
+
+  // Identity resolved but profile payload missing (session warm without full doc)
+  const minimal: ClientPublicProfile = {
+    uid: identity.uid || undefined,
+    username: identity.username || undefined,
+    email: identity.email,
+    photoURL: identity.avatar || undefined,
+  };
+  hydrateIdentityFromProfile(trimmed, minimal as Record<string, unknown>);
+  return minimal;
 }
 
 export async function fetchPublicHandle(

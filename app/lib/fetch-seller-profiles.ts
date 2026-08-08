@@ -81,6 +81,24 @@ async function fetchPublicProfilesBatch(payload: {
 }
 
 /**
+ * Batch-fetch public profiles by email and/or UID identifiers (POST /api/public-profiles).
+ * Shares the same TTL + in-flight batch cache as listing enrichment.
+ */
+export async function fetchPublicProfiles(
+  identifiers: string[]
+): Promise<Map<string, PublicSellerProfile>> {
+  const listings: SellerProfileListingInput[] = [];
+  for (const raw of identifiers) {
+    const id = String(raw || "").trim();
+    if (!id || id === "system") continue;
+    if (isEmailLike(id)) listings.push({ sellerEmail: id });
+    else listings.push({ sellerId: id });
+  }
+  if (listings.length === 0) return new Map();
+  return fetchSellerProfilesByListing(listings);
+}
+
+/**
  * Batch-fetch public seller profiles by listing owner UIDs via Admin-backed API.
  * Profiles collection is owner-only in Firestore rules — never getDoc(profiles) from client.
  *
