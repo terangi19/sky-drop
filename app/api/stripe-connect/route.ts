@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     const s = getStripe();
     const db = getServerDb(idToken!);
     const uid = decodedToken!.uid;
-    const profileUrl = `${process.env.NEXT_PUBLIC_URL || "http://localhost:3000"}/profile?tab=payments`;
+    const profileUrl = `${process.env.NEXT_PUBLIC_URL || "http://localhost:3000"}/profile/settings?tab=payments`;
 
     // V1: fail-closed for new Connect onboarding / account creation (keep disconnect + status GET).
     if (

@@ -8,7 +8,7 @@
 
 import type { AwhinaUiSurface } from "./awhina-conversation-store";
 
-export const AWHINA_INLINE_ASSISTANT_PATHS = ["/post/ai", "/profile"] as const;
+export const AWHINA_INLINE_ASSISTANT_PATHS = ["/post/ai"] as const;
 
 export function hasInlineAwhinaAssistant(pathname: string): boolean {
   return AWHINA_INLINE_ASSISTANT_PATHS.some((p) => pathname.startsWith(p));
@@ -97,8 +97,8 @@ const MESSAGES: AwhinaQuickPrompt[] = [
 ];
 
 const PROFILE: AwhinaQuickPrompt[] = [
-  { label: "Write my bio", query: "Write a bio for my profile" },
-  { label: "Set region", query: "Set my region" },
+  { label: "Update bio", query: "Update my bio" },
+  { label: "Change region", query: "Change my region" },
   { label: "Improve profile", query: "Make my profile look more professional" },
   { label: "Fill everything", query: "Fill out my profile based on what you know" },
 ];

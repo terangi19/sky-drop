@@ -176,7 +176,7 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
 
   // ── Settings ──
   {
-    path: "/profile#settings",
+    path: "/profile/settings",
     title: "Settings",
     aliases: [
       "settings", "preferences", "my settings",

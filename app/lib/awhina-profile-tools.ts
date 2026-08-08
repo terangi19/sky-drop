@@ -354,7 +354,7 @@ export function processProfileMessage(
   if (/\b(open|go to|take me to|show)\s+(my\s+)?(profile|settings)\b/i.test(trimmed) ||
       /^(profile|settings)$/i.test(trimmed)) {
     const toSettings = /\bsettings\b/i.test(trimmed);
-    const path = toSettings ? "/profile#settings" : "/profile";
+    const path = toSettings ? "/profile/settings" : "/profile";
     const already = onProfile && !toSettings;
     const toolCall: AwhinaToolCall = {
       tool: "navigate",

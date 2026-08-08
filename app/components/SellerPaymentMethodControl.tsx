@@ -151,7 +151,7 @@ export default function SellerPaymentMethodControl({
       ) : !stripeConnected ? (
         <p className="mt-2 text-[10px] leading-relaxed text-amber-400/90">
           Connect Stripe in{" "}
-          <Link href="/profile?tab=payments" className="underline hover:text-amber-300">
+          <Link href="/profile/settings?tab=payments" className="underline hover:text-amber-300">
             Profile → Payments
           </Link>{" "}
           to enable card checkout.

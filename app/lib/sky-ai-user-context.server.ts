@@ -141,7 +141,7 @@ export async function loadSkyAiUserContext(
         kind: "stripe_connect",
         count: 1,
         summary: "Connect a payout account to receive Card Checkout sales",
-        path: "/profile?tab=payouts",
+        path: "/profile/settings?tab=payments",
       });
     }
   } catch {

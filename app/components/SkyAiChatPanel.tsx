@@ -20,6 +20,12 @@ import {
   type SkyAiListingFill,
 } from "../lib/sky-ai-listing-fill";
 import {
+  dispatchProfileFill,
+  hasProfileFillContent,
+  type SkyAiProfileFill,
+} from "../lib/sky-ai-profile-fill";
+import { readProfileDraftFromSkyAi } from "../lib/sky-ai-profile-context";
+import {
   SKY_AI_LISTING_FILL_SUCCESS,
   SKY_AI_QUICK_PROMPTS,
   SKY_AI_WELCOME,
@@ -546,6 +552,9 @@ export default function SkyAiChatPanel({
           pathname.startsWith("/post/ai") || !switchedIntent
             ? readListingDraftFromSkyAi()
             : null;
+        const profileContext = pathname.startsWith("/profile")
+          ? readProfileDraftFromSkyAi()
+          : null;
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 45000);
         const res = await fetch("/api/sky-ai", {
@@ -563,6 +572,7 @@ export default function SkyAiChatPanel({
             anonSessionId: user ? undefined : anonSessionId,
             awhinaSession: awhinaSessionRef.current || undefined,
             listingContext,
+            profileContext: profileContext || undefined,
             images: imageUrls.length ? imageUrls : undefined,
             stream: true,
           }),
@@ -576,12 +586,16 @@ export default function SkyAiChatPanel({
             reply?: string;
             navigateTo?: string;
             listingFill?: SkyAiListingFill;
+            profileFill?: SkyAiProfileFill;
             error?: string;
           };
           if (typeof data.reply === "string" && data.reply.trim()) {
             navigateTo = data.navigateTo;
             const navFromFill = handleListingFill(data.listingFill, navigateTo);
             if (navFromFill) navigateTo = navFromFill;
+            if (data.profileFill && hasProfileFillContent(data.profileFill)) {
+              dispatchProfileFill(data.profileFill);
+            }
             updateAssistant(assistantId, {
               text: data.reply,
               streaming: false,
@@ -619,6 +633,7 @@ export default function SkyAiChatPanel({
                   navigateTo?: string;
                   state?: AwhinaProgressState;
                   listingFill?: SkyAiListingFill;
+                  profileFill?: SkyAiProfileFill;
                   conversationId?: string;
                   awhinaSession?: {
                     task?: {
@@ -684,6 +699,9 @@ export default function SkyAiChatPanel({
                     });
                   }
                   if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
+                  if (evt.profileFill && hasProfileFillContent(evt.profileFill)) {
+                    dispatchProfileFill(evt.profileFill);
+                  }
                   if (evt.listingFill) {
                     setListingFillOccurred(true);
                     if (isSellPage) {
@@ -770,6 +788,9 @@ export default function SkyAiChatPanel({
           const data = await res.json();
           navigateTo = data.navigateTo;
           if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
+          if (data.profileFill && hasProfileFillContent(data.profileFill)) {
+            dispatchProfileFill(data.profileFill);
+          }
           if (data.listingFill) {
             setListingFillOccurred(true);
             if (isSellPage) {

@@ -5,7 +5,7 @@ export function normalizeAwhinaGuidePath(pathname: string): string {
 
 /**
  * Passive / informational pages — no in-page Āwhina guide card.
- * Task flows use SkyAiChat (/post/ai) or AwhinaProfileAssistant (/profile) instead.
+ * Task flows use SkyAiChat (/post/ai). Profile editing uses global Ask Āwhina on /profile.
  */
 export const AWHINA_GUIDE_EXCLUDED_PATHS = new Set([
   "/",
@@ -18,6 +18,7 @@ export const AWHINA_GUIDE_EXCLUDED_PATHS = new Set([
   "/terms",
   "/privacy",
   "/profile",
+  "/profile/settings",
   "/login",
 ]);
 
