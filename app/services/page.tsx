@@ -83,7 +83,7 @@ export default function ServicesPage() {
   const [watchlistTick, setWatchlistTick] = useState(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
 
-  const { sellerReviewStats, sellerBadges, sellerFullyVerified } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified } = useSellerListingMeta(listings);
 
   useEffect(() => {
     const refreshRecentlyViewed = () => setRecentlyViewed(getRecentlyViewed());
@@ -317,6 +317,7 @@ export default function ServicesPage() {
           user={user}
           sellerReviewStats={sellerReviewStats}
           sellerBadges={sellerBadges}
+          sellerHandles={sellerHandles}
         />
 
         {loading ? (
@@ -393,6 +394,7 @@ export default function ServicesPage() {
                   onMakeOffer={(listing) => router.push(`/post/listing/${listing.id}`)}
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
+                  sellerHandles={sellerHandles}
                   sellerFullyVerified={sellerFullyVerified}
                 />
               ))}

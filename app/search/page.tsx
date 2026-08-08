@@ -34,6 +34,7 @@ import { db } from "../lib/firebase";
 import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import EmptyState from "../components/EmptyState";
 import { LoadingCard } from "../components/LoadingSpinner";
+import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 
 type SavedSearch = {
   key: string;
@@ -318,9 +319,8 @@ export default function SearchPage() {
     return sorted;
   }, [listings, query, heardRaw, categoryFilter, minPrice, maxPrice, condition, location, sortBy, saleType, typeFilter, servicePricingFilter, rentalPeriodFilter]);
 
-  const sellerReviewStats: Record<string, { avg: number; count: number }> = {};
-  const sellerBadges: Record<string, string> = {};
-  const sellerFullyVerified: Record<string, boolean> = {};
+  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified } =
+    useSellerListingMeta(filteredListings);
 
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -545,6 +545,7 @@ export default function SearchPage() {
                 onMakeOffer={handleMakeOffer}
                 sellerReviewStats={sellerReviewStats}
                 sellerBadges={sellerBadges}
+                sellerHandles={sellerHandles}
                 sellerFullyVerified={sellerFullyVerified}
                 onPromote={handlePromote}
                 onDelete={handleDelete}

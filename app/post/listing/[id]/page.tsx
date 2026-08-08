@@ -58,8 +58,9 @@ import { paymentMethodSummary, primaryPurchaseLabel, purchaseButtonTitle, shortP
 import { fetchListingPaymentType } from "../../../lib/buy-listing-route";
 import { assertStripeNeverArrange, logPurchaseFlow, logPurchaseSummary } from "../../../lib/purchase-flow-debug";
 import {
+  resolveSellerCardDisplayName,
+  resolveSellerCardProfileSlug,
   sellerMessagesUrl,
-  sellerProfileDisplayName,
   sellerProfileSlug,
 } from "../../../lib/public-display";
 import { listingMessageSellerHref } from "../../../lib/listing-message-href";
@@ -1081,9 +1082,13 @@ export default function ListingPage() {
     );
   }
 
-  const sellerName = sellerProfileDisplayName(listing, "Seller");
+  const sellerHandles =
+    listing.sellerEmail && typeof sellerProfile?.username === "string" && sellerProfile.username.trim()
+      ? { [listing.sellerEmail]: sellerProfile.username }
+      : undefined;
+  const sellerName = resolveSellerCardDisplayName(listing, sellerHandles, "Seller");
   const sellerInitial = sellerName.charAt(0).toUpperCase();
-  const sellerSlug = sellerProfileSlug(listing);
+  const sellerSlug = resolveSellerCardProfileSlug(listing, sellerHandles);
   async function sendMessageToSeller() {
     if (!user?.email || !listing?.sellerEmail || !messageText.trim()) return;
     setSendingMessage(true);
@@ -2617,7 +2622,7 @@ Service Status: 🟢 Inquiry Active`;
         <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 pb-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-5 w-0.5 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
-            <h2 className="text-base font-bold text-[var(--foreground)]">More from {sellerProfileDisplayName(listing, "this seller")}</h2>
+            <h2 className="text-base font-bold text-[var(--foreground)]">More from {resolveSellerCardDisplayName(listing, sellerHandles, "this seller")}</h2>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
             {sellerListings.map((l: any) => (

@@ -13,8 +13,8 @@ import { SellerReviewSummary } from "../SellerReviewStars";
 import ListingImage, { listingHasImage } from "../ListingImage";
 import { purchaseButtonTitle, shortPurchaseLabel } from "../../lib/purchase-button-labels";
 import {
-  sellerProfileDisplayName,
-  sellerProfileSlug,
+  resolveSellerCardDisplayName,
+  resolveSellerCardProfileSlug,
 } from "../../lib/public-display";
 import { isStripeCheckoutVisibleClient } from "../../lib/stripe-checkout-flags";
 import {
@@ -38,6 +38,8 @@ export type MarketplaceListingCardProps = {
   onMakeOffer: (item: Record<string, any>) => void;
   sellerReviewStats: Record<string, { avg: number; count: number }>;
   sellerBadges: Record<string, string>;
+  /** Live profile usernames keyed by seller email — preferred over stale listing docs */
+  sellerHandles?: Record<string, string>;
   sellerFullyVerified?: Record<string, boolean>;
   sellerJoinedDate?: Record<string, string>;
   sellerListingCount?: Record<string, number>;
@@ -69,6 +71,7 @@ export default memo(function MarketplaceListingCard({
   onMakeOffer: _onMakeOffer,
   sellerReviewStats,
   sellerBadges,
+  sellerHandles = {},
   sellerFullyVerified = {},
   sellerJoinedDate = {},
   sellerListingCount = {},
@@ -440,7 +443,7 @@ export default memo(function MarketplaceListingCard({
 
         <Link
           href={(() => {
-            const slug = sellerProfileSlug(item);
+            const slug = resolveSellerCardProfileSlug(item, sellerHandles);
             if (user?.email === item.sellerEmail || !slug) return "#";
             return `/seller/${slug}`;
           })()}
@@ -449,7 +452,7 @@ export default memo(function MarketplaceListingCard({
         >
           {(() => {
             const email = item.sellerEmail;
-            const username = sellerProfileDisplayName(item, "Seller");
+            const username = resolveSellerCardDisplayName(item, sellerHandles, "Seller");
             const initial = username.charAt(0).toUpperCase();
             const stats = sellerReviewStats[email || ""];
             const avgRating = stats ? stats.avg : 0;

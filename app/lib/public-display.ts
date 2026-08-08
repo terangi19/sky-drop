@@ -107,6 +107,63 @@ export function sellerProfileDisplayName(
   return looksLikeUid ? fallback : slug;
 }
 
+function isSafePublicHandle(value: string | undefined | null): string | null {
+  const raw = String(value || "").trim();
+  if (!raw || isEmailLike(raw)) return null;
+  const handle = stripAtPrefix(raw);
+  if (!handle || isEmailLike(handle)) return null;
+  if (/^[A-Za-z0-9_-]{16,}$/.test(handle) || /^uid[-_]/i.test(handle)) return null;
+  return handle;
+}
+
+/**
+ * Listing-card seller label. Prefers live profile handles over stale listing docs.
+ * Never falls back to email.
+ *
+ * Priority:
+ * 1. sellerHandles[sellerEmail] (fresh profile username)
+ * 2. safe listing sellerUsername
+ * 3. existing sellerProfileDisplayName logic
+ * 4. fallback ("Seller")
+ */
+export function resolveSellerCardDisplayName(
+  fields: SellerLinkFields | null | undefined,
+  sellerHandles?: Record<string, string> | null,
+  fallback = "Seller"
+): string {
+  const email = String(fields?.sellerEmail || "").trim();
+  if (email && sellerHandles) {
+    const fresh = isSafePublicHandle(sellerHandles[email]);
+    if (fresh) return fresh;
+  }
+
+  const listingUsername = isSafePublicHandle(fields?.sellerUsername);
+  if (listingUsername) {
+    const emailLocal =
+      email && isEmailLike(email)
+        ? email.split("@")[0]?.toLowerCase() || ""
+        : "";
+    if (!emailLocal || listingUsername.toLowerCase() !== emailLocal) {
+      return listingUsername;
+    }
+  }
+
+  return sellerProfileDisplayName(fields, fallback);
+}
+
+/** Profile path segment for cards — prefer live handle, never email. */
+export function resolveSellerCardProfileSlug(
+  fields: SellerLinkFields | null | undefined,
+  sellerHandles?: Record<string, string> | null
+): string {
+  const email = String(fields?.sellerEmail || "").trim();
+  if (email && sellerHandles) {
+    const fresh = isSafePublicHandle(sellerHandles[email]);
+    if (fresh) return fresh;
+  }
+  return sellerProfileSlug(fields);
+}
+
 /** Query value for `/messages?user=` — username first, then UID, then email as fallback. */
 export function sellerMessageTarget(
   fields: SellerLinkFields | null | undefined

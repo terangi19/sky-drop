@@ -88,7 +88,7 @@ export default function WantedPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [loadingListings, setLoadingListings] = useState(true);
 
-  const { sellerReviewStats, sellerBadges, sellerFullyVerified } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified } = useSellerListingMeta(listings);
 
   useEffect(() => {
     const refreshRecentlyViewed = () => setRecentlyViewed(getRecentlyViewed());
@@ -480,6 +480,7 @@ export default function WantedPage() {
                   onMakeOffer={(listing) => router.push(`/post/listing/${listing.id}`)}
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
+                  sellerHandles={sellerHandles}
                   sellerFullyVerified={sellerFullyVerified}
                 />
               ))}

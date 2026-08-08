@@ -209,7 +209,7 @@ export default function Home() {
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const [authReady, setAuthReady] = useState(false);
   const [listingsRetry, setListingsRetry] = useState(0);
-  const { sellerReviewStats, sellerBadges, sellerFullyVerified, sellerJoinedDate, sellerListingCount } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified, sellerJoinedDate, sellerListingCount } = useSellerListingMeta(listings);
   const [savedSearches, setSavedSearches] = useState<Array<{query: string; category: string; label: string}>>([]);
   const [showSaveSearch, setShowSaveSearch] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Listing | null>(null);
@@ -1230,6 +1230,7 @@ export default function Home() {
                 }}
                 sellerReviewStats={sellerReviewStats}
                 sellerBadges={sellerBadges}
+                sellerHandles={sellerHandles}
                 sellerFullyVerified={sellerFullyVerified}
                 sellerJoinedDate={sellerJoinedDate}
                 sellerListingCount={sellerListingCount}

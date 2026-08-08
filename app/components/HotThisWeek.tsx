@@ -15,9 +15,9 @@ import { PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 import DragScrollCarousel, { useDragGuardClick } from "./DragScrollCarousel";
 import ListingImage, { listingHasImage } from "./ListingImage";
 import {
+  resolveSellerCardDisplayName,
+  resolveSellerCardProfileSlug,
   sellerMessagesUrl,
-  sellerProfileDisplayName,
-  sellerProfileSlug,
 } from "../lib/public-display";
 
 interface HotItem {
@@ -49,6 +49,7 @@ interface HotThisWeekProps {
   user?: User | null;
   sellerReviewStats?: Record<string, { avg: number; count: number }>;
   sellerBadges?: Record<string, string>;
+  sellerHandles?: Record<string, string>;
   sellerFullyVerified?: Record<string, boolean>;
 }
 
@@ -61,6 +62,7 @@ export default function HotThisWeek({
   listingWatchlistCount: watchlistCountFn = listingWatchlistCount,
   listingWatchlistGlowIntensity: watchlistGlowFn = listingWatchlistGlowIntensity,
   user: userProp,
+  sellerHandles = {},
 }: HotThisWeekProps) {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -92,9 +94,9 @@ export default function HotThisWeek({
           const hotGlow = watchlistGlowFn(hotSaves);
           const hasImage = listingHasImage(item);
           const sellerEmail = item.sellerEmail || "";
-          const username = sellerProfileDisplayName(item);
+          const username = resolveSellerCardDisplayName(item, sellerHandles);
           const isOwnListing = Boolean(user?.email && user.email === sellerEmail);
-          const profileSlug = sellerProfileSlug(item);
+          const profileSlug = resolveSellerCardProfileSlug(item, sellerHandles);
           const profileHref = isOwnListing
             ? "/profile"
             : profileSlug

@@ -80,7 +80,7 @@ export default function OpportunitiesPage() {
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  const { sellerReviewStats, sellerBadges, sellerFullyVerified } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified } = useSellerListingMeta(listings);
 
   useEffect(() => {
     const refreshRecentlyViewed = () => setRecentlyViewed(getRecentlyViewed());
@@ -377,6 +377,7 @@ export default function OpportunitiesPage() {
           user={user}
           sellerReviewStats={sellerReviewStats}
           sellerBadges={sellerBadges}
+          sellerHandles={sellerHandles}
         />
         {listings.length === 0 ? (
           <div className="mx-auto max-w-md mt-12 text-center">
@@ -450,6 +451,7 @@ export default function OpportunitiesPage() {
                   onMakeOffer={(listing) => router.push(`/post/listing/${listing.id}`)}
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
+                  sellerHandles={sellerHandles}
                   sellerFullyVerified={sellerFullyVerified}
                 />
               ))}
