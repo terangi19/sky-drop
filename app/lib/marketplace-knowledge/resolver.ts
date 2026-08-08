@@ -20,6 +20,8 @@ import type {
   KnowledgeProvenance,
 } from "./types";
 
+export type { MarketplaceResolveResult };
+
 export type ResolveMarketplaceOptions = {
   conversationKey?: string;
   priorContext?: DomainConversationContext | null;
