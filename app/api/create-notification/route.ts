@@ -6,6 +6,7 @@ import { isAdminEmail } from "../../lib/admin-check";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
 import { assertNotificationAllowed } from "../../lib/notification-policy";
+import { profileAllowsNotificationDelivery } from "../../lib/notification-prefs";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -90,6 +91,23 @@ export async function POST(req: NextRequest) {
     });
     if (policy.ok === false) {
       return NextResponse.json({ error: policy.reason }, { status: 403 });
+    }
+
+    // Honour recipient notification preferences (profiles/* from save-profile)
+    try {
+      const prefSnap = await db
+        .collection("profiles")
+        .where("email", "==", target)
+        .limit(1)
+        .get();
+      if (!prefSnap.empty) {
+        const prefs = prefSnap.docs[0].data();
+        if (!profileAllowsNotificationDelivery(prefs, type)) {
+          return NextResponse.json({ success: true, skipped: true, reason: "prefs" });
+        }
+      }
+    } catch (prefErr) {
+      console.error("[create-notification] pref check failed (fail-open):", prefErr);
     }
 
     const ref = await db.collection("notifications").add({

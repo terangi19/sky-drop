@@ -1,4 +1,5 @@
 import { getAdminDb, isAdminInitialized } from "./firebase-admin";
+import { profileAllowsNotificationDelivery } from "./notification-prefs";
 
 interface SystemNotificationInput {
   targetEmail: string;
@@ -23,6 +24,12 @@ export async function createSystemNotification(input: SystemNotificationInput): 
 
   const targetProfile = await db.collection("profiles").where("email", "==", target).limit(1).get();
   const targetUid = targetProfile.empty ? null : targetProfile.docs[0].id;
+  if (!targetProfile.empty) {
+    const prefs = targetProfile.docs[0].data();
+    if (!profileAllowsNotificationDelivery(prefs, input.type)) {
+      return;
+    }
+  }
 
   const notification = {
     type: input.type,

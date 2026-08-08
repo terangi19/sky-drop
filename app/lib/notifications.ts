@@ -55,9 +55,15 @@ export async function createNotification(input: NotificationInput) {
     });
     if (!res.ok) {
       console.error("Failed to create notification:", res.status, await res.text().catch(() => ""));
+      return;
+    }
+    const created = (await res.json().catch(() => ({}))) as { skipped?: boolean };
+    if (created.skipped) {
+      return;
     }
   } catch (e) {
     console.error("Failed to create notification:", e);
+    return;
   }
 
   // Push notification
