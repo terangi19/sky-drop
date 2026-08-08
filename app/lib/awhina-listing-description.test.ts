@@ -1356,6 +1356,60 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     expect(rewritten.listingFill?.vehicleOdometer).toBe("145000");
   });
 
+  it("description layer: dirty iPhone title → clean prose, no Like-new vs scratches", () => {
+    // Confirmed draft shape that extraction currently produces (description-only fix)
+    const dirtyTitle =
+      "Like New iPhone 15 Pro 256gb Black, Couple Scratches ON Sides But";
+    const desc = buildListingDescriptionFromFacts({
+      title: dirtyTitle,
+      condition: "Used - Like New",
+      price: "900",
+      location: "Henderson, Auckland",
+      pickupAvailable: true,
+      listingType: "physical",
+      category: "Tech",
+      extras: [
+        "256GB",
+        "black",
+        "Couple scratches on the sides",
+        "Screen is mint",
+        "Battery health 89%",
+      ],
+    });
+    expect(desc).not.toMatch(/like-new|like new/i);
+    expect(desc).not.toMatch(/Couple Scratches ON Sides But/i);
+    expect(desc).not.toMatch(/,\s*Couple Scratches/i);
+    expect(desc).toMatch(/iPhone\s*15\s*Pro/i);
+    expect(desc).toMatch(/256\s*GB/i);
+    expect(desc).toMatch(/black/i);
+    expect(desc).toMatch(/scratch/i);
+    expect(desc).toMatch(/screen/i);
+    expect(desc).toMatch(/89\s*%/);
+    expect(desc).toMatch(/Henderson|Auckland/i);
+    expect(desc).toMatch(/\$900/);
+    expect(desc).toMatch(/pickup/i);
+    assertNaturalMarketplaceCopy(desc);
+  });
+
+  it("description layer: lifts scratch clause from dirty title when extras sparse", () => {
+    const desc = buildListingDescriptionFromFacts({
+      title: "Like New iPhone 15 Pro 256gb Black, Couple Scratches ON Sides But",
+      condition: "Used - Like New",
+      price: "900",
+      location: "Auckland",
+      pickupAvailable: true,
+      listingType: "physical",
+      category: "Tech",
+      extras: ["256GB", "black"],
+    });
+    expect(desc).not.toMatch(/like-new|Like-new/i);
+    expect(desc).not.toMatch(/Couple Scratches ON Sides But/i);
+    expect(desc).toMatch(/scratch/i);
+    expect(desc).toMatch(/256\s*GB/i);
+    expect(desc).toMatch(/\$900/);
+    assertNaturalMarketplaceCopy(desc);
+  });
+
   it("sparse listing may use generic condition copy", () => {
     const desc = buildListingDescriptionFromFacts({
       title: "Item",

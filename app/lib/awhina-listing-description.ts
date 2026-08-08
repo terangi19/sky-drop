@@ -143,7 +143,7 @@ const PRICE_PURPOSE_RE =
   /\b(asking|priced at|per (hour|job|day|week|month)|\$\d|\bbond\b|\/week|\/day|\/month)\b/i;
 
 const UNSUPPORTED_CLAIM_RE =
-  /\b(warranty|receipt|authenticity|genuine|factory sealed|unopened|battery health|serviced recently|full service history|WOF|rego current|insured|years of experience|guaranteed|fully equipped)\b/i;
+  /\b(warranty|receipt|authenticity|genuine|factory sealed|unopened|serviced recently|full service history|WOF|rego current|insured|years of experience|guaranteed|fully equipped)\b/i;
 
 /* ─── Tiny helpers ──────────────────────────────────────────────────────── */
 
@@ -183,6 +183,180 @@ function conditionShort(condition: string | undefined): string | null {
   if (c === "Used - Good") return "good used condition";
   if (c === "Used - Fair") return "fair used condition";
   return c.toLowerCase();
+}
+
+/**
+ * Identity-only label for writers — never raw freeform defect tails.
+ * Keeps storage/colour tokens that belong in the product name.
+ */
+export function cleanDescriptionItemName(raw: string): string {
+  let s = String(raw || "")
+    .replace(/^(brand\s+new|like\s+new)\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  s = s
+    .replace(
+      /[,;]?\s*(?:couple(?:\s+of)?\s+)?(?:scratches?|scuffs?|dents?|dings?).*$/i,
+      ""
+    )
+    .replace(/[,;]?\s*battery\s+health.*$/i, "")
+    .replace(/[,;]?\s*screen\s+is\b.*$/i, "")
+    .replace(/\s+but\s*$/i, "")
+    .replace(/[,;]+$/g, "")
+    .replace(/\b(\d+)\s*(gb|tb)\b/gi, (_, n, u) => `${n}${String(u).toUpperCase()}`)
+    .replace(/\s+/g, " ")
+    .trim();
+  // Soft-normalize colour casing at end: "Black" → "black" only when trailing
+  s = s.replace(/\b(Black|White|Silver|Grey|Gray|Blue|Red|Green|Gold)\s*$/g, (m) =>
+    m.toLowerCase()
+  );
+  return s || String(raw || "").trim();
+}
+
+function normalizeLiftedFact(raw: string): string {
+  let s = raw.replace(/\s+/g, " ").trim();
+  s = s.replace(/\b(\d+)\s*(gb|tb)\b/gi, (_, n, u) => `${n}${String(u).toUpperCase()}`);
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * Description input mapping: freeform seller clauses sometimes land in the title
+ * instead of extras. Lift them for prose — do not invent beyond what's already
+ * present on the confirmed draft title/extras.
+ */
+export function liftFreeformFactsFromConfirmedText(...blobs: string[]): string[] {
+  const text = blobs.filter(Boolean).join(" \n ");
+  if (!text.trim()) return [];
+  const out: string[] = [];
+  const push = (raw: string | null | undefined) => {
+    if (!raw) return;
+    const n = normalizeLiftedFact(raw);
+    if (n.length < 3 || n.length > 180) return;
+    if (out.some((e) => e.toLowerCase() === n.toLowerCase())) return;
+    out.push(n);
+  };
+
+  const wear = text.match(
+    /\b((?:a\s+|couple(?:\s+of)?\s+|some\s+|light\s+|minor\s+|small\s+)?(?:scratches?|scuffs?|dents?|dings?)(?:\s+on\s+(?:the\s+)?(?:sides?|back|edges?|corners?|frame|body|lid))?)\b/i
+  );
+  if (wear?.[1]) push(wear[1]);
+
+  const screen = text.match(
+    /\b(screen\s+(?:is\s+)?(?:mint|perfect|flawless|cracked|smashed|good|fine|clean|excellent))\b/i
+  );
+  if (screen?.[1]) push(screen[1]);
+
+  const batt = text.match(/\bbattery\s+health\s*(?:is\s*|at\s*)?(\d{1,3})\s*%/i);
+  if (batt?.[1]) {
+    const pct = Number(batt[1]);
+    if (Number.isFinite(pct) && pct >= 1 && pct <= 100) push(`Battery health ${pct}%`);
+  }
+
+  const mods = text.match(
+    /\b((?:modified|upgraded)\s+with\s+[^.!?\n]{8,160})/i
+  );
+  if (mods?.[1]) {
+    push(mods[1].replace(/[,;]+$/g, "").trim());
+  }
+
+  const recently = text.match(
+    /\b(recently\s+serviced|full\s+service\s+history|new\s+tyres|new\s+tires|includes?\s+(?:the\s+)?(?:box|charger|case|manual))\b/i
+  );
+  if (recently?.[1]) push(recently[1]);
+
+  return out.slice(0, 8);
+}
+
+/** Downgrade optimistic condition phrases when extras/title confirm wear/damage. */
+function reconcileConditionPhrase(
+  phrase: string | null,
+  extras: string[],
+  title?: string
+): string | null {
+  if (!phrase) return phrase;
+  const blob = `${extras.join(" ")} ${title || ""}`.toLowerCase();
+  const hasWear =
+    /\b(scratches?|scuffs?|dents?|dings?|cracks?|chips?|wear|worn|damaged?)\b/i.test(
+      blob
+    );
+  if (!hasWear) return phrase;
+  if (/brand new|like-new/i.test(phrase)) return "good used condition";
+  return phrase;
+}
+
+/** Turn confirmed extras into buyer prose — never raw slot concatenation. */
+function composeExtrasProse(extras: string[]): string | null {
+  const bits = extras
+    .map((e) =>
+      String(e || "")
+        .replace(/^storage:/i, "")
+        .replace(/^variant:/i, "")
+        .replace(/^visual:\s*/i, "")
+        .replace(/\s+/g, " ")
+        .trim()
+    )
+    .filter((e) => e.length >= 3)
+    .filter((e) => !/^(brand|new|like|console|the|and|for|with|black|white)$/i.test(e));
+
+  if (!bits.length) return null;
+
+  const wear: string[] = [];
+  const positives: string[] = [];
+  const battery: string[] = [];
+  const other: string[] = [];
+
+  for (const b of bits) {
+    if (/\bbattery\s+health\b/i.test(b)) battery.push(b);
+    else if (/\b(scratches?|scuffs?|dents?|dings?|cracks?|chips?|wear)\b/i.test(b))
+      wear.push(b);
+    else if (/\bscreen\b/i.test(b)) positives.push(b);
+    else if (/\b(modif|upgraded|turbo|intercooler|downpipe|intake)\b/i.test(b)) {
+      other.push(b.endsWith(".") ? b.slice(0, -1) : b);
+    } else other.push(b);
+  }
+
+  const sentences: string[] = [];
+  if (wear.length && positives.length) {
+    sentences.push(
+      polishParagraph(
+        `Has ${wear.map((w) => w.toLowerCase()).join(" and ")}, but the ${positives
+          .map((p) => p.replace(/^screen\s+is\s+/i, "screen is ").toLowerCase())
+          .join(" and ")}.`
+      )
+    );
+  } else {
+    if (wear.length) {
+      sentences.push(
+        polishParagraph(
+          `Has ${wear.map((w) => w.toLowerCase()).join(" and ")}.`
+        )
+      );
+    }
+    if (positives.length) {
+      sentences.push(
+        polishParagraph(
+          `${capFirst(
+            positives
+              .map((p) => p.replace(/^screen\s+is\s+/i, "screen is ").toLowerCase())
+              .join("; ")
+          )}.`
+        )
+      );
+    }
+  }
+  for (const b of battery) {
+    const m = b.match(/(\d{1,3})\s*%/);
+    sentences.push(
+      polishParagraph(
+        m ? `Battery health is at ${m[1]}%.` : `${capFirst(b.toLowerCase())}.`
+      )
+    );
+  }
+  for (const o of other) {
+    sentences.push(polishParagraph(o.endsWith(".") ? o : `${o}.`));
+  }
+  return sentences.join(" ") || null;
 }
 
 function deliveryMode(fill: SkyAiListingFill): DeliveryMode {
@@ -243,14 +417,16 @@ function weaveableExtras(fill: SkyAiListingFill): string[] {
     .filter((e) => !/^kw:/i.test(e))
     .filter((e) => !/^visual:/i.test(e))
     .filter((e) => !/^(brand|new|like|console|the|and|for|with)$/i.test(e))
+    // Keep structured storage tags as readable facts for identity (title already has them)
+    .filter((e) => !/^storage:/i.test(e))
     .filter(
       (e) =>
         e.split(/\s+/).length >= 2 ||
-        /servic|tyre|tire|receipt|paperwork|wof|rego|mod|include|controller|charger|box|manual|warranty/i.test(
+        /servic|tyre|tire|receipt|paperwork|wof|rego|mod|include|controller|charger|box|manual|warranty|battery|scratches?|scuffs?|dents?|screen|turbo|intake|intercooler|downpipe/i.test(
           e
         )
     )
-    .slice(0, 4);
+    .slice(0, 6);
 }
 
 function capitalizeSentenceStart(text: string): string {
@@ -563,14 +739,24 @@ export function extractDescriptionFacts(
   const kind = resolveWriterKind(fill, style);
   const title = (fill.title || "").trim();
   const titleHadCondition = /\b(brand\s+new|like\s+new)\b/i.test(title);
-  let bare = stripTitleConditionPrefix(title) || (kind === "service" ? "Service" : "Item");
+  let bare =
+    cleanDescriptionItemName(stripTitleConditionPrefix(title)) ||
+    (kind === "service" ? "Service" : "Item");
   if (kind === "rental") {
     bare = cleanRentalItemName(bare) || bare;
   }
   const location = (fill.location || fill.pickupArea || "").trim() || null;
   const money = formatMoneyPlain(fill.price);
   const delivery = deliveryMode(fill);
-  const extras = weaveableExtras(fill);
+  // Confirmed extras + freeform clauses already present on title (input mapping only)
+  const woven = weaveableExtras(fill);
+  const lifted = liftFreeformFactsFromConfirmedText(title, ...(fill.extras || []));
+  const extras = [
+    ...woven,
+    ...lifted.filter(
+      (f) => !woven.some((e) => e.toLowerCase() === f.toLowerCase())
+    ),
+  ].slice(0, 8);
 
   let priceMode: PriceMode = money ? "asking" : null;
   let serviceDuration: string | null = null;
@@ -643,7 +829,11 @@ export function extractDescriptionFacts(
         }) || guardAdjacentIdentityDuplication(bare)
       : guardAdjacentIdentityDuplication(bare);
 
-  const conditionPhrase = conditionShort(fill.condition);
+  const conditionPhrase = reconcileConditionPhrase(
+    conditionShort(fill.condition),
+    extras,
+    title
+  );
 
   let knownBits = 0;
   if (item && !/^item$/i.test(item)) knownBits++;
@@ -1012,6 +1202,10 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
   if (!facts.extras.some((e) => /\b(authentic|genuine)\b/i.test(e))) {
     text = text.replace(/\b(authentic|genuine)\b/gi, "").replace(/\s{2,}/g, " ");
   }
+  // Battery health only when confirmed in extras
+  if (!facts.extras.some((e) => /battery/i.test(e))) {
+    text = text.replace(/\s*[^.]*\bbattery health[^.]*\./gi, " ").trim();
+  }
 
   text = finalGrammarCleanup(text);
 
@@ -1146,9 +1340,10 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
 
 /** Weave condition into the noun phrase once — never as a trailing field stub. */
 function physicalNounPhrase(facts: DescriptionFacts): string {
-  const item = facts.item;
+  const item = cleanDescriptionItemName(facts.item) || facts.item;
   const cond = facts.conditionPhrase;
   if (!cond) return item;
+  // Never lead with like-new / brand-new when wear extras contradict
   if (/brand new/i.test(cond)) return `brand new ${item}`;
   if (/like-new/i.test(cond)) return `like-new ${item}`;
   return `${item} in ${cond}`;
@@ -1208,9 +1403,8 @@ function writePhysical(facts: DescriptionFacts): string {
   }
   // Simple pickup: weave into CTA ("arrange pickup") — avoids a second logistics stitch
 
-  if (facts.extras.length) {
-    parts.push(capFirst(`${facts.extras.join("; ")}.`));
-  }
+  const extrasProse = composeExtrasProse(facts.extras);
+  if (extrasProse) parts.push(extrasProse);
 
   return parts.join(" ");
 }
@@ -1259,15 +1453,9 @@ function writeVehicle(facts: DescriptionFacts): string {
   }
 
   // Freeform mods / extras — preserve seller wording, do not invent
-  const modExtras = facts.extras.filter((e) =>
-    /\b(modif|upgraded|turbo|intercooler|downpipe|intake|exhaust|tuned|stage\s*\d)\b/i.test(e)
-  );
-  const otherExtras = facts.extras.filter((e) => !modExtras.includes(e));
-  for (const mod of modExtras) {
-    parts.push(polishParagraph(mod.endsWith(".") ? mod : `${mod}.`));
-  }
-  if (otherExtras.length) {
-    parts.push(capFirst(`${otherExtras.join("; ")}.`));
+  const extrasProse = composeExtrasProse(facts.extras);
+  if (extrasProse) {
+    parts.push(extrasProse);
   }
 
   if (facts.conditionPhrase && facts.conditionPhrase !== "brand new" && facts.money) {
@@ -1478,6 +1666,45 @@ function writeFromFacts(facts: DescriptionFacts): string {
  * Vehicles: blank until getVehicleDraftReadiness says buyer copy is worth generating,
  * unless the seller explicitly asked to write/improve the description (force).
  */
+/**
+ * Final contradiction guard — optimistic condition vs wear extras / body copy.
+ */
+export function applyDescriptionContradictionGuard(
+  text: string,
+  facts: DescriptionFacts
+): string {
+  let out = text;
+  const extrasBlob = facts.extras.join(" ");
+  const hasWear =
+    /\b(scratches?|scuffs?|dents?|dings?|cracks?|chips?|wear|worn|damaged?)\b/i.test(
+      extrasBlob
+    ) ||
+    /\b(scratches?|scuffs?|dents?|dings?|cracks?|chips?)\b/i.test(out);
+  if (hasWear) {
+    out = out
+      .replace(/\blike-new\b/gi, "good used condition")
+      .replace(/\blike new\b/gi, "good used condition")
+      .replace(/\bLike-new\b/g, "Good used condition")
+      .replace(/\bbrand new\b/gi, "used");
+    out = out.replace(
+      /\bin good used condition\b([^.]*)\bgood used condition\b/gi,
+      "in good used condition$1"
+    );
+    // "good used condition iPhone … in good used condition" after prefix rewrite
+    out = out.replace(
+      /^Good used condition\s+(.+?\bin good used condition\b)/i,
+      "$1"
+    );
+  }
+  // Never leave raw defect tails inside the identity noun from a dirty title
+  out = out.replace(
+    /iPhone[^.]*?,\s*Couple\s+Scratches[^.]*?(?= for sale|\s+in\s|\s+asking|, asking)/gi,
+    (m) => m.replace(/,.*/i, "").trim()
+  );
+  out = out.replace(/\b(\d+)\s*(gb|tb)\b/gi, (_, n, u) => `${n}${String(u).toUpperCase()}`);
+  return polishParagraph(out);
+}
+
 export function buildListingDescriptionFromFacts(
   fill: SkyAiListingFill,
   opts?: { quality?: ListingDescriptionQuality; force?: boolean }
@@ -1508,16 +1735,24 @@ export function buildListingDescriptionFromFacts(
         .join(" ") ||
       "Vehicle";
   }
+  // Physical: always use cleaned identity (never raw freeform concat)
+  if (facts.kind === "physical") {
+    facts.item = cleanDescriptionItemName(facts.item) || facts.item;
+  }
   const draft = writeFromFacts(facts);
   if (!draft.trim()) return "";
-  const out = runQualityPass(draft, facts);
+  let out = runQualityPass(draft, facts);
+  out = applyDescriptionContradictionGuard(out, facts);
   // ASSERT: rich confirmed context must not collapse to generic Item filler
   if (
     /^item\b/i.test(out) &&
     facts.factRichness === "rich" &&
     facts.kind === "vehicle"
   ) {
-    return runQualityPass(writeFromFacts(facts), facts);
+    out = applyDescriptionContradictionGuard(
+      runQualityPass(writeFromFacts(facts), facts),
+      facts
+    );
   }
   return out;
 }
