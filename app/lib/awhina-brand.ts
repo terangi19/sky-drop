@@ -5,6 +5,9 @@ export const AWHINA_INTRO = `I'm ${AWHINA_NAME}, your Sky Drop assistant.`;
 
 export const AWHINA_ASK_LABEL = `Ask ${AWHINA_NAME} Anything`;
 
+/** Short launcher hover / a11y label — keep FAB free of permanent text. */
+export const AWHINA_LAUNCHER_LABEL = `Ask ${AWHINA_NAME}`;
+
 export const AWHINA_THINKING = `${AWHINA_NAME} is thinking…`;
 
 export const AWHINA_REQUEST_FAILED = `${AWHINA_NAME} request failed`;
