@@ -81,7 +81,7 @@ describe("sky-ai find routing", () => {
   it("returns concise single-line confirmation", () => {
     const reply = tryFindBrowseReply("Find me a BMW spoiler");
     const shown = stripSkyAiMachineTags(reply!.text);
-    expect((shown.match(/opening/gi) || []).length).toBe(1);
+    expect((shown.match(/opening|showing/gi) || []).length).toBe(1);
     expect(shown).not.toMatch(/search results for/i);
   });
 });

@@ -26,6 +26,15 @@ import {
   suggestListingImprovements,
   tryMarketplaceEducationReply,
   delightSearchLead,
+  buildPremiumSearchSummary,
+  buildPostListingNextActions,
+  buildNoResultReply,
+  proposeSearchRelaxation,
+  shouldAutoNavigate,
+  isExplicitNavigationAction,
+  polishAwhinaReplyStyle,
+  progressStatesForRoute,
+  maybeOneProactiveSuggestion,
 } from "./awhina-product-ux";
 import {
   resetAwhinaObsForTests,
@@ -169,6 +178,138 @@ describe("listing comparison", () => {
     expect(r.reply).toMatch(/PS5 Disc Auckland/);
     expect(r.reply).toMatch(/Xbox Series S/);
     expect(r.reply).toMatch(/not listed/);
+  });
+
+  it("separates cheapest newest mileage reputation from real fields", () => {
+    const text = summarizeListingComparison([
+      {
+        title: "2018 Mazda Axela",
+        price: "11500",
+        year: 2018,
+        make: "Mazda",
+        model: "Axela",
+        mileage: "128000",
+        location: "Auckland",
+        sellerReputation: "4.8★ (12 reviews)",
+        createdAtMs: Date.now() - 86_400_000 * 10,
+      },
+      {
+        title: "2019 Mazda Axela",
+        price: "13200",
+        year: 2019,
+        make: "Mazda",
+        model: "Axela",
+        mileage: "90000",
+        location: "Wellington",
+        sellerReputation: "4.2★ (3 reviews)",
+        createdAtMs: Date.now() - 86_400_000,
+      },
+    ]);
+    expect(text).toMatch(/Cheapest/i);
+    expect(text).toMatch(/Newest/i);
+    expect(text).toMatch(/Lower mileage/i);
+    expect(text).toMatch(/Stronger reputation/i);
+  });
+
+  it("compare uses pageListings facts when provided", () => {
+    const id = conv("ux-compare-page");
+    const r = processCanonicalAwhina("compare these two", {
+      conversationId: id,
+      pathname: "/search",
+      pageListings: [
+        { title: "BMW 320i", price: "18000", year: 2016, mileage: "95000", location: "Auckland" },
+        { title: "BMW 320d", price: "16500", year: 2015, mileage: "120000", location: "Hamilton" },
+      ],
+    });
+    expect(r.intent).toBe("compare");
+    expect(r.reply).toMatch(/Cheapest/i);
+    expect(r.navigateTo).toBeUndefined();
+  });
+});
+
+describe("premium search no-result nav post-listing", () => {
+  it("premium summary never invents count before results", () => {
+    const noCount = buildPremiumSearchSummary({ query: "BMW", location: "Auckland" });
+    expect(noCount).not.toMatch(/\d+ match/);
+    const withCount = buildPremiumSearchSummary({
+      query: "BMW",
+      location: "Auckland",
+      count: 7,
+      cheapestPrice: 9000,
+    });
+    expect(withCount).toMatch(/7/);
+    expect(withCount).toMatch(/9[,]?000/);
+  });
+
+  it("no-result proposes grounded budget relaxation", () => {
+    const r = proposeSearchRelaxation({ query: "PS5", maxPrice: "400" });
+    expect(r?.whatChanged).toMatch(/budget|400/i);
+    expect(Number(r!.filters.maxPrice)).toBeGreaterThan(400);
+  });
+
+  it("no-result reply states what changed", () => {
+    expect(
+      buildNoResultReply({
+        query: "PS5",
+        whatChanged: "raised budget from $400 to $500",
+        followUpCount: 3,
+      })
+    ).toMatch(/raised budget.*3/i);
+  });
+
+  it("canonical no-result follow-up relaxes search", () => {
+    const id = conv("ux-nores");
+    processCanonicalAwhina("Find me PS5 under 400", { conversationId: id, pathname: "/" });
+    const r = processCanonicalAwhina("no results", { conversationId: id, pathname: "/search" });
+    expect(r.handled).toBe(true);
+    expect(r.tool).toBe("searchListings");
+    expect(r.reply?.toLowerCase()).toMatch(/budget|raised|dropped|widened|nothing/);
+  });
+
+  it("safety answers in place without auto-nav", () => {
+    const id = conv("ux-safe-nav");
+    const r = processCanonicalAwhina("is this safe to buy?", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(r.handled).toBe(true);
+    expect(r.navigateTo).toBeUndefined();
+    expect(shouldAutoNavigate({ message: "is this safe to buy?", intent: "education" })).toBe(
+      false
+    );
+    expect(isExplicitNavigationAction("open messages")).toBe(true);
+  });
+
+  it("post listing actions drop Facebook Trade Me menu", () => {
+    const text = buildPostListingNextActions(
+      { title: "PS5", description: "short", price: "500", listingType: "physical" },
+      { hasPhotos: false, vagueFollowUp: true }
+    );
+    expect(text.toLowerCase()).toMatch(/photo|publish/);
+    expect(text).not.toMatch(/Facebook|Trade Me/i);
+  });
+
+  it("at most one proactive suggestion", () => {
+    expect(
+      maybeOneProactiveSuggestion({
+        evidence: { kind: "search_refine", hasBudget: false, hasLocation: false, query: "PS5" },
+      })
+    ).toMatch(/budget|city|PS5/i);
+    expect(
+      maybeOneProactiveSuggestion({
+        lastSuggestedAt: Date.now() - 1000,
+        evidence: { kind: "search_refine", hasBudget: false, hasLocation: false, query: "PS5" },
+      })
+    ).toBeNull();
+  });
+
+  it("progress states are few", () => {
+    expect(progressStatesForRoute("local")).toEqual([]);
+    expect(progressStatesForRoute("vision").length).toBeLessThanOrEqual(3);
+  });
+
+  it("polish strips Navigating spam", () => {
+    expect(polishAwhinaReplyStyle("Awesome! Navigating…")).not.toMatch(/Awesome|Navigating/i);
   });
 });
 

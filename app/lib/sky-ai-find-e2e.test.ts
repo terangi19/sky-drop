@@ -75,7 +75,7 @@ describe("find/search UX e2e", () => {
         const reply = tryFindBrowseReply(message);
         expect(reply, message).toBeTruthy();
         expectSingleFindConfirmation(reply!.text);
-        expect(displayText(reply!.text)).toMatch(/opening/i);
+        expect(displayText(reply!.text)).toMatch(/opening|showing/i);
       }
     });
 

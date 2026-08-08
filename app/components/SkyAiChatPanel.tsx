@@ -41,6 +41,10 @@ import { resolveVoiceCommand } from "../lib/awhina-voice-command";
 import { showToast } from "./Toast";
 import { useVoiceInput } from "../hooks/useVoiceInput";
 import type { SkyAiConversationSummary } from "../lib/sky-ai-types";
+import {
+  AWHINA_PROGRESS_LABELS,
+  type AwhinaProgressState,
+} from "../lib/awhina-product-ux";
 
 export type SkyAiChatPanelMode = "sheet" | "inline";
 
@@ -52,6 +56,8 @@ type ChatMessage = {
   images?: string[];
   navigating?: boolean;
   streaming?: boolean;
+  /** Structured SSE progress — few real states, not Navigating spam */
+  progressLabel?: string;
 };
 
 type PendingAttachment = { dataUrl: string; name: string };
@@ -537,6 +543,7 @@ export default function SkyAiChatPanel({
                   text?: string;
                   reply?: string;
                   navigateTo?: string;
+                  state?: AwhinaProgressState;
                   listingFill?: SkyAiListingFill;
                   conversationId?: string;
                   awhinaSession?: {
@@ -546,6 +553,15 @@ export default function SkyAiChatPanel({
                   source?: string;
                   error?: string;
                 };
+                if (evt.type === "progress" && evt.state) {
+                  const label =
+                    AWHINA_PROGRESS_LABELS[evt.state] || "Working…";
+                  updateAssistant(assistantId, {
+                    progressLabel: label,
+                    streaming: true,
+                    navigating: false,
+                  });
+                }
                 if (evt.type === "delta" && evt.text) {
                   accumulated += evt.text;
                   const stripped = stripSkyAiMachineTags(accumulated);
@@ -557,6 +573,7 @@ export default function SkyAiChatPanel({
                   updateAssistant(assistantId, {
                     text: filtered,
                     _rawText: accumulated, // Preserve raw text with LISTING_FILL tags
+                    progressLabel: undefined,
                   });
                 }
                 if (evt.type === "done") {
@@ -582,6 +599,7 @@ export default function SkyAiChatPanel({
                         _rawText: accumulated, // Preserve raw text with LISTING_FILL tags
                         streaming: false,
                         navigating: false,
+                        progressLabel: undefined,
                       });
                     } else {
                       const navFromFill = handleListingFill(evt.listingFill, navigateTo);
@@ -597,6 +615,7 @@ export default function SkyAiChatPanel({
                         _rawText: accumulated, // Preserve raw text with LISTING_FILL tags
                         streaming: false,
                         navigating: !!navigateTo,
+                        progressLabel: undefined,
                       });
                     }
                   } else {
@@ -914,7 +933,7 @@ export default function SkyAiChatPanel({
         }`}
       >
         {messages.map((m) => {
-          if (m.streaming && !m.text) return null;
+          if (m.streaming && !m.text && !m.progressLabel) return null;
           return (
             <div
               key={m.id}
@@ -940,12 +959,15 @@ export default function SkyAiChatPanel({
                   </div>
                 )}
                 {m.text && renderText(m.text)}
+                {m.streaming && !m.text && m.progressLabel && (
+                  <p className="text-[11px] text-sky-300/80">{m.progressLabel}</p>
+                )}
                 {m.streaming && m.text && (
                   <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-sky-400/80" />
                 )}
-                {m.navigating && (
+                {m.navigating && !m.streaming && (
                   <p className="mt-1.5 text-[10px] font-medium text-sky-400/90 animate-pulse">
-                    Navigating…
+                    Opening…
                   </p>
                 )}
               </div>

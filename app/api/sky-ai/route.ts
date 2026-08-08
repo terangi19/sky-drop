@@ -38,6 +38,19 @@ import type { SkyAiProfileContext } from "../../lib/sky-ai-profile-context";
 import { runVisionCapability } from "../../lib/awhina-vision-capability";
 import { runFreeformCapability } from "../../lib/awhina-freeform-capability";
 import { confidenceLevelToScore } from "../../lib/awhina-confidence-levels";
+import {
+  buildPostListingNextActions,
+  isCompareRequest,
+  parseCompareTitlesFromMessage,
+  pickCompareFactsFromPage,
+  polishAwhinaReplyStyle,
+  progressStatesForRoute,
+  shouldAutoNavigate,
+  summarizeListingComparison,
+  type AwhinaProgressState,
+  type ListingFacts,
+} from "../../lib/awhina-product-ux";
+import { fetchListingFactsForCompare } from "../../lib/awhina-listing-compare.server";
 
 function listingFillConfirmReply(fill: SkyAiListingFill | undefined): string {
   if (!fill) return "";
@@ -216,22 +229,115 @@ function sseLine(obj: Record<string, unknown>) {
   return `data: ${JSON.stringify(obj)}\n\n`;
 }
 
+function chunkReplyText(text: string, size = 48): string[] {
+  if (!text || text.length <= size) return text ? [text] : [];
+  const out: string[] = [];
+  for (let i = 0; i < text.length; i += size) out.push(text.slice(i, i + size));
+  return out;
+}
+
+function parsePageListings(raw: unknown): ListingFacts[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ListingFacts[] = [];
+  for (const item of raw.slice(0, 12)) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const title = typeof o.title === "string" ? o.title.trim() : "";
+    if (!title) continue;
+    out.push({
+      id: typeof o.id === "string" ? o.id : undefined,
+      title,
+      price: o.price != null ? String(o.price) : null,
+      year: o.year != null ? String(o.year) : o.vehicleYear != null ? String(o.vehicleYear) : null,
+      make: o.make != null ? String(o.make) : o.vehicleMake != null ? String(o.vehicleMake) : null,
+      model: o.model != null ? String(o.model) : o.vehicleModel != null ? String(o.vehicleModel) : null,
+      mileage:
+        o.mileage != null
+          ? String(o.mileage)
+          : o.vehicleOdometer != null
+            ? String(o.vehicleOdometer)
+            : null,
+      condition: o.condition != null ? String(o.condition) : null,
+      location: o.location != null ? String(o.location) : null,
+      sellerReputation: o.sellerReputation != null ? String(o.sellerReputation) : null,
+      delivery: o.delivery != null ? String(o.delivery) : null,
+      listingAge: o.listingAge != null ? String(o.listingAge) : null,
+      category: o.category != null ? String(o.category) : null,
+      createdAtMs: typeof o.createdAtMs === "number" ? o.createdAtMs : null,
+    });
+  }
+  return out;
+}
+
+function parseSearchResultMeta(raw: unknown): {
+  count?: number;
+  cheapestPrice?: number;
+  newestTitle?: string;
+} | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const meta: { count?: number; cheapestPrice?: number; newestTitle?: string } = {};
+  if (typeof o.count === "number" && o.count >= 0) meta.count = o.count;
+  if (typeof o.cheapestPrice === "number" && o.cheapestPrice > 0) meta.cheapestPrice = o.cheapestPrice;
+  if (typeof o.newestTitle === "string" && o.newestTitle.trim()) meta.newestTitle = o.newestTitle.trim().slice(0, 80);
+  return Object.keys(meta).length ? meta : undefined;
+}
+
+/** Local/canonical: instant. Vision/freeform: few progress states + chunked deltas. */
 function respondPayload(
   stream: boolean,
   payload: Record<string, unknown>,
-  status = 200
+  status = 200,
+  opts?: { progress?: AwhinaProgressState[]; chunkReply?: boolean }
 ) {
-  const reply = typeof payload.reply === "string" ? payload.reply : "";
-  if (stream) {
+  const reply = typeof payload.reply === "string" ? polishAwhinaReplyStyle(payload.reply) : "";
+  const donePayload = { ...payload, reply };
+  if (!stream) {
+    return NextResponse.json(donePayload, { status });
+  }
+
+  const progress = opts?.progress?.length ? opts.progress : [];
+  const chunk = opts?.chunkReply === true && reply.length > 80;
+
+  if (!progress.length && !chunk) {
     return new Response(
-      sseLine({ type: "delta", text: reply }) + sseLine({ type: "done", ...payload }),
+      sseLine({ type: "delta", text: reply }) + sseLine({ type: "done", ...donePayload }),
       {
         status,
         headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
       }
     );
   }
-  return NextResponse.json(payload, { status });
+
+  const encoder = new TextEncoder();
+  const body = new ReadableStream({
+    async start(controller) {
+      try {
+        for (const state of progress) {
+          controller.enqueue(encoder.encode(sseLine({ type: "progress", state })));
+          await new Promise((r) => setTimeout(r, 40));
+        }
+        if (chunk) {
+          for (const part of chunkReplyText(reply)) {
+            controller.enqueue(encoder.encode(sseLine({ type: "delta", text: part })));
+            await new Promise((r) => setTimeout(r, 12));
+          }
+        } else {
+          controller.enqueue(encoder.encode(sseLine({ type: "delta", text: reply })));
+        }
+        controller.enqueue(encoder.encode(sseLine({ type: "done", ...donePayload })));
+      } catch (e) {
+        console.warn("sky-ai sse stream error:", e);
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(body, {
+    status,
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+  });
 }
 
 async function safePersist(
@@ -390,7 +496,12 @@ export async function POST(req: NextRequest) {
       },
       ...(vision.degraded && vision.errorCode ? { code: vision.errorCode } : {}),
     };
-    return respondPayload(stream, payload, vision.degraded && vision.errorCode === "missing_openai_key" ? 503 : 200);
+    return respondPayload(
+      stream,
+      payload,
+      vision.degraded && vision.errorCode === "missing_openai_key" ? 503 : 200,
+      { progress: progressStatesForRoute("vision"), chunkReply: true }
+    );
   }
 
   // ── Canonical Āwhina (local + search + sell draft + profile) ──
@@ -415,6 +526,25 @@ export async function POST(req: NextRequest) {
           })
         : undefined;
 
+    const pageListings = parsePageListings(body.pageListings);
+    const searchResultMeta = parseSearchResultMeta(body.searchResultMeta);
+
+    // Real compare: enrich titles with Firestore listing docs when page cards aren't enough
+    let comparePageListings = pageListings;
+    if (isCompareRequest(message) && pageListings.length < 2) {
+      const titles = parseCompareTitlesFromMessage(message);
+      if (titles.length >= 2 || (awhinaSession?.task?.compareCandidates?.length || 0) >= 2) {
+        const needles =
+          titles.length >= 2
+            ? titles
+            : (awhinaSession?.task?.compareCandidates || []).slice(0, 4);
+        const fetched = await fetchListingFactsForCompare(needles);
+        if (fetched.some((f) => f.price || f.condition || f.location || f.mileage)) {
+          comparePageListings = fetched;
+        }
+      }
+    }
+
     const canonical = processCanonicalAwhina(message, {
       pathname,
       uid,
@@ -437,7 +567,24 @@ export async function POST(req: NextRequest) {
           : body.voiceConfidence === "high"
             ? "high"
             : undefined,
+      pageListings: comparePageListings,
+      searchResultMeta,
     });
+
+    // If compare still title-only but we fetched docs, rebuild reply with real facts
+    if (
+      canonical.handled &&
+      canonical.intent === "compare" &&
+      comparePageListings.length >= 2 &&
+      comparePageListings.some((f) => f.price || f.mileage || f.sellerReputation)
+    ) {
+      const titles = parseCompareTitlesFromMessage(message);
+      const facts =
+        titles.length >= 2
+          ? pickCompareFactsFromPage(titles, comparePageListings)
+          : comparePageListings.slice(0, 4);
+      canonical.reply = summarizeListingComparison(facts);
+    }
 
     if (canonical.handled && canonical.reply) {
       let reply = stripBold(canonical.reply);
@@ -542,7 +689,19 @@ export async function POST(req: NextRequest) {
     /^(help|help me|thanks|thank you|ok|okay|cool|nice|what next|what now)\??$/i.test(message);
 
   if (justGeneratedListing && isVaguePostListingFollowUp && !isSkyAiGeneralQuestion(message)) {
-    const contextualActions = `Here's what you can do next with your listing:\n\n• **Publish your listing** — Add photos above, then hit Publish below to go live\n• **Edit the title or description** — I can refine it for you\n• **Improve the description** — Add more details to attract buyers\n• **Generate keywords** — Add search terms for better visibility\n• **Price check** — Compare with similar listings\n• **Create Facebook Marketplace listing** — I can format it for FB\n• **Create Trade Me listing** — I can format it for Trade Me\n\nWhat would you like to do?`;
+    const draft = contextualListingContext
+      ? ({
+          title: contextualListingContext.title,
+          description: contextualListingContext.description,
+          price: contextualListingContext.price,
+          category: contextualListingContext.category,
+          listingType: contextualListingContext.listingType,
+        } as SkyAiListingFill)
+      : null;
+    const contextualActions = buildPostListingNextActions(draft, {
+      hasPhotos: false,
+      vagueFollowUp: true,
+    });
     if (uid && conversationId) {
       await safePersist(() =>
         appendSkyAiExchange(conversationId, uid, message, contextualActions, undefined)
@@ -613,10 +772,21 @@ export async function POST(req: NextRequest) {
   });
   if (pageAware.profileFill) profileFill = pageAware.profileFill;
   const finalReply =
-    stripBold(pageAware.reply) ||
-    listingFillConfirmReply(listingFill) ||
-    "I didn't catch that — try again, or tell me what you want to sell or find.";
-  const finalNav = pageAware.navigateTo;
+    polishAwhinaReplyStyle(
+      stripBold(pageAware.reply) ||
+        listingFillConfirmReply(listingFill) ||
+        "I didn't catch that — try again, or tell me what you want to sell or find."
+    );
+  let finalNav = pageAware.navigateTo;
+  if (
+    finalNav &&
+    !shouldAutoNavigate({
+      message,
+      intent: "free_form",
+    })
+  ) {
+    finalNav = undefined;
+  }
 
   if (uid && conversationId) {
     await safePersist(() =>
@@ -659,7 +829,8 @@ export async function POST(req: NextRequest) {
       },
       ...(llm.degraded && llm.errorCode ? { code: llm.errorCode } : {}),
     },
-    llm.degraded && llm.errorCode === "missing_openai_key" ? 503 : 200
+    llm.degraded && llm.errorCode === "missing_openai_key" ? 503 : 200,
+    { progress: progressStatesForRoute("freeform"), chunkReply: true }
   );
   } catch (e: unknown) {
     console.error("sky-ai error:", e);

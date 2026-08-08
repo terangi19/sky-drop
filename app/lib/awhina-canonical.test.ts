@@ -138,14 +138,16 @@ describe("messaging-first personality", () => {
     expect(text).not.toMatch(/escrow/i);
   });
 
-  it("arrange purchase routes to messages, not Stripe", () => {
+  it("arrange purchase explains messaging-first without forced nav", () => {
     const text = awhinaArrangePurchaseReply();
     expect(text).toMatch(/Message/i);
     expect(text).not.toMatch(/Buy Now/i);
     expect(text).not.toMatch(/Stripe/i);
     const r = trySkyAiTaskReply("how do I arrange purchase", "/");
-    expect(r?.navigateTo).toBe("/messages");
+    expect(r?.navigateTo).toBeUndefined();
     expect(r?.text).not.toMatch(/Stripe/i);
+    const open = trySkyAiTaskReply("open messages to arrange purchase", "/");
+    expect(open?.navigateTo).toBe("/messages");
   });
 
   it("What can you do? uses messaging-first copy", () => {

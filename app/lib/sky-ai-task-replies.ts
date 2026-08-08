@@ -34,8 +34,8 @@ function buildFindBrowseReplyText(
   const displayTerm = hasTerm ? term : route.categoryLabel.toLowerCase();
 
   let line = hasTerm
-    ? `Opening **${displayTerm}** listings`
-    : `Opening **${route.categoryLabel}**`;
+    ? `Showing **${displayTerm}** listings`
+    : `Showing **${route.categoryLabel}**`;
 
   if (options.budget) {
     line += ` under **$${Number(options.budget).toLocaleString("en-NZ")}**`;
@@ -44,7 +44,7 @@ function buildFindBrowseReplyText(
     line += ` in **${options.city}**`;
   }
 
-  return `${line}... [[NAV:${route.path}]]`;
+  return `${line}. [[NAV:${route.path}]]`;
 }
 
 export function tryFindBrowseReply(
@@ -154,9 +154,10 @@ export function tryPriceValueReply(message: string): { text: string; navigateTo?
 export function tryArrangePurchaseReply(message: string): { text: string; navigateTo?: string } | null {
   if (!/\b(arrange purchase|how do i pay|bank transfer|contact seller|message seller|how to buy)\b/i.test(message)) return null;
   if (detectSkyAiIntent(message) === "sell_list") return null;
+  const wantsOpen = /\b(open|go to|take me to)\s+messages?\b/i.test(message);
   return {
     text: awhinaArrangePurchaseReply(),
-    navigateTo: "/messages",
+    navigateTo: wantsOpen ? "/messages" : undefined,
   };
 }
 

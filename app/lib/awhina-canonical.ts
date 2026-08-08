@@ -71,6 +71,16 @@ import {
   isCompareRequest,
   summarizeListingComparison,
   parseCompareTitlesFromMessage,
+  shouldAutoNavigate,
+  isExplicitNavigationAction,
+  isNoResultFollowUp,
+  proposeSearchRelaxation,
+  buildNoResultReply,
+  polishAwhinaReplyStyle,
+  maybeOneProactiveSuggestion,
+  buildPremiumSearchSummary,
+  pickCompareFactsFromPage,
+  type ListingFacts,
 } from "./awhina-product-ux";
 
 export type CanonicalContext = {
@@ -89,6 +99,14 @@ export type CanonicalContext = {
   /** Client-echoed durable task/search (Maps are cache) */
   clientTask?: ClientTaskScopeContext | null;
   clientSearch?: ClientSearchContext | null;
+  /** Visible search/listing cards for real compare — never invent */
+  pageListings?: ListingFacts[];
+  /** Real search result meta from client (counts only when known) */
+  searchResultMeta?: {
+    count?: number;
+    cheapestPrice?: number;
+    newestTitle?: string;
+  };
 };
 
 export type CanonicalSessionState = {
@@ -234,8 +252,25 @@ export function processCanonicalAwhina(
   const finish = (partial: Omit<CanonicalResult, "executionTimeMs">): CanonicalResult => {
     const taskSnap = getTaskScope(scopeKey);
     const searchSnap = getSearchSession(memKey);
-    let reply = partial.reply ? stripDuplicateLocationInReply(partial.reply) : partial.reply;
+    let reply = partial.reply
+      ? polishAwhinaReplyStyle(stripDuplicateLocationInReply(partial.reply))
+      : partial.reply;
     let navigateTo = refineNavigateTo(pathname, partial.navigateTo);
+
+    // ANSWER vs ACTION — strip nav for help/safety/Q unless explicit action
+    if (
+      navigateTo &&
+      !shouldAutoNavigate({
+        message: trimmed,
+        intent: partial.intent,
+        hasExplicitNavAction: isExplicitNavigationAction(trimmed),
+      })
+    ) {
+      navigateTo = undefined;
+      if (reply) {
+        reply = reply.replace(/\s*\[\[NAV:[^\]]+\]\]/g, "").trim();
+      }
+    }
 
     // Hard tool gate: sticky SEARCH cannot sell/create/edit listing tools
     let tool = partial.tool;
@@ -247,6 +282,16 @@ export function processCanonicalAwhina(
       toolCall = undefined;
       listingFill = undefined;
       navigateTo = navigateTo === "/post/ai" ? undefined : navigateTo;
+    }
+
+    // At most one contextual tip when strong evidence (not every turn)
+    if (reply && listingFill && typeof listingFill === "object") {
+      const tip = maybeOneProactiveSuggestion({
+        evidence: { kind: "listing_tip", fill: listingFill as import("./sky-ai-listing-fill").SkyAiListingFill },
+      });
+      if (tip && !reply.includes(tip.slice(0, 20))) {
+        reply = `${reply} ${tip}`;
+      }
     }
 
     const result: CanonicalResult = {
@@ -324,36 +369,39 @@ export function processCanonicalAwhina(
     });
   }
 
-  // Arrange purchase — messaging-first (no Stripe / Buy Now pitch)
+  // Arrange purchase — messaging-first (no Stripe / Buy Now pitch). Answer in place unless ACTION.
   if (/\b(arrange purchase|how do i pay|bank transfer|contact seller|message seller|how to buy)\b/i.test(trimmed)) {
     if (!hasListingSellIntent(trimmed)) {
+      const wantsOpen = isExplicitNavigationAction(trimmed) || /\b(open|go to|take me to)\s+messages?\b/i.test(trimmed);
       return finish({
         handled: true,
         reply: awhinaArrangePurchaseReply(),
-        navigateTo: "/messages",
+        navigateTo: wantsOpen ? "/messages" : undefined,
         source: "rules",
         intent: "purchase",
-        tool: "openMessages",
+        tool: wantsOpen ? "openMessages" : undefined,
         confidence: 0.95,
         usedLocalExecution: false,
         avoidedAi: true,
-        toolCall: {
-          tool: "openMessages",
-          args: { openMessages: {} },
-          confidence: 0.95,
-        },
+        toolCall: wantsOpen
+          ? {
+              tool: "openMessages",
+              args: { openMessages: {} },
+              confidence: 0.95,
+            }
+          : undefined,
       });
     }
   }
 
-  // Marketplace education — scam / safe pickup (messaging-first V1)
+  // Marketplace education — scam / safe pickup (messaging-first V1). Answer in place.
   const edu = tryMarketplaceEducationReply(trimmed);
   if (edu) {
     setActiveTask(scopeKey, "help");
     return finish({
       handled: true,
       reply: edu.includes("Stay on") ? edu : awhinaSafetyEducationReply(),
-      navigateTo: "/messages",
+      navigateTo: undefined,
       source: "rules",
       intent: "education",
       confidence: 0.95,
@@ -362,23 +410,31 @@ export function processCanonicalAwhina(
     });
   }
 
-  // Listing comparison — facts only, never invent
+  // Listing comparison — real fields when pageListings provided; never invent
   if (isCompareRequest(trimmed)) {
     const titles = parseCompareTitlesFromMessage(trimmed);
-    const facts = titles.map((title) => ({ title }));
+    const page = context.pageListings || [];
+    let facts: ListingFacts[];
+    if (page.length >= 2 && titles.length < 2) {
+      facts = page.slice(0, 4);
+    } else if (titles.length || page.length) {
+      facts = pickCompareFactsFromPage(titles.length ? titles : page.map((p) => String(p.title || "")).filter(Boolean).slice(0, 2), page);
+    } else {
+      facts = titles.map((title) => ({ title }));
+    }
     const reply = summarizeListingComparison(facts);
     setActiveTask(scopeKey, "shopping", {
-      compareCandidates: titles.length ? titles : undefined,
+      compareCandidates: titles.length ? titles : facts.map((f) => String(f.title || "")).filter(Boolean),
     });
     return finish({
       handled: true,
       reply,
       source: "rules",
       intent: "compare",
-      confidence: 0.85,
+      confidence: facts.filter((f) => f.price || f.condition || f.location).length >= 2 ? 0.9 : 0.85,
       usedLocalExecution: false,
       avoidedAi: true,
-      clarificationQuestion: titles.length < 2 ? reply : undefined,
+      clarificationQuestion: facts.length < 2 ? reply : undefined,
     });
   }
 
@@ -615,6 +671,53 @@ export function processCanonicalAwhina(
       hasListDraftEarly
     );
 
+  // No-result intelligence — relax filters via a real follow-up search; tell user what changed
+  if (
+    allowSearchFollowUp &&
+    session?.filters &&
+    (session.filters.query || session.filters.make) &&
+    (isNoResultFollowUp(trimmed) || context.searchResultMeta?.count === 0)
+  ) {
+    const prior = session.filters;
+    const relax = proposeSearchRelaxation({
+      query: prior.query,
+      maxPrice: prior.maxPrice,
+      location: prior.location,
+      year: prior.year,
+      minYear: prior.minYear,
+      maxYear: prior.maxYear,
+      condition: prior.condition,
+    });
+    if (relax) {
+      const merged = updateSearchSession(memKey, {
+        ...prior,
+        ...relax.filters,
+        query: relax.filters.query ?? prior.query,
+      });
+      setActiveTask(scopeKey, "shopping");
+      const { navigateTo } = buildSearchFollowUpReply(merged);
+      const metaCount = context.searchResultMeta?.count;
+      const reply = buildNoResultReply({
+        query: merged.query || prior.query || "listings",
+        whatChanged: relax.whatChanged,
+        followUpCount:
+          typeof metaCount === "number" && metaCount > 0 ? metaCount : undefined,
+      });
+      return finish({
+        handled: true,
+        reply,
+        navigateTo,
+        source: "tool",
+        intent: "marketplace_search",
+        tool: "searchListings",
+        confidence: 0.88,
+        usedLocalExecution: false,
+        avoidedAi: true,
+        toolCall: searchToolCall(merged, 0.88),
+      });
+    }
+  }
+
   if (
     allowSearchFollowUp &&
     (stickyShopping || Boolean(session?.filters?.query || session?.filters?.make)) &&
@@ -657,9 +760,23 @@ export function processCanonicalAwhina(
       merged.year
     ) {
       const { text, navigateTo } = buildSearchFollowUpReply(merged);
+      const meta = context.searchResultMeta;
+      const premium =
+        typeof meta?.count === "number"
+          ? buildPremiumSearchSummary({
+              query: merged.query || "listings",
+              location: merged.location,
+              sortBy: merged.sortBy,
+              hideSold: merged.hideSold,
+              condition: merged.condition,
+              count: meta.count,
+              cheapestPrice: meta.cheapestPrice,
+              newestTitle: meta.newestTitle,
+            })
+          : null;
       return finish({
         handled: true,
-        reply: text,
+        reply: premium || text,
         navigateTo,
         source: "tool",
         intent: "marketplace_search",
