@@ -37,9 +37,9 @@ export default function SellPhotoUpload({
               openPicker();
             }
           }}
-          className="group flex min-h-[14rem] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.02] px-5 py-10 text-center transition hover:border-white/20 hover:bg-white/[0.03] sm:min-h-[16rem]"
+          className="group flex min-h-[14rem] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.02] px-5 py-10 text-center transition hover:border-sky-500/35 hover:bg-white/[0.03] focus-visible:border-sky-500/45 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-500/25 sm:min-h-[16rem]"
         >
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] text-zinc-400 transition group-hover:border-white/15 group-hover:text-zinc-200">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] text-zinc-400 transition group-hover:border-sky-500/30 group-hover:text-sky-300">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
             </svg>
@@ -50,7 +50,7 @@ export default function SellPhotoUpload({
       ) : (
         <div className="space-y-3">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-sm font-medium text-zinc-300">{ctaTitle}</p>
+            <p className="text-sm font-medium text-white">{ctaTitle}</p>
             <p className="text-[11px] text-zinc-500">{imagePreviews.length}/8</p>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -79,7 +79,7 @@ export default function SellPhotoUpload({
               <button
                 type="button"
                 onClick={openPicker}
-                className="flex aspect-[4/3] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/[0.12] text-zinc-500 transition hover:border-white/20 hover:text-zinc-300"
+                className="flex aspect-[4/3] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/[0.12] text-zinc-500 transition hover:border-sky-500/35 hover:text-sky-300"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />

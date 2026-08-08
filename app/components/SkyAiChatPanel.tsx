@@ -1034,7 +1034,7 @@ export default function SkyAiChatPanel({
         <button
           type="button"
           onClick={() => setShowHistory((v) => !v)}
-          className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-sky-400/90 hover:bg-sky-500/10"
+          className="rounded-lg px-2 py-1.5 text-[10px] font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
           title="Chat history"
         >
           History
@@ -1043,7 +1043,7 @@ export default function SkyAiChatPanel({
       <button
         type="button"
         onClick={startNewChat}
-        className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-sky-400/90 hover:bg-sky-500/10"
+        className="rounded-lg px-2 py-1.5 text-[10px] font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
       >
         New
       </button>
@@ -1063,17 +1063,17 @@ export default function SkyAiChatPanel({
   /** Workspace: quiet single identity — page owns the Āwhina label above. */
   const header = isWorkspace ? null : (
     <div
-      className={`flex items-center justify-between border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] to-sky-500/[0.06] px-4 py-3 ${
+      className={`flex items-center justify-between border-b border-white/[0.08] bg-zinc-950/80 px-4 py-3 ${
         isSheet ? "" : "rounded-t-xl"
       }`}
     >
       <div className="flex items-center gap-2">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/30 to-sky-500/25 text-sm shadow-[0_0_20px_rgba(56,189,248,0.25)] ring-1 ring-sky-400/30">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/20 text-sm text-sky-300 ring-1 ring-sky-500/30">
           ✦
         </span>
         <div>
           <p className="text-sm font-bold text-always-white">{isSheet ? AWHINA_ASK_LABEL : AWHINA_NAME}</p>
-          <p className="text-[10px] text-sky-400/80">
+          <p className="text-[10px] text-zinc-500">
             {openAiReady === false ? "Built-in guides · navigation" : "Listings · prices · safety"}
           </p>
         </div>
@@ -1108,8 +1108,8 @@ export default function SkyAiChatPanel({
       )}
 
       {!user && !isWorkspace && (
-        <p className="border-b border-sky-500/20 bg-sky-500/[0.06] px-3 py-2 text-[10px] text-sky-400/90">
-          <Link href="/login" className="font-bold underline hover:text-sky-300">
+        <p className="border-b border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[10px] text-zinc-400">
+          <Link href="/login" className="font-semibold text-sky-400 underline hover:text-sky-300">
             Sign in
           </Link>{" "}
           to save conversations across devices.
@@ -1139,11 +1139,11 @@ export default function SkyAiChatPanel({
                 className={`max-w-[92%] px-3 py-2.5 text-[13px] leading-relaxed whitespace-pre-line ${
                   m.role === "user"
                     ? isWorkspace
-                      ? "rounded-2xl bg-white/[0.07] text-zinc-100"
-                      : "rounded-2xl bg-gradient-to-br from-sky-500/25 to-sky-600/15 text-sky-50 ring-1 ring-sky-500/20"
+                      ? "rounded-2xl bg-white/[0.08] text-white"
+                      : "rounded-2xl bg-white/[0.1] text-white ring-1 ring-white/[0.08]"
                     : isWorkspace
-                      ? "rounded-2xl text-zinc-200"
-                      : "rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] text-always-white/90 shadow-[0_0_24px_rgba(139,92,246,0.06)]"
+                      ? "rounded-2xl text-zinc-50"
+                      : "rounded-2xl border border-white/[0.06] bg-white/[0.03] text-zinc-50"
                 }`}
               >
                 {m.images && m.images.length > 0 && (
@@ -1176,7 +1176,7 @@ export default function SkyAiChatPanel({
         })}
         {showThinking && (
           <div className="flex justify-start">
-            <div className={`px-3 py-2 text-[12px] ${isWorkspace ? "text-zinc-500" : "rounded-2xl border border-sky-500/20 bg-sky-500/[0.05] text-sky-300/70"}`}>
+            <div className={`px-3 py-2 text-[12px] ${isWorkspace ? "text-zinc-400" : "rounded-2xl border border-white/[0.06] bg-white/[0.03] text-zinc-400"}`}>
               {AWHINA_THINKING}
             </div>
           </div>
@@ -1185,14 +1185,14 @@ export default function SkyAiChatPanel({
       </div>
 
       {!isWorkspace && listingPreviewFill && (
-        <div className="mx-3 mb-3 overflow-hidden rounded-2xl border border-emerald-500/30 awhina-chat-listing-preview shadow-[0_0_30px_rgba(16,185,129,0.08)] animate-fade-in-panel">
+        <div className="mx-3 mb-3 overflow-hidden rounded-2xl border border-white/[0.1] bg-zinc-950/60 awhina-chat-listing-preview animate-fade-in-panel">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-2.5">
             <div className="flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-[10px]">✅</span>
-              <span className="text-[11px] font-bold text-emerald-400">Listing ready — form filled</span>
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-500/15 text-[10px] text-sky-300">✓</span>
+              <span className="text-[11px] font-semibold text-white">Listing ready — form filled</span>
             </div>
-            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-400">
+            <span className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-zinc-400">
               {listingPreviewFill.listingType === "rental" && listingPreviewFill.rentalSubType
                 ? `rental · ${listingPreviewFill.rentalSubType}`
                 : listingPreviewFill.listingType || "physical"}
@@ -1204,13 +1204,13 @@ export default function SkyAiChatPanel({
             <p className="text-sm font-bold text-always-white leading-snug">{listingPreviewFill.title || "Untitled Listing"}</p>
             <div className="flex flex-wrap items-center gap-2">
               {listingPreviewFill.price && (
-                <span className="text-base font-black text-emerald-400">${listingPreviewFill.price}</span>
+                <span className="text-base font-bold text-white">${listingPreviewFill.price}</span>
               )}
               {listingPreviewFill.rentalPriceWeekly && listingPreviewFill.rentalSubType === "property" && (
-                <span className="text-base font-black text-emerald-400">${listingPreviewFill.rentalPriceWeekly}/wk</span>
+                <span className="text-base font-bold text-white">${listingPreviewFill.rentalPriceWeekly}/wk</span>
               )}
               {listingPreviewFill.rentalPriceWeekly && !listingPreviewFill.price && listingPreviewFill.rentalSubType !== "property" && (
-                <span className="text-base font-black text-emerald-400">${listingPreviewFill.rentalPriceWeekly}/wk</span>
+                <span className="text-base font-bold text-white">${listingPreviewFill.rentalPriceWeekly}/wk</span>
               )}
               {listingPreviewFill.category && (
                 <span className="rounded-full border border-white/[0.08] bg-white/[0.05] px-2 py-0.5 text-[10px] text-zinc-400">{listingPreviewFill.category}</span>
@@ -1234,10 +1234,10 @@ export default function SkyAiChatPanel({
             <button
               type="button"
               onClick={() => fileInputRefInternal.current?.click()}
-              className="flex flex-col items-center gap-1 rounded-xl border border-sky-500/25 bg-sky-500/10 px-2 py-2.5 text-center transition hover:bg-sky-500/20 active:scale-[0.97]"
+              className="flex flex-col items-center gap-1 rounded-xl border border-white/[0.1] bg-white/[0.04] px-2 py-2.5 text-center transition hover:border-sky-500/35 hover:bg-white/[0.06] active:scale-[0.97]"
             >
               <span className="text-base">📷</span>
-              <span className="text-[10px] font-bold text-sky-300">Add Photos</span>
+              <span className="text-[10px] font-semibold text-zinc-200">Add Photos</span>
             </button>
             <button
               type="button"
@@ -1248,7 +1248,7 @@ export default function SkyAiChatPanel({
               className="flex flex-col items-center gap-1 rounded-xl border border-white/[0.1] bg-white/[0.04] px-2 py-2.5 text-center transition hover:bg-white/[0.08] active:scale-[0.97]"
             >
               <span className="text-base">✏️</span>
-              <span className="text-[10px] font-bold text-zinc-300">Edit Listing</span>
+              <span className="text-[10px] font-semibold text-zinc-200">Edit Listing</span>
             </button>
             <button
               type="button"
@@ -1321,7 +1321,7 @@ export default function SkyAiChatPanel({
                 }
                 setPublishing(false);
               }}
-              className="flex flex-col items-center gap-1 rounded-xl bg-gradient-to-b from-emerald-500 to-emerald-600 px-2 py-2.5 text-center shadow-lg shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.97] disabled:opacity-50"
+              className="flex flex-col items-center gap-1 rounded-xl bg-sky-500 px-2 py-2.5 text-center transition hover:bg-sky-400 active:scale-[0.97] disabled:opacity-50"
             >
               <span className="text-base">{publishing ? "⏳" : "🚀"}</span>
               <span className="text-[10px] font-bold text-always-white">{publishing ? "Publishing…" : "Publish"}</span>
@@ -1363,7 +1363,7 @@ export default function SkyAiChatPanel({
                 type="button"
                 disabled={busy}
                 onClick={() => respond(p.query)}
-                className="rounded-full border border-white/[0.1] bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold text-zinc-300 hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-sky-200 disabled:opacity-50"
+                className="rounded-full border border-white/[0.1] bg-white/[0.03] px-2.5 py-1 text-[10px] font-medium text-zinc-400 transition hover:border-sky-500/35 hover:text-zinc-200 disabled:opacity-50"
               >
                 {p.label}
               </button>
@@ -1401,10 +1401,10 @@ export default function SkyAiChatPanel({
         />
         <form onSubmit={handleSubmit} className="space-y-2">
           <div
-            className={`flex items-end gap-2 rounded-2xl border px-2 py-2 focus-within:border-sky-500/40 ${
+            className={`flex items-end gap-2 rounded-2xl border px-2 py-2 transition focus-within:border-sky-500/45 focus-within:ring-1 focus-within:ring-sky-500/20 ${
               isWorkspace
                 ? "border-white/[0.1] bg-white/[0.03]"
-                : "overflow-hidden border-sky-500/20 bg-white/[0.03] focus-within:shadow-[0_0_20px_rgba(14,165,233,0.1)]"
+                : "overflow-hidden border-white/[0.1] bg-white/[0.03]"
             }`}
           >
             <button
@@ -1434,7 +1434,7 @@ export default function SkyAiChatPanel({
               }
               disabled={busy}
               rows={isWorkspace ? 1 : 2}
-              className={`block min-h-[36px] max-h-32 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-[13px] leading-relaxed text-always-white outline-none placeholder:text-zinc-500 ${
+              className={`block min-h-[36px] max-h-32 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-[13px] leading-relaxed text-white outline-none placeholder:text-zinc-600 ${
                 isWorkspace ? "" : "w-full px-3 pt-2.5 pb-1 text-[12px]"
               }`}
             />
@@ -1484,8 +1484,8 @@ export default function SkyAiChatPanel({
       <div
         className={`${
           isWorkspace
-            ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015] awhina-chat awhina-chat-shell"
-            : "mt-4 flex flex-col overflow-hidden rounded-xl border border-sky-500/25 awhina-chat awhina-chat-shell shadow-[0_0_30px_rgba(14,165,233,0.08)] animate-fade-in-panel"
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-zinc-950/55 awhina-chat awhina-chat-shell"
+            : "mt-4 flex flex-col overflow-hidden rounded-xl border border-white/[0.1] bg-zinc-950/80 awhina-chat awhina-chat-shell animate-fade-in-panel"
         } ${className}`}
       >
         {header}
@@ -1497,7 +1497,7 @@ export default function SkyAiChatPanel({
   return (
     <>
       <div
-        className={`awhina-chat awhina-chat-shell fixed right-0 top-0 ${AWHINA_CHAT_SHEET_Z} flex h-full w-full max-w-[400px] flex-col border-l border-sky-500/20 shadow-[0_0_60px_rgba(14,165,233,0.08)] backdrop-blur-xl transition-transform duration-300 ease-out ${
+        className={`awhina-chat awhina-chat-shell fixed right-0 top-0 ${AWHINA_CHAT_SHEET_Z} flex h-full w-full max-w-[400px] flex-col border-l border-white/[0.1] bg-zinc-950/95 backdrop-blur-xl transition-transform duration-300 ease-out ${
           open ? "translate-x-0 animate-fade-in-panel" : "translate-x-full pointer-events-none"
         }`}
         aria-hidden={!open}
@@ -1525,10 +1525,10 @@ export default function SkyAiChatPanel({
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="relative flex h-[56px] w-[56px] items-center justify-center rounded-full border border-white/[0.06] bg-[#0c0e14]/80 backdrop-blur-xl shadow-[0_0_20px_rgba(14,165,233,0.12)] transition-all duration-300 hover:scale-110 hover:shadow-[0_0_35px_rgba(14,165,233,0.3)] hover:border-sky-400/40 active:scale-95 light:border-gray-200/90 light:bg-white/95 light:shadow-[0_4px_24px_rgba(14,165,233,0.12)] light:hover:border-sky-400/50"
+            className="relative flex h-[56px] w-[56px] items-center justify-center rounded-full border border-white/[0.08] bg-[#0c0e14]/90 backdrop-blur-xl transition-all duration-300 hover:scale-105 hover:border-sky-500/40 active:scale-95 light:border-gray-200/90 light:bg-white/95"
             aria-label={`Open ${AWHINA_ASK_LABEL}`}
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-500 text-sm shadow-[0_0_12px_rgba(14,165,233,0.2)]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-500 text-sm text-white">
               ✦
             </span>
           </button>
