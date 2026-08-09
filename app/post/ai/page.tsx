@@ -28,6 +28,7 @@ import { readListingDraftFromSkyAi, syncListingDraftToSkyAi, clearListingDraftFr
 import {
   buildConfirmedListingContext,
   markProvenance,
+  type ListingFieldProvenance,
   type ListingFieldProvenanceMap,
   type ListingDraftFormSnapshot,
 } from "../../lib/listing-draft-confirmed";
@@ -72,6 +73,10 @@ import {
   type SkyAiWorkspaceHandoffDetail,
 } from "../../lib/sky-ai-events";
 import { computeMissingListingSlots } from "../../lib/awhina-pending-slots";
+import {
+  commitVisionBridgeToConversation,
+  prepareVisionConversationBridge,
+} from "../../lib/awhina-vision-conversation-bridge";
 import {
   SERVICE_PRICING_OPTIONS,
   type ServicePricingType,
@@ -685,7 +690,14 @@ export default function AIPostPage() {
     fieldProvenance,
   ]);
 
-  const applyFill = useCallback((fill: SkyAiListingFill) => {
+  const applyFill = useCallback((
+    fill: SkyAiListingFill,
+    opts?: {
+      /** Default provenance for filled keys (chat = AWHINA; vision identity = IMAGE). */
+      defaultProvenance?: ListingFieldProvenance;
+      provenanceOverrides?: ListingFieldProvenanceMap;
+    }
+  ) => {
     const prior = readListingDraftFromSkyAi();
     const replaceDraft = fill.replaceDraft === true;
     // Explicit NEW sell: clear prior draft — do not keep stale price/year/vehicle fields
@@ -741,12 +753,12 @@ export default function AIPostPage() {
 
     if (merged.extras?.length) setDraftExtras(merged.extras);
 
-    // Mark fields Āwhina actually provided — never demote USER / edit locks
-    const awhinaKeys: (keyof ListingDraftFormSnapshot)[] = [];
+    // Mark fields Āwhina/vision actually provided — never demote USER / edit locks
+    const filledKeys: (keyof ListingDraftFormSnapshot)[] = [];
     const maybeMark = (key: keyof ListingDraftFormSnapshot, val: unknown) => {
       if (typeof val !== "string" || !val.trim()) return;
       if (!replaceDraft && isUserLockedField(key)) return;
-      awhinaKeys.push(key);
+      filledKeys.push(key);
     };
     maybeMark("title", merged.title);
     maybeMark("description", merged.description);
@@ -779,8 +791,23 @@ export default function AIPostPage() {
     maybeMark("rentalMinTenancy", merged.rentalMinTenancy);
     maybeMark("stockQuantity", merged.stockQuantity);
     maybeMark("serviceDuration", merged.serviceDuration);
-    if (awhinaKeys.length) {
-      setFieldProvenance((prev) => markProvenance(prev, awhinaKeys, "AWHINA"));
+    if (filledKeys.length) {
+      const defaultProv = opts?.defaultProvenance || "AWHINA";
+      const overrides = opts?.provenanceOverrides;
+      setFieldProvenance((prev) => {
+        let next = markProvenance(prev, filledKeys, defaultProv);
+        if (overrides) {
+          for (const key of filledKeys) {
+            const o = overrides[key];
+            if (o) next = { ...next, [key]: o };
+          }
+          // Also apply overrides for keys explicitly listed (e.g. IMAGE identity keys)
+          for (const [k, v] of Object.entries(overrides)) {
+            if (v) next = { ...next, [k as keyof ListingDraftFormSnapshot]: v };
+          }
+        }
+        return next;
+      });
     }
 
     /** Manual USER facts stay authoritative — fill may still rewrite unlocked fields (e.g. description). */
@@ -869,6 +896,80 @@ export default function AIPostPage() {
       showToast("Āwhina couldn't fill your form — try describing the item again", "error");
     }
   }, [imagePreviews.length, title, description, category, condition, price, listingType, location, autoPublish, choosePaymentType, isUserLockedField]);
+
+  /**
+   * Vision success → SAME Āwhina listing brain:
+   * applyFill (canonical) + conversation pendingSlot + mobile Chat focus.
+   */
+  const bridgeVisionIntoAwhina = useCallback(
+    (visionState: {
+      listingFill: SkyAiListingFill | null;
+      identity: string;
+      needsIdentityConfirm: boolean;
+    }, opts?: { identityConfirmed?: boolean }) => {
+      if (!visionState.listingFill) return;
+      const bridge = prepareVisionConversationBridge({
+        listingFill: visionState.listingFill,
+        displayIdentity: visionState.identity,
+        needsIdentityConfirm: visionState.needsIdentityConfirm,
+        descriptionProvenance: fieldProvenanceRef.current.description,
+        existingDraft: readListingDraftFromSkyAi(),
+        identityConfirmed: opts?.identityConfirmed,
+      });
+
+      const provenanceOverrides: ListingFieldProvenanceMap = {
+        ...bridge.provenanceOverrides,
+      };
+      for (const key of bridge.imageFieldKeys) {
+        if (!provenanceOverrides[key]) provenanceOverrides[key] = "IMAGE";
+      }
+
+      applyFill(bridge.listingFill, {
+        defaultProvenance: "IMAGE",
+        provenanceOverrides,
+      });
+      commitVisionBridgeToConversation(bridge);
+
+      setMobileWorkspaceTab("chat");
+      setSkyChatOpen(true);
+      dispatchSkyAiOpen();
+
+      if (!bridge.needsIdentityConfirm) {
+        visionListing.setState((s) => ({
+          ...s,
+          status: "idle",
+          message: "",
+        }));
+      } else {
+        visionListing.setState((s) => ({
+          ...s,
+          message: "Confirm in chat, or tap Yes / Change.",
+        }));
+      }
+    },
+    [applyFill, visionListing]
+  );
+
+  const runVisionAnalyzeAndBridge = useCallback(
+    async (files: File[], opts?: { force?: boolean; message?: string }) => {
+      if (!files.length) return;
+      const result = await visionListing.analyze({
+        files: files.slice(0, 4),
+        message: opts?.message ?? visionCompanionNote,
+        listingContext: readListingDraftFromSkyAi(),
+        draftKey: user?.uid || "sell",
+        force: opts?.force,
+      });
+      if (!result?.listingFill) {
+        // Keep user in Chat so they can describe the item — never fall into Xenova prose
+        setMobileWorkspaceTab("chat");
+        setSkyChatOpen(true);
+        return;
+      }
+      bridgeVisionIntoAwhina(result);
+    },
+    [bridgeVisionIntoAwhina, user?.uid, visionCompanionNote, visionListing]
+  );
 
   // Homepage → workspace expand: same conversation, auto-open chat, zero reset
   useEffect(() => {
@@ -1022,12 +1123,7 @@ export default function AIPostPage() {
 
       if (isFirst) {
         if (AWHINA_VISION_LISTING_UI_ENABLED) {
-          void visionListing.analyze({
-            files: addFiles,
-            message: visionCompanionNote,
-            listingContext: readListingDraftFromSkyAi(),
-            draftKey: user?.uid || "sell",
-          });
+          void runVisionAnalyzeAndBridge(addFiles);
         } else {
           setAnalyzing(true);
           setDetected("");
@@ -1064,10 +1160,14 @@ export default function AIPostPage() {
       window.removeEventListener(SKY_AI_LISTING_IMAGES_EVENT, onImages);
       window.removeEventListener(AWHINA_VOICE_FORM_ACTION_EVENT, onVoiceFormAction);
     };
-  }, [appendDescriptionFromVoice, applyFill, imagePreviews.length, visionCompanionNote, visionListing.analyze, user?.uid]);
+  }, [appendDescriptionFromVoice, applyFill, imagePreviews.length, runVisionAnalyzeAndBridge]);
 
-  // Load model from CDN
+  // Legacy Xenova zero-shot — isolated when real Āwhina vision is enabled
   useEffect(() => {
+    if (AWHINA_VISION_LISTING_UI_ENABLED) {
+      setModelReady(true);
+      return;
+    }
     async function loadModel() {
       const timeout = setTimeout(() => {
         if (process.env.NODE_ENV !== "production") console.warn("AI model CDN timed out");
@@ -1284,6 +1384,8 @@ export default function AIPostPage() {
   }
 
   const runDetection = async () => {
+    // Never fall good Āwhina vision into legacy "Detected: phone, 82% confidence."
+    if (AWHINA_VISION_LISTING_UI_ENABLED) return;
     if (!classifierRef.current || !imgRef.current) return;
     
     try {
@@ -1377,12 +1479,8 @@ export default function AIPostPage() {
 
     if (isFirstImage) {
       if (AWHINA_VISION_LISTING_UI_ENABLED) {
-        void visionListing.analyze({
-          files: files.slice(0, 4),
-          message: visionCompanionNote,
-          listingContext: readListingDraftFromSkyAi(),
-          draftKey: user?.uid || "sell",
-        });
+        // Stay on Listing while "Āwhina is checking…"; bridge switches to Chat on success
+        void runVisionAnalyzeAndBridge(files.slice(0, 4));
       } else {
         setAnalyzing(true);
         setDetected("");
@@ -2053,12 +2151,9 @@ export default function AIPostPage() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && imageFiles.length > 0) {
                         e.preventDefault();
-                        void visionListing.analyze({
-                          files: imageFiles.slice(0, 4),
-                          message: visionCompanionNote,
-                          listingContext: readListingDraftFromSkyAi(),
-                          draftKey: user?.uid || "sell",
+                        void runVisionAnalyzeAndBridge(imageFiles.slice(0, 4), {
                           force: true,
+                          message: visionCompanionNote,
                         });
                       }
                     }}
@@ -2069,12 +2164,9 @@ export default function AIPostPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        void visionListing.analyze({
-                          files: imageFiles.slice(0, 4),
-                          message: visionCompanionNote,
-                          listingContext: readListingDraftFromSkyAi(),
-                          draftKey: user?.uid || "sell",
+                        void runVisionAnalyzeAndBridge(imageFiles.slice(0, 4), {
                           force: true,
+                          message: visionCompanionNote,
                         })
                       }
                       className="shrink-0 rounded-lg border border-white/15 px-3 py-2 text-sm text-zinc-300 hover:text-white"
@@ -2089,38 +2181,17 @@ export default function AIPostPage() {
                 identity={visionListing.state.identity}
                 message={visionListing.state.message}
                 onYes={() => {
-                  const fill = visionListing.state.listingFill;
-                  if (!fill) return;
-                  const missing = [...visionListing.state.missingPrompts];
-                  const imageKeys: (keyof ListingDraftFormSnapshot)[] = [];
-                  const mark = (key: keyof ListingDraftFormSnapshot, val: unknown) => {
-                    if (typeof val === "string" && val.trim()) imageKeys.push(key);
-                  };
-                  mark("title", fill.title);
-                  mark("description", fill.description);
-                  mark("category", fill.category);
-                  mark("condition", fill.condition);
-                  mark("listingType", fill.listingType);
-                  mark("vehicleMake", fill.vehicleMake);
-                  mark("vehicleModel", fill.vehicleModel);
-                  mark("vehicleColour", fill.vehicleColour);
-                  applyFill(fill);
-                  if (imageKeys.length) {
-                    setFieldProvenance((prev) => markProvenance(prev, imageKeys, "IMAGE"));
-                  }
-                  visionListing.setState((s) => ({
-                    ...s,
-                    status: "idle",
-                    message: "",
-                  }));
-                  if (missing.length) {
-                    showToast(`Still need: ${missing.join(", ")}`, "info");
-                  }
+                  // Identity confirm → continue same conversation (establish pendingSlot)
+                  bridgeVisionIntoAwhina(visionListing.state, {
+                    identityConfirmed: true,
+                  });
                 }}
                 onChange={() => {
                   visionListing.reset();
                   setVisionCompanionNote("");
                   setMobileWorkspaceTab("chat");
+                  setSkyChatOpen(true);
+                  dispatchSkyAiOpen();
                   showToast("Tell Āwhina what it really is in chat", "info");
                 }}
               />

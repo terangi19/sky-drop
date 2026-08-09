@@ -1,0 +1,211 @@
+/**
+ * Vision → EXISTING Āwhina listing conversation bridge.
+ *
+ * PHOTO is an INPUT SOURCE only. Does not create a second listing brain.
+ * listingFill enters the same canonical draft path as chat fills;
+ * pendingSlot comes from the same computeMissingListingSlots / readiness helpers.
+ */
+
+import type { SkyAiListingFill } from "./sky-ai-listing-fill";
+import type { SkyAiListingContext } from "./sky-ai-types";
+import {
+  type ListingDraftFormSnapshot,
+  type ListingFieldProvenance,
+  type ListingFieldProvenanceMap,
+} from "./listing-draft-confirmed";
+import { recomposeListingDescription } from "./awhina-listing-composer";
+import {
+  buildListingSlotPending,
+  nextListingSlotQuestion,
+} from "./awhina-pending-slots";
+import { buildReadinessFollowUpReply } from "./awhina-listing-readiness";
+import type { PendingClarification } from "./awhina-task-scope";
+import {
+  appendMessage,
+  getAwhinaConversationState,
+  setAwhinaSessionEcho,
+  setListingFillOccurred,
+} from "./awhina-conversation-store";
+import { persistAwhinaSession } from "./awhina-session-persist";
+
+/** Fields vision may safely stamp as IMAGE (never price/location). */
+const IMAGE_PROVENANCE_KEYS: (keyof ListingDraftFormSnapshot)[] = [
+  "title",
+  "category",
+  "condition",
+  "listingType",
+  "vehicleMake",
+  "vehicleModel",
+  "vehicleGeneration",
+  "vehicleYear",
+  "vehicleColour",
+  "vehicleBodyType",
+  "vehicleFuelType",
+  "vehicleTransmission",
+  "rentalSubType",
+  "rentalPropertyType",
+];
+
+export type VisionConversationBridgeInput = {
+  listingFill: SkyAiListingFill;
+  displayIdentity: string;
+  needsIdentityConfirm: boolean;
+  /** If USER / EDITED, never overwrite description */
+  descriptionProvenance?: ListingFieldProvenance;
+  existingDraft?: SkyAiListingContext | null;
+  /**
+   * After user taps Yes on medium-confidence identity —
+   * skip confirm ask and establish the next missing slot.
+   */
+  identityConfirmed?: boolean;
+};
+
+export type VisionConversationBridgeResult = {
+  listingFill: SkyAiListingFill;
+  displayIdentity: string;
+  needsIdentityConfirm: boolean;
+  /** Keys to mark IMAGE after applyFill */
+  imageFieldKeys: (keyof ListingDraftFormSnapshot)[];
+  /** Extra provenance (price/location from companion text → USER) */
+  provenanceOverrides: ListingFieldProvenanceMap;
+  assistantMessage: string;
+  pendingSlot: string | null;
+  pendingClarification: PendingClarification | null;
+  focusChat: true;
+};
+
+function isUserLockedDescription(p?: ListingFieldProvenance): boolean {
+  return p === "USER" || p === "EDITED_EXISTING_LISTING";
+}
+
+function collectImageKeys(
+  fill: SkyAiListingFill
+): (keyof ListingDraftFormSnapshot)[] {
+  const keys: (keyof ListingDraftFormSnapshot)[] = [];
+  for (const key of IMAGE_PROVENANCE_KEYS) {
+    const val = fill[key as keyof SkyAiListingFill];
+    if (typeof val === "string" && val.trim()) keys.push(key);
+  }
+  return keys;
+}
+
+/**
+ * Prepare vision listingFill for the canonical draft + conversation.
+ * Strips raw vision prose; composes description via existing writer when allowed.
+ */
+export function prepareVisionConversationBridge(
+  input: VisionConversationBridgeInput
+): VisionConversationBridgeResult {
+  const identity =
+    (input.displayIdentity || input.listingFill.title || "your item").trim() ||
+    "your item";
+  const needsConfirm =
+    input.needsIdentityConfirm === true && input.identityConfirmed !== true;
+
+  const mergedForCompose: SkyAiListingFill = {
+    ...(input.existingDraft || {}),
+    ...input.listingFill,
+  };
+
+  // Vision = FACTS only — never ship raw vision prose as the buyer description
+  const fill: SkyAiListingFill = { ...input.listingFill };
+  delete fill.description;
+
+  if (!isUserLockedDescription(input.descriptionProvenance)) {
+    const composed = recomposeListingDescription(mergedForCompose, {
+      quality: "premium_plus",
+    });
+    if (composed?.trim()) fill.description = composed.trim();
+  }
+
+  const imageFieldKeys = collectImageKeys(fill);
+  const provenanceOverrides: ListingFieldProvenanceMap = {};
+  // Companion / seller text facts in the fill are USER (vision never invents these)
+  if (typeof fill.price === "string" && fill.price.trim()) {
+    provenanceOverrides.price = "USER";
+  }
+  if (typeof fill.location === "string" && fill.location.trim()) {
+    provenanceOverrides.location = "USER";
+  }
+  if (typeof fill.pickupArea === "string" && fill.pickupArea.trim()) {
+    provenanceOverrides.location = provenanceOverrides.location || "USER";
+  }
+  // Composed description is writer output, not IMAGE raw
+  if (fill.description?.trim()) {
+    provenanceOverrides.description = "AWHINA";
+  }
+
+  const draftAfter: SkyAiListingFill = {
+    ...(input.existingDraft || {}),
+    ...fill,
+  };
+
+  if (needsConfirm) {
+    return {
+      listingFill: fill,
+      displayIdentity: identity,
+      needsIdentityConfirm: true,
+      imageFieldKeys,
+      provenanceOverrides,
+      assistantMessage: `Looks like a **${identity}**. Is that right?`,
+      pendingSlot: null,
+      pendingClarification: null,
+      focusChat: true,
+    };
+  }
+
+  const next = nextListingSlotQuestion(draftAfter);
+  const pendingClarification = buildListingSlotPending(
+    draftAfter,
+    `vision:${identity}`
+  );
+  const pendingSlot = next?.slot ?? null;
+  const assistantMessage = buildReadinessFollowUpReply(draftAfter, {
+    lead: `Looks like a **${identity}**.`,
+  });
+
+  return {
+    listingFill: fill,
+    displayIdentity: identity,
+    needsIdentityConfirm: false,
+    imageFieldKeys,
+    provenanceOverrides,
+    assistantMessage,
+    pendingSlot,
+    pendingClarification,
+    focusChat: true,
+  };
+}
+
+/** Push assistant turn + session pendingSlot into the ONE conversation store. */
+export function commitVisionBridgeToConversation(
+  bridge: VisionConversationBridgeResult
+): void {
+  const id = `vision-bridge-${Date.now()}`;
+  appendMessage({
+    id,
+    role: "assistant",
+    text: bridge.assistantMessage,
+  });
+  setListingFillOccurred(true);
+
+  const task = {
+    task: "selling" as const,
+    pendingItem: bridge.displayIdentity,
+    pendingClarification: bridge.pendingClarification || undefined,
+    updatedAt: Date.now(),
+  };
+
+  setAwhinaSessionEcho({
+    task,
+    pendingSlot: bridge.pendingSlot,
+  });
+
+  const conversationId = getAwhinaConversationState().conversationId;
+  persistAwhinaSession({
+    conversationId,
+    task,
+    pendingSlot: bridge.pendingSlot,
+    updatedAt: Date.now(),
+  });
+}
