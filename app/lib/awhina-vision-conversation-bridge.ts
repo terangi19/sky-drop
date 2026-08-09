@@ -28,6 +28,8 @@ import {
   setListingFillOccurred,
 } from "./awhina-conversation-store";
 import { persistAwhinaSession } from "./awhina-session-persist";
+import { fuseVisionAndSellerText } from "./awhina-multimodal-fusion";
+import { assessIdentityCompleteness } from "./awhina-identity-composition";
 
 /** Fields vision may safely stamp as IMAGE (never price/location). */
 const IMAGE_PROVENANCE_KEYS: (keyof ListingDraftFormSnapshot)[] = [
@@ -61,6 +63,8 @@ export type VisionConversationBridgeInput = {
    * skip confirm ask and establish the next missing slot.
    */
   identityConfirmed?: boolean;
+  /** Companion seller text attached with the photo — fuse before reply */
+  sellerMessage?: string;
 };
 
 export type VisionConversationBridgeResult = {
@@ -99,15 +103,47 @@ function collectImageKeys(
 export function prepareVisionConversationBridge(
   input: VisionConversationBridgeInput
 ): VisionConversationBridgeResult {
-  const identity =
-    (input.displayIdentity || input.listingFill.title || "your item").trim() ||
-    "your item";
+  // Fuse photo facts + seller shorthand BEFORE composing any reply
+  const fused = input.sellerMessage?.trim()
+    ? fuseVisionAndSellerText({
+        listingFill: input.listingFill,
+        displayIdentity: input.displayIdentity,
+        sellerMessage: input.sellerMessage,
+        onSellPage: true,
+      })
+    : null;
+
+  const identityAssessment = assessIdentityCompleteness({
+    fill: fused?.listingFill || input.listingFill,
+    claimedIdentity: input.displayIdentity || input.listingFill.title,
+  });
+
+  // Without seller text, prefer vision's displayIdentity (don't over-rewrite PS5 etc.)
+  const identity = (
+    fused
+      ? identityAssessment.isComplete
+        ? identityAssessment.displayIdentity
+        : identityAssessment.knownSummary.replace(/^an?\s+/i, "") ||
+          input.displayIdentity ||
+          input.listingFill.title ||
+          "your item"
+      : input.displayIdentity || input.listingFill.title || "your item"
+  )
+    .trim() || "your item";
+
   const needsConfirm =
-    input.needsIdentityConfirm === true && input.identityConfirmed !== true;
+    input.identityConfirmed !== true &&
+    (fused ? !identityAssessment.isComplete : input.needsIdentityConfirm === true);
 
   // Vision = FACTS only — never ship raw vision prose as the buyer description
-  const fill: SkyAiListingFill = { ...input.listingFill };
+  const fill: SkyAiListingFill = {
+    ...(fused?.listingFill || input.listingFill),
+  };
   delete fill.description;
+  // Incomplete fused identity → never claim attribute stacks as buyer description
+  if (fused && !identityAssessment.isComplete) {
+    delete fill.description;
+  }
 
   // PHOTO AGAIN: never silently overwrite USER* identity / title / vehicle facts
   const prov = input.fieldProvenance || {};
@@ -144,7 +180,10 @@ export function prepareVisionConversationBridge(
     }
   }
 
-  if (!isUserLockedDescription(input.descriptionProvenance)) {
+  const mayComposeDescription =
+    !isUserLockedDescription(input.descriptionProvenance) &&
+    (fused ? identityAssessment.isComplete : !needsConfirm);
+  if (mayComposeDescription) {
     const composed = recomposeListingDescription(
       { ...(input.existingDraft || {}), ...fill },
       { quality: "premium_plus" }
@@ -175,14 +214,21 @@ export function prepareVisionConversationBridge(
   };
 
   if (needsConfirm) {
+    const assistantMessage =
+      fused?.assistantMessage ||
+      `Looks like a **${identity}**. Is that right?`;
     return {
       listingFill: fill,
       displayIdentity: identity,
       needsIdentityConfirm: true,
       imageFieldKeys,
       provenanceOverrides,
-      assistantMessage: `Looks like a **${identity}**. Is that right?`,
-      pendingSlot: null,
+      assistantMessage,
+      pendingSlot:
+        fused?.pendingSlot ||
+        (fused && identityAssessment.domain === "TRADING_CARD"
+          ? "card_subject"
+          : null),
       pendingClarification: null,
       focusChat: true,
     };
@@ -194,9 +240,11 @@ export function prepareVisionConversationBridge(
     `vision:${identity}`
   );
   const pendingSlot = next?.slot ?? null;
-  const assistantMessage = buildReadinessFollowUpReply(draftAfter, {
-    lead: `Looks like a **${identity}**.`,
-  });
+  const assistantMessage =
+    fused?.assistantMessage ||
+    buildReadinessFollowUpReply(draftAfter, {
+      lead: `Looks like a **${identity}**.`,
+    });
 
   return {
     listingFill: fill,

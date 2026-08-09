@@ -32,6 +32,14 @@ export type VisionListingObservation = {
   category: VisionObservedField;
   colour: VisionObservedField;
   visibleCondition: VisionObservedField;
+  /** Trading-card structured facts — empty when not a card / unreadable */
+  cardSubject: VisionObservedField;
+  cardSet: VisionObservedField;
+  cardYear: VisionObservedField;
+  parallel: VisionObservedField;
+  grader: VisionObservedField;
+  grade: VisionObservedField;
+  serialNumber: VisionObservedField;
   identifiers: string[];
   visibleFeatures: string[];
   accessories: string[];
@@ -60,6 +68,13 @@ export const VISION_LISTING_OBSERVATION_SCHEMA = {
     "category",
     "colour",
     "visibleCondition",
+    "cardSubject",
+    "cardSet",
+    "cardYear",
+    "parallel",
+    "grader",
+    "grade",
+    "serialNumber",
     "identifiers",
     "visibleFeatures",
     "accessories",
@@ -84,6 +99,13 @@ export const VISION_LISTING_OBSERVATION_SCHEMA = {
     category: { $ref: "#/$defs/observedField" },
     colour: { $ref: "#/$defs/observedField" },
     visibleCondition: { $ref: "#/$defs/observedField" },
+    cardSubject: { $ref: "#/$defs/observedField" },
+    cardSet: { $ref: "#/$defs/observedField" },
+    cardYear: { $ref: "#/$defs/observedField" },
+    parallel: { $ref: "#/$defs/observedField" },
+    grader: { $ref: "#/$defs/observedField" },
+    grade: { $ref: "#/$defs/observedField" },
+    serialNumber: { $ref: "#/$defs/observedField" },
     identifiers: { type: "array", items: { type: "string" } },
     visibleFeatures: { type: "array", items: { type: "string" } },
     accessories: { type: "array", items: { type: "string" } },
@@ -126,11 +148,21 @@ Fact buckets: visibleFacts, readableFacts, inferredFacts, unknowns
 
 HARD RULES - never invent price, location, ownership, warranty, authenticity, works/powers-on,
 storage/battery/mileage unless READABLE, exact year unless READABLE.
+Never invent unreadable player/character names, set names, or serial numbers.
+
+IDENTITY vs ATTRIBUTES (critical):
+- itemIdentity / displayIdentity must name the OBJECT (player/character + card type, phone model, shoe model, car make+model).
+- NEVER set displayIdentity to attribute stacks alone: grader+grade+brand (e.g. "PSA 10 Panini"), brand+size, brand+storage, make+transmission.
+- Trading cards: put player/character in cardSubject when READABLE; brand/publisher in brand; grader/grade/serial/parallel/year/set in their fields.
+- If player/character is unreadable: leave cardSubject empty, put "player name" in unknowns, and set displayIdentity to a soft category like "graded football card" — NOT "PSA 10 Panini".
+- Phones: model in product/model; storage is NOT identity.
+- Shoes: model/line is identity; size is attribute.
+- Vehicles: make+model is identity; transmission/colour are attributes.
 
 Condition: VISIBLE wear only. Do NOT map uncertain to Like New.
 listingType: physical | vehicle | digital | service | rental
-category: Tech, Gaming, Home, Fashion, Sports, Cars, Other
-displayIdentity: short human label (e.g. PlayStation 5)
+category: Tech, Gaming, Home, Fashion, Sports, Cars, Other, Collectibles
+displayIdentity: short human label that actually identifies the item (e.g. PlayStation 5). Empty-ish category OK if unsure.
 visualDescription: 1-2 natural sentences of safe visible facts - no marketing.
 
 Multi-photo = ONE listing.`;
@@ -153,6 +185,13 @@ export function emptyVisionObservation(): VisionListingObservation {
     category: emptyObservedField(),
     colour: emptyObservedField(),
     visibleCondition: emptyObservedField(),
+    cardSubject: emptyObservedField(),
+    cardSet: emptyObservedField(),
+    cardYear: emptyObservedField(),
+    parallel: emptyObservedField(),
+    grader: emptyObservedField(),
+    grade: emptyObservedField(),
+    serialNumber: emptyObservedField(),
     identifiers: [],
     visibleFeatures: [],
     accessories: [],
@@ -213,6 +252,13 @@ export function parseVisionObservation(raw: unknown): VisionListingObservation {
     category: parseObservedField(o.category),
     colour: parseObservedField(o.colour),
     visibleCondition: parseObservedField(o.visibleCondition),
+    cardSubject: parseObservedField(o.cardSubject),
+    cardSet: parseObservedField(o.cardSet),
+    cardYear: parseObservedField(o.cardYear),
+    parallel: parseObservedField(o.parallel),
+    grader: parseObservedField(o.grader),
+    grade: parseObservedField(o.grade),
+    serialNumber: parseObservedField(o.serialNumber),
     identifiers: parseStringArray(o.identifiers),
     visibleFeatures,
     accessories: parseStringArray(o.accessories),

@@ -6,6 +6,7 @@
 
 import type { ClientTaskScopeContext } from "./awhina-task-scope";
 import type { ClientSearchContext } from "./awhina-search-memory";
+import type { AwhinaPendingAction } from "./awhina-pending-action";
 
 export type PersistedAwhinaSession = {
   conversationId?: string | null;
@@ -13,6 +14,8 @@ export type PersistedAwhinaSession = {
   search?: ClientSearchContext;
   /** Typed active listing slot mirrored from canonical sessionState */
   pendingSlot?: string | null;
+  /** Active confirmation — yes/no must resolve this, never stale search */
+  pendingAction?: AwhinaPendingAction | null;
   updatedAt: number;
 };
 

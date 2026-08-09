@@ -129,6 +129,24 @@ import {
 } from "./awhina-decision";
 import { runIntelligenceTurn } from "./awhina-intelligence-turn";
 import { authorityToListingProvenance } from "./awhina-authority";
+import {
+  type AwhinaPendingAction,
+  assistantAskedSearchConfirmation,
+  assistantAskedSellConfirmation,
+  buildSearchPendingAction,
+  buildStartSellingPendingAction,
+  classifyConfirmationReply,
+  clearPendingAction,
+  confirmPendingAction,
+  getPendingAction,
+  hydratePendingAction,
+  mayExecuteAction,
+  pendingActionKey,
+  rejectPendingAction,
+  resolvePendingActionTurn,
+  setPendingAction,
+  shouldInvalidateSearchOnEvidence,
+} from "./awhina-pending-action";
 
 export type CanonicalContext = {
   pathname?: string;
@@ -146,6 +164,10 @@ export type CanonicalContext = {
   /** Client-echoed durable task/search (Maps are cache) */
   clientTask?: ClientTaskScopeContext | null;
   clientSearch?: ClientSearchContext | null;
+  /** Client-echoed active confirmation (Want to sell it? / search?) */
+  clientPendingAction?: AwhinaPendingAction | null;
+  /** Current turn includes product photo(s) */
+  hasImages?: boolean;
   /** Visible search/listing cards for real compare — never invent */
   pageListings?: ListingFacts[];
   /** Real search result meta from client (counts only when known) */
@@ -161,6 +183,8 @@ export type CanonicalSessionState = {
   search?: ClientSearchContext;
   /** Typed active listing slot echoed for client persistence (year/price/…) */
   pendingSlot?: string | null;
+  /** Active confirmation — short yes/no resolves this first */
+  pendingAction?: AwhinaPendingAction | null;
 };
 
 export type CanonicalResult = {
@@ -462,10 +486,46 @@ export function processCanonicalAwhina(
     pathname,
     anonSessionId: context.anonSessionId,
   });
+  const paKey = pendingActionKey({
+    conversationId: context.conversationId,
+    uid: context.uid,
+    pathname,
+    anonSessionId: context.anonSessionId,
+  });
 
   // Durable client context hydrates cold Maps (serverless)
   hydrateTaskScope(scopeKey, context.clientTask);
   hydrateSearchSession(memKey, context.clientSearch);
+  hydratePendingAction(paKey, context.clientPendingAction);
+
+  // Photo / sell evidence supersedes stale SEARCH pending + open search_slots.
+  // Keep search session filters briefly so decision can mark ignoredStaleContext;
+  // safety gate + pendingAction prevent Yes from re-executing stale queries.
+  if (
+    shouldInvalidateSearchOnEvidence({
+      hasImages: context.hasImages,
+      hasExplicitSell: hasExplicitSellSwitch(trimmed) || hasListingSellIntent(trimmed),
+      hasSellFacts: Boolean(
+        context.hasImages &&
+          (/\$?\d/.test(trimmed) ||
+            /\b(psa|bgs|cgc|pickup|pick\s*up)\b/i.test(trimmed))
+      ),
+      message: trimmed,
+    })
+  ) {
+    const stalePa = getPendingAction(paKey);
+    if (stalePa?.type === "SEARCH") {
+      clearPendingAction(paKey, "superseded");
+    }
+    const open = getTaskScope(scopeKey)?.pendingClarification;
+    if (isClarificationOpen(open) && open?.kind === "search_slots") {
+      cancelOpenClarification(scopeKey, {
+        reason: "sell",
+        toTask: "selling",
+        clearPendingItem: true,
+      });
+    }
+  }
 
   const finish = (
     partial: Omit<CanonicalResult, "executionTimeMs">,
@@ -473,6 +533,27 @@ export function processCanonicalAwhina(
   ): CanonicalResult => {
     const taskSnap = getTaskScope(scopeKey);
     const searchSnap = getSearchSession(memKey);
+
+    // Response → state contract: confirmation questions must set pendingAction
+    if (partial.reply && assistantAskedSellConfirmation(partial.reply)) {
+      const fill = (partial.listingFill || {}) as import("./sky-ai-listing-fill").SkyAiListingFill;
+      setPendingAction(
+        paKey,
+        buildStartSellingPendingAction({
+          identity:
+            (fill.title as string) ||
+            getPendingAction(paKey)?.identity ||
+            "this item",
+          listingFill: fill,
+          prompt: "Want to sell it?",
+        })
+      );
+    } else if (partial.reply) {
+      const q = assistantAskedSearchConfirmation(partial.reply);
+      if (q) {
+        setPendingAction(paKey, buildSearchPendingAction({ searchQuery: q }));
+      }
+    }
     let reply = partial.reply
       ? polishAwhinaReplyStyle(stripDuplicateLocationInReply(partial.reply))
       : partial.reply;
@@ -635,8 +716,45 @@ export function processCanonicalAwhina(
       }
     }
 
+    // Stale-state safety gate: search only if current turn or active pending SEARCH
+    let resultIntent = partial.intent;
+    let resultSource = partial.source;
+    if (tool === "searchListings" || toolCall?.tool === "searchListings") {
+      // Affirm of pending SEARCH is validated upstream before confirm clears the action
+      const affirmSearchConfirm =
+        classifyConfirmationReply(trimmed) === "AFFIRM" &&
+        partial.tool === "searchListings" &&
+        partial.intent === "marketplace_search";
+      const requestedByCurrentTurn =
+        affirmSearchConfirm ||
+        hasSearchIntentLanguage(trimmed) ||
+        isVagueShoppingNeed(trimmed) ||
+        isExplicitPendingSearchExecute(trimmed, taskSnap?.pendingItem) ||
+        isNoResultFollowUp(trimmed) ||
+        (Boolean(searchSnap) && isSearchFollowUp(trimmed, searchSnap));
+      const gate = mayExecuteAction({
+        tool: "searchListings",
+        requestedByCurrentTurn,
+        resolvingPendingAction: getPendingAction(paKey),
+        objectStillCurrent: true,
+      });
+      if (!gate.ok) {
+        tool = undefined;
+        toolCall = undefined;
+        navigateTo = undefined;
+        reply =
+          reply && !/Searching for/i.test(reply)
+            ? reply
+            : "What are you looking for right now?";
+        resultIntent = "unknown";
+        resultSource = "clarify";
+      }
+    }
+
     const result: CanonicalResult = {
       ...partial,
+      intent: resultIntent,
+      source: resultSource,
       reply,
       navigateTo,
       tool,
@@ -647,6 +765,7 @@ export function processCanonicalAwhina(
         task: toClientTaskScope(taskSnap),
         search: toClientSearchContext(searchSnap),
         pendingSlot: getPersistedPendingSlot(taskSnap),
+        pendingAction: getPendingAction(paKey),
       },
       // Keep on result for tests/telemetry — UI must ignore
       _decision: decision,
@@ -680,6 +799,185 @@ export function processCanonicalAwhina(
       usedLocalExecution: false,
       avoidedAi: false,
     });
+  }
+
+  // ── 1. PENDING EXPLICIT CONFIRMATION (before search / sticky shopping) ──
+  {
+    const onSellPageEarly = pathname.startsWith("/post/ai");
+    const listKeyPending = listingDraftSessionKey({
+      conversationId: context.conversationId,
+      uid: context.uid,
+      pathname,
+      anonSessionId: context.anonSessionId,
+    });
+    const activePa = getPendingAction(paKey);
+    const resolution = resolvePendingActionTurn({
+      message: trimmed,
+      pendingAction: activePa,
+    });
+
+    if (resolution.kind === "CONFIRM" && resolution.action.type === "START_SELLING") {
+      confirmPendingAction(paKey);
+      clearSearchSession(memKey);
+      cancelOpenClarification(scopeKey, {
+        reason: "sell",
+        toTask: "selling",
+        clearPendingItem: true,
+      });
+      const fill = resolution.action.listingFill || {};
+      const identity =
+        resolution.action.identity ||
+        (typeof fill.title === "string" ? fill.title : "") ||
+        "your item";
+      setActiveTask(scopeKey, "selling", {
+        pendingItem: identity,
+        pendingClarification: undefined,
+      });
+      rememberListingDraft(listKeyPending, fill as SkyAiListingFill);
+      return finish({
+        handled: true,
+        reply: `Great — let's list **${identity}**. I'll keep the details you already gave me.`,
+        listingFill: fill as Record<string, unknown>,
+        navigateTo: onSellPageEarly ? undefined : "/post/ai",
+        source: "tool",
+        intent: "listing_create",
+        tool: "updateListingDraft",
+        confidence: 0.98,
+        usedLocalExecution: true,
+        avoidedAi: true,
+        toolCall: {
+          tool: "updateListingDraft",
+          args: { updateListingDraft: fill as SkyAiListingFill },
+          confidence: 0.98,
+        },
+      });
+    }
+
+    if (resolution.kind === "CONFIRM" && resolution.action.type === "SEARCH") {
+      const q = resolution.action.searchQuery || resolution.action.objectId || "";
+      confirmPendingAction(paKey);
+      if (!q) {
+        return finish({
+          handled: true,
+          reply: "What should I search for?",
+          source: "clarify",
+          intent: "marketplace_search",
+          confidence: 0.7,
+          usedLocalExecution: true,
+          avoidedAi: true,
+        });
+      }
+      const gate = mayExecuteAction({
+        tool: "searchListings",
+        requestedByCurrentTurn: false,
+        resolvingPendingAction: { ...resolution.action, status: "confirmed" },
+        objectStillCurrent: true,
+      });
+      if (!gate.ok) {
+        return finish({
+          handled: true,
+          reply: "That search is no longer current. What are you looking for?",
+          source: "clarify",
+          intent: "marketplace_search",
+          confidence: 0.7,
+          usedLocalExecution: true,
+          avoidedAi: true,
+        });
+      }
+      rememberPrimarySearch(memKey, `find ${q}`);
+      const merged = updateSearchSession(memKey, { query: q });
+      setActiveTask(scopeKey, "shopping", {
+        pendingItem: q,
+        pendingClarification: undefined,
+      });
+      const { text, navigateTo } = buildSearchFollowUpReply(merged);
+      return finish({
+        handled: true,
+        reply: text,
+        navigateTo,
+        source: "tool",
+        intent: "marketplace_search",
+        tool: "searchListings",
+        confidence: 0.95,
+        usedLocalExecution: true,
+        avoidedAi: true,
+        toolCall: searchToolCall(merged, 0.95),
+      });
+    }
+
+    if (resolution.kind === "CONFIRM" && resolution.action.type === "CONFIRM_LOCATION") {
+      confirmPendingAction(paKey);
+      const loc = resolution.action.objectId || resolution.action.label || "";
+      const base = reconstructListingDraftBase({
+        listingContext: context.listingContext,
+        sessionKey: listKeyPending,
+        freshStart: false,
+      });
+      const fill = { ...base, location: loc, pickupArea: loc };
+      rememberListingDraft(listKeyPending, fill);
+      setActiveTask(scopeKey, "selling");
+      return finish({
+        handled: true,
+        reply: `Got it — **${loc}**.`,
+        listingFill: fill as Record<string, unknown>,
+        source: "tool",
+        intent: "listing_update",
+        tool: "updateListingDraft",
+        confidence: 0.95,
+        usedLocalExecution: true,
+        avoidedAi: true,
+      });
+    }
+
+    if (resolution.kind === "CONFIRM" && resolution.action.type === "PUBLISH") {
+      confirmPendingAction(paKey);
+      return finish({
+        handled: true,
+        reply:
+          "Ready when you are — tap **Publish Listing** on the sell page to go live. (I won't publish without that explicit tap.)",
+        navigateTo: onSellPageEarly ? undefined : "/post/ai",
+        source: "clarify",
+        intent: "listing_update",
+        confidence: 0.9,
+        usedLocalExecution: true,
+        avoidedAi: true,
+      });
+    }
+
+    if (resolution.kind === "REJECT" && resolution.action) {
+      rejectPendingAction(paKey);
+      return finish({
+        handled: true,
+        reply:
+          resolution.action.type === "START_SELLING"
+            ? "No worries — I won't start a listing. What would you like to do instead?"
+            : resolution.action.type === "SEARCH"
+              ? "Okay, I won't search. What next?"
+              : "Okay, cancelled.",
+        source: "local",
+        intent: "unknown",
+        confidence: 0.9,
+        usedLocalExecution: true,
+        avoidedAi: true,
+      });
+    }
+
+    if (resolution.kind === "CLARIFY" && classifyConfirmationReply(trimmed) !== "NOT_CONFIRMATION") {
+      // Orphan yes/no with NO pendingAction — never guess stale search.
+      // If an open clarification exists (search_slots / buy_vs_sell / listing), fall through.
+      const openClarify = getTaskScope(scopeKey)?.pendingClarification;
+      if (!isClarificationOpen(openClarify)) {
+        return finish({
+          handled: true,
+          reply: resolution.reply,
+          source: "clarify",
+          intent: "unknown",
+          confidence: 0.8,
+          usedLocalExecution: true,
+          avoidedAi: true,
+        });
+      }
+    }
   }
 
   // Pending BUY vs SELL / type clarification — only while open (not search_slots).

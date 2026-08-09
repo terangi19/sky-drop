@@ -21,6 +21,11 @@ import {
   type VisionObservedField,
 } from "./awhina-vision-observation";
 import { validateListingFillFields } from "./awhina-listing-fill-tools";
+import {
+  assessIdentityCompleteness,
+  isMalformedItemIdentity,
+} from "./awhina-identity-composition";
+import { resolveFactDomain } from "./awhina-domain-facts";
 
 export type VisionAdapterResult = {
   facts: StructuredListingFacts;
@@ -206,25 +211,74 @@ export function adaptVisionObservationToListing(
   const validated = validateListingFillFields(listingFill);
   if (validated.ok) listingFill = validated.fill;
 
-  const displayIdentity =
+  // Apply structured vision domain facts (cards etc.) into extras
+  listingFill = applyVisionDomainFacts(obs, listingFill);
+
+  const domain = resolveFactDomain(listingFill);
+  const rawIdentity =
     obs.displayIdentity ||
     listingFill.title ||
     facts.fields.itemIdentity?.value ||
-    "this item";
+    "";
+
+  const identity = assessIdentityCompleteness({
+    fill: listingFill,
+    claimedIdentity: rawIdentity,
+    domain,
+  });
+
+  const displayIdentity = identity.isComplete
+    ? identity.displayIdentity
+    : identity.knownSummary.replace(/^an?\s+/i, "") || "this item";
+
+  // Never stamp malformed attribute stacks as title.
+  // Do NOT overwrite a USER title that survived mergeListingFacts.
+  const userTitleLocked = Boolean(
+    existing &&
+      typeof existing.title === "string" &&
+      existing.title.trim() &&
+      listingFill.title?.trim() === existing.title.trim()
+  );
+  if (rawIdentity && isMalformedItemIdentity(rawIdentity, domain)) {
+    if (
+      !userTitleLocked &&
+      listingFill.title &&
+      isMalformedItemIdentity(listingFill.title, domain)
+    ) {
+      listingFill = { ...listingFill, title: displayIdentity };
+    }
+    omitted.push("malformed_identity");
+  } else if (
+    !userTitleLocked &&
+    identity.isComplete &&
+    identity.displayIdentity &&
+    !listingFill.title?.trim()
+  ) {
+    listingFill = { ...listingFill, title: identity.displayIdentity };
+  } else if (
+    !userTitleLocked &&
+    identity.isComplete &&
+    identity.displayIdentity &&
+    listingFill.title &&
+    isMalformedItemIdentity(listingFill.title, domain)
+  ) {
+    listingFill = { ...listingFill, title: identity.displayIdentity };
+  }
 
   const needsIdentityConfirm =
+    !identity.isComplete ||
     obs.overallConfidence !== "HIGH" ||
     suggestions.some((s) => s.field === "itemIdentity" || s.field === "title");
 
   const missingPrompts: string[] = [];
   if (!listingFill.price) missingPrompts.push("price");
   if (!listingFill.location) missingPrompts.push("location");
-  if (!listingFill.condition && !listingFill.extras?.some((e) => /^Visual:/i.test(e))) {
-    // condition optional if we have visual clues; otherwise ask when selling used goods
-  }
+  if (!identity.isComplete) missingPrompts.push("identity");
 
   const foundReply = needsIdentityConfirm
-    ? `Āwhina found it — looks like **${displayIdentity}**. Is that right?`
+    ? identity.missingCoreQuestion
+      ? `Āwhina can see ${identity.knownSummary}, but ${identity.missingCoreQuestion}`
+      : `Āwhina found it — looks like **${displayIdentity}**. Is that right?`
     : `Āwhina found it — **${displayIdentity}**.`;
 
   return {
@@ -237,6 +291,42 @@ export function adaptVisionObservationToListing(
     missingPrompts,
     foundReply,
   };
+}
+
+/** Map per-fact vision domain fields into listing extras (no hallucinated titles). */
+function applyVisionDomainFacts(
+  obs: VisionListingObservation,
+  fill: SkyAiListingFill
+): SkyAiListingFill {
+  const extras = [...(fill.extras || [])];
+  const push = (prefix: string, field: VisionObservedField) => {
+    if (!mayPopulateFromVision(field, { allowMedium: true })) return;
+    if (!field.value.trim()) return;
+    if (extras.some((e) => e.toLowerCase().startsWith(prefix.toLowerCase()))) return;
+    extras.push(`${prefix}${field.value.trim()}`);
+  };
+
+  if (obs.cardSubject) push("subject:", obs.cardSubject);
+  if (obs.cardSet) push("set:", obs.cardSet);
+  if (obs.grader && obs.grade) {
+    const g = mayPopulateFromVision(obs.grader, { allowMedium: true })
+      ? obs.grader.value
+      : "";
+    const gr = mayPopulateFromVision(obs.grade, { allowMedium: true })
+      ? obs.grade.value
+      : "";
+    if (g && gr && !extras.some((e) => e.toLowerCase().startsWith("grade:"))) {
+      extras.push(`grade:${g.toUpperCase()} ${gr}`);
+    }
+  } else if (obs.grade) {
+    push("grade:", obs.grade);
+  }
+  if (obs.serialNumber) push("serial:", obs.serialNumber);
+  if (obs.cardYear) push("year:", obs.cardYear);
+  if (obs.parallel) push("parallel:", obs.parallel);
+
+  if (extras.length === (fill.extras || []).length) return fill;
+  return { ...fill, extras };
 }
 
 /** Build a natural description from confirmed seller bits + safe vision facts. */

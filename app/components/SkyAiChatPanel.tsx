@@ -91,6 +91,11 @@ import {
   commitVisionBridgeToConversation,
   prepareVisionConversationBridge,
 } from "../lib/awhina-vision-conversation-bridge";
+import {
+  buildStartSellingPendingAction,
+  classifyConfirmationReply,
+  type AwhinaPendingAction,
+} from "../lib/awhina-pending-action";
 import SharedPhotoCapture, { isCameraSupported } from "./SharedPhotoCapture";
 
 export type SkyAiChatPanelMode = "sheet" | "inline";
@@ -264,6 +269,7 @@ export default function SkyAiChatPanel({
     };
     search?: { filters?: Record<string, unknown>; updatedAt?: number };
     pendingSlot?: string | null;
+    pendingAction?: AwhinaPendingAction | null;
   } | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -340,15 +346,16 @@ export default function SkyAiChatPanel({
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open]);
 
-  // Hydrate pendingSlot / task scope when remounting (global sheet → /post/ai)
+  // Hydrate pendingSlot / pendingAction / task scope when remounting (global sheet → /post/ai)
   useEffect(() => {
     if (awhinaSessionRef.current?.task?.pendingClarification) return;
     const stored = readPersistedAwhinaSession(conversationId);
-    if (!stored?.task) return;
+    if (!stored?.task && !stored?.pendingAction) return;
     const echo = {
       task: stored.task as NonNullable<typeof awhinaSessionRef.current>["task"],
       search: stored.search as NonNullable<typeof awhinaSessionRef.current>["search"],
       pendingSlot: stored.pendingSlot ?? null,
+      pendingAction: stored.pendingAction ?? null,
     };
     awhinaSessionRef.current = echo;
     setAwhinaSessionEcho(echo as never);
@@ -525,40 +532,70 @@ export default function SkyAiChatPanel({
         detectSkyAiIntent(trimmed) === "buy_trouble";
       if (switchedIntent) setListingFillOccurred(false);
 
-      // Global "Sell this" after photo offer — reuse stashed vision fill (no second model)
-      if (
-        !imageUrls.length &&
-        /^\s*sell\s+this\b/i.test(trimmed) &&
-        visionOfferFillRef.current
-      ) {
-        const offer = visionOfferFillRef.current;
-        visionOfferFillRef.current = null;
-        setPendingImages([]);
-        const userMsgSell: ChatMessage = {
-          id: `u-${Date.now()}`,
-          role: "user",
-          text: trimmed,
-        };
-        setMessages((prev) => [...prev.filter((m) => m.id !== "welcome"), userMsgSell]);
-        setBusy(true);
-        setBusyStatus(true);
-        try {
-          const bridge = prepareVisionConversationBridge({
-            listingFill: offer.fill,
-            displayIdentity: offer.identity,
-            needsIdentityConfirm: offer.needsIdentityConfirm,
-            existingDraft: null,
-          });
-          handleListingFill(bridge.listingFill);
-          commitVisionBridgeToConversation(bridge);
-          beginListingWorkspaceHandoff({ autoContinue: true });
-          dispatchWorkspaceHandoff({ autoOpen: true, autoContinue: true });
-          runNavigate("/post/ai");
-        } finally {
-          setBusy(false);
-          setBusyStatus(false);
+      // Confirm START_SELLING pending action ("Yes" / "Sell this") — never fall through to search
+      {
+        const pendingAction = awhinaSessionRef.current?.pendingAction as
+          | AwhinaPendingAction
+          | null
+          | undefined;
+        const conf = classifyConfirmationReply(trimmed);
+        const sellThis = /^\s*sell\s+this\b/i.test(trimmed);
+        const startSelling =
+          !imageUrls.length &&
+          (visionOfferFillRef.current ||
+            (pendingAction?.status === "active" &&
+              pendingAction.type === "START_SELLING")) &&
+          (sellThis || conf === "AFFIRM");
+
+        if (startSelling) {
+          const offer = visionOfferFillRef.current || {
+            fill: pendingAction?.listingFill || {},
+            identity: pendingAction?.identity || "your item",
+            needsIdentityConfirm: Boolean(pendingAction?.needsIdentityConfirm),
+          };
+          visionOfferFillRef.current = null;
+          setPendingImages([]);
+          const userMsgSell: ChatMessage = {
+            id: `u-${Date.now()}`,
+            role: "user",
+            text: trimmed,
+          };
+          setMessages((prev) => [...prev.filter((m) => m.id !== "welcome"), userMsgSell]);
+          setBusy(true);
+          setBusyStatus(true);
+          try {
+            const bridge = prepareVisionConversationBridge({
+              listingFill: offer.fill as SkyAiListingFill,
+              displayIdentity: offer.identity,
+              needsIdentityConfirm: offer.needsIdentityConfirm,
+              existingDraft: null,
+              sellerMessage: trimmed,
+            });
+            handleListingFill(bridge.listingFill);
+            commitVisionBridgeToConversation(bridge);
+            // Clear pending confirmation + kill stale search echo
+            const echo = {
+              ...(awhinaSessionRef.current || {}),
+              task: {
+                task: "selling" as const,
+                pendingItem: offer.identity,
+                updatedAt: Date.now(),
+              },
+              search: undefined,
+              pendingAction: null,
+              pendingSlot: bridge.pendingSlot,
+            };
+            awhinaSessionRef.current = echo as typeof awhinaSessionRef.current;
+            setAwhinaSessionEcho(echo as never);
+            beginListingWorkspaceHandoff({ autoContinue: true });
+            dispatchWorkspaceHandoff({ autoOpen: true, autoContinue: true });
+            runNavigate("/post/ai");
+          } finally {
+            setBusy(false);
+            setBusyStatus(false);
+          }
+          return;
         }
-        return;
       }
 
       setPendingImages([]);
@@ -654,10 +691,35 @@ export default function SkyAiChatPanel({
               identity,
               needsIdentityConfirm: vision.needsIdentityConfirm,
             };
+            const offerReply = buildSellOfferReply(identity);
+            // Response → state contract: "Want to sell it?" MUST set pendingAction
+            const pendingAction: AwhinaPendingAction = {
+              ...buildStartSellingPendingAction({
+                identity,
+                listingFill: vision.listingFill,
+                needsIdentityConfirm: vision.needsIdentityConfirm,
+                prompt: "Want to sell it?",
+              }),
+              id: `pa_sell_${Date.now().toString(36)}`,
+              status: "active",
+              createdAt: Date.now(),
+            };
+            const echo = {
+              ...(awhinaSessionRef.current || {}),
+              // Supersede stale shopping / booster-pack search
+              task: {
+                task: "none" as const,
+                updatedAt: Date.now(),
+              },
+              search: undefined,
+              pendingAction,
+            };
+            awhinaSessionRef.current = echo as typeof awhinaSessionRef.current;
+            setAwhinaSessionEcho(echo as never);
             appendMessage({
               id: `vision-offer-${Date.now()}`,
               role: "assistant",
-              text: buildSellOfferReply(identity),
+              text: offerReply,
             });
             return;
           }

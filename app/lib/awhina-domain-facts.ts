@@ -202,11 +202,17 @@ export function computeDomainAwareMissingSlots(
   const includeHv = opts?.includeOptionalHighValue !== false;
   const missing: ListingMissingSlot[] = [];
 
-  // Identity weakness for cards: ask subject only when title/subject empty
+  // Identity weakness for cards: missing subject (attrs/title alone ≠ identity)
+  const title = (fill.title || "").trim();
+  const titleLooksAttrOnly =
+    /\b(psa|bgs|cgc|sgc)\b/i.test(title) ||
+    (/\b(panini|topps|prizm|select)\b/i.test(title) &&
+      !/\b[A-Z][a-z]+\s+[A-Z][a-z]+/.test(title));
   const cardIdentityWeak =
     schema.domain === "TRADING_CARD" &&
-    !hasFact(fill, "cardSubject") &&
-    !(fill.title || "").trim();
+    (!hasFact(fill, "cardSubject") ||
+      (!title && !hasFact(fill, "cardSubject")) ||
+      (titleLooksAttrOnly && !hasFact(fill, "cardSubject")));
 
   for (const field of schema.fields) {
     if (!field.slot) continue;
@@ -221,7 +227,7 @@ export function computeDomainAwareMissingSlots(
 
     // Card set is never auto-asked
     if (field.slot === "card_set") continue;
-    // Card subject only when identity weak
+    // Card subject when identity incomplete (attrs ≠ identity)
     if (field.slot === "card_subject" && !cardIdentityWeak) continue;
 
     missing.push(field.slot);

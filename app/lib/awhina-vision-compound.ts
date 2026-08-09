@@ -14,6 +14,7 @@ import {
 import type { VisionAdapterResult } from "./awhina-vision-adapter";
 import { composeVisionAwareDescription } from "./awhina-vision-adapter";
 import { getListingReadinessState } from "./awhina-listing-readiness";
+import { fuseVisionAndSellerText } from "./awhina-multimodal-fusion";
 
 export type CompoundMergeResult = VisionAdapterResult & {
   textApplied: boolean;
@@ -131,34 +132,49 @@ export function mergeVisionWithSellerText(
   // Companion USER facts win last (price/location/pickup from short notes)
   listingFill = { ...listingFill, ...companion };
 
+  // Structured fusion: domain shorthand + identity completeness + safe reply
+  const fused = fuseVisionAndSellerText({
+    listingFill,
+    displayIdentity: visionAdapted.displayIdentity,
+    sellerMessage: msg,
+    onSellPage: true,
+  });
+  listingFill = fused.listingFill;
+
   const userDesc = textFill?.description?.trim();
   if (!userDesc || userDesc.length < 20) {
-    const composed = composeVisionAwareDescription({
-      visualDescription: visionAdapted.listingFill.description,
-    });
-    if (composed) listingFill.description = composed;
+    // Only compose buyer description once identity is complete enough
+    if (fused.identity.isComplete) {
+      const composed = composeVisionAwareDescription({
+        sellerText: msg,
+        visualDescription: visionAdapted.listingFill.description,
+      });
+      if (composed) listingFill.description = composed;
+    } else {
+      delete listingFill.description;
+    }
   }
 
   const missingPrompts: string[] = [];
   if (!listingFill.price) missingPrompts.push("price");
   if (!listingFill.location) missingPrompts.push("location");
+  if (!fused.identity.isComplete) missingPrompts.push("identity");
 
   const readiness = getListingReadinessState(listingFill);
-  const identity = visionAdapted.displayIdentity || listingFill.title || "your item";
-  let foundReply = visionAdapted.foundReply;
-  if (listingFill.price && listingFill.location) {
-    foundReply = `Got it — **${identity}** for **$${listingFill.price}** in **${listingFill.location}**. Add photos if needed, then hit **Publish**.`;
-  } else if (listingFill.price) {
-    foundReply = `Got **$${listingFill.price}** for **${identity}**. Where's pickup?`;
-  } else if (listingFill.location) {
-    foundReply = `**${identity}** in **${listingFill.location}**. What's your price?`;
-  }
+  const foundReply = fused.assistantMessage;
 
-  const textApplied = Boolean(textFill) || Object.keys(companion).length > 0;
+  const textApplied =
+    Boolean(textFill) ||
+    Object.keys(companion).length > 0 ||
+    Object.keys(fused.userFacts).length > 0;
 
   return {
     ...visionAdapted,
     listingFill,
+    displayIdentity: fused.identity.isComplete
+      ? fused.identity.displayIdentity
+      : fused.identity.knownSummary.replace(/^an?\s+/i, ""),
+    needsIdentityConfirm: !fused.identity.isComplete,
     missingPrompts,
     foundReply,
     textApplied,

@@ -14,8 +14,13 @@ import {
   isListingSlotComplete,
   SLOT_QUESTIONS,
 } from "./awhina-pending-slots";
-import { computeDomainAwareMissingSlots } from "./awhina-domain-facts";
+import { computeDomainAwareMissingSlots, resolveFactDomain } from "./awhina-domain-facts";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
+import {
+  assessIdentityCompleteness,
+  isMalformedItemIdentity,
+} from "./awhina-identity-composition";
+import { fuseVisionAndSellerText } from "./awhina-multimodal-fusion";
 
 export type ResponseGuardFailure =
   | "A_ASK_KNOWN"
@@ -24,7 +29,11 @@ export type ResponseGuardFailure =
   | "D_REPEAT_QUESTION"
   | "E_INFERENCE_AS_CONFIRMED"
   | "F_PENDING_SLOT_UNRELATED"
-  | "G_RESPONSE_DRAFT_MISMATCH";
+  | "G_RESPONSE_DRAFT_MISMATCH"
+  | "H_MALFORMED_IDENTITY"
+  | "I_UNUSED_USER_FACTS"
+  | "J_OBVIOUS_SELL_ASK"
+  | "K_OVERCLAIM_VISION";
 
 export type ResponseGuardInput = {
   reply?: string;
@@ -44,6 +53,11 @@ export type ResponseGuardInput = {
   /** Reply claims certainty on LOW confidence inference */
   claimedConfirmedInference?: boolean;
   skippedSlots?: string[];
+  /** Latest user message — for unused-fact / sell-intent gates */
+  userMessage?: string;
+  /** Claimed vision identity phrase */
+  claimedIdentity?: string;
+  onSellPage?: boolean;
 };
 
 export type ResponseGuardResult = {
@@ -252,6 +266,20 @@ export function guardResponseBeforeEmit(
     notes.push("reply_stale_identity");
   }
 
+  // H/I/J/K — multimodal quality: identity, unused USER facts, sell ask, overclaim
+  const quality = guardAssistantOutputQuality({
+    reply: safeReply,
+    draft,
+    userMessage: input.userMessage,
+    claimedIdentity: input.claimedIdentity,
+    onSellPage: input.onSellPage,
+  });
+  if (quality.failures.length) {
+    failures.push(...quality.failures);
+    notes.push(...quality.notes);
+    if (quality.safeReply) safeReply = quality.safeReply;
+  }
+
   // Rebuild reply when we stripped illegal asks — never keep the known-slot question
   if (
     failures.includes("A_ASK_KNOWN") ||
@@ -289,4 +317,100 @@ export function guardResponseBeforeEmit(
     safeReply,
     notes,
   };
+}
+
+/**
+ * Fail responses like "Looks like a PSA 10 Panini. Want to sell it?"
+ * — malformed identity, unused USER facts, obvious sell ask, vision overclaim.
+ */
+export function guardAssistantOutputQuality(input: {
+  reply?: string;
+  draft: Partial<SkyAiListingFill>;
+  userMessage?: string;
+  claimedIdentity?: string;
+  onSellPage?: boolean;
+}): {
+  failures: ResponseGuardFailure[];
+  notes: string[];
+  safeReply?: string;
+} {
+  const failures: ResponseGuardFailure[] = [];
+  const notes: string[] = [];
+  const reply = input.reply || "";
+  const domain = resolveFactDomain(input.draft);
+  const claimed =
+    input.claimedIdentity ||
+    reply.match(/Looks like a?\s*\*?\*?(.+?)\*?\*?\./i)?.[1] ||
+    "";
+
+  if (claimed && isMalformedItemIdentity(claimed.trim(), domain)) {
+    failures.push("H_MALFORMED_IDENTITY");
+    notes.push("malformed_attribute_identity");
+  }
+
+  if (/want to sell it\?/i.test(reply)) {
+    failures.push("J_OBVIOUS_SELL_ASK");
+    notes.push("asked_sell_when_obvious_or_on_sell_surface");
+  }
+
+  if (
+    /Looks like a?\s+\*?\*?PSA\s*\d+/i.test(reply) ||
+    /Looks like a?\s+\*?\*?(Nike Size|BMW Automatic|Apple\s*\d+\s*GB)/i.test(reply)
+  ) {
+    failures.push("K_OVERCLAIM_VISION");
+    notes.push("overclaimed_attribute_as_identity");
+  }
+
+  const msg = (input.userMessage || "").trim();
+  if (msg && reply) {
+    const fused = fuseVisionAndSellerText({
+      listingFill: input.draft as SkyAiListingFill,
+      displayIdentity: claimed || input.draft.title,
+      sellerMessage: msg,
+      onSellPage: input.onSellPage,
+    });
+    const unused: string[] = [];
+    if (fused.userFacts.price && !reply.includes(fused.userFacts.price) && !/\$/.test(reply)) {
+      unused.push("price");
+    }
+    if (
+      fused.userFacts.location &&
+      !reply.toLowerCase().includes(fused.userFacts.location.toLowerCase())
+    ) {
+      unused.push("location");
+    }
+    if (
+      fused.userFacts.serialNumber &&
+      !reply.includes(fused.userFacts.serialNumber)
+    ) {
+      unused.push("serial");
+    }
+    if (unused.length) {
+      failures.push("I_UNUSED_USER_FACTS");
+      notes.push(`unused_user_facts:${unused.join(",")}`);
+    }
+
+    if (failures.length) {
+      return {
+        failures,
+        notes,
+        safeReply: fused.assistantMessage,
+      };
+    }
+  } else if (failures.includes("H_MALFORMED_IDENTITY") || failures.includes("K_OVERCLAIM_VISION")) {
+    const identity = assessIdentityCompleteness({
+      fill: input.draft,
+      claimedIdentity: claimed,
+      domain,
+    });
+    return {
+      failures,
+      notes,
+      safeReply: identity.missingCoreQuestion
+        ? `I can see ${identity.knownSummary}, but ${identity.missingCoreQuestion}`
+        : `I can see ${identity.knownSummary || "this item"}. What exactly is it?`,
+    };
+  }
+
+  return { failures, notes };
 }

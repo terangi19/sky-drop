@@ -1,7 +1,10 @@
 /**
  * Photo attachment intent — IMAGE ≠ automatic SELL.
  * Same vision pipeline; behavior depends on text + surface context.
+ * Marketplace shorthand (price + location/grade/serial) ⇒ sell, not "Want to sell?".
  */
+
+import { inferObviousSellIntent, extractDomainAwareShorthand, inferFusionDomain } from "./awhina-multimodal-fusion";
 
 export type AwhinaPhotoIntent = "sell" | "identify" | "ambiguous";
 
@@ -24,12 +27,27 @@ export function classifyAwhinaPhotoIntent(
   if (SELL_RE.test(m) || (PRICE_RE.test(m) && /\b(for|want|asking|price)\b/i.test(m))) {
     return "sell";
   }
+
+  // Photo + marketplace facts (price+location / grade / serial / pickup) ⇒ sell
+  if (m) {
+    const domain = inferFusionDomain({}, m);
+    const facts = extractDomainAwareShorthand(m, domain);
+    if (
+      inferObviousSellIntent({
+        message: m,
+        onSellPage: false,
+        priorSellingTask: opts?.priorSellingTask,
+        userFacts: facts,
+      })
+    ) {
+      return "sell";
+    }
+  }
+
   if (!m) {
-    // Clear selling context with photo alone → confirm, don't silently create
     if (opts?.priorSellingTask) return "sell";
     return "ambiguous";
   }
-  // Free-text with photo, no clear sell/identify → ask
   return "ambiguous";
 }
 

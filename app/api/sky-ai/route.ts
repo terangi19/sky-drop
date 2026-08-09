@@ -553,6 +553,7 @@ export async function POST(req: NextRequest) {
               updatedAt?: number;
             };
             pendingSlot?: string | null;
+            pendingAction?: import("../../lib/awhina-pending-action").AwhinaPendingAction | null;
           })
         : undefined;
 
@@ -647,6 +648,8 @@ export async function POST(req: NextRequest) {
             updatedAt: awhinaSession.search.updatedAt,
           }
         : null,
+      clientPendingAction: awhinaSession?.pendingAction || null,
+      hasImages: Array.isArray(body.images) && body.images.length > 0,
       source: body.source === "voice" ? "voice" : "text",
       voiceConfidence:
         body.voiceConfidence === "medium" || body.voiceConfidence === "low"

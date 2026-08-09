@@ -47,6 +47,8 @@ export type AwhinaSessionEcho = {
   task?: PersistedAwhinaSession["task"];
   search?: PersistedAwhinaSession["search"];
   pendingSlot?: string | null;
+  /** Active confirmation (Want to sell it? / search for X?) — yes/no resolves this */
+  pendingAction?: import("./awhina-pending-action").AwhinaPendingAction | null;
 };
 
 export type AwhinaConversationState = {
@@ -174,6 +176,7 @@ function hydrateFromStorage(): AwhinaConversationState {
       task: session.task,
       search: session.search,
       pendingSlot: session.pendingSlot ?? null,
+      pendingAction: session.pendingAction ?? null,
     };
     base.activeTask = (session.task?.task as string | undefined) || null;
     base.pendingSlot = session.pendingSlot ?? null;
@@ -247,6 +250,7 @@ function commit(next: AwhinaConversationState, opts?: { persistMsgs?: boolean })
       task: state.awhinaSession.task,
       search: state.awhinaSession.search,
       pendingSlot: state.pendingSlot ?? state.awhinaSession.pendingSlot ?? null,
+      pendingAction: state.awhinaSession.pendingAction ?? null,
       updatedAt: Date.now(),
     });
   }
