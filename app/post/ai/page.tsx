@@ -201,12 +201,17 @@ export default function AIPostPage() {
   const [fieldProvenance, setFieldProvenance] = useState<ListingFieldProvenanceMap>({});
   const fieldProvenanceRef = useRef<ListingFieldProvenanceMap>({});
   fieldProvenanceRef.current = fieldProvenance;
-  const markField = useCallback((key: keyof ListingDraftFormSnapshot, source: "USER" | "AWHINA" | "IMAGE" | "EDITED_EXISTING_LISTING" = "USER") => {
+  const markField = useCallback((key: keyof ListingDraftFormSnapshot, source: "USER" | "USER_CONFIRMED" | "USER_CORRECTED" | "AWHINA" | "IMAGE" | "EDITED_EXISTING_LISTING" = "USER") => {
     setFieldProvenance((prev) => ({ ...prev, [key]: source }));
   }, []);
   const isUserLockedField = useCallback((key: keyof ListingDraftFormSnapshot) => {
     const p = fieldProvenanceRef.current[key];
-    return p === "USER" || p === "EDITED_EXISTING_LISTING";
+    return (
+      p === "USER" ||
+      p === "USER_CONFIRMED" ||
+      p === "USER_CORRECTED" ||
+      p === "EDITED_EXISTING_LISTING"
+    );
   }, []);
 
   const [editId, setEditId] = useState<string | null>(null);
@@ -795,18 +800,33 @@ export default function AIPostPage() {
     maybeMark("serviceDuration", merged.serviceDuration);
     if (filledKeys.length) {
       const defaultProv = opts?.defaultProvenance || "AWHINA";
-      const overrides = opts?.provenanceOverrides;
+      // Intelligence merge stamps (USER_CORRECTED etc.) beat default AWHINA/IMAGE
+      const authorityFromFill = fill.fieldAuthority || merged.fieldAuthority;
+      const overrides: ListingFieldProvenanceMap = {
+        ...(opts?.provenanceOverrides || {}),
+      };
+      if (authorityFromFill) {
+        for (const [k, v] of Object.entries(authorityFromFill)) {
+          if (
+            v === "USER" ||
+            v === "USER_CONFIRMED" ||
+            v === "USER_CORRECTED" ||
+            v === "AWHINA" ||
+            v === "IMAGE" ||
+            v === "EDITED_EXISTING_LISTING"
+          ) {
+            overrides[k as keyof ListingDraftFormSnapshot] = v;
+          }
+        }
+      }
       setFieldProvenance((prev) => {
         let next = markProvenance(prev, filledKeys, defaultProv);
-        if (overrides) {
-          for (const key of filledKeys) {
-            const o = overrides[key];
-            if (o) next = { ...next, [key]: o };
-          }
-          // Also apply overrides for keys explicitly listed (e.g. IMAGE identity keys)
-          for (const [k, v] of Object.entries(overrides)) {
-            if (v) next = { ...next, [k as keyof ListingDraftFormSnapshot]: v };
-          }
+        for (const key of filledKeys) {
+          const o = overrides[key];
+          if (o) next = { ...next, [key]: o };
+        }
+        for (const [k, v] of Object.entries(overrides)) {
+          if (v) next = { ...next, [k as keyof ListingDraftFormSnapshot]: v };
         }
         return next;
       });
@@ -915,6 +935,7 @@ export default function AIPostPage() {
         displayIdentity: visionState.identity,
         needsIdentityConfirm: visionState.needsIdentityConfirm,
         descriptionProvenance: fieldProvenanceRef.current.description,
+        fieldProvenance: fieldProvenanceRef.current,
         existingDraft: readListingDraftFromSkyAi(),
         identityConfirmed: opts?.identityConfirmed,
       });

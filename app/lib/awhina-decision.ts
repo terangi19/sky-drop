@@ -779,6 +779,22 @@ export function selfCheckBeforeToolResponse(input: SelfCheckInput): {
     reasons.push("legacy_started_draft");
   }
 
+  // Field-level: never emit fill that asks about already-known draft facts in reply
+  if (reply && listingFill) {
+    const knownAsks: Array<[string, RegExp]> = [
+      ["price", /what(?:'s| is) the (?:asking )?price/i],
+      ["vehicleYear", /what year/i],
+      ["condition", /what condition/i],
+      ["location", /where (?:is it|are you)|located\?/i],
+    ];
+    for (const [key, re] of knownAsks) {
+      const val = listingFill[key];
+      if (typeof val === "string" && val.trim() && re.test(reply)) {
+        reasons.push(`ask_known:${key}`);
+      }
+    }
+  }
+
   return { ok: reasons.length === 0, reasons };
 }
 

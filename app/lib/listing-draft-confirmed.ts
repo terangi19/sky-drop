@@ -9,6 +9,8 @@ import type { SkyAiListingContext } from "./sky-ai-types";
 
 export type ListingFieldProvenance =
   | "USER"
+  | "USER_CONFIRMED"
+  | "USER_CORRECTED"
   | "AWHINA"
   | "IMAGE"
   | "EDITED_EXISTING_LISTING"
@@ -75,8 +77,18 @@ const STRUCTURAL_SHELL_FIELDS = new Set([
 
 const CONFIRMED: ReadonlySet<ListingFieldProvenance> = new Set([
   "USER",
+  "USER_CONFIRMED",
+  "USER_CORRECTED",
   "AWHINA",
   "IMAGE",
+  "EDITED_EXISTING_LISTING",
+]);
+
+/** USER* authorities — later AI/vision must never silently overwrite. */
+const USER_LOCKED: ReadonlySet<ListingFieldProvenance> = new Set([
+  "USER",
+  "USER_CONFIRMED",
+  "USER_CORRECTED",
   "EDITED_EXISTING_LISTING",
 ]);
 
@@ -84,6 +96,12 @@ export function isConfirmedProvenance(
   p: ListingFieldProvenance | undefined
 ): boolean {
   return Boolean(p && CONFIRMED.has(p));
+}
+
+export function isUserLockedProvenance(
+  p: ListingFieldProvenance | undefined
+): boolean {
+  return Boolean(p && USER_LOCKED.has(p));
 }
 
 export function isForbiddenUntouchedDefault(

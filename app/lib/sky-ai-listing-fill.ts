@@ -66,6 +66,22 @@ export type SkyAiListingFill = {
    * When "user", AI must not overwrite on subsequent fills.
    */
   descriptionSource?: "ai" | "user";
+  /**
+   * Per-field authority stamps from the intelligence merge layer.
+   * Client applyFill maps these onto ListingFieldProvenance so USER_CORRECTED
+   * survives re-photo / later AI fills.
+   */
+  fieldAuthority?: Partial<
+    Record<
+      string,
+      | "USER"
+      | "USER_CONFIRMED"
+      | "USER_CORRECTED"
+      | "AWHINA"
+      | "IMAGE"
+      | "EDITED_EXISTING_LISTING"
+    >
+  >;
 };
 
 const CATEGORIES = new Set([
@@ -659,6 +675,25 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
   }
 
   if (raw.replaceDraft === true) out.replaceDraft = true;
+
+  // Preserve intelligence-layer authority stamps (USER_CORRECTED must survive normalize)
+  if (o.fieldAuthority && typeof o.fieldAuthority === "object") {
+    const allowed = new Set([
+      "USER",
+      "USER_CONFIRMED",
+      "USER_CORRECTED",
+      "AWHINA",
+      "IMAGE",
+      "EDITED_EXISTING_LISTING",
+    ]);
+    const stamps: NonNullable<SkyAiListingFill["fieldAuthority"]> = {};
+    for (const [k, v] of Object.entries(o.fieldAuthority as Record<string, unknown>)) {
+      if (typeof v === "string" && allowed.has(v)) {
+        stamps[k] = v as NonNullable<SkyAiListingFill["fieldAuthority"]>[string];
+      }
+    }
+    if (Object.keys(stamps).length) out.fieldAuthority = stamps;
+  }
 
   return out;
 }

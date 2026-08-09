@@ -72,7 +72,12 @@ export function detectSellDomain(
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
-  if (/card|psa|bgs|cgc|topps|panini|pokemon|yugioh|sports card|trading card/.test(blob)) {
+  if (
+    /card|psa|bgs|cgc|topps|panini|pokemon|yugioh|sports card|trading card|collectibles?/.test(
+      blob
+    ) ||
+    /(?:^|\s)(?:subject|set|grade):/.test(blob)
+  ) {
     return "card";
   }
   if (
@@ -144,8 +149,10 @@ export function computeMissingListingSlots(
   }
 
   if (domain === "card") {
-    if (!hasExtra(fill, "set:")) missing.push("card_set");
-    if (!hasExtra(fill, "subject:") && !/\bmessi|ronaldo|lebron|jordan|pikachu\b/i.test(fill.title || "")) {
+    // Subject only when identity is weak — never auto-demand set/year/parallel.
+    const hasSubject = hasExtra(fill, "subject:");
+    const title = (fill.title || "").trim();
+    if (!hasSubject && !title) {
       missing.push("card_subject");
     }
     if (!fill.condition) missing.push("condition");
@@ -247,6 +254,29 @@ const FUEL_RE = /^(petrol|diesel|hybrid|electric|ev)\b/i;
 const GEN_TOKEN_RE = /\b(r[\s-]?3[2-4]|a80|a90|mk\s?[45]|jza80)\b/i;
 const VARIANT_GTR_RE = /\b(gt[\s-]?r|gtr)\b/i;
 const VARIANT_GTT_RE = /\b(gt[\s-]?t|gtt)\b/i;
+
+/** Local set-like detector — keeps pending-slots free of circular imports. */
+const CARD_SET_LIKE_LOCAL =
+  /\b(prizm|select|optic|mosaic|donruss|chronicles|phoenix|hoops|chrome|bowman|topps|panini|upper\s*deck|fleer|stadium\s*club|heritage|update|series\s*[12]|base\s*set|evolving\s*skies|vivid\s*voltage|obsidian|national\s*treasures|flawless|immaculate|contenders|score|absolute|certified|finest|refractor|parallel|rookie)\b/i;
+
+function looksLikeCardSetAnswerLocal(message: string): boolean {
+  const t = message
+    .trim()
+    .replace(/^(?:it'?s|its|is|nah(?:\s+bro)?[,.]?|actually[,.]?)\s+/i, "")
+    .trim();
+  if (!t || t.length > 60) return false;
+  if (CARD_SET_LIKE_LOCAL.test(t)) return true;
+  if (/\b(?:19|20)\d{2}\b/.test(t) && /topps|panini|bowman|pokemon|yugioh/i.test(t)) {
+    return true;
+  }
+  if (/\b(set|product\s*line|series|collection)\b/i.test(message)) return true;
+  // Person-like / "It's Name" identity must never become a set
+  if (/^(it'?s|its)\s+/i.test(message.trim())) return false;
+  if (/^[A-Za-z]+(?:\s+[A-Za-z]+){1,3}$/.test(t) && !CARD_SET_LIKE_LOCAL.test(t)) {
+    return false;
+  }
+  return false;
+}
 
 /**
  * Parse short reply against the ACTIVE pending slot only.
@@ -483,6 +513,17 @@ export function parseShortReplyForPendingSlot(
   }
 
   if (activeSlot === "card_set" && t.length >= 2 && t.length <= 60) {
+    // pendingSlot is a HINT — do NOT trap person/identity answers as set names.
+    // Semantic validation (awhina-pending-slot-validate) is authoritative; this
+    // gate blocks the classic "It's Floyd Samba" → set: trap at parse time too.
+    if (!looksLikeCardSetAnswerLocal(t)) {
+      return {
+        matched: false,
+        partial: {},
+        rejectedCorruption: false,
+        reason: "identity_not_card_set",
+      };
+    }
     return {
       matched: true,
       filledSlot: "card_set",
@@ -491,6 +532,14 @@ export function parseShortReplyForPendingSlot(
   }
 
   if (activeSlot === "card_subject" && t.length >= 2 && t.length <= 60) {
+    // Reject pure set/product-line answers as subject (apply as set instead upstream)
+    if (looksLikeCardSetAnswerLocal(t) && !/\s/.test(t.trim())) {
+      return {
+        matched: false,
+        partial: {},
+        reason: "set_not_card_subject",
+      };
+    }
     return {
       matched: true,
       filledSlot: "card_subject",

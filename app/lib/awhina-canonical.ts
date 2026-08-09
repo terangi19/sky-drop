@@ -127,6 +127,8 @@ import {
   tryResolvePendingClarification,
   type AwhinaDecision,
 } from "./awhina-decision";
+import { runIntelligenceTurn } from "./awhina-intelligence-turn";
+import { authorityToListingProvenance } from "./awhina-authority";
 
 export type CanonicalContext = {
   pathname?: string;
@@ -1085,9 +1087,8 @@ export function processCanonicalAwhina(
   }
 
   // ── Pending listing-slot resolution (BEFORE broader intent / free-form) ──
-  // Canonical must consume short answers via getActiveListingSlot +
-  // parseShortReplyForPendingSlot — echoing pendingSlot alone is not enough.
-  // Skip when draft commands or explicit search language — those own the turn.
+  // Intelligence turn: intent → extract ALL facts → corrections → merge →
+  // pendingSlot as HINT (not trap) → response guard. Do not answer before merge.
   {
     const pendingListing = getTaskScope(scopeKey)?.pendingClarification;
     const activeSlot = getActiveListingSlot(pendingListing);
@@ -1097,7 +1098,7 @@ export function processCanonicalAwhina(
       isClarificationOpen(pendingListing) &&
       pendingListing?.kind === "listing_slots" &&
       trimmed.length > 0 &&
-      trimmed.length <= 120 &&
+      trimmed.length <= 160 &&
       !explicitSell &&
       !searchLang &&
       draftCmdsEarly.commands.length === 0
@@ -1108,9 +1109,55 @@ export function processCanonicalAwhina(
         sessionKey,
         freshStart: false,
       });
+      const priorAssistant = [...(context.history || [])]
+        .reverse()
+        .find((h) => h.role === "assistant")?.content;
 
-      const slotResult = parseShortReplyForPendingSlot(trimmed, activeSlot);
-      if (slotResult.rejectedCorruption) {
+      const intel = runIntelligenceTurn({
+        message: trimmed,
+        activeSlot,
+        baseDraft,
+        priorAssistant,
+        pathname,
+      });
+
+      // Uncertainty / skip — advance without trapping
+      if (intel.skipActiveSlot) {
+        const nextSlot = intel.pendingSlotAfter;
+        const pending =
+          intel.pendingClarification ||
+          (nextSlot
+            ? {
+                ...pendingListing!,
+                pendingSlot: nextSlot,
+                askedAt: Date.now(),
+              }
+            : pendingListing);
+        setActiveTask(scopeKey, "selling", {
+          pendingClarification: pending || undefined,
+          entityLocked: intel.canonicalState.entityLocked,
+          entityLockKey: intel.canonicalState.entityLockKey,
+        });
+        const q = nextSlot ? SLOT_QUESTIONS[nextSlot] : undefined;
+        return finish({
+          handled: true,
+          reply: q
+            ? `No worries — we can skip that. ${q}`
+            : "No worries — we can keep going without that.",
+          source: "clarify",
+          intent: "listing_update",
+          confidence: 0.8,
+          usedLocalExecution: true,
+          avoidedAi: true,
+          clarificationQuestion: q,
+        });
+      }
+
+      // Pure corruption with no salvageable facts — re-ask once (guarded)
+      if (
+        intel.validation?.satisfaction === "corruption" &&
+        !intel.filledSlots.length
+      ) {
         setActiveTask(scopeKey, "selling", {
           pendingClarification: pendingListing,
         });
@@ -1126,52 +1173,72 @@ export function processCanonicalAwhina(
         });
       }
 
-      if (slotResult.matched) {
-        // Pending slot is a HINT — harvest ALL high-confidence facts from the same message.
-        // Do NOT return after filling only the active slot (e.g. "new auckland 200").
-        const fromCompound = extractCompoundListingFacts(trimmed, {
-          activeSlot,
-          baseDraft,
-        });
-        let partial: SkyAiListingFill = {
-          ...fromCompound.partial,
-          ...slotResult.partial,
-        };
-        if (fromCompound.partial.extras || slotResult.partial.extras || baseDraft.extras) {
-          partial.extras = mergeExtras(
-            mergeExtras(baseDraft.extras, fromCompound.partial.extras),
-            slotResult.partial.extras
-          );
-        }
-        // Tag odometer unit from message / km question context (no new regex)
+      if (intel.handled && intel.filledSlots.length > 0) {
+        let partial: SkyAiListingFill = { ...intel.validation?.appliedPartial };
+        // Preserve odometer unit tagging from legacy path
         if (
-          (slotResult.filledSlot === "odometer" || fromCompound.filledSlots.includes("odometer")) &&
-          (partial.vehicleOdometer || fromCompound.partial.vehicleOdometer)
+          intel.filledSlots.includes("odometer") &&
+          (partial.vehicleOdometer || intel.mergedDraft.vehicleOdometer)
         ) {
           const unit = /\b(miles?|mi)\b/i.test(trimmed) ? "mi" : "km";
           partial.extras = mergeExtras(partial.extras, [`odometerUnit:${unit}`]);
         }
-        const filledSlots: ListingMissingSlot[] = [];
-        for (const s of [
-          ...(slotResult.filledSlot ? [slotResult.filledSlot] : [activeSlot]),
-          ...fromCompound.filledSlots,
-        ]) {
-          if (!filledSlots.includes(s)) filledSlots.push(s);
-        }
         const applied = applyPendingSlotFill({
           base: baseDraft,
-          partial,
-          filledSlots,
+          partial: {
+            ...partial,
+            // Identity corrections must win on title
+            ...(intel.mergedDraft.title && intel.userCorrectedKeys.length
+              ? { title: intel.mergedDraft.title }
+              : {}),
+            ...(intel.mergedDraft.extras
+              ? { extras: intel.mergedDraft.extras }
+              : {}),
+          },
+          filledSlots: intel.filledSlots,
           message: trimmed,
           sessionKey,
           scopeKey,
           pathname,
         });
         if (applied) {
+          // Re-bind pending from intelligence (domain-aware; no card_set trap)
+          let pending = intel.pendingClarification || applied.pendingClarification;
+          if (intel.pendingSlotAfter && pending) {
+            pending = {
+              ...pending,
+              pendingSlot: intel.pendingSlotAfter,
+            };
+          } else if (!intel.pendingSlotAfter) {
+            pending = null;
+          }
+          setActiveTask(scopeKey, "selling", {
+            pendingClarification: pending || undefined,
+            entityLocked: intel.canonicalState.entityLocked,
+            entityLockKey: intel.canonicalState.entityLockKey,
+          });
+
+          let reply = applied.reply;
+          if (intel.guard.safeReply && !intel.guard.ok) {
+            reply = intel.guard.safeReply;
+          }
+
+          // Stamp USER_CONFIRMED / USER_CORRECTED so re-photo cannot resurrect vision
+          const fieldAuthority: NonNullable<SkyAiListingFill["fieldAuthority"]> = {
+            ...(applied.fill.fieldAuthority || {}),
+          };
+          for (const [k, auth] of Object.entries(intel.authorityStamps)) {
+            fieldAuthority[k] = authorityToListingProvenance(auth);
+          }
+          const fillWithAuthority: SkyAiListingFill = {
+            ...applied.fill,
+            ...(Object.keys(fieldAuthority).length ? { fieldAuthority } : {}),
+          };
+
           return finish({
             handled: true,
-            reply: applied.reply,
-            listingFill: applied.fill,
+            reply,
+            listingFill: fillWithAuthority,
             navigateTo: onSellPage ? undefined : "/post/ai",
             source: "tool",
             intent: "listing_update",
@@ -1181,23 +1248,46 @@ export function processCanonicalAwhina(
             avoidedAi: true,
             toolCall: {
               tool: "updateListingDraft",
-              args: { updateListingDraft: applied.fill },
+              args: { updateListingDraft: fillWithAuthority },
               confidence: 0.95,
             },
           });
         }
-      } else {
-        // Compound short answers ("190k good condition", "190k kilometres") —
-        // reuse existing extractCompoundListingFacts, not a new odometer regex.
-        const extracted = extractCompoundListingFacts(trimmed, {
-          activeSlot,
-          baseDraft,
-        });
-        if (extracted.filledSlots.length > 0) {
+      }
+
+      // Fallback: legacy compound path when intelligence did not handle
+      if (!intel.handled) {
+        const slotResult = parseShortReplyForPendingSlot(trimmed, activeSlot);
+        if (slotResult.matched && !slotResult.rejectedCorruption) {
+          const fromCompound = extractCompoundListingFacts(trimmed, {
+            activeSlot,
+            baseDraft,
+          });
+          let partial: SkyAiListingFill = {
+            ...fromCompound.partial,
+            ...slotResult.partial,
+          };
+          if (
+            fromCompound.partial.extras ||
+            slotResult.partial.extras ||
+            baseDraft.extras
+          ) {
+            partial.extras = mergeExtras(
+              mergeExtras(baseDraft.extras, fromCompound.partial.extras),
+              slotResult.partial.extras
+            );
+          }
+          const filledSlots: ListingMissingSlot[] = [];
+          for (const s of [
+            ...(slotResult.filledSlot ? [slotResult.filledSlot] : [activeSlot]),
+            ...fromCompound.filledSlots,
+          ]) {
+            if (!filledSlots.includes(s)) filledSlots.push(s);
+          }
           const applied = applyPendingSlotFill({
             base: baseDraft,
-            partial: extracted.partial,
-            filledSlots: extracted.filledSlots,
+            partial,
+            filledSlots,
             message: trimmed,
             sessionKey,
             scopeKey,
@@ -1221,6 +1311,41 @@ export function processCanonicalAwhina(
                 confidence: 0.95,
               },
             });
+          }
+        } else {
+          const extracted = extractCompoundListingFacts(trimmed, {
+            activeSlot,
+            baseDraft,
+          });
+          if (extracted.filledSlots.length > 0) {
+            const applied = applyPendingSlotFill({
+              base: baseDraft,
+              partial: extracted.partial,
+              filledSlots: extracted.filledSlots,
+              message: trimmed,
+              sessionKey,
+              scopeKey,
+              pathname,
+            });
+            if (applied) {
+              return finish({
+                handled: true,
+                reply: applied.reply,
+                listingFill: applied.fill,
+                navigateTo: onSellPage ? undefined : "/post/ai",
+                source: "tool",
+                intent: "listing_update",
+                tool: "updateListingDraft",
+                confidence: 0.95,
+                usedLocalExecution: true,
+                avoidedAi: true,
+                toolCall: {
+                  tool: "updateListingDraft",
+                  args: { updateListingDraft: applied.fill },
+                  confidence: 0.95,
+                },
+              });
+            }
           }
         }
       }

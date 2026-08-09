@@ -12,6 +12,7 @@ import {
   type ListingDraftFormSnapshot,
   type ListingFieldProvenance,
   type ListingFieldProvenanceMap,
+  isUserLockedProvenance,
 } from "./listing-draft-confirmed";
 import { recomposeListingDescription } from "./awhina-listing-composer";
 import {
@@ -52,6 +53,8 @@ export type VisionConversationBridgeInput = {
   needsIdentityConfirm: boolean;
   /** If USER / EDITED, never overwrite description */
   descriptionProvenance?: ListingFieldProvenance;
+  /** Full form provenance — USER* identity survives re-photo */
+  fieldProvenance?: ListingFieldProvenanceMap;
   existingDraft?: SkyAiListingContext | null;
   /**
    * After user taps Yes on medium-confidence identity —
@@ -102,19 +105,50 @@ export function prepareVisionConversationBridge(
   const needsConfirm =
     input.needsIdentityConfirm === true && input.identityConfirmed !== true;
 
-  const mergedForCompose: SkyAiListingFill = {
-    ...(input.existingDraft || {}),
-    ...input.listingFill,
-  };
-
   // Vision = FACTS only — never ship raw vision prose as the buyer description
   const fill: SkyAiListingFill = { ...input.listingFill };
   delete fill.description;
 
+  // PHOTO AGAIN: never silently overwrite USER* identity / title / vehicle facts
+  const prov = input.fieldProvenance || {};
+  const identityKeys: (keyof ListingDraftFormSnapshot)[] = [
+    "title",
+    "vehicleMake",
+    "vehicleModel",
+    "vehicleGeneration",
+    "vehicleYear",
+    "vehicleColour",
+  ];
+  for (const key of identityKeys) {
+    if (!isUserLockedProvenance(prov[key])) continue;
+    const prior = input.existingDraft?.[key as keyof SkyAiListingContext];
+    if (typeof prior === "string" && prior.trim()) {
+      (fill as Record<string, string>)[key] = prior.trim();
+    } else {
+      delete (fill as Record<string, unknown>)[key];
+    }
+  }
+  // Preserve USER subject extras over vision subject
+  if (input.existingDraft?.extras?.length) {
+    const userSubject = input.existingDraft.extras.find((e) =>
+      e.toLowerCase().startsWith("subject:")
+    );
+    if (userSubject && isUserLockedProvenance(prov.title)) {
+      fill.extras = [
+        ...(fill.extras || []).filter((e) => !e.toLowerCase().startsWith("subject:")),
+        userSubject,
+      ];
+      if (input.existingDraft.title?.trim()) {
+        fill.title = input.existingDraft.title.trim();
+      }
+    }
+  }
+
   if (!isUserLockedDescription(input.descriptionProvenance)) {
-    const composed = recomposeListingDescription(mergedForCompose, {
-      quality: "premium_plus",
-    });
+    const composed = recomposeListingDescription(
+      { ...(input.existingDraft || {}), ...fill },
+      { quality: "premium_plus" }
+    );
     if (composed?.trim()) fill.description = composed.trim();
   }
 
