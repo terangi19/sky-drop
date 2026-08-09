@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState, type ChangeEvent, type DragEvent, type RefObject } from "react";
+import { useCallback, useState, type ChangeEvent, type DragEvent, type RefObject } from "react";
+import InAppCameraCapture, { isCameraSupported } from "./InAppCameraCapture";
 
 type Props = {
   imagePreviews: string[];
@@ -12,7 +13,8 @@ type Props = {
   ctaSubtitle?: string;
   className?: string;
   /**
-   * Mobile camera-first: [Take photos] [Choose photos] with native capture.
+   * Mobile camera-first: [Take Photo] opens in-app getUserMedia camera;
+   * [Choose Photos] uses ordinary file picker (no capture attribute).
    * Same recognition pipeline as desktop — only INPUT UX differs.
    */
   cameraFirst?: boolean;
@@ -31,10 +33,10 @@ export default function SellPhotoUpload({
   cameraFirst = false,
   enableDrop = false,
 }: Props) {
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraFallbackMsg, setCameraFallbackMsg] = useState<string | null>(null);
   const openPicker = () => fileInputRef.current?.click();
-  const openCamera = () => cameraInputRef.current?.click();
 
   const ingestFiles = useCallback(
     (fileList: FileList | File[] | null | undefined) => {
@@ -54,6 +56,17 @@ export default function SellPhotoUpload({
     },
     [fileInputRef, onUpload]
   );
+
+  const openCamera = () => {
+    setCameraFallbackMsg(null);
+    if (!isCameraSupported()) {
+      setCameraFallbackMsg("Camera couldn't be opened. Choose a photo instead.");
+      return;
+    }
+    setCameraOpen(true);
+  };
+
+  const remainingSlots = Math.max(0, 8 - imagePreviews.length);
 
   const onDragOver = (e: DragEvent) => {
     if (!enableDrop) return;
@@ -108,27 +121,26 @@ export default function SellPhotoUpload({
                 ? `${ctaSubtitle} · drop photos on desktop`
                 : ctaSubtitle}
             </span>
+            {cameraFallbackMsg ? (
+              <p className="mt-3 text-sm text-amber-300/90" role="status">
+                {cameraFallbackMsg}
+              </p>
+            ) : null}
             <div className="mt-5 flex w-full max-w-sm flex-col gap-2 sm:flex-row">
+              {/* Mobile: real in-app camera */}
               <button
                 type="button"
                 onClick={openCamera}
                 className="flex-1 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-400 sm:hidden"
               >
-                Take photos
+                Take Photo
               </button>
               <button
                 type="button"
                 onClick={openPicker}
                 className="flex-1 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-white/25 hover:text-white"
               >
-                {enableDrop ? "Choose photos" : "Choose photos"}
-              </button>
-              <button
-                type="button"
-                onClick={openCamera}
-                className="hidden flex-1 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-400 sm:inline-flex sm:items-center sm:justify-center"
-              >
-                Take photos
+                Choose Photos
               </button>
             </div>
           </div>
@@ -196,7 +208,7 @@ export default function SellPhotoUpload({
               <button
                 type="button"
                 onClick={cameraFirst ? openCamera : openPicker}
-                className="flex aspect-[4/3] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/[0.12] text-zinc-500 transition hover:border-sky-500/35 hover:text-sky-300"
+                className="flex aspect-[4/3] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/[0.12] text-zinc-500 transition hover:border-sky-500/35 hover:text-sky-300 sm:hidden"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -204,21 +216,48 @@ export default function SellPhotoUpload({
                 <span className="text-[10px] font-medium">{cameraFirst ? "Camera" : "Add"}</span>
               </button>
             )}
+            {imagePreviews.length < 8 && (
+              <button
+                type="button"
+                onClick={openPicker}
+                className="hidden aspect-[4/3] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/[0.12] text-zinc-500 transition hover:border-sky-500/35 hover:text-sky-300 sm:flex"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="text-[10px] font-medium">Add</span>
+              </button>
+            )}
           </div>
           {cameraFirst && imagePreviews.length < 8 ? (
-            <button
-              type="button"
-              onClick={openPicker}
-              className="text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
-            >
-              Choose more from library
-            </button>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <button
+                type="button"
+                onClick={openCamera}
+                className="text-xs font-medium text-sky-400 underline-offset-2 hover:text-sky-300 hover:underline sm:hidden"
+              >
+                Take another photo
+              </button>
+              <button
+                type="button"
+                onClick={openPicker}
+                className="text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+              >
+                Choose more from library
+              </button>
+            </div>
+          ) : null}
+          {cameraFallbackMsg ? (
+            <p className="text-sm text-amber-300/90" role="status">
+              {cameraFallbackMsg}
+            </p>
           ) : null}
           {enableDrop && dragOver ? (
             <p className="text-center text-xs text-sky-300">Drop to add photos</p>
           ) : null}
         </div>
       )}
+      {/* Ordinary file picker — never use capture attribute */}
       <input
         ref={fileInputRef}
         type="file"
@@ -228,14 +267,11 @@ export default function SellPhotoUpload({
         className="hidden"
       />
       {cameraFirst ? (
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          multiple
-          onChange={onUpload}
-          className="hidden"
+        <InAppCameraCapture
+          open={cameraOpen}
+          maxCaptures={remainingSlots}
+          onClose={() => setCameraOpen(false)}
+          onCapture={(files) => ingestFiles(files)}
         />
       ) : null}
     </div>
