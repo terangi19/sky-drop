@@ -54,11 +54,13 @@ import { SKY_AI_SELL_QUICK_PROMPTS } from "../../lib/sky-ai-prompts";
 import { useAwhinaVisionListing } from "../../lib/use-awhina-vision-listing";
 import { AWHINA_VISION_LISTING_UI_ENABLED } from "../../lib/awhina-vision-listing-flags";
 import {
+  appendMessage,
   consumeListingWorkspaceHandoff,
   peekListingWorkspaceHandoff,
   setAwhinaSurface,
   useAwhinaConversation,
 } from "../../lib/awhina-conversation-store";
+import { dispatchVisionBridgeDone } from "../../lib/awhina-vision-client";
 import {
   formatListingSlotLabel,
   getActiveSellWorkspacePrompts,
@@ -933,6 +935,10 @@ export default function AIPostPage() {
       setMobileWorkspaceTab("chat");
       setSkyChatOpen(true);
       dispatchSkyAiOpen();
+      dispatchVisionBridgeDone({
+        ok: true,
+        identity: bridge.displayIdentity,
+      });
 
       if (!bridge.needsIdentityConfirm) {
         visionListing.setState((s) => ({
@@ -953,6 +959,23 @@ export default function AIPostPage() {
   const runVisionAnalyzeAndBridge = useCallback(
     async (files: File[], opts?: { force?: boolean; message?: string }) => {
       if (!files.length) return;
+      if (!AWHINA_VISION_LISTING_UI_ENABLED) {
+        console.warn(
+          "[awhina-vision] UI flag OFF — photo kept, identify skipped. Set NEXT_PUBLIC_AWHINA_VISION_LISTINGS_ENABLED=true and redeploy."
+        );
+        appendMessage({
+          id: `vision-flag-off-${Date.now()}`,
+          role: "assistant",
+          text: "I couldn't identify that clearly. What are you selling?",
+        });
+        setMobileWorkspaceTab("chat");
+        setSkyChatOpen(true);
+        dispatchVisionBridgeDone({
+          ok: false,
+          errorMessage: "Vision listing UI flag is off",
+        });
+        return;
+      }
       const result = await visionListing.analyze({
         files: files.slice(0, 4),
         message: opts?.message ?? visionCompanionNote,
@@ -961,9 +984,19 @@ export default function AIPostPage() {
         force: opts?.force,
       });
       if (!result?.listingFill) {
-        // Keep user in Chat so they can describe the item — never fall into Xenova prose
+        // Prefer live hook message after analyze settles; fall back to clarify prompt
+        const failText =
+          "I couldn't identify that clearly. What are you selling?";
+        appendMessage({
+          id: `vision-fail-${Date.now()}`,
+          role: "assistant",
+          text: failText,
+        });
+        // Keep user in Chat — photo stays on listing; never silent fail
         setMobileWorkspaceTab("chat");
         setSkyChatOpen(true);
+        dispatchSkyAiOpen();
+        dispatchVisionBridgeDone({ ok: false, errorMessage: failText });
         return;
       }
       bridgeVisionIntoAwhina(result);
@@ -1098,8 +1131,11 @@ export default function AIPostPage() {
     };
 
     const onImages = async (e: Event) => {
-      const { dataUrls, names } = (e as CustomEvent<SkyAiListingImagesDetail>).detail || {};
+      const detail = (e as CustomEvent<SkyAiListingImagesDetail>).detail || {};
+      const { dataUrls, names } = detail;
       if (!dataUrls?.length) return;
+      // Chat composer may run vision itself — still sync photo onto listing
+      const shouldAnalyze = detail.analyze !== false;
 
       const room = Math.max(0, 8 - imagePreviews.length);
       const addUrls = dataUrls.slice(0, room);
@@ -1121,9 +1157,9 @@ export default function AIPostPage() {
           : `Āwhina added ${addFiles.length} photos to your listing`
       );
 
-      if (isFirst) {
+      if (shouldAnalyze && (isFirst || detail.analyze === true)) {
         if (AWHINA_VISION_LISTING_UI_ENABLED) {
-          void runVisionAnalyzeAndBridge(addFiles);
+          void runVisionAnalyzeAndBridge(addFiles, { force: !isFirst });
         } else {
           setAnalyzing(true);
           setDetected("");

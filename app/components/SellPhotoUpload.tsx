@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState, type ChangeEvent, type DragEvent, type RefObject } from "react";
-import InAppCameraCapture, { isCameraSupported } from "./InAppCameraCapture";
+import SharedPhotoCapture, { isCameraSupported } from "./SharedPhotoCapture";
 
 type Props = {
   imagePreviews: string[];
@@ -267,7 +267,7 @@ export default function SellPhotoUpload({
         className="hidden"
       />
       {cameraFirst ? (
-        <InAppCameraCapture
+        <SharedPhotoCapture
           open={cameraOpen}
           maxCaptures={remainingSlots}
           onClose={() => setCameraOpen(false)}

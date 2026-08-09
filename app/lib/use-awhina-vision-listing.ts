@@ -59,7 +59,13 @@ export function useAwhinaVisionListing() {
       draftKey?: string;
       force?: boolean;
     }) => {
-      if (!enabled || !opts.files.length) return null;
+      if (!opts.files.length) return null;
+      if (!enabled) {
+        console.warn(
+          "[awhina-vision] analyze skipped — NEXT_PUBLIC_AWHINA_VISION_LISTINGS_ENABLED is not true at build time"
+        );
+        return null;
+      }
       const fp = fingerprintFiles(opts.files.slice(0, 4));
       if (
         !opts.force &&

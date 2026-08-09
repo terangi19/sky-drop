@@ -77,6 +77,21 @@ import {
   AWHINA_PROGRESS_LABELS,
   type AwhinaProgressState,
 } from "../lib/awhina-product-ux";
+import { AWHINA_VISION_LISTING_UI_ENABLED } from "../lib/awhina-vision-listing-flags";
+import {
+  fetchAwhinaVisionListing,
+  waitForVisionBridgeDone,
+} from "../lib/awhina-vision-client";
+import {
+  classifyAwhinaPhotoIntent,
+  buildIdentifyOnlyReply,
+  buildSellOfferReply,
+} from "../lib/awhina-photo-intent";
+import {
+  commitVisionBridgeToConversation,
+  prepareVisionConversationBridge,
+} from "../lib/awhina-vision-conversation-bridge";
+import SharedPhotoCapture, { isCameraSupported } from "./SharedPhotoCapture";
 
 export type SkyAiChatPanelMode = "sheet" | "inline";
 
@@ -262,6 +277,15 @@ export default function SkyAiChatPanel({
   const pendingImages = conversation.uploadedImages;
   const setPendingImages = setStoreUploadedImages;
   const [imageBusy, setImageBusy] = useState(false);
+  const [photoLooking, setPhotoLooking] = useState(false);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  /** Stash vision fill when global bubble asks "Want to sell it?" — not a second brain */
+  const visionOfferFillRef = useRef<{
+    fill: SkyAiListingFill;
+    identity: string;
+    needsIdentityConfirm: boolean;
+  } | null>(null);
   const [openAiReady, setOpenAiReady] = useState(true);
   const [voiceHint, setVoiceHint] = useState<string | null>(null);
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
@@ -442,30 +466,46 @@ export default function SkyAiChatPanel({
     setBusy(false);
   }, []);
 
+  const ingestComposerFiles = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
+      const room = SKY_AI_MAX_IMAGES_PER_MESSAGE - pendingImages.length;
+      if (room <= 0) return;
+
+      setImageBusy(true);
+      const prepared = await prepareSkyAiImages(files.slice(0, room));
+      setImageBusy(false);
+
+      if ("error" in prepared) {
+        showToast(prepared.error, "error");
+        return;
+      }
+
+      setPendingImages((prev) => [
+        ...prev,
+        ...prepared.dataUrls.map((dataUrl, i) => ({
+          dataUrl,
+          name: prepared.names[i] || `photo-${i + 1}.jpg`,
+        })),
+      ]);
+    },
+    [pendingImages.length, setPendingImages]
+  );
+
   const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (e.target) e.target.value = "";
-    if (!files.length) return;
+    await ingestComposerFiles(files);
+  };
 
-    const room = SKY_AI_MAX_IMAGES_PER_MESSAGE - pendingImages.length;
-    if (room <= 0) return;
-
-    setImageBusy(true);
-    const prepared = await prepareSkyAiImages(files.slice(0, room));
-    setImageBusy(false);
-
-    if ("error" in prepared) {
-      window.alert(prepared.error);
+  const openComposerCamera = () => {
+    setAttachMenuOpen(false);
+    if (!isCameraSupported()) {
+      showToast("Camera couldn't be opened. Choose a photo instead.", "error");
+      imageInputRef.current?.click();
       return;
     }
-
-    setPendingImages((prev) => [
-      ...prev,
-      ...prepared.dataUrls.map((dataUrl, i) => ({
-        dataUrl,
-        name: prepared.names[i] || `photo-${i + 1}.jpg`,
-      })),
-    ]);
+    setCameraOpen(true);
   };
 
   const respond = useCallback(
@@ -485,8 +525,40 @@ export default function SkyAiChatPanel({
         detectSkyAiIntent(trimmed) === "buy_trouble";
       if (switchedIntent) setListingFillOccurred(false);
 
-      if (imageUrls.length && pathname.startsWith("/post/ai")) {
-        dispatchListingImages(imageUrls, imageNames);
+      // Global "Sell this" after photo offer — reuse stashed vision fill (no second model)
+      if (
+        !imageUrls.length &&
+        /^\s*sell\s+this\b/i.test(trimmed) &&
+        visionOfferFillRef.current
+      ) {
+        const offer = visionOfferFillRef.current;
+        visionOfferFillRef.current = null;
+        setPendingImages([]);
+        const userMsgSell: ChatMessage = {
+          id: `u-${Date.now()}`,
+          role: "user",
+          text: trimmed,
+        };
+        setMessages((prev) => [...prev.filter((m) => m.id !== "welcome"), userMsgSell]);
+        setBusy(true);
+        setBusyStatus(true);
+        try {
+          const bridge = prepareVisionConversationBridge({
+            listingFill: offer.fill,
+            displayIdentity: offer.identity,
+            needsIdentityConfirm: offer.needsIdentityConfirm,
+            existingDraft: null,
+          });
+          handleListingFill(bridge.listingFill);
+          commitVisionBridgeToConversation(bridge);
+          beginListingWorkspaceHandoff({ autoContinue: true });
+          dispatchWorkspaceHandoff({ autoOpen: true, autoContinue: true });
+          runNavigate("/post/ai");
+        } finally {
+          setBusy(false);
+          setBusyStatus(false);
+        }
+        return;
       }
 
       setPendingImages([]);
@@ -506,6 +578,113 @@ export default function SkyAiChatPanel({
       setMessages((prev) => [...prev.filter((m) => m.id !== "welcome"), userMsg]);
       setBusy(true);
       setBusyStatus(true);
+
+      const isSellPage = pathname.startsWith("/post/ai");
+
+      /**
+       * Shared multimodal vision (same /api/awhina-vision as Listing camera).
+       * PROTECTED-file wiring: chat/global photo → one vision service; intent gates SELL.
+       */
+      if (imageUrls.length > 0 && AWHINA_VISION_LISTING_UI_ENABLED) {
+        setPhotoLooking(true);
+        try {
+          if (isSellPage) {
+            // Sync photo onto listing; page runs bridge → conversation store
+            dispatchListingImages(imageUrls, imageNames, { analyze: true });
+            const done = await waitForVisionBridgeDone(60_000);
+            if (!done.ok && !getAwhinaConversationState().messages.some(
+              (m) => m.role === "assistant" && m.id.startsWith("vision-")
+            )) {
+              appendMessage({
+                id: `vision-chat-fail-${Date.now()}`,
+                role: "assistant",
+                text:
+                  done.errorMessage ||
+                  "I couldn't identify that clearly. What are you selling?",
+              });
+            }
+            return;
+          }
+
+          const priorSelling =
+            awhinaSessionRef.current?.task?.task === "selling" ||
+            conversation.listingFillOccurred;
+          const intent = classifyAwhinaPhotoIntent(trimmed, {
+            onSellPage: false,
+            priorSellingTask: priorSelling,
+          });
+
+          const vision = await fetchAwhinaVisionListing({
+            images: imageUrls,
+            message: trimmed,
+            listingContext: null,
+            draftKey: user?.uid || "global",
+            pathname,
+            force: true,
+          });
+
+          const identity =
+            vision.displayIdentity ||
+            vision.listingFill?.title ||
+            "that item";
+
+          if (!vision.ok || !vision.listingFill) {
+            appendMessage({
+              id: `vision-global-fail-${Date.now()}`,
+              role: "assistant",
+              text:
+                vision.reply ||
+                "I couldn't identify that clearly. What are you selling?",
+            });
+            return;
+          }
+
+          if (intent === "identify") {
+            appendMessage({
+              id: `vision-id-${Date.now()}`,
+              role: "assistant",
+              text: buildIdentifyOnlyReply(identity),
+            });
+            return;
+          }
+
+          if (intent === "ambiguous") {
+            visionOfferFillRef.current = {
+              fill: vision.listingFill,
+              identity,
+              needsIdentityConfirm: vision.needsIdentityConfirm,
+            };
+            appendMessage({
+              id: `vision-offer-${Date.now()}`,
+              role: "assistant",
+              text: buildSellOfferReply(identity),
+            });
+            return;
+          }
+
+          // sell intent → same listing brain via workspace handoff
+          const bridge = prepareVisionConversationBridge({
+            listingFill: vision.listingFill,
+            displayIdentity: identity,
+            needsIdentityConfirm: vision.needsIdentityConfirm,
+            existingDraft: null,
+          });
+          handleListingFill(bridge.listingFill);
+          commitVisionBridgeToConversation(bridge);
+          beginListingWorkspaceHandoff({ autoContinue: true });
+          dispatchWorkspaceHandoff({ autoOpen: true, autoContinue: true });
+          runNavigate("/post/ai");
+          return;
+        } finally {
+          setPhotoLooking(false);
+          setBusy(false);
+          setBusyStatus(false);
+        }
+      }
+
+      if (imageUrls.length && isSellPage) {
+        dispatchListingImages(imageUrls, imageNames);
+      }
 
       const history = [...messages, userMsg]
         .filter((m) => m.id !== "welcome" && !m.streaming)
@@ -527,8 +706,6 @@ export default function SkyAiChatPanel({
       let newConversationId = conversationId;
       let finalMessage = trimmed ||
         "I uploaded product photo(s). Analyze them and fill my Quick Post listing with LISTING_FILL.";
-
-      const isSellPage = pathname.startsWith("/post/ai");
 
       if (isSellPage) {
         const hasListingFields = /(?:^|\n)(title|price|description|location|condition|category|make|model|year|odometer|colour|color|transmission|fuel|mileage|km|kms)\s*:/i.test(finalMessage);
@@ -1045,7 +1222,14 @@ export default function SkyAiChatPanel({
   }, [isSheet, open]);
 
   const showThinking =
-    busy && messages.length > 0 && messages[messages.length - 1]?.streaming && !messages[messages.length - 1]?.text;
+    photoLooking ||
+    (busy &&
+      messages.length > 0 &&
+      messages[messages.length - 1]?.streaming &&
+      !messages[messages.length - 1]?.text);
+  const thinkingLabel = photoLooking
+    ? "Āwhina is looking at your photo…"
+    : AWHINA_THINKING;
 
   if (!isSheet && !open) return null;
 
@@ -1198,7 +1382,7 @@ export default function SkyAiChatPanel({
         {showThinking && (
           <div className="flex justify-start">
             <div className={`px-3 py-2 text-[12px] ${isWorkspace ? "text-zinc-400" : "rounded-2xl border border-white/[0.06] bg-white/[0.03] text-zinc-400"}`}>
-              {AWHINA_THINKING}
+              {thinkingLabel}
             </div>
           </div>
         )}
@@ -1420,7 +1604,34 @@ export default function SkyAiChatPanel({
           className="hidden"
           onChange={handleImagePick}
         />
+        <SharedPhotoCapture
+          open={cameraOpen}
+          maxCaptures={Math.max(0, SKY_AI_MAX_IMAGES_PER_MESSAGE - pendingImages.length)}
+          onClose={() => setCameraOpen(false)}
+          onCapture={(files) => void ingestComposerFiles(files)}
+        />
         <form onSubmit={handleSubmit} className="space-y-2">
+          {attachMenuOpen ? (
+            <div className="mb-1 flex flex-wrap gap-2 sm:hidden">
+              <button
+                type="button"
+                onClick={openComposerCamera}
+                className="rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-medium text-white"
+              >
+                Take Photo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAttachMenuOpen(false);
+                  imageInputRef.current?.click();
+                }}
+                className="rounded-lg border border-white/15 px-3 py-1.5 text-[11px] font-medium text-zinc-200"
+              >
+                Choose Photo
+              </button>
+            </div>
+          ) : null}
           <div
             className={`flex items-end gap-2 rounded-2xl border px-2 py-2 transition focus-within:border-sky-500/45 focus-within:ring-1 focus-within:ring-sky-500/20 ${
               isWorkspace
@@ -1431,7 +1642,14 @@ export default function SkyAiChatPanel({
             <button
               type="button"
               disabled={busy || imageBusy || pendingImages.length >= SKY_AI_MAX_IMAGES_PER_MESSAGE}
-              onClick={() => imageInputRef.current?.click()}
+              onClick={() => {
+                // Mobile: Take Photo | Choose Photo. Desktop: upload picker.
+                if (typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches) {
+                  setAttachMenuOpen((v) => !v);
+                } else {
+                  imageInputRef.current?.click();
+                }
+              }}
               className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200 disabled:opacity-40"
               title="Add photos"
               aria-label="Add photos"

@@ -14,6 +14,11 @@ export const SKY_AI_LISTING_IMAGES_EVENT = "sky-ai-listing-images";
 export type SkyAiListingImagesDetail = {
   dataUrls: string[];
   names: string[];
+  /**
+   * When false, /post/ai only attaches photos to the listing (caller runs vision).
+   * Default true — listing tab / first-image path still analyzes.
+   */
+  analyze?: boolean;
 };
 
 export const SKY_AI_MAX_IMAGES_PER_MESSAGE = 4;
@@ -91,11 +96,19 @@ export function dataUrlToFile(dataUrl: string, name: string): File {
   return new File([arr], name, { type: mime });
 }
 
-export function dispatchListingImages(dataUrls: string[], names: string[]) {
+export function dispatchListingImages(
+  dataUrls: string[],
+  names: string[],
+  opts?: { analyze?: boolean }
+) {
   if (typeof window === "undefined" || !dataUrls.length) return;
   window.dispatchEvent(
     new CustomEvent<SkyAiListingImagesDetail>(SKY_AI_LISTING_IMAGES_EVENT, {
-      detail: { dataUrls, names },
+      detail: {
+        dataUrls,
+        names,
+        analyze: opts?.analyze !== false,
+      },
     })
   );
 }
