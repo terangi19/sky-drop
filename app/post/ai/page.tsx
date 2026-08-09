@@ -2000,7 +2000,7 @@ export default function AIPostPage() {
         >
           <SellPhotoUpload
             className="mb-0"
-            cameraFirst={AWHINA_VISION_LISTING_UI_ENABLED}
+            cameraFirst
             enableDrop={AWHINA_VISION_LISTING_UI_ENABLED}
             ctaTitle={
               AWHINA_VISION_LISTING_UI_ENABLED
