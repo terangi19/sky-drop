@@ -1228,7 +1228,11 @@ export function processCanonicalAwhina(
             ...(applied.fill.fieldAuthority || {}),
           };
           for (const [k, auth] of Object.entries(intel.authorityStamps)) {
-            fieldAuthority[k] = authorityToListingProvenance(auth);
+            if (!auth) continue;
+            const prov = authorityToListingProvenance(auth);
+            // DEFAULT_UNTOUCHED is not a stampable fieldAuthority — skip it
+            if (prov === "DEFAULT_UNTOUCHED") continue;
+            fieldAuthority[k] = prov;
           }
           const fillWithAuthority: SkyAiListingFill = {
             ...applied.fill,
