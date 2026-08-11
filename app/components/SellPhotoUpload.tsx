@@ -20,6 +20,8 @@ type Props = {
   cameraFirst?: boolean;
   /** Desktop drag/drop + click multi-select (shared intelligence path). */
   enableDrop?: boolean;
+  /** Compact empty chrome for flagship sell empty hero (no giant dashed frame). */
+  compactEmpty?: boolean;
 };
 
 export default function SellPhotoUpload({
@@ -32,6 +34,7 @@ export default function SellPhotoUpload({
   className = "",
   cameraFirst = false,
   enableDrop = false,
+  compactEmpty = false,
 }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -77,6 +80,7 @@ export default function SellPhotoUpload({
   const onDragLeave = (e: DragEvent) => {
     if (!enableDrop) return;
     e.preventDefault();
+    e.stopPropagation();
     setDragOver(false);
   };
   const onDrop = (e: DragEvent) => {
@@ -88,8 +92,8 @@ export default function SellPhotoUpload({
   };
 
   const dropClass = dragOver
-    ? "border-sky-500/50 bg-sky-500/[0.06]"
-    : "border-white/[0.12] bg-white/[0.02]";
+    ? "border-[var(--accent-primary)]/50 bg-[var(--accent-primary)]/[0.06]"
+    : "border-[var(--border-subtle)] bg-[var(--surface-2)]";
 
   return (
     <div className={className || undefined}>
@@ -99,48 +103,51 @@ export default function SellPhotoUpload({
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
-            className={`flex min-h-[14rem] flex-col items-center justify-center rounded-2xl border border-dashed px-5 py-10 text-center transition sm:min-h-[16rem] ${dropClass}`}
+            className={`flex flex-col items-center justify-center rounded-2xl border border-dashed px-5 text-center transition duration-150 ${
+              compactEmpty ? "min-h-0 py-6 sm:py-8" : "min-h-[14rem] py-10 sm:min-h-[16rem]"
+            } ${dropClass}`}
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] text-zinc-400">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
-                />
-              </svg>
-            </div>
-            <span className="mt-4 text-base font-medium text-white">{ctaTitle}</span>
-            <span className="mt-1.5 text-sm text-zinc-500">
-              {enableDrop
-                ? `${ctaSubtitle} · drop photos on desktop`
-                : ctaSubtitle}
+            {!compactEmpty ? (
+              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--muted)]">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                  />
+                </svg>
+              </div>
+            ) : null}
+            <span className={`text-base font-medium text-[var(--foreground)] ${compactEmpty ? "" : "mt-4"}`}>
+              {ctaTitle}
+            </span>
+            <span className="mt-1.5 text-sm text-[var(--muted)]">
+              {enableDrop ? `${ctaSubtitle} · drop photos on desktop` : ctaSubtitle}
             </span>
             {cameraFallbackMsg ? (
-              <p className="mt-3 text-sm text-amber-300/90" role="status">
+              <p className="mt-3 text-sm text-amber-600 light:text-amber-700" role="status">
                 {cameraFallbackMsg}
               </p>
             ) : null}
             <div className="mt-5 flex w-full max-w-sm flex-col gap-2 sm:flex-row">
-              {/* Mobile: real in-app camera */}
               <button
                 type="button"
                 onClick={openCamera}
-                className="flex-1 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-400 sm:hidden"
+                className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:hidden"
               >
-                Take Photo
+                Take photo
               </button>
               <button
                 type="button"
                 onClick={openPicker}
-                className="flex-1 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-white/25 hover:text-white"
+                className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-[var(--surface-3)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition duration-150 hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
-                Choose Photos
+                Choose photos
               </button>
             </div>
           </div>
@@ -158,15 +165,15 @@ export default function SellPhotoUpload({
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
-            className={`sd-photo-dropzone group flex min-h-[14rem] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-5 py-10 text-center transition hover:border-sky-500/35 hover:bg-white/[0.03] focus-visible:border-sky-500/45 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-500/25 sm:min-h-[16rem] ${dropClass}`}
+            className={`sd-photo-dropzone group flex min-h-[14rem] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-5 py-10 text-center transition duration-150 hover:border-[var(--accent-primary)]/35 hover:bg-[var(--surface-hover)] focus-visible:border-[var(--accent-primary)]/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:min-h-[16rem] ${dropClass}`}
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] text-zinc-400 transition group-hover:border-sky-500/30 group-hover:text-sky-300">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--muted)] transition group-hover:border-[var(--accent-primary)]/30 group-hover:text-[var(--accent-star)]">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
               </svg>
             </div>
-            <span className="mt-4 text-base font-medium text-white">{ctaTitle}</span>
-            <span className="mt-1.5 text-sm text-zinc-500">
+            <span className="mt-4 text-base font-medium text-[var(--foreground)]">{ctaTitle}</span>
+            <span className="mt-1.5 text-sm text-[var(--muted)]">
               {enableDrop ? "Drop photos here or click to upload" : ctaSubtitle}
             </span>
           </div>
@@ -179,14 +186,15 @@ export default function SellPhotoUpload({
           onDrop={onDrop}
         >
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-sm font-medium text-white">{ctaTitle}</p>
-            <p className="text-[11px] text-zinc-500">{imagePreviews.length}/8</p>
+            <p className="text-sm font-medium text-[var(--foreground)]">{ctaTitle}</p>
+            <p className="text-[11px] text-[var(--muted)]">{imagePreviews.length}/8</p>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          {/* Premium strip: horizontal scroll on narrow, grid from sm */}
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-thin sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0">
             {imagePreviews.map((preview, i) => (
               <div
                 key={i}
-                className="group relative overflow-hidden rounded-xl bg-zinc-900/50"
+                className="group relative w-[42%] shrink-0 overflow-hidden rounded-xl bg-[var(--surface-3)] sm:w-auto sm:shrink"
               >
                 <img src={preview} alt={`Listing photo ${i + 1}`} className="aspect-[4/3] w-full object-cover" />
                 {i === 0 && (
@@ -197,7 +205,7 @@ export default function SellPhotoUpload({
                 <button
                   type="button"
                   onClick={() => onRemove(i)}
-                  className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-[11px] text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
+                  className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-[11px] text-white opacity-100 transition-opacity sm:h-6 sm:w-6 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   aria-label={`Remove photo ${i + 1}`}
                 >
                   ✕
@@ -208,7 +216,7 @@ export default function SellPhotoUpload({
               <button
                 type="button"
                 onClick={cameraFirst ? openCamera : openPicker}
-                className="flex aspect-[4/3] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/[0.12] text-zinc-500 transition hover:border-sky-500/35 hover:text-sky-300 sm:hidden"
+                className="flex aspect-[4/3] w-[42%] shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[var(--border-subtle)] text-[var(--muted)] transition duration-150 hover:border-[var(--accent-primary)]/35 hover:text-[var(--accent-star)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:hidden sm:w-auto"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -220,7 +228,7 @@ export default function SellPhotoUpload({
               <button
                 type="button"
                 onClick={openPicker}
-                className="hidden aspect-[4/3] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/[0.12] text-zinc-500 transition hover:border-sky-500/35 hover:text-sky-300 sm:flex"
+                className="hidden aspect-[4/3] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[var(--border-subtle)] text-[var(--muted)] transition duration-150 hover:border-[var(--accent-primary)]/35 hover:text-[var(--accent-star)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:flex"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -234,30 +242,29 @@ export default function SellPhotoUpload({
               <button
                 type="button"
                 onClick={openCamera}
-                className="text-xs font-medium text-sky-400 underline-offset-2 hover:text-sky-300 hover:underline sm:hidden"
+                className="min-h-[44px] text-xs font-medium text-[var(--accent-star)] underline-offset-2 hover:underline sm:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 Take another photo
               </button>
               <button
                 type="button"
                 onClick={openPicker}
-                className="text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+                className="min-h-[44px] text-xs font-medium text-[var(--muted)] underline-offset-2 hover:text-[var(--foreground)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 Choose more from library
               </button>
             </div>
           ) : null}
           {cameraFallbackMsg ? (
-            <p className="text-sm text-amber-300/90" role="status">
+            <p className="text-sm text-amber-600 light:text-amber-700" role="status">
               {cameraFallbackMsg}
             </p>
           ) : null}
           {enableDrop && dragOver ? (
-            <p className="text-center text-xs text-sky-300">Drop to add photos</p>
+            <p className="text-center text-xs text-[var(--accent-star)]">Drop to add photos</p>
           ) : null}
         </div>
       )}
-      {/* Ordinary file picker — never use capture attribute */}
       <input
         ref={fileInputRef}
         type="file"

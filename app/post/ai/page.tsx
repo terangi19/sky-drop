@@ -49,6 +49,11 @@ import {
 } from "../../lib/sky-ai-images";
 import SkyAiChatPanel from "../../components/SkyAiChatPanel";
 import SellPhotoUpload from "../../components/SellPhotoUpload";
+import SellEmptyHero from "../../components/sell/SellEmptyHero";
+import SellWorkingStrip from "../../components/sell/SellWorkingStrip";
+import SellListingPreviewCard from "../../components/sell/SellListingPreviewCard";
+import SellStickyPublishBar from "../../components/sell/SellStickyPublishBar";
+import SellWorkspaceTabs from "../../components/sell/SellWorkspaceTabs";
 import AwhinaVisionFoundCard from "../../components/AwhinaVisionFoundCard";
 import { SKY_AI_SELL_QUICK_PROMPTS } from "../../lib/sky-ai-prompts";
 import { useAwhinaVisionListing } from "../../lib/use-awhina-vision-listing";
@@ -371,6 +376,13 @@ export default function AIPostPage() {
       awhinaConversation.listingFillOccurred
   );
 
+  /** Fresh empty: calm hero — no Chat/Listing jargon, no giant empty editor. */
+  const isFreshEmpty =
+    !editId && !hasDraftContent && imagePreviews.length === 0 && visionListing.state.status === "idle";
+
+  /** Tabs only once there is something to inspect on Listing. */
+  const showMobileTabs = !editId && !isFreshEmpty;
+
   const openManualEditor = () => {
     setShowManualEditor(true);
     setMobileWorkspaceTab("listing");
@@ -383,6 +395,23 @@ export default function AIPostPage() {
   const closeManualEditor = () => {
     setShowManualEditor(false);
   };
+
+  const focusAwhinaWorkspace = () => {
+    setMobileWorkspaceTab("chat");
+    setSkyChatOpen(true);
+    setTimeout(() => {
+      document
+        .querySelector<HTMLTextAreaElement>(".awhina-listing-workspace-chat textarea")
+        ?.focus();
+    }, 80);
+  };
+
+  /** Sticky publish: mobile listing/review only when ready — never over composer. */
+  const showStickyPublish =
+    !editId &&
+    isReadyToReview &&
+    showMobileTabs &&
+    mobileWorkspaceTab === "listing";
 
   const photoSubject = useMemo(() => {
     if (listingType === "vehicle") {
@@ -509,6 +538,14 @@ export default function AIPostPage() {
   })();
 
   const detailsRemaining = listingReadiness.missing.length;
+
+  const isBuildingListing =
+    !editId &&
+    !isReadyToReview &&
+    (analyzing ||
+      visionListing.state.status === "checking" ||
+      (imagePreviews.length > 0 && !hasDraftContent) ||
+      (hasDraftContent && detailsRemaining > 0 && awhinaIsAsking));
 
   const draftFlash = (label: string) =>
     liveFieldNotes.some((n) => n.toLowerCase().includes(label.toLowerCase()));
@@ -2145,115 +2182,148 @@ export default function AIPostPage() {
   }
 
   return (
-    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className={`relative min-h-screen bg-[var(--background)] text-[var(--foreground)] ${showStickyPublish ? "sell-sticky-publish-spacer" : ""}`}>
       <Background />
       <Navbar />
-      {imagePreviews.length > 0 && <img ref={imgRef} src={imagePreviews[0]} style={{display:'none'}} />}
+      {imagePreviews.length > 0 && <img ref={imgRef} src={imagePreviews[0]} style={{display:'none'}} alt="" />}
 
-      <div className="relative z-10 mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-8 lg:px-10">
+      <div className="sell-workspace relative z-10 mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-8 lg:px-10">
         {editLoading && (
           <div className="mb-6 flex items-center justify-center gap-3 py-3">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-500/70 border-t-transparent" />
-            <span className="text-sm text-zinc-400">Loading listing…</span>
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--accent-primary)]/70 border-t-transparent" />
+            <span className="text-sm text-[var(--muted)]">Loading listing…</span>
           </div>
         )}
 
         <header className="mb-5 sm:mb-6">
-          <Link href="/" className="mb-3 inline-flex items-center gap-1.5 text-sm text-zinc-500 transition hover:text-zinc-300">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          <Link href="/" className="mb-3 inline-flex min-h-[44px] items-center gap-1.5 text-sm text-[var(--muted)] transition duration-150 hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
           </Link>
-          <h1 className="text-[1.65rem] font-semibold tracking-tight text-white sm:text-3xl">
-            {editId ? "Edit your listing" : "Build your listing"}
-          </h1>
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-zinc-500">
-            {editId
-              ? "Update details, photos, and publish when you're ready."
-              : "Tell Āwhina what you're selling — or tap Edit details to fill the form yourself."}
-          </p>
+          {editId ? (
+            <>
+              <h1 className="text-[1.65rem] font-semibold tracking-tight text-[var(--foreground)] sm:text-3xl">
+                Edit your listing
+              </h1>
+              <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
+                Update details, photos, and publish when you're ready.
+              </p>
+            </>
+          ) : !isFreshEmpty ? (
+            <>
+              <h1 className="text-[1.65rem] font-semibold tracking-tight text-[var(--foreground)] sm:text-3xl">
+                {isReadyToReview ? "Ready to publish" : hasDraftContent ? "Your listing" : "What are you selling?"}
+              </h1>
+              {isReadyToReview ? (
+                <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
+                  Review details, then publish.
+                </p>
+              ) : detailsRemaining > 0 && hasDraftContent ? (
+                <p className="mt-1.5 text-sm text-[var(--muted)]">
+                  {detailsRemaining} detail{detailsRemaining === 1 ? "" : "s"} remaining
+                  {progressNextLabel ? ` · next: ${progressNextLabel}` : ""}
+                </p>
+              ) : null}
+            </>
+          ) : null}
         </header>
 
-        {!editId && (
-          <div className="mb-4 flex gap-1 rounded-xl bg-white/[0.03] p-1 lg:hidden">
-            <button
-              type="button"
-              onClick={() => { setMobileWorkspaceTab("chat"); setSkyChatOpen(true); }}
-              className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-medium transition ${mobileWorkspaceTab === "chat" ? "bg-white/[0.08] text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-            >
-              Chat
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileWorkspaceTab("listing")}
-              className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-medium transition ${mobileWorkspaceTab === "listing" ? "bg-white/[0.08] text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-            >
-              Listing
-              {(hasDraftContent || imagePreviews.length > 0) && (
-                <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-sky-400/80" aria-hidden />
-              )}
-            </button>
-          </div>
-        )}
+        {showMobileTabs ? (
+          <SellWorkspaceTabs
+            active={mobileWorkspaceTab}
+            onChange={(tab) => {
+              setMobileWorkspaceTab(tab);
+              if (tab === "chat") setSkyChatOpen(true);
+            }}
+            listingHint={hasDraftContent || imagePreviews.length > 0 || isReadyToReview}
+            awhinaAsking={awhinaIsAsking}
+          />
+        ) : null}
 
-        {!editId && detailsRemaining > 0 && hasDraftContent && !isReadyToReview && (
-          <div className="mb-4 flex items-center gap-3">
-            <span className="h-px w-10 bg-sky-500/70" aria-hidden />
-            <p className="text-[11px] text-zinc-500">
-              {detailsRemaining} detail{detailsRemaining === 1 ? "" : "s"} remaining
-            </p>
-          </div>
-        )}
-
-        {/* Desktop: listing left · Āwhina right. Mobile: tabbed. */}
+        {/* Desktop: listing left · Āwhina right. Mobile: tabs only when workspace active. */}
         <div className="lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start lg:gap-8">
 
         {/* LISTING COLUMN */}
         <div
-          className={`flex min-w-0 flex-col gap-5 ${!editId && mobileWorkspaceTab === "chat" ? "hidden lg:flex" : "flex"}`}
+          className={`flex min-w-0 flex-col gap-5 ${
+            showMobileTabs && mobileWorkspaceTab === "chat" ? "hidden lg:flex" : "flex"
+          }`}
         >
-          <SellPhotoUpload
-            className="mb-0"
-            cameraFirst
-            enableDrop={AWHINA_VISION_LISTING_UI_ENABLED}
-            ctaTitle={
-              AWHINA_VISION_LISTING_UI_ENABLED
-                ? photoSubject
-                  ? `Photos of your ${photoSubject}`
-                  : "Take or choose photos"
-                : photoCtaTitle
-            }
-            ctaSubtitle={
-              AWHINA_VISION_LISTING_UI_ENABLED
-                ? "Āwhina identifies the item — same brain on phone or desktop"
-                : photoSubject
-                  ? "Up to 8 photos — first is the cover"
-                  : "Up to 8 photos — first is the cover"
-            }
-            imagePreviews={imagePreviews}
-            fileInputRef={fileInputRef}
-            onUpload={handleImageUpload}
-            onRemove={(index) => {
-              const preview = imagePreviews[index];
-              setImagePreviews((prev) => prev.filter((_, j) => j !== index));
-              if (preview && isRemoteImageUrl(preview)) {
-                setExistingImages((prev) => {
-                  const idx = prev.indexOf(preview);
-                  if (idx >= 0) {
-                    setExistingThumbnails((thumbs) => thumbs.filter((_, j) => j !== idx));
+          {isFreshEmpty ? (
+            <SellEmptyHero
+              onEnterManually={openManualEditor}
+              onFocusAwhina={focusAwhinaWorkspace}
+            >
+              <SellPhotoUpload
+                className="mb-0"
+                cameraFirst
+                compactEmpty
+                enableDrop={AWHINA_VISION_LISTING_UI_ENABLED}
+                ctaTitle="Sell something"
+                ctaSubtitle="Take a photo or choose from your library"
+                imagePreviews={imagePreviews}
+                fileInputRef={fileInputRef}
+                onUpload={handleImageUpload}
+                onRemove={(index) => {
+                  const preview = imagePreviews[index];
+                  setImagePreviews((prev) => prev.filter((_, j) => j !== index));
+                  if (preview && isRemoteImageUrl(preview)) {
+                    setExistingImages((prev) => {
+                      const idx = prev.indexOf(preview);
+                      if (idx >= 0) {
+                        setExistingThumbnails((thumbs) => thumbs.filter((_, j) => j !== idx));
+                      }
+                      return prev.filter((url) => url !== preview);
+                    });
+                  } else if (preview && isLocalImagePreview(preview)) {
+                    const newIndex = imagePreviews
+                      .slice(0, index)
+                      .filter((p) => isLocalImagePreview(p)).length;
+                    setImageFiles((prev) => prev.filter((_, j) => j !== newIndex));
                   }
-                  return prev.filter((url) => url !== preview);
-                });
-              } else if (preview && isLocalImagePreview(preview)) {
-                const newIndex = imagePreviews
-                  .slice(0, index)
-                  .filter((p) => isLocalImagePreview(p)).length;
-                setImageFiles((prev) => prev.filter((_, j) => j !== newIndex));
+                  if (AWHINA_VISION_LISTING_UI_ENABLED && imagePreviews.length <= 1) {
+                    visionListing.reset();
+                  }
+                }}
+              />
+            </SellEmptyHero>
+          ) : (
+            <SellPhotoUpload
+              className="mb-0"
+              cameraFirst
+              enableDrop={AWHINA_VISION_LISTING_UI_ENABLED}
+              ctaTitle={
+                photoSubject
+                  ? `Photos of your ${photoSubject}`
+                  : "Photos"
               }
-              if (AWHINA_VISION_LISTING_UI_ENABLED && imagePreviews.length <= 1) {
-                visionListing.reset();
-              }
-            }}
-          />
+              ctaSubtitle="Up to 8 — first is the cover"
+              imagePreviews={imagePreviews}
+              fileInputRef={fileInputRef}
+              onUpload={handleImageUpload}
+              onRemove={(index) => {
+                const preview = imagePreviews[index];
+                setImagePreviews((prev) => prev.filter((_, j) => j !== index));
+                if (preview && isRemoteImageUrl(preview)) {
+                  setExistingImages((prev) => {
+                    const idx = prev.indexOf(preview);
+                    if (idx >= 0) {
+                      setExistingThumbnails((thumbs) => thumbs.filter((_, j) => j !== idx));
+                    }
+                    return prev.filter((url) => url !== preview);
+                  });
+                } else if (preview && isLocalImagePreview(preview)) {
+                  const newIndex = imagePreviews
+                    .slice(0, index)
+                    .filter((p) => isLocalImagePreview(p)).length;
+                  setImageFiles((prev) => prev.filter((_, j) => j !== newIndex));
+                }
+                if (AWHINA_VISION_LISTING_UI_ENABLED && imagePreviews.length <= 1) {
+                  visionListing.reset();
+                }
+              }}
+            />
+          )}
 
           {AWHINA_VISION_LISTING_UI_ENABLED ? (
             <div className="space-y-2">
@@ -2272,8 +2342,9 @@ export default function AIPostPage() {
                         });
                       }
                     }}
-                    placeholder='Optional: "want 850 pickup henderson"'
-                    className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-sky-500/40 focus:outline-none"
+                    placeholder='Optional note — e.g. "want $850 pickup Henderson"'
+                    aria-label="Optional note for Āwhina"
+                    className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-3)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:border-[var(--accent-primary)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   />
                   {imageFiles.length > 0 ? (
                     <button
@@ -2284,7 +2355,7 @@ export default function AIPostPage() {
                           message: visionCompanionNote,
                         })
                       }
-                      className="shrink-0 rounded-lg border border-white/15 px-3 py-2 text-sm text-zinc-300 hover:text-white"
+                      className="min-h-[44px] shrink-0 rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-sm text-[var(--text-secondary)] transition duration-150 hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     >
                       Update
                     </button>
@@ -2296,7 +2367,6 @@ export default function AIPostPage() {
                 identity={visionListing.state.identity}
                 message={visionListing.state.message}
                 onYes={() => {
-                  // Identity confirm → continue same conversation (establish pendingSlot)
                   bridgeVisionIntoAwhina(visionListing.state, {
                     identityConfirmed: true,
                   });
@@ -2304,8 +2374,7 @@ export default function AIPostPage() {
                 onChange={() => {
                   visionListing.reset();
                   setVisionCompanionNote("");
-                  setMobileWorkspaceTab("chat");
-                  setSkyChatOpen(true);
+                  focusAwhinaWorkspace();
                   dispatchSkyAiOpen();
                   showToast("Tell Āwhina what it really is in chat", "info");
                 }}
@@ -2313,83 +2382,47 @@ export default function AIPostPage() {
             </div>
           ) : (
             (analyzing || (detected && !analyzing)) && (
-              <div className="text-center text-sm text-zinc-400">
+              <div className="text-center text-sm text-[var(--muted)]">
                 {analyzing ? "Detecting…" : detected}
               </div>
             )
           )}
 
-          {!editId && (
-            <div id="live-listing-draft" className="space-y-4">
-              {hasDraftContent || imagePreviews.length > 0 ? (
-                <div className="space-y-2">
-                  <h2
-                    className={`text-xl font-semibold tracking-tight text-white sm:text-2xl ${draftFlash("title") || draftFlash("make") || draftFlash("model") ? "text-sky-100 transition-colors duration-500" : ""}`}
-                  >
-                    {marketplaceTitle || "Your listing"}
-                  </h2>
-                  {marketplacePrice ? (
-                    <p
-                      className={`text-lg font-medium text-white sm:text-xl ${draftFlash("price") ? "text-sky-100 transition-colors duration-500" : ""}`}
-                    >
-                      {marketplacePrice}
-                      {draftFlash("price") ? <span className="ml-1.5 text-sm font-normal text-sky-400/80">✓</span> : null}
-                    </p>
-                  ) : null}
-                  {marketplaceMeta ? (
-                    <p className="text-sm leading-relaxed text-zinc-400">{marketplaceMeta}</p>
-                  ) : null}
-                  {description.trim() ? (
-                    <p className="line-clamp-3 text-sm leading-relaxed text-zinc-500">{description}</p>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="space-y-1.5 py-1">
-                  <p className="text-base font-medium text-white">No details yet</p>
-                  <p className="text-sm text-zinc-500">Chat with Āwhina, or edit the listing yourself.</p>
-                </div>
-              )}
+          <SellWorkingStrip
+            visible={isBuildingListing && !showManualEditor}
+            thumbUrl={imagePreviews[0] || null}
+            title={marketplaceTitle || visionListing.state.identity || ""}
+            category={liveDraftTypeLabel}
+            statusLabel={
+              visionListing.state.status === "checking" || analyzing
+                ? "Looking…"
+                : awhinaIsAsking
+                  ? progressNextLabel
+                    ? `Next: ${progressNextLabel}`
+                    : "Building listing…"
+                  : "Building listing…"
+            }
+          />
 
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {isReadyToReview ? (
-                  <button
-                    type="button"
-                    onClick={openManualEditor}
-                    className="rounded-lg bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400"
-                  >
-                    Review listing
-                  </button>
-                ) : null}
-                {!showManualEditor ? (
-                  <button
-                    type="button"
-                    onClick={openManualEditor}
-                    data-testid={hasDraftContent ? "edit-details-listing" : "edit-details-empty"}
-                    className="text-sm font-medium text-zinc-400 underline-offset-4 transition hover:text-white hover:underline"
-                  >
-                    Edit details
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={closeManualEditor}
-                    data-testid="done-editing"
-                    className="text-sm font-medium text-zinc-500 transition hover:text-zinc-300"
-                  >
-                    Done editing
-                  </button>
-                )}
-                {awhinaIsAsking ? (
-                  <button
-                    type="button"
-                    onClick={() => { setMobileWorkspaceTab("chat"); setSkyChatOpen(true); }}
-                    className="text-sm font-medium text-sky-400/90 transition hover:text-sky-300 lg:hidden"
-                  >
-                    Answer Āwhina
-                  </button>
-                ) : null}
-              </div>
-            </div>
+          {!editId && !isFreshEmpty && (
+            <SellListingPreviewCard
+              coverUrl={imagePreviews[0] || null}
+              title={marketplaceTitle || "Your listing"}
+              price={marketplacePrice}
+              meta={marketplaceMeta}
+              descriptionSnippet={showManualEditor ? undefined : description}
+              typeLabel={liveDraftTypeLabel}
+              flashTitle={draftFlash("title") || draftFlash("make") || draftFlash("model")}
+              flashPrice={draftFlash("price")}
+              isReady={isReadyToReview}
+              showManualEditor={showManualEditor}
+              hasDraft={hasDraftContent}
+              awhinaIsAsking={awhinaIsAsking}
+              onReview={openManualEditor}
+              onEditDetails={openManualEditor}
+              onDoneEditing={closeManualEditor}
+              onAnswerAwhina={focusAwhinaWorkspace}
+            />
           )}
 
         {/* Full manual form — opens via Edit details (same draft state) */}
@@ -2397,14 +2430,14 @@ export default function AIPostPage() {
           id="manual-listing-form"
           className={`${!editId && !showManualEditor ? "hidden" : "mt-2 block"}`}
         >
-        <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/45 p-4 sm:p-5">
+        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-2)] p-4 sm:p-5">
         {!editId && showManualEditor && (
           <div className="mb-5 flex items-center justify-between gap-3">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Listing details</p>
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">Listing details</p>
             <button
               type="button"
               onClick={closeManualEditor}
-              className="text-[11px] font-medium text-zinc-500 transition hover:text-zinc-300"
+              className="min-h-[44px] text-[11px] font-medium text-[var(--muted)] transition duration-150 hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               Done editing
             </button>
@@ -2412,7 +2445,7 @@ export default function AIPostPage() {
         )}
         {editId ? (
           <div className="mb-5">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Listing details</p>
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">Listing details</p>
           </div>
         ) : null}
 
@@ -2458,9 +2491,9 @@ export default function AIPostPage() {
           </div>
 
           <div className="space-y-4">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Basics</p>
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">Essentials</p>
             <div className="space-y-1.5">
-              <label htmlFor="listing-title" className="block text-xs font-medium text-zinc-500">Title</label>
+              <label htmlFor="listing-title" className="block text-xs font-medium text-[var(--muted)]">Title</label>
               <input
                 id="listing-title"
                 type="text"
@@ -2468,74 +2501,79 @@ export default function AIPostPage() {
                 onChange={(e) => handleTitleChange(e.target.value)}
                 aria-label="Listing title"
                 aria-describedby={validationErrors.title ? "title-error" : "title-count"}
-                className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-sky-500/45 ${
-                  validationErrors.title ? "border-red-500/40 bg-red-500/5" : "border-white/10 bg-zinc-900/60"
+                className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition focus:border-[var(--accent-primary)]/45 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
+                  validationErrors.title ? "border-red-500/40 bg-red-500/5" : "border-[var(--border-subtle)] bg-[var(--surface-3)]"
                 }`}
                 placeholder="What are you selling?"
               />
               <div className="flex items-center justify-between">
-                <p id="title-count" className="text-[10px] text-zinc-600">{title.length}/100</p>
+                <p id="title-count" className="text-[10px] text-[var(--muted)]">{title.length}/100</p>
                 {validationErrors.title && (
                   <p id="title-error" className="text-[10px] text-red-400" role="alert">{validationErrors.title}</p>
                 )}
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label htmlFor="listing-description" className="block text-xs font-medium text-zinc-500">Description</label>
-              <textarea
-                id="listing-description"
-                value={description}
-                onChange={(e) => handleDescriptionChange(e.target.value)}
-                rows={4}
-                aria-label="Listing description"
-                aria-describedby={validationErrors.description ? "description-error" : "description-count"}
-                className={`w-full resize-none rounded-xl border px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-sky-500/45 ${
-                  validationErrors.description ? "border-red-500/40 bg-red-500/5" : "border-white/10 bg-zinc-900/60"
-                }`}
-                placeholder="Describe your item…"
-              />
-              <div className="flex items-center justify-between">
-                <p id="description-count" className="text-[10px] text-zinc-600">{description.length}</p>
-                {validationErrors.description && (
-                  <p id="description-error" className="text-[10px] text-red-400" role="alert">{validationErrors.description}</p>
-                )}
-              </div>
-            </div>
-
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-zinc-500">
+                <label className="block text-xs font-medium text-[var(--muted)]">
                   {listingType === "service" ? "Service category" : "Category"}
                 </label>
                 <select
                   value={category}
                   onChange={(e) => { setCategory(e.target.value); markField("category"); }}
-                  className="w-full cursor-pointer appearance-none rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45"
+                  className="w-full cursor-pointer appearance-none rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-3)] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent-primary)]/45 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
-                  <option value="" className="bg-zinc-900 text-zinc-500">Select category</option>
+                  <option value="" className="bg-[var(--surface-2)] text-[var(--muted)]">Select category</option>
                   {categoriesForListingType(listingType).map((c) => (
-                    <option key={c} className="bg-zinc-900 text-white">{c}</option>
+                    <option key={c} className="bg-[var(--surface-2)] text-[var(--foreground)]">{c}</option>
                   ))}
                 </select>
               </div>
               {(listingType === "physical" || listingType === "vehicle") && (
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-zinc-500">Condition</label>
+                  <label className="block text-xs font-medium text-[var(--muted)]">Condition</label>
                   <select
                     value={condition}
                     onChange={(e) => { setCondition(e.target.value); markField("condition"); }}
-                    className="w-full cursor-pointer appearance-none rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45"
+                    className="w-full cursor-pointer appearance-none rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-3)] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent-primary)]/45 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
-                    <option value="" className="bg-zinc-900 text-zinc-500">Select condition</option>
-                    <option className="bg-zinc-900 text-white">New</option>
-                    <option className="bg-zinc-900 text-white">Used - Like New</option>
-                    <option className="bg-zinc-900 text-white">Used - Good</option>
-                    <option className="bg-zinc-900 text-white">Used - Fair</option>
+                    <option value="" className="bg-[var(--surface-2)] text-[var(--muted)]">Select condition</option>
+                    <option className="bg-[var(--surface-2)] text-[var(--foreground)]">New</option>
+                    <option className="bg-[var(--surface-2)] text-[var(--foreground)]">Used - Like New</option>
+                    <option className="bg-[var(--surface-2)] text-[var(--foreground)]">Used - Good</option>
+                    <option className="bg-[var(--surface-2)] text-[var(--foreground)]">Used - Fair</option>
                   </select>
                 </div>
               )}
             </div>
+
+            <details className="group rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-3)]/40 open:bg-transparent open:border-0">
+              <summary className="cursor-pointer list-none px-1 py-2 text-xs font-medium text-[var(--muted)] transition hover:text-[var(--foreground)] [&::-webkit-details-marker]:hidden">
+                <span className="inline-flex min-h-[44px] items-center">Description {description.trim() ? "· edit" : "· add"}</span>
+              </summary>
+              <div className="space-y-1.5 pb-1">
+                <label htmlFor="listing-description" className="sr-only">Description</label>
+                <textarea
+                  id="listing-description"
+                  value={description}
+                  onChange={(e) => handleDescriptionChange(e.target.value)}
+                  rows={4}
+                  aria-label="Listing description"
+                  aria-describedby={validationErrors.description ? "description-error" : "description-count"}
+                  className={`w-full resize-none rounded-xl border px-3.5 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition focus:border-[var(--accent-primary)]/45 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
+                    validationErrors.description ? "border-red-500/40 bg-red-500/5" : "border-[var(--border-subtle)] bg-[var(--surface-3)]"
+                  }`}
+                  placeholder="Describe your item…"
+                />
+                <div className="flex items-center justify-between">
+                  <p id="description-count" className="text-[10px] text-[var(--muted)]">{description.length}</p>
+                  {validationErrors.description && (
+                    <p id="description-error" className="text-[10px] text-red-400" role="alert">{validationErrors.description}</p>
+                  )}
+                </div>
+              </div>
+            </details>
           </div>
 
           {listingType === "vehicle" && (
@@ -3147,9 +3185,9 @@ export default function AIPostPage() {
             id="listing-submit-btn"
             onClick={createListing}
             disabled={loading || editLoading}
-            className="mt-2 w-full rounded-xl bg-sky-500 py-3.5 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:opacity-40"
+            className="mt-2 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[var(--accent-primary)] py-3.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-40"
           >
-            {loading ? "Saving…" : autoPublish && !editId ? "Generate with AI" : editId ? "Save changes" : "Post now"}
+            {loading ? "Saving…" : autoPublish && !editId ? "Generate with AI" : editId ? "Save changes" : "Publish listing"}
           </button>
         </div>
         </div>
@@ -3159,17 +3197,21 @@ export default function AIPostPage() {
         {/* CONVERSATION COLUMN */}
         {!editId && (
           <div
-            className={`mb-4 flex min-h-[min(68vh,640px)] min-w-0 flex-col lg:mb-0 lg:sticky lg:top-20 lg:h-[min(78vh,760px)] lg:min-h-0 ${
-              mobileWorkspaceTab === "listing" ? "hidden lg:flex" : "flex"
+            className={`mb-4 flex min-w-0 flex-col lg:mb-0 lg:sticky lg:top-20 lg:h-[min(78vh,760px)] lg:min-h-0 ${
+              isFreshEmpty
+                ? "min-h-[min(42vh,360px)]"
+                : "min-h-[min(58vh,560px)]"
+            } ${
+              showMobileTabs && mobileWorkspaceTab === "listing" ? "hidden lg:flex" : "flex"
             }`}
           >
             <div className="mb-2 flex items-center gap-2 px-0.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sky-500/15 text-[10px] text-sky-300" aria-hidden>
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--accent-primary)]/15 text-[10px] text-[var(--accent-star)]" aria-hidden>
                 ✦
               </span>
-              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Āwhina</span>
+              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">Āwhina</span>
               {awhinaIsAsking ? (
-                <span className="h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden />
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)]" aria-hidden />
               ) : null}
             </div>
             <SkyAiChatPanel
@@ -3180,15 +3222,21 @@ export default function AIPostPage() {
               onAutoQueryConsumed={() => setSkyAutoQuery(undefined)}
               onFill={applyFill}
               quickPrompts={[]}
-              welcomeText="Kia ora — tell me what you're selling. I'll build the listing with you."
+              welcomeText="Kia ora — what are you selling? I’ll build the listing with you."
               workspaceChrome
-              className="awhina-listing-workspace-chat min-h-0 flex-1"
+              className="awhina-listing-workspace-chat sell-workspace-chat min-h-0 flex-1"
             />
           </div>
         )}
 
         </div>
       </div>
+
+      <SellStickyPublishBar
+        visible={showStickyPublish}
+        loading={loading}
+        onPublish={createListing}
+      />
 
       {/* SCAM ALERT MODAL - INSIDE MAIN CONTAINER */}
       {scamAlert && (

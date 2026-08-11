@@ -2996,3 +2996,36 @@ select:focus-visible {
   color: var(--foreground) !important;
 }
 
+
+
+/* Flagship /post/ai sell workspace - presentational only */
+@keyframes sellFade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .motion-safe\:animate-\[sellFade_180ms_ease-out\],
+  .motion-safe\:animate-\[sellFade_160ms_ease-out\] {
+    animation: none !important;
+  }
+}
+.sell-workspace {
+  max-width: 72rem;
+}
+.sell-workspace-chat {
+  border-color: var(--border-subtle) !important;
+  background: var(--surface-2) !important;
+}
+:root.light .sell-workspace-chat,
+:root.light .awhina-listing-workspace-chat {
+  background: var(--surface-2) !important;
+  border-color: var(--border-subtle) !important;
+}
+.sell-sticky-publish-spacer {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  .sell-sticky-publish-spacer {
+    padding-bottom: 0;
+  }
+}
