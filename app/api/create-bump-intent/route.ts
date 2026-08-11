@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
 import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import {
+  isStripeCheckoutEnabledServer,
+  listingCheckoutUnavailableBody,
+} from "../../lib/stripe-checkout-flags";
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
   const { allowed } = await rateLimit(`bump:${ip}`, 5, 60_000);
   if (!allowed) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
+  }
+
+  if (!isStripeCheckoutEnabledServer()) {
+    return NextResponse.json(listingCheckoutUnavailableBody(), { status: 403 });
   }
 
   try {

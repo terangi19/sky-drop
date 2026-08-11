@@ -17,6 +17,7 @@ import PromoteModal from "../components/PromoteModal";
 import { LISTING_GRID, PAGE_SHELL_CHAT } from "../lib/page-layout";
 import { timeAgo } from "../lib/listing-utils";
 import ListingImage, { listingHasImage } from "../components/ListingImage";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 
 interface Listing {
   id: string;
@@ -163,7 +164,9 @@ export default function ListListPage() {
     () =>
       buildListListInsight({
         listings,
-        onBoost: (listing) => setPromoteItem(listing as Listing),
+        onBoost: isStripeCheckoutVisibleClient()
+          ? (listing) => setPromoteItem(listing as Listing)
+          : undefined,
       }),
     [listings]
   );
@@ -339,7 +342,7 @@ export default function ListListPage() {
                   {/* Actions */}
                   {isOwner && (
                     <div className="mt-auto flex min-h-10 gap-2 border-t border-white/[0.08] pt-3">
-                      {(item as any)._collection !== "tradePosts" && (
+                      {(item as any)._collection !== "tradePosts" && isStripeCheckoutVisibleClient() && (
                         <button onClick={(e) => { e.stopPropagation(); setPromoteItem(item); }}
                           className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-br from-sky-500/20 to-sky-500/10 px-2 py-2.5 text-[11px] font-bold text-sky-400 ring-1 ring-sky-500/20 transition hover:from-sky-500/30 hover:to-sky-500/20 active:scale-[0.97]">
                           📈 Boost
@@ -385,12 +388,12 @@ export default function ListListPage() {
         </div>
       )}
 
-      {promoteItem && (
+      {promoteItem && isStripeCheckoutVisibleClient() ? (
         <PromoteModal
           listing={promoteItem}
           onClose={() => setPromoteItem(null)}
         />
-      )}
+      ) : null}
     </main>
   );
 }

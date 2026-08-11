@@ -1293,7 +1293,11 @@ export default function Home() {
                 sellerJoinedDate={sellerJoinedDate}
                 sellerListingCount={sellerListingCount}
                 sellerMetaReady={sellerMetaReady}
-                onPromote={(listing) => setPromoteItem(listing)}
+                onPromote={
+                  isStripeCheckoutVisibleClient()
+                    ? (listing) => setPromoteItem(listing)
+                    : undefined
+                }
                 onDelete={(listing) => setDeleteConfirm(listing as Listing)}
               />
             </Suspense>
@@ -1347,13 +1351,12 @@ export default function Home() {
         </div>
       )}
 
-      {promoteItem && (
+      {promoteItem && isStripeCheckoutVisibleClient() ? (
         <PromoteModal
           listing={promoteItem}
           onClose={() => setPromoteItem(null)}
         />
-      )}
-
+      ) : null}
       {/* RECENTLY VIEWED */}
       {recentlyViewed.length > 0 && (
         <section className={`${PAGE_SHELL_MARKETPLACE} pb-2`}>

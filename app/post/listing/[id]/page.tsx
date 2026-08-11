@@ -1180,7 +1180,7 @@ export default function ListingPage() {
       <Background />
       <Navbar />
 
-      {showOffer && (
+      {showOffer && !stripeDisabledV1 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in-backdrop" onClick={resetOffer}>
           <div className="mx-4 w-full max-w-md rounded-2xl border border-white/[0.08] bg-[var(--card)] p-6 shadow-2xl animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
             {offerSent ? (
@@ -1851,7 +1851,7 @@ Property Status: 🟢 Inquiry Active`;
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
                       </svg>{messageCtaLabel("property")}</button>
                   </div>
-                  {listing.acceptOffers && (
+                  {!stripeDisabledV1 && listing.acceptOffers && (
                     <button onClick={() => setShowOffer(true)}
                       className="h-11 w-full flex items-center justify-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-[var(--card-hover)]"
                     >
@@ -1864,10 +1864,12 @@ Property Status: 🟢 Inquiry Active`;
                   <Link href={`/post/ai?edit=${listingId}`} className="btn btn-primary flex-1 h-11">
                     Edit Listing
                   </Link>
+                  {!stripeDisabledV1 && (
                   <button onClick={() => setShowPromote(true)}
                     className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
                     Promote
                   </button>
+                  )}
                 </div>
               ) : (
                 <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-11">{listingPrimaryCtaLabel(listing)}</button>
@@ -1928,9 +1930,11 @@ Property Status: 🟢 Inquiry Active`;
                   <Link href={`/post/ai?edit=${listingId}`} className="btn btn-primary flex-1 h-11">
                     Edit Listing
                   </Link>
+                  {!stripeDisabledV1 && (
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
                     Promote
                   </button>
+                  )}
                 </div>
               ) : (
                 <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-11">{listingPrimaryCtaLabel(listing)}</button>
@@ -2044,9 +2048,7 @@ Property Status: 🟢 Inquiry Active`;
                     </p>
                   </div>
 
-                  {((!auctionEnded && (listing.saleType === "auction" || listing.saleType === "auction_buy_now")) ||
-                    ((listing as any).paymentType !== "contact" && listing.acceptOffers) ||
-                    !stripeDisabledV1) && (
+                  {!stripeDisabledV1 && (
                   <div className="grid grid-cols-2 gap-2">
                     {!auctionEnded && (listing.saleType === "auction" || listing.saleType === "auction_buy_now") && (
                       <button onClick={() => { setShowBidModal(true); setBidAmount(String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))); }}
@@ -2069,15 +2071,13 @@ Property Status: 🟢 Inquiry Active`;
                         Make Offer
                       </button>
                     )}
-                    {!stripeDisabledV1 && (
-                      <button
-                        onClick={() => router.push(sellerMessagesHref)}
-                        className="h-12 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
-                        </svg>{listingPrimaryCtaLabel(listing)}</button>
-                    )}
+                    <button
+                      onClick={() => router.push(sellerMessagesHref)}
+                      className="h-12 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
+                      </svg>{listingPrimaryCtaLabel(listing)}</button>
                   </div>
                   )}
 
@@ -2093,10 +2093,12 @@ Property Status: 🟢 Inquiry Active`;
                   <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-sky-500 text-sm font-bold text-white transition-colors hover:bg-sky-400 active:scale-[0.98]">
                     Edit Listing
                   </Link>
+                  {!stripeDisabledV1 && (
                   <button onClick={() => setShowPromote(true)}
                     className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
                     Promote
                   </button>
+                  )}
                 </div>
               ) : (
                 <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-14 text-base">{listingPrimaryCtaLabel(listing)}</button>
@@ -2178,9 +2180,11 @@ Application Status: 🟢 Active`;
                   <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-sky-500 text-sm font-bold text-white transition-colors hover:bg-sky-400 active:scale-[0.98]">
                     Edit Listing
                   </Link>
+                  {!stripeDisabledV1 && (
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
                     Promote
                   </button>
+                  )}
                 </div>
               ) : (
                 <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-14 text-base">{listingPrimaryCtaLabel(listing)}</button>
@@ -2244,7 +2248,7 @@ Service Status: 🟢 Inquiry Active`;
                     >{messageCtaLabel("service")}</button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    {listing.acceptOffers && (
+                    {!stripeDisabledV1 && listing.acceptOffers && (
                       <button onClick={() => setShowOffer(true)}
                         className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
                       >
@@ -2261,9 +2265,11 @@ Service Status: 🟢 Inquiry Active`;
                   <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-sky-500 text-sm font-bold text-white transition-colors hover:bg-sky-400 active:scale-[0.98]">
                     Edit Listing
                   </Link>
+                  {!stripeDisabledV1 && (
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
                     Promote
                   </button>
+                  )}
                 </div>
               ) : (
                 <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-14 text-base">{messageCtaLabel("service")}</button>
@@ -2360,9 +2366,11 @@ Service Status: 🟢 Inquiry Active`;
                   <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-sky-500 text-sm font-bold text-white transition-colors hover:bg-sky-400 active:scale-[0.98]">
                     Edit Listing
                   </Link>
+                  {!stripeDisabledV1 && (
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
                     Promote
                   </button>
+                  )}
                 </div>
               ) : (
                 <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-14 text-base">
@@ -2716,7 +2724,7 @@ Service Status: 🟢 Inquiry Active`;
           winningBid={winningBid || undefined}
         />
       )}
-      {showPromote && (
+      {showPromote && !stripeDisabledV1 && (
         <PromoteModal
           listing={listing}
           onClose={() => setShowPromote(false)}

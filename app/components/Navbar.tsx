@@ -46,7 +46,6 @@ const BROWSE_LINKS = [
   { href: "/vehicles", label: "Vehicles", desc: "Cars, utes, bikes & boats" },
   { href: "/services", label: "Services & Gigs", desc: "Freelance work, consulting, help" },
   { href: "/rentals", label: "Rentals", desc: "Tools, equipment, cameras for rent" },
-  { href: "/property", label: "Property", desc: "Homes, rooms & land" },
   { href: "/wanted", label: "Wanted Ads", desc: "Items people are looking for" },
 ] as const;
 
@@ -410,7 +409,7 @@ export default function Navbar() {
 
   const browseActive =
     pathname === "/" ||
-    ["/services", "/rentals", "/wanted", "/vehicles", "/property", "/jobs", "/events"].some(
+    ["/services", "/rentals", "/wanted", "/vehicles"].some(
       (p) => pathname.startsWith(p)
     );
 

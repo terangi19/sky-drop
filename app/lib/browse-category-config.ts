@@ -222,6 +222,32 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
       "Secure messaging on Sky Drop",
     ],
   },
+  /** Legacy vertical — browse-only; not in CANONICAL_LISTING_TYPES sell chips. */
+  digital: {
+    listingType: "digital",
+    emoji: "D",
+    pageTitle: "Digital Store",
+    subtitle:
+      "Browse digital products and downloadable goods. Message the seller to arrange purchase and delivery.",
+    searchPlaceholder: "Search templates, ebooks, software...",
+    listCtaShort: "Sell",
+    listCtaLong: "Sell with Āwhina",
+    sellCta: "Sell with Āwhina",
+    postAiType: "physical",
+    trendingFallback: "Trending digital listings across New Zealand",
+    itemSingular: "digital product",
+    itemPlural: "digital products",
+    listingsHeading: "Digital Listings",
+    emptyTitle: "No digital listings yet",
+    emptySubtitle: "Legacy digital listings appear here when published.",
+    filterMode: "category",
+    categories: ["All", "Templates", "Ebooks", "Software", "Design", "Other"],
+    trustRow: [
+      "Browse digital goods",
+      "Message sellers directly",
+      "Arrange delivery in chat",
+    ],
+  },
 };
 
 export type BrowseCategoryKey = keyof typeof BROWSE_CATEGORY_CONFIGS;

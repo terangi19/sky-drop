@@ -3209,14 +3209,6 @@ export default function AIPostPage() {
               </div>
               <div className="rounded-xl bg-white/[0.02] p-4">
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl">💾</span>
-                  <h4 className="font-bold text-white">Digital Products</h4>
-                </div>
-                <p className="mt-2 text-sm text-[var(--muted)]">Digital files and online services delivered remotely.</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">Best for: Software, templates, e-books, web design, SEO.</p>
-              </div>
-              <div className="rounded-xl bg-white/[0.02] p-4">
-                <div className="flex items-center gap-2">
                   <span className="text-2xl">🛠️</span>
                   <h4 className="font-bold text-white">Services</h4>
                 </div>
