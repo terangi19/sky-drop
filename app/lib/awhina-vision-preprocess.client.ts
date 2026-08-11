@@ -7,8 +7,8 @@
 
 import { compressImageFile, prepareSkyAiImages } from "./sky-ai-images";
 
-/** Vision max edge — keep under ~1MP for cost/latency (not 12–48MP originals). */
-export const AWHINA_VISION_MAX_SIDE = 1024;
+/** Vision max edge — preserve small text/serials/logos (was 1024, too aggressive). */
+export const AWHINA_VISION_MAX_SIDE = 1536;
 
 export async function prepareVisionListingImages(
   files: File[]

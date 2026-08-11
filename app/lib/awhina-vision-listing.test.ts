@@ -115,7 +115,7 @@ describe("identity scenarios", () => {
       { id: "Nike Air Force 1", cat: "Fashion" },
       { id: "Grey fabric sofa", cat: "Home" },
       { id: "Cordless drill", cat: "Home" },
-      { id: "Lionel Messi Topps card", cat: "Other" },
+      { id: "Lionel Messi Topps card", cat: "Sports" },
       { id: "BMW 3 Series", cat: "Cars", type: "vehicle" },
     ];
     for (const c of cases) {
@@ -173,7 +173,7 @@ describe("identity scenarios", () => {
 });
 
 describe("USER provenance outranks vision", () => {
-  it("existing USER title/price survive vision", () => {
+  it("existing USER title/price survive vision when provenance locked", () => {
     const adapted = adaptVisionObservationToListing(
       obs({
         displayIdentity: "PlayStation 5",
@@ -184,11 +184,59 @@ describe("USER provenance outranks vision", () => {
         title: "My custom PS5 bundle",
         price: "450",
         location: "Auckland",
+      },
+      {
+        fieldProvenance: {
+          title: "USER",
+          price: "USER",
+          location: "USER",
+        },
       }
     );
     expect(adapted.listingFill.title).toBe("My custom PS5 bundle");
     expect(adapted.listingFill.price).toBe("450");
     expect(adapted.listingFill.location).toBe("Auckland");
+  });
+
+  it("NEW unrelated photo does not inherit prior Panini brand/price/New", () => {
+    const adapted = adaptVisionObservationToListing(
+      obs({
+        domain: "trading-cards",
+        displayIdentity: "Topps Chrome Inter Milan orange parallel",
+        itemIdentity: field("Topps Chrome football card", "HIGH", "VISIBLE"),
+        brand: field("Topps", "HIGH", "READABLE"),
+        product: field("Topps Chrome", "HIGH", "READABLE"),
+        cardSet: field("Topps Chrome", "HIGH", "READABLE"),
+        colour: field("orange", "HIGH", "VISIBLE"),
+        parallel: field("refractor", "MEDIUM", "VISIBLE"),
+        serialNumber: field("14/25", "HIGH", "READABLE"),
+        category: field("Sports", "HIGH", "VISIBLE"),
+        visibleFeatures: ["orange background", "shiny surface", "player image"],
+        visibleCondition: field("looks clean", "MEDIUM", "VISIBLE"),
+        overallConfidence: "HIGH",
+      }),
+      {
+        title: "panini",
+        description: "Brand new panini in Auckland, asking $20.",
+        category: "Other",
+        condition: "New",
+        price: "20",
+        location: "Auckland",
+      }
+    );
+    expect(adapted.continuity).toBe("NEW_OBJECT");
+    expect(adapted.replaceDraft).toBe(true);
+    expect(adapted.listingFill.title?.toLowerCase()).not.toBe("panini");
+    expect(adapted.listingFill.title?.toLowerCase()).not.toMatch(/^panini$/);
+    expect(String(adapted.listingFill.title || "")).toMatch(/topps/i);
+    expect(adapted.listingFill.price).toBeUndefined();
+    expect(adapted.listingFill.condition).not.toBe("New");
+    expect(adapted.listingFill.category).toBe("Sports");
+    expect(adapted.listingFill.location).toMatch(/Auckland/i);
+    const extras = (adapted.listingFill.extras || []).join(" ");
+    expect(extras).not.toMatch(/^attr:/im);
+    expect(extras).not.toMatch(/Attr:/i);
+    expect(extras).toMatch(/serial:14\/25|14\/25/i);
   });
 });
 

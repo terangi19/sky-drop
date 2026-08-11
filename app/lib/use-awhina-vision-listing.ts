@@ -81,7 +81,7 @@ export function useAwhinaVisionListing() {
       setState((s) => ({
         ...s,
         status: "checking",
-        message: "",
+        message: "Looking…",
         lastFingerprint: fp,
       }));
 

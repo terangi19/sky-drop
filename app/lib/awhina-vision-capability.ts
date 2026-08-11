@@ -359,7 +359,7 @@ function buildUserContent(
     ...images.slice(0, MAX_IMAGES).map(
       (url): OpenAI.Chat.ChatCompletionContentPart => ({
         type: "image_url",
-        image_url: { url, detail: "low" },
+        image_url: { url, detail: "high" },
       })
     ),
   ];
@@ -423,7 +423,8 @@ export async function runVisionCapability(
   }
 
   const openai = new OpenAI({ apiKey });
-  const model = process.env.OPENAI_VISION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const model =
+    process.env.OPENAI_VISION_MODEL || "gpt-4o";
 
   try {
     const completion = await openai.chat.completions.create({

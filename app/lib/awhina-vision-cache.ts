@@ -15,6 +15,7 @@ export type VisionCacheEntry = {
   promptTokens?: number;
   completionTokens?: number;
   latencyMs?: number;
+  model?: string;
 };
 
 const CACHE_TTL_MS = 30 * 60_000;

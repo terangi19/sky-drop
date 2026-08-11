@@ -1,6 +1,7 @@
 /**
  * Vision observation → existing StructuredListingFacts → SkyAiListingFill.
  * INPUT ADAPTER only. USER provenance always outranks IMAGE.
+ * NEW PHOTO = independent perception first, then object continuity, then merge.
  */
 
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
@@ -26,6 +27,20 @@ import {
   isMalformedItemIdentity,
 } from "./awhina-identity-composition";
 import { resolveFactDomain } from "./awhina-domain-facts";
+import {
+  assessObjectContinuity,
+  type ObjectContinuityVerdict,
+} from "./awhina-object-continuity";
+import {
+  assessTitleQuality,
+  composeTradingCardTitle,
+  extractTradingCardFactsFromExtras,
+  gatePublicListingCopy,
+} from "./awhina-public-copy-gate";
+import {
+  isUserLockedProvenance,
+  type ListingFieldProvenanceMap,
+} from "./listing-draft-confirmed";
 
 export type VisionAdapterResult = {
   facts: StructuredListingFacts;
@@ -38,6 +53,10 @@ export type VisionAdapterResult = {
   needsIdentityConfirm: boolean;
   missingPrompts: string[];
   foundReply: string;
+  /** Object continuity vs prior draft */
+  continuity?: ObjectContinuityVerdict;
+  /** When NEW_OBJECT — client should wipe item-scoped prior draft */
+  replaceDraft?: boolean;
 };
 
 function trySet(
@@ -173,15 +192,26 @@ export function observationToListingFacts(
 
 export function adaptVisionObservationToListing(
   obs: VisionListingObservation,
-  existing?: SkyAiListingContext | null
+  existing?: SkyAiListingContext | null,
+  opts?: { fieldProvenance?: ListingFieldProvenanceMap }
 ): VisionAdapterResult {
+  // 1) Independent perception from THIS image first — never inherit prior brand
   const { facts: visionFacts, suggestions, omitted } = observationToListingFacts(obs);
 
-  // Preserve existing USER-confirmed context by folding vision under it
+  const continuity = assessObjectContinuity({
+    observation: obs,
+    priorDraft: existing,
+  });
+  const isNewObject = continuity.verdict === "NEW_OBJECT";
+  const prov = opts?.fieldProvenance || {};
+
+  // 2) Object continuity merge — only USER-locked or SAME_OBJECT fields survive
   let facts = visionFacts;
+  const prior = emptyListingFacts();
+  let mergedPrior = false;
+
   if (existing) {
-    const prior = emptyListingFacts();
-    const userish = [
+    const mergeable = [
       "title",
       "description",
       "category",
@@ -195,26 +225,76 @@ export function adaptVisionObservationToListing(
       "vehicleOdometer",
       "vehicleColour",
     ] as const;
-    for (const k of userish) {
+
+    for (const k of mergeable) {
       const v = (existing as Record<string, unknown>)[k];
-      if (typeof v === "string" && v.trim()) {
-        // Existing confirmed draft treated as USER-rank so it outranks IMAGE
+      if (typeof v !== "string" || !v.trim()) continue;
+
+      const locked = isUserLockedProvenance(prov[k as keyof typeof prov]);
+
+      // Location may persist as profile/session default across objects
+      if (k === "location") {
         setFact(prior, k, v, "USER", "HIGH", { force: true });
+        mergedPrior = true;
+        continue;
+      }
+
+      // NEW_OBJECT: never inherit item-scoped prior (even false USER stamps from old bug)
+      // except explicit USER locks on SAME/UNKNOWN when not brand-mismatched wipe
+      if (isNewObject && !locked) continue;
+      if (isNewObject && locked && continuity.blockedPriorFields.includes(k)) {
+        // Brand/title mismatch wipe wins over stale USER stamp from other object
+        continue;
+      }
+      if (continuity.blockedPriorFields.includes(k) && !locked) continue;
+
+      if (locked || continuity.verdict === "SAME_OBJECT") {
+        setFact(
+          prior,
+          k,
+          v,
+          locked ? "USER" : "IMAGE",
+          locked ? "HIGH" : "MEDIUM",
+          locked ? { force: true } : undefined
+        );
+        mergedPrior = true;
       }
     }
-    facts = mergeListingFacts(prior, visionFacts);
+    if (mergedPrior) {
+      facts = mergeListingFacts(prior, visionFacts);
+    }
   }
 
   let listingFill = factsToListingFill(facts);
   if (!listingFill.listingType) listingFill.listingType = "physical";
 
+  // NEW_OBJECT: never carry prior price/condition/title via fill gaps
+  if (isNewObject) {
+    // Vision perception is authoritative for identity; price must come from THIS turn
+    if (!visionFacts.fields.price) delete listingFill.price;
+    if (!visionFacts.fields.condition) delete listingFill.condition;
+    listingFill.replaceDraft = true;
+  }
+
   const validated = validateListingFillFields(listingFill);
   if (validated.ok) listingFill = validated.fill;
 
-  // Apply structured vision domain facts (cards etc.) into extras
+  // Apply structured vision domain facts (cards etc.) into extras — not Attr dumps
   listingFill = applyVisionDomainFacts(obs, listingFill);
 
   const domain = resolveFactDomain(listingFill);
+  const cardFacts = extractTradingCardFactsFromExtras(listingFill.extras);
+  if (obs.brand?.value && mayPopulateFromVision(obs.brand, { allowMedium: true })) {
+    cardFacts.manufacturer = cardFacts.manufacturer || obs.brand.value;
+  }
+  if (obs.cardSet?.value && mayPopulateFromVision(obs.cardSet, { allowMedium: true })) {
+    cardFacts.productLine = cardFacts.productLine || obs.cardSet.value;
+  }
+  if (obs.colour?.value && mayPopulateFromVision(obs.colour, { allowMedium: true })) {
+    cardFacts.parallelColour = cardFacts.parallelColour || obs.colour.value;
+  }
+
+  const richerCardTitle = composeTradingCardTitle(cardFacts);
   const rawIdentity =
     obs.displayIdentity ||
     listingFill.title ||
@@ -227,18 +307,27 @@ export function adaptVisionObservationToListing(
     domain,
   });
 
-  const displayIdentity = identity.isComplete
+  let displayIdentity = identity.isComplete
     ? identity.displayIdentity
     : identity.knownSummary.replace(/^an?\s+/i, "") || "this item";
 
-  // Never stamp malformed attribute stacks as title.
-  // Do NOT overwrite a USER title that survived mergeListingFacts.
-  const userTitleLocked = Boolean(
-    existing &&
-      typeof existing.title === "string" &&
-      existing.title.trim() &&
-      listingFill.title?.trim() === existing.title.trim()
-  );
+  // Prefer structured card title over lone manufacturer / soft category
+  if (
+    domain === "TRADING_CARD" &&
+    richerCardTitle &&
+    assessTitleQuality(richerCardTitle).ok &&
+    (!assessTitleQuality(displayIdentity).ok ||
+      assessTitleQuality(displayIdentity).reason === "lone_manufacturer")
+  ) {
+    displayIdentity = richerCardTitle;
+  }
+
+  const userTitleLocked =
+    !isNewObject &&
+    isUserLockedProvenance(prov.title) &&
+    Boolean(existing?.title?.trim()) &&
+    listingFill.title?.trim() === existing?.title?.trim();
+
   if (rawIdentity && isMalformedItemIdentity(rawIdentity, domain)) {
     if (
       !userTitleLocked &&
@@ -257,6 +346,18 @@ export function adaptVisionObservationToListing(
     listingFill = { ...listingFill, title: identity.displayIdentity };
   } else if (
     !userTitleLocked &&
+    listingFill.title &&
+    !assessTitleQuality(listingFill.title, { richerFactsAvailable: true }).ok
+  ) {
+    listingFill = {
+      ...listingFill,
+      title:
+        domain === "TRADING_CARD" && assessTitleQuality(richerCardTitle).ok
+          ? richerCardTitle
+          : displayIdentity,
+    };
+  } else if (
+    !userTitleLocked &&
     identity.isComplete &&
     identity.displayIdentity &&
     listingFill.title &&
@@ -265,19 +366,60 @@ export function adaptVisionObservationToListing(
     listingFill = { ...listingFill, title: identity.displayIdentity };
   }
 
+  // Category: trading cards → Sports (existing physical taxonomy)
+  if (
+    domain === "TRADING_CARD" ||
+    /trading-?card|collectible/i.test(obs.domain || "") ||
+    /collectibles/i.test(String(listingFill.category || ""))
+  ) {
+    if (!listingFill.category || listingFill.category === "Other" || listingFill.category === "Collectibles") {
+      listingFill = { ...listingFill, category: "Sports" };
+    }
+  }
+
+  // Condition: never invent New from looks-clean; mapVisibleCondition already gates sealed-only
+  // If vision didn't map condition, leave unspecified (delete inherited on NEW_OBJECT already)
+
+  // Public copy gate — Attr:/lone manufacturer/stale price impossible
+  const gated = gatePublicListingCopy(listingFill, {
+    allowPrice: !isNewObject || Boolean(visionFacts.fields.price),
+    allowConditionNew: Boolean(
+      listingFill.condition === "New" &&
+        mapVisibleConditionToListing(obs.visibleCondition) === "New"
+    ),
+    canonicalIdentity: displayIdentity,
+    richerFactsAvailable: Boolean(
+      cardFacts.playerName ||
+        cardFacts.productLine ||
+        cardFacts.serialNumber ||
+        obs.product?.value ||
+        obs.model?.value
+    ),
+  });
+  listingFill = gated.fill;
+  if (isNewObject) listingFill.replaceDraft = true;
+
   const needsIdentityConfirm =
     !identity.isComplete ||
     obs.overallConfidence !== "HIGH" ||
-    suggestions.some((s) => s.field === "itemIdentity" || s.field === "title");
+    suggestions.some((s) => s.field === "itemIdentity" || s.field === "title") ||
+    (domain === "TRADING_CARD" && !cardFacts.playerName && !obs.cardSubject?.value);
 
   const missingPrompts: string[] = [];
   if (!listingFill.price) missingPrompts.push("price");
   if (!listingFill.location) missingPrompts.push("location");
-  if (!identity.isComplete) missingPrompts.push("identity");
+  if (!identity.isComplete || (domain === "TRADING_CARD" && !cardFacts.playerName)) {
+    missingPrompts.push("identity");
+  }
 
+  const missingCore =
+    identity.missingCoreQuestion ||
+    (domain === "TRADING_CARD" && !cardFacts.playerName
+      ? "I can't confidently read the player's name — who is it?"
+      : "");
   const foundReply = needsIdentityConfirm
-    ? identity.missingCoreQuestion
-      ? `Āwhina can see ${identity.knownSummary}, but ${identity.missingCoreQuestion}`
+    ? missingCore
+      ? `Āwhina can see ${identity.knownSummary || displayIdentity}, but ${missingCore}`
       : `Āwhina found it — looks like **${displayIdentity}**. Is that right?`
     : `Āwhina found it — **${displayIdentity}**.`;
 
@@ -290,15 +432,19 @@ export function adaptVisionObservationToListing(
     needsIdentityConfirm,
     missingPrompts,
     foundReply,
+    continuity: continuity.verdict,
+    replaceDraft: isNewObject || listingFill.replaceDraft === true,
   };
 }
 
-/** Map per-fact vision domain fields into listing extras (no hallucinated titles). */
+/** Map per-fact vision domain fields into structured extras (evidence, not Attr dumps). */
 function applyVisionDomainFacts(
   obs: VisionListingObservation,
   fill: SkyAiListingFill
 ): SkyAiListingFill {
-  const extras = [...(fill.extras || [])];
+  const extras = [...(fill.extras || [])].filter(
+    (e) => !/^attr:/i.test(e) && !/^text:/i.test(e)
+  );
   const push = (prefix: string, field: VisionObservedField) => {
     if (!mayPopulateFromVision(field, { allowMedium: true })) return;
     if (!field.value.trim()) return;
@@ -308,6 +454,7 @@ function applyVisionDomainFacts(
 
   if (obs.cardSubject) push("subject:", obs.cardSubject);
   if (obs.cardSet) push("set:", obs.cardSet);
+  if (obs.brand) push("manufacturer:", obs.brand);
   if (obs.grader && obs.grade) {
     const g = mayPopulateFromVision(obs.grader, { allowMedium: true })
       ? obs.grader.value
@@ -324,6 +471,16 @@ function applyVisionDomainFacts(
   if (obs.serialNumber) push("serial:", obs.serialNumber);
   if (obs.cardYear) push("year:", obs.cardYear);
   if (obs.parallel) push("parallel:", obs.parallel);
+  // Colour on cards → parallel colour evidence (structured), not Attr:orange background
+  if (
+    obs.colour?.value &&
+    mayPopulateFromVision(obs.colour, { allowMedium: true }) &&
+    /trading-?card|collectible/i.test(obs.domain || "")
+  ) {
+    if (!extras.some((e) => /^parallelcolour:/i.test(e))) {
+      extras.push(`parallelColour:${obs.colour.value.trim()}`);
+    }
+  }
 
   if (extras.length === (fill.extras || []).length) return fill;
   return { ...fill, extras };

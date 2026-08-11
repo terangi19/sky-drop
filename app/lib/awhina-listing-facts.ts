@@ -346,10 +346,15 @@ export function factsToListingFill(
       extras.push(`grade:${g("gradeCompany")} ${g("gradeValue")}`);
     }
   }
-  if (g("conditionClues")) extras.push(`Visual: ${g("conditionClues")}`);
-  for (const a of facts.visibleAttributes) extras.push(`attr:${a}`);
-  for (const t of facts.textFound.slice(0, 6)) extras.push(`text:${t}`);
-  if (extras.length) fill.extras = [...new Set(extras)].slice(0, 24);
+  // Condition clues stay internal as visual: — description composer must not dump as Attr:
+  if (g("conditionClues")) extras.push(`visual:${g("conditionClues")}`);
+  // visibleAttributes / OCR text are EVIDENCE only — never public Attr:/text: fragments.
+  // Structured domain extras (set:/subject:/serial:/parallel:) are applied by the vision adapter.
+  if (extras.length) {
+    fill.extras = [...new Set(extras)]
+      .filter((e) => !/^attr:/i.test(e) && !/^text:/i.test(e))
+      .slice(0, 24);
+  }
 
   return fill;
 }

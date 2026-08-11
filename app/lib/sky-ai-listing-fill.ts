@@ -112,7 +112,12 @@ const LISTING_TYPES = new Set([
 export function inferPhysicalCategoryFromText(text: string): string | undefined {
   const lower = text.toLowerCase();
   // Vehicle signals belong to type=vehicle — never map physical goods to Cars.
-  if (/car|vehicle|auto|bmw|toyota|ford|mazda|honda|nissan|subaru|\d{2,3}[\s,]?\d{3}\s*km/i.test(lower)) {
+  // Use word boundaries so "card" does not match "car".
+  if (
+    /\b(cars?|vehicles?|auto|bmw|toyota|ford|mazda|honda|nissan|subaru)\b|\d{2,3}[\s,]?\d{3}\s*km/i.test(
+      lower
+    )
+  ) {
     return undefined;
   }
   if (/ps5|ps4|playstation|xbox|nintendo|switch|console|gaming|\bgames?\b/i.test(lower)) {
@@ -123,6 +128,14 @@ export function inferPhysicalCategoryFromText(text: string): string | undefined 
   }
   if (/fashion|clothes|shoe|sneaker|jacket/i.test(lower)) return "Fashion";
   if (/couch|sofa|furniture|home|table|chair|mattress/i.test(lower)) return "Home";
+  // Trading cards / collectibles → Sports (existing physical taxonomy; no Collectibles bucket)
+  if (
+    /trading\s*card|sports?\s*card|football\s*card|soccer\s*card|pokemon|pokémon|yugioh|yu-gi-oh|topps|panini|psa\s*\d|graded\s*card|collectible/i.test(
+      lower
+    )
+  ) {
+    return "Sports";
+  }
   if (/sport|bike|bicycle|golf|tennis/i.test(lower)) return "Sports";
   return undefined;
 }
@@ -193,6 +206,8 @@ function normalizeCategory(raw: string, listingType?: string): string | undefine
   if (s === "Cars" && listingType !== "vehicle") {
     return listingType === "physical" ? "Other" : "Cars";
   }
+  // Collectibles is not a physical form category — map to Sports
+  if (/^collectibles?$/i.test(s)) return "Sports";
   if (CATEGORIES.has(s) && s !== "Cars") return s;
   if (s === "Cars") return "Cars";
   const lower = s.toLowerCase();
@@ -203,6 +218,13 @@ function normalizeCategory(raw: string, listingType?: string): string | undefine
   if (/game|console|playstation|xbox/i.test(lower)) return "Gaming";
   if (/fashion|clothes|shoe/i.test(lower)) return "Fashion";
   if (/home|furniture/i.test(lower)) return "Home";
+  if (
+    /collectible|trading\s*card|sports?\s*card|topps|panini|pokemon|pokémon|psa\b|graded\s*card/i.test(
+      lower
+    )
+  ) {
+    return "Sports";
+  }
   if (/sport/i.test(lower)) return "Sports";
   return "Other";
 }

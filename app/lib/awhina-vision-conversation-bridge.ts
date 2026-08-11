@@ -30,6 +30,7 @@ import {
 import { persistAwhinaSession } from "./awhina-session-persist";
 import { fuseVisionAndSellerText } from "./awhina-multimodal-fusion";
 import { assessIdentityCompleteness } from "./awhina-identity-composition";
+import { gatePublicListingCopy } from "./awhina-public-copy-gate";
 
 /** Fields vision may safely stamp as IMAGE (never price/location). */
 const IMAGE_PROVENANCE_KEYS: (keyof ListingDraftFormSnapshot)[] = [
@@ -145,6 +146,21 @@ export function prepareVisionConversationBridge(
     delete fill.description;
   }
 
+  // NEW_OBJECT / replaceDraft: do not re-merge stale prior item price/condition into compose
+  const isFreshObject = fill.replaceDraft === true;
+  const draftForCompose: SkyAiListingFill = isFreshObject
+    ? { ...fill }
+    : { ...(input.existingDraft || {}), ...fill };
+  if (isFreshObject) {
+    // Location may persist from profile; item-scoped prior must not
+    if (
+      input.existingDraft?.location?.trim() &&
+      !fill.location?.trim()
+    ) {
+      draftForCompose.location = input.existingDraft.location.trim();
+    }
+  }
+
   // PHOTO AGAIN: never silently overwrite USER* identity / title / vehicle facts
   const prov = input.fieldProvenance || {};
   const identityKeys: (keyof ListingDraftFormSnapshot)[] = [
@@ -184,12 +200,23 @@ export function prepareVisionConversationBridge(
     !isUserLockedDescription(input.descriptionProvenance) &&
     (fused ? identityAssessment.isComplete : !needsConfirm);
   if (mayComposeDescription) {
-    const composed = recomposeListingDescription(
-      { ...(input.existingDraft || {}), ...fill },
-      { quality: "premium_plus" }
-    );
+    const composed = recomposeListingDescription(draftForCompose, {
+      quality: "premium_plus",
+    });
     if (composed?.trim()) fill.description = composed.trim();
   }
+
+  // Public copy gate — Attr:/lone manufacturer never reach draft
+  const gated = gatePublicListingCopy(fill, {
+    allowPrice: !isFreshObject || Boolean(input.listingFill.price),
+    // Adapter already gated unsupported New from looks-clean
+    allowConditionNew: true,
+    canonicalIdentity: identity,
+    richerFactsAvailable: true,
+  });
+  Object.assign(fill, gated.fill);
+  if (isFreshObject && !input.listingFill.price) delete fill.price;
+  if (isFreshObject && !input.listingFill.condition) delete fill.condition;
 
   const imageFieldKeys = collectImageKeys(fill);
   const provenanceOverrides: ListingFieldProvenanceMap = {};

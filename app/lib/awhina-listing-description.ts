@@ -15,6 +15,7 @@ import {
   composeListingIdentity,
   guardAdjacentIdentityDuplication,
 } from "./awhina-listing-identity";
+import { sanitizePublicCopyText } from "./awhina-public-copy-gate";
 
 export type ListingDescriptionQuality = "standard" | "premium" | "premium_plus";
 
@@ -293,11 +294,30 @@ function composeExtrasProse(extras: string[]): string | null {
         .replace(/^storage:/i, "")
         .replace(/^variant:/i, "")
         .replace(/^visual:\s*/i, "")
+        .replace(/^subject:/i, "")
+        .replace(/^set:/i, "set ")
+        .replace(/^serial:/i, "numbered ")
+        .replace(/^parallel:/i, "")
+        .replace(/^parallelcolour:/i, "")
+        .replace(/^manufacturer:/i, "")
+        .replace(/^grade:/i, "")
+        .replace(/^year:/i, "")
+        .replace(/^attr:\s*/i, "")
+        .replace(/^text:\s*/i, "")
+        .replace(/^kw:\s*/i, "")
         .replace(/\s+/g, " ")
         .trim()
     )
     .filter((e) => e.length >= 3)
-    .filter((e) => !/^(brand|new|like|console|the|and|for|with|black|white)$/i.test(e));
+    .filter((e) => !/^(brand|new|like|console|the|and|for|with|black|white)$/i.test(e))
+    // Never dump shallow visual noise into public copy
+    .filter(
+      (e) =>
+        !/^(player\s*image|orange\s*background|shiny\s*surface|background|surface|image|photo|picture)$/i.test(
+          e
+        )
+    )
+    .filter((e) => !/^(attr|attribute|visionfact|candidate|confidence)\b/i.test(e));
 
   if (!bits.length) return null;
 
@@ -416,13 +436,22 @@ function weaveableExtras(fill: SkyAiListingFill): string[] {
     .filter((e) => e.length >= 3)
     .filter((e) => !/^kw:/i.test(e))
     .filter((e) => !/^visual:/i.test(e))
+    .filter((e) => !/^attr:/i.test(e))
+    .filter((e) => !/^text:/i.test(e))
+    .filter((e) => !/^accessory:/i.test(e))
     .filter((e) => !/^(brand|new|like|console|the|and|for|with)$/i.test(e))
     // Keep structured storage tags as readable facts for identity (title already has them)
     .filter((e) => !/^storage:/i.test(e))
     .filter(
       (e) =>
+        !/^(player\s*image|orange\s*background|shiny\s*surface)$/i.test(
+          e.replace(/^[^:]+:/, "")
+        )
+    )
+    .filter(
+      (e) =>
         e.split(/\s+/).length >= 2 ||
-        /servic|tyre|tire|receipt|paperwork|wof|rego|mod|include|controller|charger|box|manual|warranty|battery|scratches?|scuffs?|dents?|screen|turbo|intake|intercooler|downpipe/i.test(
+        /servic|tyre|tire|receipt|paperwork|wof|rego|mod|include|controller|charger|box|manual|warranty|battery|scratches?|scuffs?|dents?|screen|turbo|intake|intercooler|downpipe|subject:|set:|serial:|parallel|grade:|manufacturer:/i.test(
           e
         )
     )
@@ -1127,19 +1156,26 @@ function defaultCta(facts: DescriptionFacts): string {
     ]);
   }
   // physical — one warm CTA; weave pickup invite when that's the delivery mode
+  // Prefer short factual CTAs — avoid padded "Feel free to message…" filler
   const pickup =
     facts.delivery === "pickup" || facts.delivery === "pickup_only";
+  if (facts.factRichness === "sparse") {
+    return pickVariant(seed, [
+      "Message if interested.",
+      "Happy to answer questions.",
+    ]);
+  }
   if (pickup) {
     return pickVariant(seed, [
-      "Feel free to message me if you're interested or want to arrange pickup.",
       "Message me if you're interested — happy to arrange pickup.",
       "Message if you're interested or want to sort out pickup.",
+      "Happy to arrange pickup — just message me.",
     ]);
   }
   return pickVariant(seed, [
-    "Feel free to message me if you're interested.",
     "Message me if you're interested.",
     "Happy to answer questions — just message me.",
+    "Message if keen.",
   ]);
 }
 
@@ -1743,6 +1779,7 @@ export function buildListingDescriptionFromFacts(
   if (!draft.trim()) return "";
   let out = runQualityPass(draft, facts);
   out = applyDescriptionContradictionGuard(out, facts);
+  out = sanitizePublicCopyText(out);
   // ASSERT: rich confirmed context must not collapse to generic Item filler
   if (
     /^item\b/i.test(out) &&

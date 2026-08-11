@@ -149,23 +149,33 @@ Fact buckets: visibleFacts, readableFacts, inferredFacts, unknowns
 HARD RULES - never invent price, location, ownership, warranty, authenticity, works/powers-on,
 storage/battery/mileage unless READABLE, exact year unless READABLE.
 Never invent unreadable player/character names, set names, or serial numbers.
+Never copy a prior conversation brand — identify ONLY what is in THESE photos.
+
+READ DEEPLY (critical for trading cards / labels / electronics):
+- Logos and manufacturer marks (Topps, Panini, Nike, Apple, etc.)
+- Printed player/character names, team names, product line (Chrome, Prizm, …)
+- Serial fractions (e.g. 14/25), card numbers, parallel/refractor colour cues
+- Graders and grades on slabs (PSA/BGS/CGC) when readable
+- Put shallow visual noise (orange background, shiny surface, player image) in visibleFeatures ONLY — never as identity.
 
 IDENTITY vs ATTRIBUTES (critical):
 - itemIdentity / displayIdentity must name the OBJECT (player/character + card type, phone model, shoe model, car make+model).
 - NEVER set displayIdentity to attribute stacks alone: grader+grade+brand (e.g. "PSA 10 Panini"), brand+size, brand+storage, make+transmission.
-- Trading cards: put player/character in cardSubject when READABLE; brand/publisher in brand; grader/grade/serial/parallel/year/set in their fields.
-- If player/character is unreadable: leave cardSubject empty, put "player name" in unknowns, and set displayIdentity to a soft category like "graded football card" — NOT "PSA 10 Panini".
+- NEVER set displayIdentity to a lone manufacturer (e.g. "Panini" or "Topps") when richer readable facts exist.
+- Trading cards: put player/character in cardSubject when READABLE; brand/publisher in brand; product line in cardSet or product; grader/grade/serial/parallel/year in their fields.
+- If player/character is unreadable: leave cardSubject empty, put "player name" in unknowns, and set displayIdentity to a soft category like "Topps Chrome football card" or "graded football card" — NOT "Panini" alone.
 - Phones: model in product/model; storage is NOT identity.
 - Shoes: model/line is identity; size is attribute.
 - Vehicles: make+model is identity; transmission/colour are attributes.
 
-Condition: VISIBLE wear only. Do NOT map uncertain to Like New.
+Condition: VISIBLE wear only. Do NOT map uncertain / looks-clean / shiny to New or Like New. New only for sealed/unopened packaging evidence.
 listingType: physical | vehicle | digital | service | rental
-category: Tech, Gaming, Home, Fashion, Sports, Cars, Other, Collectibles
+category: Tech, Gaming, Home, Fashion, Sports, Cars, Other
+(Use Sports for trading cards / sports collectibles — there is no Collectibles form category.)
 displayIdentity: short human label that actually identifies the item (e.g. PlayStation 5). Empty-ish category OK if unsure.
-visualDescription: 1-2 natural sentences of safe visible facts - no marketing.
+visualDescription: 1-2 natural sentences of safe visible facts - no marketing. PERCEPTION ONLY — never write marketplace listing copy.
 
-Multi-photo = ONE listing.`;
+Multi-photo = ONE listing (same object). If photos clearly show different items, note that in uncertainties.`;
 
 export function emptyObservedField(
   confidence: AwhinaConfidenceLevel = "LOW"
