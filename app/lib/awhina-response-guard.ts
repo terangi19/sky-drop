@@ -14,7 +14,12 @@ import {
   isListingSlotComplete,
   SLOT_QUESTIONS,
 } from "./awhina-pending-slots";
-import { computeDomainAwareMissingSlots, resolveFactDomain } from "./awhina-domain-facts";
+import {
+  computeDomainAwareMissingSlots,
+  isFieldRelevant,
+  isListingSlotQuestionValid,
+  resolveFactDomain,
+} from "./awhina-domain-facts";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import {
   assessIdentityCompleteness,
@@ -117,18 +122,23 @@ function pickSafeNextSlot(
   skipped: string[],
   canonical?: CanonicalTaskState
 ): ListingMissingSlot | null {
-  const domainMissing = computeDomainAwareMissingSlots(draft, {
-    skipped,
-    includeOptionalHighValue: true,
-  });
-  const legacy = computeMissingListingSlots(draft);
-  const ordered = [...domainMissing];
-  for (const s of legacy) {
-    if (!ordered.includes(s) && s !== "card_set") ordered.push(s);
+  // ONE brain: domain registry next-best (never merge stale legacy specialist slots)
+  const ordered = [
+    ...computeDomainAwareMissingSlots(draft, {
+      skipped,
+      includeOptionalHighValue: true,
+    }),
+  ];
+  // Include readiness-filtered missing only when still relevant for CURRENT object
+  for (const s of computeMissingListingSlots(draft)) {
+    if (!ordered.includes(s) && s !== "card_set" && isFieldRelevant(s, draft)) {
+      ordered.push(s);
+    }
   }
   for (const slot of ordered) {
     if (skipped.includes(slot)) continue;
     if (draftSatisfiesSlot(slot, draft)) continue;
+    if (!isListingSlotQuestionValid(slot, draft)) continue;
     if (canonical && wasRecentlyAsked(canonical, slot) && draftSatisfiesSlot(slot, draft)) {
       continue;
     }
@@ -218,6 +228,31 @@ export function guardResponseBeforeEmit(
       if (replyAsksAboutSlot(safeReply, slot)) {
         failures.push("A_ASK_KNOWN");
         notes.push(`reply_asks_known:${slot}`);
+      }
+    }
+  }
+
+  // L — domain relevance: reject storage/etc for wrong subtype (gaming_mouse)
+  if (safePending && !isListingSlotQuestionValid(safePending, draft)) {
+    failures.push("A_ASK_KNOWN");
+    notes.push(`rejected_irrelevant_slot:${safePending}`);
+    safePending = pickSafeNextSlot(
+      draft,
+      [...skipped, safePending],
+      input.canonicalState
+    );
+  }
+  if (safeReply) {
+    for (const slot of Object.keys(SLOT_QUESTIONS) as ListingMissingSlot[]) {
+      if (isFieldRelevant(slot, draft)) continue;
+      if (replyAsksAboutSlot(safeReply, slot)) {
+        failures.push("A_ASK_KNOWN");
+        notes.push(`stripped_irrelevant_ask:${slot}`);
+        safeReply = safeReply
+          .replace(SLOT_QUESTIONS[slot], "")
+          .replace(/what storage size[^.?]*[?.]?/gi, "")
+          .replace(/\s{2,}/g, " ")
+          .trim();
       }
     }
   }

@@ -14,6 +14,13 @@ import {
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import { isVehicleListingFill } from "./awhina-listing-description";
 import { composeListingIdentity } from "./awhina-listing-identity";
+import {
+  computeDomainAwareMissingSlots,
+  isFieldRelevant,
+  isListingSlotQuestionValid,
+  resolveCanonicalListingObject,
+  selectNextBestListingSlot,
+} from "./awhina-domain-facts";
 
 export type ListingMissingSlot =
   | "price"
@@ -60,6 +67,24 @@ export const SLOT_QUESTIONS: Record<ListingMissingSlot, string> = {
 export function detectSellDomain(
   fill: Partial<SkyAiListingFill>
 ): "vehicle" | "card" | "electronics" | "clothing" | "rental" | "service" | "physical" {
+  // Prefer canonical CURRENT-object family (subtype-aware) over coarse keyword maps.
+  const canonical = resolveCanonicalListingObject(fill);
+  switch (canonical.family) {
+    case "vehicle":
+      return "vehicle";
+    case "trading_card":
+      return "card";
+    case "electronics":
+      return "electronics";
+    case "clothing":
+      return "clothing";
+    case "rental":
+      return "rental";
+    case "service":
+      return "service";
+    default:
+      break;
+  }
   const lt = (fill.listingType || "").toLowerCase();
   if (lt === "vehicle" || isVehicleListingFill(fill as SkyAiListingFill)) return "vehicle";
   if (lt === "rental") return "rental";
@@ -80,9 +105,14 @@ export function detectSellDomain(
   ) {
     return "card";
   }
+  // Tech category alone ≠ phone. Only route to electronics when product cues exist
+  // OR category is Tech/Gaming (subtype resolved later — may be gaming_mouse).
   if (
-    /iphone|samsung|pixel|ipad|macbook|laptop|phone|gb\b|tb\b|storage:/.test(blob) ||
-    fill.category === "Tech"
+    /iphone|samsung|pixel|ipad|macbook|laptop|phone|mouse|keyboard|headset|console|ps5|xbox|gb\b|tb\b|storage:/.test(
+      blob
+    ) ||
+    fill.category === "Tech" ||
+    fill.category === "Gaming"
   ) {
     return "electronics";
   }
@@ -111,103 +141,55 @@ export function needsVehicleGenerationSlot(
   return /\b(skyline|supra)\b/i.test(blob);
 }
 
-/** Ordered missing slots for this draft (domain-smart, one follow-up at a time). */
+/**
+ * Ordered missing slots for CURRENT object (domain + subtype registry).
+ * Never asks specialist fields merely because they exist on a sibling schema
+ * (e.g. storage on all Tech / electronics).
+ */
 export function computeMissingListingSlots(
   fill: Partial<SkyAiListingFill>
 ): ListingMissingSlot[] {
   const hydrated = hydrateVehicleGeneration(fill);
-  const domain = detectSellDomain(hydrated);
-  const missing: ListingMissingSlot[] = [];
+  const canonical = resolveCanonicalListingObject(hydrated);
 
-  if (
-    !hydrated.title?.trim() &&
-    !(domain === "vehicle" && (hydrated.vehicleMake || hydrated.vehicleModel))
-  ) {
-    missing.push("title");
-  }
-
-  if (domain === "vehicle") {
-    const vehicleSlots: ListingMissingSlot[] = [
-      "generation",
-      "year",
-      "price",
-      "odometer",
-      "condition",
-      "colour",
-      "transmission",
-      "location",
-      "fuel",
-    ];
-    const needsGenerationAsk = needsVehicleGenerationSlot(hydrated);
-    for (const slot of vehicleSlots) {
-      if (slot === "generation" && !needsGenerationAsk) continue;
-      if (!isListingSlotComplete(slot, hydrated) && !missing.includes(slot)) {
-        missing.push(slot);
+  // Vehicle: preserve generation gate + ordered specialist slots via registry,
+  // with explicit generation skip when not Skyline/Supra family.
+  if (canonical.family === "vehicle") {
+    const missing = computeDomainAwareMissingSlots(hydrated).filter((slot) => {
+      if (slot === "generation" && !needsVehicleGenerationSlot(hydrated)) {
+        return false;
       }
+      return isFieldRelevant(slot, canonical) && !isListingSlotComplete(slot, hydrated);
+    });
+    if (
+      !hydrated.title?.trim() &&
+      !(hydrated.vehicleMake || hydrated.vehicleModel) &&
+      !missing.includes("title")
+    ) {
+      missing.unshift("title");
     }
     return missing;
   }
 
-  if (domain === "card") {
-    // Subject only when identity is weak — never auto-demand set/year/parallel.
-    const hasSubject = hasExtra(fill, "subject:");
-    const title = (fill.title || "").trim();
-    if (!hasSubject && !title) {
-      missing.push("card_subject");
-    }
-    if (!fill.condition) missing.push("condition");
-    if (!fill.price) missing.push("price");
-    if (!fill.location) missing.push("location");
-    return missing;
-  }
-
-  if (domain === "electronics") {
-    if (!hasExtra(fill, "storage:") && !/\d+\s?(gb|tb)\b/i.test([fill.title, ...(fill.extras || [])].join(" "))) {
-      missing.push("storage");
-    }
-    if (!fill.condition) missing.push("condition");
-    if (!fill.price) missing.push("price");
-    if (!fill.location) missing.push("location");
-    return missing;
-  }
-
-  if (domain === "clothing") {
-    if (!hasExtra(fill, "size:") && !/\b(size|uk|us|eu)\s*\d/i.test(fill.title || "")) {
-      missing.push("size");
-    }
-    if (!fill.condition) missing.push("condition");
-    if (!fill.price) missing.push("price");
-    if (!fill.location) missing.push("location");
-    return missing;
-  }
-
-  if (domain === "rental") {
-    if (!fill.price && !fill.rentalPriceDaily && !fill.rentalPriceWeekly) {
-      missing.push("rental_rate");
-    }
-    if (!fill.location) missing.push("location");
-    return missing;
-  }
-
-  if (domain === "service") {
-    if (!fill.servicePricingType && !fill.price) missing.push("service_rate");
-    if (!fill.location) missing.push("location");
-    return missing;
-  }
-
-  // physical default
-  if (!fill.condition) missing.push("condition");
-  if (!fill.price) missing.push("price");
-  if (!fill.location) missing.push("location");
-  return missing;
+  // All other domains: single registry brain (relevance + required/high-value + priority)
+  return computeDomainAwareMissingSlots(hydrated).filter((slot) =>
+    isListingSlotQuestionValid(slot, hydrated)
+  );
 }
 
 export function nextListingSlotQuestion(
   fill: Partial<SkyAiListingFill>
 ): { slot: ListingMissingSlot; question: string } | null {
-  const slots = computeMissingListingSlots(fill);
-  if (!slots.length) return null;
-  const slot = slots[0];
+  const hydrated = hydrateVehicleGeneration(fill);
+  // Next-best = highest-value relevant unknown (not first hole in a giant schema)
+  const slot =
+    selectNextBestListingSlot(hydrated) ||
+    computeMissingListingSlots(hydrated).find((s) =>
+      isListingSlotQuestionValid(s, hydrated)
+    ) ||
+    null;
+  if (!slot) return null;
+  if (!isListingSlotQuestionValid(slot, hydrated)) return null;
   return { slot, question: SLOT_QUESTIONS[slot] };
 }
 
