@@ -11,6 +11,7 @@ import {
   passesListingDescriptionQualityGate,
   resolveListingDescriptionStyle,
   cleanRentalItemName,
+  validateDescription,
   IMPLY_CLAIMS_RE,
   CTA_PURPOSE_RE,
   SELLER_EDITOR_GUIDANCE_RE,
@@ -94,7 +95,7 @@ function assertNaturalMarketplaceCopy(desc: string, opts?: { sparse?: boolean })
   assertProperCaps(desc);
   const words = desc.split(/\s+/).filter(Boolean).length;
   if (!opts?.sparse) {
-    expect(words).toBeGreaterThanOrEqual(12);
+    expect(words).toBeGreaterThanOrEqual(8);
   }
   expect(words).toBeLessThanOrEqual(100);
   const labelSentences = splitSentences(desc).filter((s) =>
@@ -171,17 +172,18 @@ describe("listing description quality levels", () => {
     });
   }
 
-  it("Āwhina default is Premium Plus (one paragraph, one CTA)", () => {
+  it("Āwhina default is Premium Plus (one paragraph, no auto CTA filler)", () => {
     const desc = buildListingDescriptionFromFacts(base);
     expect(desc).not.toContain("\n\n");
     expect(desc).not.toMatch(/Feel free to get in touch if you'd like more information/i);
-    expect(countCtas(desc)).toBe(1);
+    expect(desc).not.toMatch(/Message if interested/i);
+    expect(countCtas(desc)).toBeLessThanOrEqual(1);
     expect(passesListingDescriptionQualityGate(desc)).toBe(true);
   });
 
-  it("standard uses compact single-block close", () => {
+  it("standard physical stays compact without CTA padding", () => {
     const desc = buildListingDescriptionFromFacts(base, { quality: "standard" });
-    expect(desc).toMatch(/Happy to answer questions/i);
+    expect(desc).not.toMatch(/Message if interested/i);
     expect(desc).not.toContain("\n\n");
     assertOneCtaMax(desc);
   });
@@ -469,7 +471,7 @@ describe("physical description natural prose regressions", () => {
     expect(desc).toMatch(/Auckland/);
     expect(desc).toMatch(/\$500/);
     expect(desc).toMatch(/pickup/i);
-    expect(desc).toMatch(/message/i);
+    expect(desc).not.toMatch(/Message if interested/i);
     assertPhysicalNatural(desc);
   });
 
@@ -564,8 +566,8 @@ describe("description quality suite — golden reference cases", () => {
         listingType: "physical",
       },
       must: [/PlayStation|PS5/i, /Auckland/, /\$200/, /pickup/i],
-      never: [/controller|warranty|games included|no guesswork/i],
-      tone: /message/i,
+      never: [/controller|warranty|games included|no guesswork|Message if interested/i],
+      tone: /PlayStation|Auckland|pickup/i,
     },
     {
       name: "iPhone",
@@ -579,8 +581,8 @@ describe("description quality suite — golden reference cases", () => {
         listingType: "physical",
       },
       must: [/iPhone\s*15\s*Pro/i, /128/, /Hamilton/, /\$900/, /good used condition/i],
-      never: [/battery|charger|warranty|box included|no guesswork/i],
-      tone: /message/i,
+      never: [/battery|charger|warranty|box included|no guesswork|Message if interested/i],
+      tone: /iPhone|Hamilton|good used/i,
     },
     {
       name: "BMW",
@@ -680,8 +682,8 @@ describe("description quality suite — golden reference cases", () => {
         listingType: "physical",
       },
       must: [/couch/i, /Christchurch/, /\$250/, /good used condition/i],
-      never: [/leather|stain|recliner/i],
-      tone: /message/i,
+      never: [/leather|stain|recliner|Message if interested/i],
+      tone: /couch|Christchurch|good used/i,
     },
     {
       name: "wanted PS5",
@@ -878,7 +880,7 @@ describe("iPhone Hamilton natural seller copy", () => {
     expect(desc).toMatch(/Hamilton/i);
     expect(desc).toMatch(/pickup/i);
     expect(desc).toMatch(/\$900/);
-    expect(desc).toMatch(/message/i);
+    expect(desc).not.toMatch(/Message if interested/i);
     expect(desc).not.toMatch(/Pickup is available in/i);
     expect(desc).not.toMatch(META_PHRASE_SMELLS);
     expect(desc).not.toMatch(/Can do pickup|Available around/i);
@@ -1434,5 +1436,97 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     expect(sparse.worthGeneratingBuyerCopy).toBe(false);
     expect(sparse.nextClarification).toMatch(/R32|R33|R34|generation/i);
     expect(sparse.importantMissing[0]).toBe("generation");
+  });
+});
+
+describe("semantic description quality — Barella card + cross-domain", () => {
+  it("Barella Topps Chrome: natural prose, no field dumps / CTA filler / Chrome Topps", () => {
+    const desc = buildListingDescriptionFromFacts({
+      title: "Nicolò Barella Chrome Topps",
+      listingType: "physical",
+      condition: "Used - Good",
+      category: "Sports",
+      extras: [
+        "subject:Nicolò Barella",
+        "set:Topps Chrome",
+        "manufacturer:Topps",
+        "serial:14/25",
+      ],
+    });
+    expect(desc).toMatch(/Nicol[oò] Barella/i);
+    expect(desc).toMatch(/Topps Chrome/i);
+    expect(desc).toMatch(/numbered\s+14\/25/i);
+    expect(desc).toMatch(/good used condition/i);
+    expect(desc).not.toMatch(/Chrome\s+Topps/i);
+    expect(desc).not.toMatch(/\bSet\s+Topps/i);
+    expect(desc).not.toMatch(/(?:^|\.\s+)Topps\./i);
+    expect(desc).not.toMatch(/Message if interested/i);
+    expect(desc).not.toMatch(/Attr:/i);
+    // Player must not be its own trailing sentence after the opener
+    expect(desc).not.toMatch(/Nicol[oò] Barella\.\s+Set/i);
+    expect(desc).not.toMatch(/Nicol[oò] Barella\.\s+Nicol/i);
+    // Semantic: one coherent identity phrase, not metadata serialization
+    const sentences = desc.split(/(?<=[.!?])\s+/).filter(Boolean);
+    expect(sentences.length).toBeLessThanOrEqual(2);
+    expect(validateDescription(desc, { expectedProductLine: "Topps Chrome" }).ok).toBe(
+      true
+    );
+  });
+
+  it("phone: identity + condition + logistics without Attr dumps", () => {
+    const desc = buildListingDescriptionFromFacts({
+      title: "Apple iPhone 15 Pro 256GB",
+      listingType: "physical",
+      condition: "Used - Good",
+      location: "Auckland",
+      price: "1100",
+      pickupAvailable: true,
+      category: "Tech",
+      extras: ["storage:256GB"],
+    });
+    expect(desc).toMatch(/iPhone\s*15\s*Pro/i);
+    expect(desc).toMatch(/good used condition/i);
+    expect(desc).toMatch(/Auckland/);
+    expect(desc).toMatch(/\$1,?100/);
+    expect(desc).not.toMatch(/Attr:|Message if interested|Set\s+/i);
+    assertNaturalMarketplaceCopy(desc);
+  });
+
+  it("gaming mouse: grounded physical copy", () => {
+    const desc = buildListingDescriptionFromFacts({
+      title: "Razer DeathAdder V3",
+      listingType: "physical",
+      condition: "Used - Like New",
+      location: "Wellington",
+      price: "80",
+      pickupAvailable: true,
+      category: "Gaming",
+    });
+    expect(desc).toMatch(/Razer|DeathAdder/i);
+    expect(desc).toMatch(/Wellington/);
+    expect(desc).toMatch(/\$80/);
+    expect(desc).not.toMatch(/Message if interested|Attr:|Set\s+/i);
+    assertNaturalMarketplaceCopy(desc);
+  });
+
+  it("vehicle: structured specs without field labels", () => {
+    const desc = buildListingDescriptionFromFacts({
+      title: "2015 Mazda Axela",
+      listingType: "vehicle",
+      vehicleYear: "2015",
+      vehicleMake: "Mazda",
+      vehicleModel: "Axela",
+      vehicleOdometer: "128000",
+      vehicleColour: "Blue",
+      vehicleTransmission: "Automatic",
+      price: "11500",
+      location: "Auckland",
+      condition: "Used - Good",
+    });
+    expect(desc).toMatch(/Mazda|Axela/i);
+    expect(desc).toMatch(/128,?000/);
+    expect(desc).toMatch(/Auckland/);
+    expect(desc).not.toMatch(/Condition:|Odometer:|Attr:|Set\s+/i);
+    assertNaturalMarketplaceCopy(desc);
   });
 });

@@ -121,13 +121,50 @@ function appendIdentityComponent(base: string, component: string): string {
  * Ordering: year → brand → product → model → generation → variant.
  * Prefer the richest product phrase; never append a fragment already present.
  */
+/** Card product-line swaps: brand=Chrome + product=Topps → Topps Chrome (not Chrome Topps). */
+const CARD_LINE_SWAPS: Array<{ mfr: string; line: string; atomic: string }> = [
+  { mfr: "topps", line: "chrome", atomic: "Topps Chrome" },
+  { mfr: "topps", line: "finest", atomic: "Topps Finest" },
+  { mfr: "panini", line: "prizm", atomic: "Panini Prizm" },
+  { mfr: "panini", line: "select", atomic: "Panini Select" },
+  { mfr: "panini", line: "optic", atomic: "Panini Optic" },
+  { mfr: "panini", line: "mosaic", atomic: "Panini Mosaic" },
+];
+
+function repairCardBrandProductPair(
+  brand: string,
+  product: string
+): { brand: string; product: string } | null {
+  const b = brand.toLowerCase();
+  const p = product.toLowerCase();
+  for (const k of CARD_LINE_SWAPS) {
+    // Swapped fields
+    if (b === k.line && p === k.mfr) return { brand: "", product: k.atomic };
+    // Short line + manufacturer
+    if (b === k.mfr && p === k.line) return { brand: "", product: k.atomic };
+    // Product already atomic
+    if (p === k.atomic.toLowerCase() || p.includes(k.atomic.toLowerCase())) {
+      return { brand: b === k.mfr ? "" : brand, product };
+    }
+  }
+  return null;
+}
+
 export function composeListingIdentity(parts: ListingIdentityParts): string {
   const year = normSpace(parts.year || "");
-  const brand = normSpace(parts.brand || "");
-  const product = normSpace(parts.product || "");
+  let brand = normSpace(parts.brand || "");
+  let product = normSpace(parts.product || "");
   const model = normSpace(parts.model || "");
   const generation = normSpace(parts.generation || "");
   const variant = normSpace(parts.variant || "");
+
+  if (brand && product) {
+    const repaired = repairCardBrandProductPair(brand, product);
+    if (repaired) {
+      brand = repaired.brand;
+      product = repaired.product;
+    }
+  }
 
   let identity = "";
 

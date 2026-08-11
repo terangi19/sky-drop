@@ -15,7 +15,13 @@ import {
   composeListingIdentity,
   guardAdjacentIdentityDuplication,
 } from "./awhina-listing-identity";
-import { sanitizePublicCopyText } from "./awhina-public-copy-gate";
+import {
+  sanitizePublicCopyText,
+  extractTradingCardFactsFromExtras,
+  composeTradingCardTitle,
+  repairCardProductLineOrder,
+  normalizeTradingCardProductLine,
+} from "./awhina-public-copy-gate";
 
 export type ListingDescriptionQuality = "standard" | "premium" | "premium_plus";
 
@@ -112,6 +118,11 @@ type SentencePurpose =
 const FIELD_LABEL_RE =
   /\b(Condition|Located in|Odometer|Colour|Color|Transmission|Fuel type|Pickup available|Shipping available)\s*:/i;
 
+/** Field-label / metadata serialization smells in buyer copy. */
+const METADATA_SERIALIZATION_RE =
+  /(?:^|\.\s+)Set\s+[A-Z][^.]{0,60}\.|Attr\s*:|^(?:Topps|Panini|Upper Deck)\.\s*$/im;
+
+
 const BANNED_TEMPLATE_RE =
   /\bI'm selling this\b|\bThis item\b|\bMessage me with any questions\b|\bFeel free to get in touch if you'd like more information\b|\bIt's based in\b|\b— based in\b|\bLocated in\b|\bCan do pickup\b|\bAvailable around\b|\bPriced at\b/i;
 
@@ -183,6 +194,11 @@ function conditionShort(condition: string | undefined): string | null {
   if (c === "Used - Like New") return "like-new";
   if (c === "Used - Good") return "good used condition";
   if (c === "Used - Fair") return "fair used condition";
+  const lower = c.toLowerCase();
+  if (/^(good(\s+used)?|used\s*-?\s*good)$/i.test(lower)) return "good used condition";
+  if (/^(fair(\s+used)?|used\s*-?\s*fair)$/i.test(lower)) return "fair used condition";
+  if (/^(like[\s-]?new|used\s*-?\s*like\s*new)$/i.test(lower)) return "like-new";
+  if (/^(brand\s+)?new$/i.test(lower)) return "brand new";
   return c.toLowerCase();
 }
 
@@ -195,6 +211,7 @@ export function cleanDescriptionItemName(raw: string): string {
     .replace(/^(brand\s+new|like\s+new)\s+/i, "")
     .replace(/\s+/g, " ")
     .trim();
+  s = repairCardProductLineOrder(s);
   s = s
     .replace(
       /[,;]?\s*(?:couple(?:\s+of)?\s+)?(?:scratches?|scuffs?|dents?|dings?).*$/i,
@@ -212,6 +229,111 @@ export function cleanDescriptionItemName(raw: string): string {
     m.toLowerCase()
   );
   return s || String(raw || "").trim();
+}
+
+/** Structured card / collectible facts selected for buyer prose (not UI echo). */
+export type SelectedDescriptionFacts = {
+  domain: "trading_card" | "general";
+  playerName: string | null;
+  productLine: string | null;
+  manufacturer: string | null;
+  serial: string | null;
+  grade: string | null;
+  parallel: string | null;
+  /** Extras safe to weave as wear/feature prose — never identity dumps. */
+  weaveExtras: string[];
+};
+
+/**
+ * Select which canonical facts belong in description prose.
+ * Identity fields (player/set/manufacturer) are for composition — not Attr:/Set X. dumps.
+ * Manufacturer alone is dropped when product line already contains it (Topps ⊂ Topps Chrome).
+ */
+export function selectDescriptionFacts(
+  fill: SkyAiListingFill,
+  extras?: string[]
+): SelectedDescriptionFacts {
+  const rawExtras = extras || fill.extras || [];
+  const card = extractTradingCardFactsFromExtras(rawExtras);
+  const productLine = normalizeTradingCardProductLine(
+    card.manufacturer,
+    card.productLine
+  );
+  const manufacturer =
+    productLine &&
+    card.manufacturer &&
+    productLine.toLowerCase().includes(card.manufacturer.toLowerCase())
+      ? null
+      : card.manufacturer?.trim() || null;
+
+  const isCard = Boolean(
+    card.playerName ||
+      productLine ||
+      card.serialNumber ||
+      /trading\s*card|topps|panini|prizm|chrome|psa\s*\d/i.test(
+        `${fill.title || ""} ${fill.category || ""} ${rawExtras.join(" ")}`
+      )
+  );
+
+  // Identity tags must not become separate "Set X." / "Topps." sentences
+  const weaveExtras = rawExtras
+    .map((e) => String(e || "").trim())
+    .filter(Boolean)
+    .filter(
+      (e) =>
+        !/^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team):/i.test(
+          e
+        )
+    );
+
+  const grade =
+    card.grader && card.grade
+      ? `${card.grader.toUpperCase()} ${card.grade}`
+      : card.grade || null;
+
+  return {
+    domain: isCard ? "trading_card" : "general",
+    playerName: card.playerName?.trim() || null,
+    productLine,
+    manufacturer,
+    serial: card.serialNumber?.replace(/^#/, "").trim() || null,
+    grade,
+    parallel: [card.parallelColour, card.parallel].filter(Boolean).join(" ").trim() || null,
+    weaveExtras,
+  };
+}
+
+/**
+ * Semantic fact dedupe for description: product line wins over manufacturer;
+ * drop values already present in the identity/title phrase.
+ */
+export function semanticDedupeDescriptionFacts(
+  selected: SelectedDescriptionFacts,
+  identityPhrase: string
+): SelectedDescriptionFacts {
+  const id = identityPhrase.toLowerCase();
+  const dropIfInIdentity = (v: string | null): string | null => {
+    if (!v) return null;
+    if (id.includes(v.toLowerCase())) return null;
+    return v;
+  };
+  let manufacturer = selected.manufacturer;
+  if (
+    selected.productLine &&
+    manufacturer &&
+    selected.productLine.toLowerCase().includes(manufacturer.toLowerCase())
+  ) {
+    manufacturer = null;
+  }
+  return {
+    ...selected,
+    playerName: dropIfInIdentity(selected.playerName),
+    productLine: dropIfInIdentity(selected.productLine),
+    manufacturer: dropIfInIdentity(manufacturer),
+    serial: dropIfInIdentity(selected.serial),
+    grade: dropIfInIdentity(selected.grade),
+    parallel: dropIfInIdentity(selected.parallel),
+  };
 }
 
 function normalizeLiftedFact(raw: string): string {
@@ -286,22 +408,23 @@ function reconcileConditionPhrase(
   return phrase;
 }
 
-/** Turn confirmed extras into buyer prose — never raw slot concatenation. */
+/** Turn confirmed extras into buyer prose — never raw slot / field-label concatenation. */
 function composeExtrasProse(extras: string[]): string | null {
+  // Identity / catalog tags are composed elsewhere — never "Set X." / lone "Topps."
   const bits = extras
+    .map((e) => String(e || "").trim())
+    .filter(Boolean)
+    .filter(
+      (e) =>
+        !/^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team):/i.test(
+          e
+        )
+    )
     .map((e) =>
-      String(e || "")
+      e
         .replace(/^storage:/i, "")
         .replace(/^variant:/i, "")
         .replace(/^visual:\s*/i, "")
-        .replace(/^subject:/i, "")
-        .replace(/^set:/i, "set ")
-        .replace(/^serial:/i, "numbered ")
-        .replace(/^parallel:/i, "")
-        .replace(/^parallelcolour:/i, "")
-        .replace(/^manufacturer:/i, "")
-        .replace(/^grade:/i, "")
-        .replace(/^year:/i, "")
         .replace(/^attr:\s*/i, "")
         .replace(/^text:\s*/i, "")
         .replace(/^kw:\s*/i, "")
@@ -310,14 +433,16 @@ function composeExtrasProse(extras: string[]): string | null {
     )
     .filter((e) => e.length >= 3)
     .filter((e) => !/^(brand|new|like|console|the|and|for|with|black|white)$/i.test(e))
-    // Never dump shallow visual noise into public copy
     .filter(
       (e) =>
         !/^(player\s*image|orange\s*background|shiny\s*surface|background|surface|image|photo|picture)$/i.test(
           e
         )
     )
-    .filter((e) => !/^(attr|attribute|visionfact|candidate|confidence)\b/i.test(e));
+    .filter((e) => !/^(attr|attribute|visionfact|candidate|confidence)\b/i.test(e))
+    // Reject field-label residue that slipped through
+    .filter((e) => !/^set\s+/i.test(e))
+    .filter((e) => !/^(topps|panini|upper\s*deck|fleer|bowman|donruss)$/i.test(e));
 
   if (!bits.length) return null;
 
@@ -348,9 +473,7 @@ function composeExtrasProse(extras: string[]): string | null {
   } else {
     if (wear.length) {
       sentences.push(
-        polishParagraph(
-          `Has ${wear.map((w) => w.toLowerCase()).join(" and ")}.`
-        )
+        polishParagraph(`Has ${wear.map((w) => w.toLowerCase()).join(" and ")}.`)
       );
     }
     if (positives.length) {
@@ -374,6 +497,10 @@ function composeExtrasProse(extras: string[]): string | null {
     );
   }
   for (const o of other) {
+    // Never emit one-token manufacturer/set stubs as sentences
+    if (/^(topps|panini|chrome|prizm|set)\b/i.test(o) && o.split(/\s+/).length <= 2) {
+      continue;
+    }
     sentences.push(polishParagraph(o.endsWith(".") ? o : `${o}.`));
   }
   return sentences.join(" ") || null;
@@ -1043,6 +1170,9 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   const t = text.trim();
   if (t.length < 20) return true;
   if (FIELD_LABEL_RE.test(t)) return true;
+  if (METADATA_SERIALIZATION_RE.test(t)) return true;
+  if (/\bSet\s+Topps\b|\bSet\s+Panini\b/i.test(t)) return true;
+  if (/(?:^|\.\s+)(?:Topps|Panini|Chrome)\.\s*(?:Message|Happy|$)/i.test(t)) return true;
   if (BANNED_TEMPLATE_RE.test(t)) return true;
   if (IMPLEMENTATION_LEAK_RE.test(t)) return true;
   if (SELLER_EDITOR_GUIDANCE_RE.test(t)) return true;
@@ -1065,7 +1195,7 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   if (
     sentences.length >= 3 &&
     sentences.filter((s) =>
-      /^(Condition:|Located in|Odometer:|Colour:|Pickup available\.|Pickup only\.)/i.test(s.trim())
+      /^(Condition:|Located in|Odometer:|Colour:|Pickup available\.|Pickup only\.|Set\s+)/i.test(s.trim())
     ).length >= 2
   ) {
     return true;
@@ -1095,6 +1225,8 @@ export function passesListingDescriptionQualityGate(
   const t = text.trim();
   if (
     FIELD_LABEL_RE.test(t) ||
+    METADATA_SERIALIZATION_RE.test(t) ||
+    /\bSet\s+Topps\b|\bSet\s+Panini\b/i.test(t) ||
     BANNED_TEMPLATE_RE.test(t) ||
     IMPLEMENTATION_LEAK_RE.test(t) ||
     SELLER_EDITOR_GUIDANCE_RE.test(t) ||
@@ -1110,12 +1242,66 @@ export function passesListingDescriptionQualityGate(
   if (countCtas(t) > 1) return false;
   const n = wordCount(t);
   // Sparse facts → short clean copy is OK; rich copy still stays under 100 words
-  const min = opts?.sparse ? 10 : 14;
+  const min = opts?.sparse ? 8 : 10;
   if (n < min || n > 100) return false;
   const sentences = splitSentences(t);
   if (sentences.length < 1 || sentences.length > 5) return false;
   if (hasAdjacentIdeaRepetition(sentences)) return false;
   return true;
+}
+
+/**
+ * Public-copy validator before form state — rejects field labels, Attr:, Set X.,
+ * CTA-only filler, reordered product lines, and identity repeats.
+ */
+export function validateDescription(
+  text: string | undefined | null,
+  opts?: { expectedProductLine?: string | null; sparse?: boolean }
+): { ok: boolean; reason?: string } {
+  if (!text?.trim()) return { ok: false, reason: "empty" };
+  const t = text.trim();
+  if (/Attr\s*:/i.test(t)) return { ok: false, reason: "attr_leak" };
+  if (FIELD_LABEL_RE.test(t)) return { ok: false, reason: "field_label" };
+  if (/\bSet\s+[A-Z]/i.test(t) && /\bSet\s+\S+/i.test(t)) {
+    return { ok: false, reason: "set_field_label" };
+  }
+  if (METADATA_SERIALIZATION_RE.test(t)) return { ok: false, reason: "metadata_serialization" };
+  if (/Chrome\s+Topps/i.test(t) && !/Topps\s+Chrome/i.test(t)) {
+    return { ok: false, reason: "reordered_product_line" };
+  }
+  if (opts?.expectedProductLine && /Chrome\s+Topps/i.test(t)) {
+    return { ok: false, reason: "reordered_product_line" };
+  }
+  // Lone manufacturer sentence
+  if (/(?:^|\.\s+)(?:Topps|Panini|Upper Deck)\.\s*/i.test(t)) {
+    return { ok: false, reason: "lone_manufacturer_sentence" };
+  }
+  // CTA-only or CTA after empty identity dump
+  const sentences = splitSentences(t);
+  if (
+    sentences.length <= 2 &&
+    sentences.every((s) => classifySentence(s) === "cta")
+  ) {
+    return { ok: false, reason: "cta_only" };
+  }
+  if (/Message if interested\.?\s*$/i.test(t) && sentences.length <= 2) {
+    // Soft reject when the body before CTA is just stacked names
+    const body = sentences.filter((s) => classifySentence(s) !== "cta").join(" ");
+    if (/^(?:[A-Z][\w'à-ú.-]+(?:\s+[A-Z][\w'à-ú.-]+){0,3}\.\s*){2,}$/i.test(body)) {
+      return { ok: false, reason: "name_stack_plus_cta" };
+    }
+  }
+  // Player name repeated as its own sentence after opener
+  if (
+    /([A-Z][\w'à-ú.-]+(?:\s+[A-Z][\w'à-ú.-]+)+).+\.\s+\1\./i.test(t)
+  ) {
+    return { ok: false, reason: "repeated_identity" };
+  }
+  if (isRoboticListingDescription(t)) return { ok: false, reason: "robotic" };
+  if (!passesListingDescriptionQualityGate(t, { sparse: opts?.sparse })) {
+    return { ok: false, reason: "quality_gate" };
+  }
+  return { ok: true };
 }
 
 function defaultCta(facts: DescriptionFacts): string {
@@ -1202,23 +1388,28 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
   sentences = enforceOneCta(sentences);
 
   const allowCta =
-    facts.kind !== "vehicle"
-      ? true
-      : facts.factRichness !== "sparse";
+    facts.kind === "service" ||
+    facts.kind === "rental" ||
+    facts.kind === "wanted" ||
+    (facts.kind === "vehicle" && facts.factRichness !== "sparse");
+  // Physical: no auto CTA filler ("Message if interested") — UI already has contact
+  const allowPhysicalCta = false;
 
-  // CTA: never pad sparse vehicle drafts; other kinds keep one invite
+  // CTA: services/rentals/wanted keep one invite; physical never auto-pads
   if (allowCta && facts.quality !== "standard") {
     const hasCta = sentences.some((s) => classifySentence(s) === "cta");
     if (!hasCta) sentences.push(defaultCta(facts));
     sentences = enforceOneCta(sentences);
     sentences = semanticDedupe(sentences);
     sentences = collapseRepeatedAvailability(sentences);
-  } else if (!allowCta) {
+  } else if (!allowCta && !allowPhysicalCta) {
     sentences = sentences.filter((s) => classifySentence(s) !== "cta");
   } else {
     // standard + non-sparse vehicle: compact close, still one invite max
     sentences = sentences.filter((s) => classifySentence(s) !== "cta");
-    sentences.push("Happy to answer questions.");
+    if (facts.kind !== "physical") {
+      sentences.push("Happy to answer questions.");
+    }
   }
 
   // Cap sentence count: prefer 2–4, allow 5 when extras/vehicle facts need room
@@ -1348,8 +1539,15 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
       )
     );
   } else {
-    // Physical: one natural lead sentence — never "Condition X. Available Y."
+    // Physical: one natural lead sentence — never field stubs or attr dumps
     const noun = physicalNounPhrase(facts);
+    const selected = selectDescriptionFacts(
+      { title: facts.item, extras: facts.extras, listingType: "physical" },
+      facts.extras
+    );
+    if (selected.domain === "trading_card") {
+      return writeTradingCard(facts, selected);
+    }
     if (facts.location && facts.money) {
       parts.push(
         polishParagraph(`${capFirst(noun)} for sale in ${facts.location}, asking ${facts.money}.`)
@@ -1363,10 +1561,19 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
     }
   }
 
-  if (facts.quality === "standard") {
-    parts.push("Happy to answer questions.");
-  } else if (facts.kind !== "vehicle" || facts.factRichness !== "sparse") {
-    parts.push(defaultCta(facts));
+  // No auto "Message if interested" on physical — keep soft close only for service/rental/wanted
+  if (facts.kind === "service" || facts.kind === "rental" || facts.kind === "wanted") {
+    if (facts.quality === "standard") {
+      parts.push("Happy to answer questions.");
+    } else {
+      parts.push(defaultCta(facts));
+    }
+  } else if (facts.kind === "vehicle" && facts.factRichness !== "sparse") {
+    if (facts.quality === "standard") {
+      parts.push("Happy to answer questions.");
+    } else {
+      parts.push(defaultCta(facts));
+    }
   }
 
   return finalGrammarCleanup(parts.filter(Boolean).join(" "));
@@ -1385,7 +1592,110 @@ function physicalNounPhrase(facts: DescriptionFacts): string {
   return `${item} in ${cond}`;
 }
 
+function writeTradingCard(
+  facts: DescriptionFacts,
+  selected: SelectedDescriptionFacts
+): string {
+  const cardFacts = extractTradingCardFactsFromExtras(facts.extras);
+  // Prefer atomic title from structured facts when opener identity is weak/reordered
+  const structuredTitle = composeTradingCardTitle({
+    playerName: cardFacts.playerName || selected.playerName || undefined,
+    manufacturer: cardFacts.manufacturer || undefined,
+    productLine: cardFacts.productLine || selected.productLine || undefined,
+    // Serial woven as prose below — keep out of identity phrase
+    grader: cardFacts.grader,
+    grade: cardFacts.grade,
+    parallel: cardFacts.parallel,
+    parallelColour: cardFacts.parallelColour,
+    year: cardFacts.year,
+  });
+  const cleanedItem = cleanDescriptionItemName(facts.item);
+  const player =
+    cardFacts.playerName || selected.playerName || null;
+  let identity = repairCardProductLineOrder(cleanedItem || structuredTitle || "Trading card");
+
+  // Prefer structured title when it carries player/set the item label lacks
+  if (
+    structuredTitle &&
+    player &&
+    !identity.toLowerCase().includes(player.toLowerCase()) &&
+    structuredTitle.toLowerCase().includes(player.toLowerCase())
+  ) {
+    identity = repairCardProductLineOrder(structuredTitle);
+  }
+
+  // If title is player-only, enrich from structured set (once)
+  const line =
+    selected.productLine ||
+    normalizeTradingCardProductLine(cardFacts.manufacturer, cardFacts.productLine);
+  if (line && !identity.toLowerCase().includes(line.toLowerCase())) {
+    identity = repairCardProductLineOrder(`${identity} ${line}`);
+  }
+
+  // Strip serial/hash from identity before re-adding as prose (avoid "#14/25 numbered 14/25")
+  identity = identity
+    .replace(/#\s*\d+\s*\/\s*\d+/g, " ")
+    .replace(/\bnumbered\s+\d+\s*\/\s*\d+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const deduped = semanticDedupeDescriptionFacts(selected, identity);
+  const bits: string[] = [];
+  // Serial/grade only when not already in identity
+  if (deduped.serial || selected.serial) {
+    const serial = deduped.serial || selected.serial;
+    if (serial && !identity.toLowerCase().includes(serial.toLowerCase())) {
+      bits.push(`numbered ${serial}`);
+    }
+  }
+  if (deduped.grade) bits.push(deduped.grade);
+  if (deduped.parallel) bits.push(deduped.parallel);
+
+  const cond = facts.conditionPhrase;
+  let opener = identity;
+  if (bits.length) opener = `${identity} ${bits.join(", ")}`;
+  if (cond) {
+    if (/brand new/i.test(cond)) opener = `brand new ${opener}`;
+    else if (/like-new/i.test(cond)) opener = `like-new ${opener}`;
+    else opener = `${opener} in ${cond}`;
+  }
+
+  const parts: string[] = [];
+  const loc = facts.location;
+  const money = facts.money;
+  if (loc && money) {
+    parts.push(
+      polishParagraph(`${capFirst(opener)} for sale in ${loc}, asking ${money}.`)
+    );
+  } else if (loc) {
+    parts.push(polishParagraph(`${capFirst(opener)} for sale in ${loc}.`));
+  } else if (money) {
+    parts.push(polishParagraph(`${capFirst(opener)}, asking ${money}.`));
+  } else {
+    parts.push(polishParagraph(`${capFirst(opener)}.`));
+  }
+
+  // Wear / feature extras only — never Set/manufacturer dumps
+  const extrasProse = composeExtrasProse(deduped.weaveExtras);
+  if (extrasProse) parts.push(extrasProse);
+
+  return parts.join(" ");
+}
+
 function writePhysical(facts: DescriptionFacts): string {
+  const selected = selectDescriptionFacts(
+    {
+      title: facts.item,
+      extras: facts.extras,
+      category: facts.style === "sports" ? "Sports" : undefined,
+      listingType: "physical",
+    },
+    facts.extras
+  );
+  if (selected.domain === "trading_card") {
+    return writeTradingCard(facts, selected);
+  }
+
   const seed = facts.seed;
   const noun = physicalNounPhrase(facts);
   const loc = facts.location;
@@ -1436,10 +1746,22 @@ function writePhysical(facts: DescriptionFacts): string {
           ])
         : "Shipping can be arranged."
     );
+  } else if (d === "pickup" || d === "pickup_only") {
+    // Logistics fact — avoid CTA_PURPOSE_RE phrasing ("happy to arrange…")
+    parts.push(
+      pickVariant(seed + ":pu", [
+        "Local pickup is available.",
+        "Pickup available locally.",
+      ])
+    );
   }
-  // Simple pickup: weave into CTA ("arrange pickup") — avoids a second logistics stitch
 
-  const extrasProse = composeExtrasProse(facts.extras);
+  // Only weave non-identity extras (wear, battery, mods)
+  const weaveOnly = selectDescriptionFacts(
+    { title: facts.item, extras: facts.extras, listingType: "physical" },
+    facts.extras
+  ).weaveExtras;
+  const extrasProse = composeExtrasProse(weaveOnly.length ? weaveOnly : facts.extras);
   if (extrasProse) parts.push(extrasProse);
 
   return parts.join(" ");
@@ -1780,6 +2102,34 @@ export function buildListingDescriptionFromFacts(
   let out = runQualityPass(draft, facts);
   out = applyDescriptionContradictionGuard(out, facts);
   out = sanitizePublicCopyText(out);
+  out = repairCardProductLineOrder(out);
+
+  const selected = selectDescriptionFacts(
+    {
+      title: facts.item,
+      extras: facts.extras,
+      listingType: facts.kind === "physical" ? "physical" : facts.kind,
+    },
+    facts.extras
+  );
+  const validated = validateDescription(out, {
+    expectedProductLine: selected.productLine,
+    sparse: facts.factRichness === "sparse",
+  });
+  if (!validated.ok) {
+    out = repairCardProductLineOrder(
+      applyDescriptionContradictionGuard(safeFallbackDescription(facts), facts)
+    );
+    out = sanitizePublicCopyText(out);
+    // Strip any CTA that safe fallback shouldn't have reintroduced for physical
+    if (facts.kind === "physical") {
+      out = splitSentences(out)
+        .filter((s) => classifySentence(s) !== "cta")
+        .join(" ");
+      out = finalGrammarCleanup(out);
+    }
+  }
+
   // ASSERT: rich confirmed context must not collapse to generic Item filler
   if (
     /^item\b/i.test(out) &&

@@ -97,6 +97,111 @@ export function assessTitleQuality(
   return { ok: true };
 }
 
+/** Known publisher + product-line pairs — preserve as atomic phrases (never "Chrome Topps"). */
+export const KNOWN_CARD_PRODUCT_LINES: Array<{
+  manufacturer: string;
+  lineToken: string;
+  atomic: string;
+}> = [
+  { manufacturer: "Topps", lineToken: "Chrome", atomic: "Topps Chrome" },
+  { manufacturer: "Topps", lineToken: "Finest", atomic: "Topps Finest" },
+  { manufacturer: "Topps", lineToken: "Stadium Club", atomic: "Topps Stadium Club" },
+  { manufacturer: "Panini", lineToken: "Prizm", atomic: "Panini Prizm" },
+  { manufacturer: "Panini", lineToken: "Select", atomic: "Panini Select" },
+  { manufacturer: "Panini", lineToken: "Optic", atomic: "Panini Optic" },
+  { manufacturer: "Panini", lineToken: "Mosaic", atomic: "Panini Mosaic" },
+  { manufacturer: "Upper Deck", lineToken: "Series 1", atomic: "Upper Deck Series 1" },
+];
+
+/**
+ * Normalize manufacturer + product line into one atomic marketplace phrase.
+ * Fixes swapped tokens ("Chrome"+"Topps" → "Topps Chrome") and double-prefix
+ * ("Topps"+"Topps Chrome" → "Topps Chrome").
+ */
+export function normalizeTradingCardProductLine(
+  manufacturer?: string | null,
+  productLine?: string | null
+): string | null {
+  const mfr = String(manufacturer || "").replace(/\s+/g, " ").trim();
+  let line = String(productLine || "").replace(/\s+/g, " ").trim();
+  if (!mfr && !line) return null;
+
+  for (const k of KNOWN_CARD_PRODUCT_LINES) {
+    const atomicRe = new RegExp(`\\b${k.atomic.replace(/\s+/g, "\\s+")}\\b`, "i");
+    const swappedRe = new RegExp(
+      `^${k.lineToken.replace(/\s+/g, "\\s+")}\\s+${k.manufacturer.replace(/\s+/g, "\\s+")}$`,
+      "i"
+    );
+    // Already atomic in either field
+    if (atomicRe.test(line) || atomicRe.test(mfr)) return k.atomic;
+    if (swappedRe.test(line) || swappedRe.test(`${line} ${mfr}`.trim())) return k.atomic;
+    // Swapped structured fields: brand=Chrome, product=Topps
+    if (
+      mfr &&
+      line &&
+      mfr.toLowerCase() === k.lineToken.toLowerCase() &&
+      line.toLowerCase() === k.manufacturer.toLowerCase()
+    ) {
+      return k.atomic;
+    }
+    // Short line token + matching (or empty) manufacturer
+    if (
+      line &&
+      new RegExp(`^${k.lineToken.replace(/\s+/g, "\\s+")}$`, "i").test(line) &&
+      (!mfr || mfr.toLowerCase() === k.manufacturer.toLowerCase())
+    ) {
+      return k.atomic;
+    }
+    // Manufacturer alone + line token buried in free text elsewhere — handled by caller
+    if (
+      !line &&
+      mfr &&
+      mfr.toLowerCase() === k.manufacturer.toLowerCase()
+    ) {
+      // Alone is weak — leave to caller; don't invent line
+      continue;
+    }
+  }
+
+  if (line && mfr) {
+    if (line.toLowerCase().includes(mfr.toLowerCase())) return line;
+    // Avoid "Chrome Topps" style when lineToken somehow precedes manufacturer
+    const swappedGeneric = new RegExp(
+      `^([A-Za-z][A-Za-z0-9' -]{1,40})\\s+${mfr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+      "i"
+    );
+    const sm = line.match(swappedGeneric);
+    if (sm && !line.toLowerCase().startsWith(mfr.toLowerCase())) {
+      // If first token looks like a product-line short name, prefer mfr-first
+      for (const k of KNOWN_CARD_PRODUCT_LINES) {
+        if (sm[1].toLowerCase() === k.lineToken.toLowerCase()) return k.atomic;
+      }
+    }
+    return `${mfr} ${line}`.replace(/\s+/g, " ").trim();
+  }
+  return line || mfr || null;
+}
+
+/** Fix "Chrome Topps" / "Prizm Panini" order inside freeform titles. */
+export function repairCardProductLineOrder(raw: string): string {
+  let s = String(raw || "").replace(/\s+/g, " ").trim();
+  if (!s) return s;
+  for (const k of KNOWN_CARD_PRODUCT_LINES) {
+    const bad = new RegExp(
+      `\\b${k.lineToken.replace(/\s+/g, "\\s+")}\\s+${k.manufacturer.replace(/\s+/g, "\\s+")}\\b`,
+      "gi"
+    );
+    s = s.replace(bad, k.atomic);
+    // Collapse "Topps Topps Chrome"
+    const doubled = new RegExp(
+      `\\b${k.manufacturer.replace(/\s+/g, "\\s+")}\\s+${k.atomic.replace(/\s+/g, "\\s+")}\\b`,
+      "gi"
+    );
+    s = s.replace(doubled, k.atomic);
+  }
+  return s.replace(/\s+/g, " ").trim();
+}
+
 /**
  * Compose a trading-card / collectible title from structured facts — never brand alone.
  */
@@ -114,14 +219,10 @@ export function composeTradingCardTitle(facts: {
 }): string {
   const parts: string[] = [];
   if (facts.year) parts.push(facts.year);
-  if (facts.playerName) parts.push(facts.playerName);
+  if (facts.playerName) parts.push(repairCardProductLineOrder(facts.playerName));
   else if (facts.team) parts.push(facts.team);
 
-  const line = [facts.manufacturer, facts.productLine]
-    .filter(Boolean)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const line = normalizeTradingCardProductLine(facts.manufacturer, facts.productLine);
   if (line && !parts.join(" ").toLowerCase().includes(line.toLowerCase())) {
     parts.push(line);
   } else if (!parts.length && line) {
@@ -133,7 +234,12 @@ export function composeTradingCardTitle(facts: {
     .filter(Boolean)
     .join(" ")
     .trim();
-  if (parallelBits && !parts.join(" ").toLowerCase().includes(parallelBits.toLowerCase())) {
+  // Don't re-append product-line short names already covered by the atomic set
+  if (
+    parallelBits &&
+    !parts.join(" ").toLowerCase().includes(parallelBits.toLowerCase()) &&
+    !(line && line.toLowerCase().includes(parallelBits.toLowerCase()))
+  ) {
     parts.push(parallelBits);
   }
   if (facts.serialNumber) parts.push(`#${facts.serialNumber.replace(/^#/, "")}`);
@@ -141,7 +247,7 @@ export function composeTradingCardTitle(facts: {
     parts.push(`${facts.grader.toUpperCase()} ${facts.grade}`);
   }
 
-  const title = parts.join(" ").replace(/\s+/g, " ").trim();
+  const title = repairCardProductLineOrder(parts.join(" ").replace(/\s+/g, " ").trim());
   if (!title) return "Trading card";
   if (LONE_MANUFACTURER_RE.test(title)) return `${title} trading card`;
   return title.slice(0, 120);
