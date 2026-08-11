@@ -845,7 +845,7 @@ export function processCanonicalAwhina(
     const draftSnap = getListingDraftSession(listKeyPending);
     // CONFIRM_IDENTITY is object-scoped: draft title must match pending.objectId
     const draftTitle =
-      (draftSnap?.title && String(draftSnap.title).trim()) ||
+      (draftSnap?.draft?.title && String(draftSnap.draft.title).trim()) ||
       (context.listingContext?.title && String(context.listingContext.title).trim()) ||
       "";
     const currentObjectId =

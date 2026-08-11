@@ -250,11 +250,11 @@ describe("VISION CORRECTION conversation replay (canonical)", () => {
     expect(t1.handled).toBe(true);
     const fill = t1.listingFill;
     expect(fill).toBeTruthy();
-    const extras = fill?.extras || [];
+    const extras = (Array.isArray(fill?.extras) ? fill.extras : []) as string[];
     expect(extras.some((e) => /^set:/i.test(e) && /floyd/i.test(e))).toBe(false);
     expect(
       extras.some((e) => /subject:.*floyd samba/i.test(e)) ||
-        /floyd samba/i.test(fill?.title || "")
+        /floyd samba/i.test(String(fill?.title || ""))
     ).toBe(true);
     expect(t1.sessionState?.pendingSlot).not.toBe("card_set");
     // Must not re-ask the same known identity

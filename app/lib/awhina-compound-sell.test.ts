@@ -84,7 +84,7 @@ describe("compound sell turns — generalized domains", () => {
     });
     expect(t2.handled).toBe(true);
     expect(String(t2.reply || "")).not.toMatch(/Could you clarify/i);
-    const extras = (t2.listingFill?.extras || []).join(" ");
+    const extras = (Array.isArray(t2.listingFill?.extras) ? t2.listingFill.extras : []).join(" ");
     expect(extras).toMatch(/PSA\s*10/i);
     expect(String(t2.listingFill?.description || "").trim().length).toBeGreaterThan(10);
   });
@@ -103,7 +103,7 @@ describe("compound sell turns — generalized domains", () => {
     });
     expect(t2.handled).toBe(true);
     expect(t2.listingFill?.price).toBe("900");
-    expect((t2.listingFill?.extras || []).join(" ")).toMatch(/256\s*GB/i);
+    expect((Array.isArray(t2.listingFill?.extras) ? t2.listingFill.extras : []).join(" ")).toMatch(/256\s*GB/i);
     expect(String(t2.listingFill?.title || "")).toMatch(/iPhone/i);
     expect(String(t2.listingFill?.title || "")).not.toMatch(/^It\b/i);
   });
@@ -122,7 +122,7 @@ describe("compound sell turns — generalized domains", () => {
     });
     expect(t2.handled).toBe(true);
     expect(t2.listingFill?.condition).toMatch(/New/i);
-    expect((t2.listingFill?.extras || []).join(" ")).toMatch(/size:10/i);
+    expect((Array.isArray(t2.listingFill?.extras) ? t2.listingFill.extras : []).join(" ")).toMatch(/size:10/i);
     expect(String(t2.listingFill?.description || "").trim().length).toBeGreaterThan(5);
   });
 
@@ -234,7 +234,7 @@ describe("compound multi-field pending-slot replies", () => {
     expect(t2.listingFill?.price).toBe("900");
     expect(String(t2.listingFill?.condition || "")).toMatch(/used|good/i);
     expect(String(t2.listingFill?.location || "")).toMatch(/Hamilton/i);
-    expect((t2.listingFill?.extras || []).join(" ")).toMatch(/256\s*GB/i);
+    expect((Array.isArray(t2.listingFill?.extras) ? t2.listingFill.extras : []).join(" ")).toMatch(/256\s*GB/i);
   });
 
   it("vehicle: 1999 190k manual black 50k auckland", () => {
@@ -269,8 +269,8 @@ describe("compound multi-field pending-slot replies", () => {
       pathname: "/post/ai",
       listingContext: t1.listingFill as never,
     });
-    expect((t2.listingFill?.extras || []).join(" ")).toMatch(/PSA\s*10/i);
-    expect((t2.listingFill?.extras || []).join(" ")).toMatch(/numbered:25/i);
+    expect((Array.isArray(t2.listingFill?.extras) ? t2.listingFill.extras : []).join(" ")).toMatch(/PSA\s*10/i);
+    expect((Array.isArray(t2.listingFill?.extras) ? t2.listingFill.extras : []).join(" ")).toMatch(/numbered:25/i);
     expect(String(t2.listingFill?.price || "")).toBe("300");
   });
 

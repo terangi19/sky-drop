@@ -331,6 +331,7 @@ describe("canonical vehicle vs physical semantics", () => {
       setCondition: (v) => {
         applied.condition = v;
       },
+      setLocation: () => {},
       setVehicleMake: (v) => {
         applied.vehicleMake = v;
       },
@@ -382,6 +383,7 @@ describe("canonical vehicle vs physical semantics", () => {
         applied.price = v;
       },
       setCondition: () => {},
+      setLocation: () => {},
       setVehicleMake: (v) => {
         applied.vehicleMake = v;
       },

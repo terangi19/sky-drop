@@ -104,13 +104,13 @@ describe("vehicleGeneration canonical persistence", () => {
     const clientTask2 = toClientTaskScope(getTaskScope(taskScopeKey({ conversationId: id })));
     const formCtx = buildConfirmedListingContext(
       {
-        title: t2.listingFill?.title,
-        listingType: t2.listingFill?.listingType,
-        category: t2.listingFill?.category,
-        vehicleMake: t2.listingFill?.vehicleMake,
-        vehicleModel: t2.listingFill?.vehicleModel,
-        vehicleGeneration: t2.listingFill?.vehicleGeneration,
-        paymentType: t2.listingFill?.paymentType,
+        title: t2.listingFill?.title as string | undefined,
+        listingType: t2.listingFill?.listingType as string | undefined,
+        category: t2.listingFill?.category as string | undefined,
+        vehicleMake: t2.listingFill?.vehicleMake as string | undefined,
+        vehicleModel: t2.listingFill?.vehicleModel as string | undefined,
+        vehicleGeneration: t2.listingFill?.vehicleGeneration as string | undefined,
+        paymentType: t2.listingFill?.paymentType as string | undefined,
       },
       {
         title: "AWHINA",

@@ -110,7 +110,7 @@ export function assessObjectContinuity(opts: {
 }): ObjectContinuityResult {
   const prior = opts.priorDraft;
   const priorBlob = priorIdentityBlob(prior);
-  if (!priorBlob.trim()) {
+  if (!prior || !priorBlob.trim()) {
     return { verdict: "UNKNOWN", reason: "no_prior_draft", blockedPriorFields: [] };
   }
 
