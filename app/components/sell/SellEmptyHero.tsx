@@ -26,19 +26,25 @@ export default function SellEmptyHero({
       className="sell-empty-hero space-y-5 motion-safe:animate-[sellFade_180ms_ease-out]"
       aria-labelledby="sell-empty-heading"
     >
-      <div className="space-y-1.5 text-center sm:text-left">
+      <div className="space-y-2 text-center sm:text-left">
         <h1
           id="sell-empty-heading"
           className="text-[1.65rem] font-semibold tracking-tight text-[var(--foreground)] sm:text-3xl"
         >
           What are you selling?
         </h1>
-        <p className="text-sm leading-relaxed text-[var(--muted)]">
-          Take a photo or tell Āwhina — she builds the listing.
+        <p className="text-base font-medium leading-snug text-[var(--foreground)] sm:text-lg">
+          Add a photo and Āwhina will build your listing for you.
         </p>
       </div>
 
       {children}
+
+      <p className="text-center text-sm leading-relaxed text-[var(--muted)] sm:text-left">
+        Āwhina identifies the item, writes the title and description, chooses the
+        category, and fills visible details. You add price, location, and pickup
+        or shipping.
+      </p>
 
       <div className="flex items-center gap-3" role="separator" aria-label="or">
         <span className="h-px flex-1 bg-[var(--border-subtle)]" />
@@ -58,7 +64,7 @@ export default function SellEmptyHero({
             <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--accent-primary)]/15 text-[10px] text-[var(--accent-star)]" aria-hidden>
               ✦
             </span>
-            Tell Āwhina
+            Tell Āwhina…
           </button>
         ) : null}
         <button

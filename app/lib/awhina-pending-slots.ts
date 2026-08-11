@@ -45,7 +45,7 @@ export type ListingMissingSlot =
 export const SLOT_QUESTIONS: Record<ListingMissingSlot, string> = {
   price: "What's the asking price?",
   condition: "What condition is it in?",
-  location: "Where is it located?",
+  location: "Where is it — or keep your usual location?",
   year: "What year is it?",
   odometer: "Roughly how many kilometres are on it?",
   transmission: "Is it manual or automatic?",

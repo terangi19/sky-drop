@@ -419,9 +419,9 @@ export function adaptVisionObservationToListing(
       : "");
   const foundReply = needsIdentityConfirm
     ? missingCore
-      ? `Āwhina can see ${identity.knownSummary || displayIdentity}, but ${missingCore}`
-      : `Āwhina found it — looks like **${displayIdentity}**. Is that right?`
-    : `Āwhina found it — **${displayIdentity}**.`;
+      ? `Looks like ${identity.knownSummary || displayIdentity}, but ${missingCore}`
+      : `Looks like a **${displayIdentity}**. Is that right?`
+    : `Looks like a **${displayIdentity}**.`;
 
   return {
     facts,

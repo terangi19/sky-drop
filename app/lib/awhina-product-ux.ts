@@ -980,7 +980,7 @@ export function autoImproveListingDraft(fill: SkyAiListingFill): SkyAiListingFil
 export function buildCompleteDraftReply(fill: SkyAiListingFill): string {
   const title = fill.title || "your item";
   const lines = [
-    "Your listing is ready.",
+    "Your listing's ready.",
     "",
     `**Title:** ${title}`,
   ];
@@ -998,7 +998,7 @@ export function buildCompleteDraftReply(fill: SkyAiListingFill): string {
     const preview = desc.length > 160 ? `${desc.slice(0, 157)}…` : desc;
     lines.push("", "**Description preview:**", preview);
   }
-  lines.push("", "Tip: add clear photos (item + any box/accessories), then hit **Publish** when you're ready.");
+  lines.push("", "Review details, then hit **Publish** when you're ready.");
   return lines.join("\n");
 }
 
@@ -1340,7 +1340,7 @@ export function polishAwhinaReplyStyle(reply: string): string {
   if (/Facebook Marketplace|Trade Me listing/i.test(r)) {
     if (/create listings for Facebook|Trade Me/i.test(r) || /What would you like to do next/i.test(r)) {
       r =
-        "Your listing is ready. Add clear photos, then hit **Publish** when you're ready. Tell me if you want the title or description tightened.";
+        "Your listing's ready. Review details, then hit **Publish** when you're ready.";
     } else {
       const lines = r.split("\n");
       const bullets = lines.filter((l) => /^[•\-\*]\s/.test(l.trim()));

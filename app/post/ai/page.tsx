@@ -1065,9 +1065,9 @@ export default function AIPostPage() {
       } else {
         visionListing.setState((s) => ({
           ...s,
-          message: "Confirm in chat, or tap Yes / Change.",
-        }));
-      }
+                  message: "Quick check — tap Yes or Change.",
+                }));
+              }
     },
     [applyFill, visionListing]
   );
@@ -2212,7 +2212,7 @@ export default function AIPostPage() {
           ) : !isFreshEmpty ? (
             <>
               <h1 className="text-[1.65rem] font-semibold tracking-tight text-[var(--foreground)] sm:text-3xl">
-                {isReadyToReview ? "Ready to publish" : hasDraftContent ? "Your listing" : "What are you selling?"}
+                {isReadyToReview ? "Your listing's ready." : hasDraftContent ? "Your listing" : "What are you selling?"}
               </h1>
               {isReadyToReview ? (
                 <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
@@ -2259,8 +2259,8 @@ export default function AIPostPage() {
                 cameraFirst
                 compactEmpty
                 enableDrop={AWHINA_VISION_LISTING_UI_ENABLED}
-                ctaTitle="Sell something"
-                ctaSubtitle="Take a photo or choose from your library"
+                ctaTitle=""
+                ctaSubtitle=""
                 imagePreviews={imagePreviews}
                 fileInputRef={fileInputRef}
                 onUpload={handleImageUpload}
@@ -2297,7 +2297,7 @@ export default function AIPostPage() {
                   ? `Photos of your ${photoSubject}`
                   : "Photos"
               }
-              ctaSubtitle="Up to 8 — first is the cover"
+              ctaSubtitle="Clear cover photo helps buyers · up to 8"
               imagePreviews={imagePreviews}
               fileInputRef={fileInputRef}
               onUpload={handleImageUpload}

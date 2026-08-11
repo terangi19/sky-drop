@@ -11,7 +11,7 @@ type Props = {
 
 /**
  * Restrained camera-first result UX — not a JSON dump.
- * "Āwhina found it" + identity + [Yes] [Change]
+ * Confirm only when identity is uncertain (MEDIUM/LOW paths).
  */
 export default function AwhinaVisionFoundCard({
   status,
@@ -30,7 +30,7 @@ export default function AwhinaVisionFoundCard({
         role="status"
         aria-live="polite"
       >
-        Āwhina is checking your photos…
+        Looking at your photo…
       </div>
     );
   }
@@ -52,9 +52,9 @@ export default function AwhinaVisionFoundCard({
       role="status"
       aria-live="polite"
     >
-      <p className="text-sm font-medium text-white">Āwhina found it</p>
-      <p className="mt-1 text-base text-sky-100">
-        Looks like <span className="font-semibold">{identity || "your item"}</span>
+      <p className="text-sm text-sky-100/90">
+        Looks like <span className="font-semibold text-white">{identity || "your item"}</span>
+        {" — "}is that right?
       </p>
       {message ? <p className="mt-1.5 text-xs leading-relaxed text-zinc-400">{message}</p> : null}
       <div className="mt-3 flex flex-wrap gap-2">

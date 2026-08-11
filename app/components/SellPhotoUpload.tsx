@@ -22,6 +22,8 @@ type Props = {
   enableDrop?: boolean;
   /** Compact empty chrome for flagship sell empty hero (no giant dashed frame). */
   compactEmpty?: boolean;
+  /** One compact benefit line under the photo strip (workspace only — don't spam). */
+  benefitHint?: string;
 };
 
 export default function SellPhotoUpload({
@@ -123,31 +125,35 @@ export default function SellPhotoUpload({
                 </svg>
               </div>
             ) : null}
-            <span className={`text-base font-medium text-[var(--foreground)] ${compactEmpty ? "" : "mt-4"}`}>
-              {ctaTitle}
-            </span>
-            <span className="mt-1.5 text-sm text-[var(--muted)]">
-              {enableDrop ? `${ctaSubtitle} · drop photos on desktop` : ctaSubtitle}
-            </span>
+            {!compactEmpty ? (
+              <>
+                <span className="mt-4 text-base font-medium text-[var(--foreground)]">
+                  {ctaTitle}
+                </span>
+                <span className="mt-1.5 text-sm text-[var(--muted)]">
+                  {enableDrop ? `${ctaSubtitle} · drop photos on desktop` : ctaSubtitle}
+                </span>
+              </>
+            ) : null}
             {cameraFallbackMsg ? (
               <p className="mt-3 text-sm text-amber-600 light:text-amber-700" role="status">
                 {cameraFallbackMsg}
               </p>
             ) : null}
-            <div className="mt-5 flex w-full max-w-sm flex-col gap-2 sm:flex-row">
+            <div className={`flex w-full max-w-sm flex-col gap-2 sm:flex-row ${compactEmpty ? "" : "mt-5"}`}>
               <button
                 type="button"
                 onClick={openCamera}
-                className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:hidden"
+                className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
-                Take photo
+                Take Photo
               </button>
               <button
                 type="button"
                 onClick={openPicker}
                 className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-[var(--surface-3)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition duration-150 hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
-                Choose photos
+                Choose Photos
               </button>
             </div>
           </div>
@@ -186,8 +192,13 @@ export default function SellPhotoUpload({
           onDrop={onDrop}
         >
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-sm font-medium text-[var(--foreground)]">{ctaTitle}</p>
-            <p className="text-[11px] text-[var(--muted)]">{imagePreviews.length}/8</p>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[var(--foreground)]">{ctaTitle}</p>
+              {ctaSubtitle ? (
+                <p className="mt-0.5 text-xs text-[var(--muted)]">{ctaSubtitle}</p>
+              ) : null}
+            </div>
+            <p className="shrink-0 text-[11px] text-[var(--muted)]">{imagePreviews.length}/8</p>
           </div>
           {/* Premium strip: horizontal scroll on narrow, grid from sm */}
           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-thin sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0">

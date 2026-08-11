@@ -136,10 +136,10 @@ export function useAwhinaVisionListing() {
           status: "found",
           identity: data.displayIdentity || data.listingFill.title || "your item",
           message: data.needsIdentityConfirm
-            ? "Tap Yes to continue, or Change to correct it."
+            ? "Quick check — is that right?"
             : data.missingPrompts?.length
               ? `Still need: ${data.missingPrompts.join(", ")}.`
-              : "Looking good — add anything missing, then publish.",
+              : "",
           listingFill: data.listingFill as SkyAiListingFill,
           needsIdentityConfirm: Boolean(data.needsIdentityConfirm),
           missingPrompts: Array.isArray(data.missingPrompts) ? data.missingPrompts : [],

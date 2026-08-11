@@ -114,8 +114,8 @@ export function buildReadinessFollowUpReply(
   if (next) {
     return `${lead} ${next.question}`;
   }
-  if (state === "READY_TO_PUBLISH") {
-    return `${lead} Add photos, then tap **Publish** when you're happy.`;
+  if (state === "READY_TO_PUBLISH" || state === "READY_TO_REVIEW") {
+    return `${lead} Your listing's ready. Review details, then hit **Publish**.`;
   }
   return lead;
 }

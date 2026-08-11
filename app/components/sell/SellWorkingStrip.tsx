@@ -42,7 +42,7 @@ export default function SellWorkingStrip({
       )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-[var(--foreground)]">
-          {title?.trim() || "Looking at your item…"}
+          {title?.trim() || "Looking at your photo…"}
         </p>
         <p className="truncate text-xs text-[var(--muted)]">
           {[category, statusLabel].filter(Boolean).join(" · ")}
