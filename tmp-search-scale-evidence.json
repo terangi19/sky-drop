@@ -1,0 +1,15 @@
+{
+  "at": "2026-08-11T15:27:59.848Z",
+  "total": 7,
+  "clientLimit": 400,
+  "safeForClientFilter": true,
+  "byStatus": {
+    "live": 4,
+    "sold": 2,
+    "ended": 1
+  },
+  "byType": {
+    "service": 3,
+    "physical": 4
+  }
+}

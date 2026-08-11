@@ -606,14 +606,71 @@ export default function AIPostPage() {
     }
   }, [stripeStatusLoaded, stripeConnected, paymentType]);
 
+  /** Gate sessionStorage sync until hard-refresh hydrate finishes (avoids empty-state wipe). */
+  const [draftHydrated, setDraftHydrated] = useState(false);
+
   useEffect(() => {
     const stored = readListingDraftFromSkyAi();
-    if (stored?.extras?.length && draftExtras.length === 0) {
-      setDraftExtras(stored.extras);
+    if (stored && hasActiveListingDraft(stored)) {
+      if (stored.title) setTitle(String(stored.title));
+      if (stored.description) setDescription(String(stored.description));
+      if (stored.category) setCategory(String(stored.category));
+      if (stored.condition) setCondition(String(stored.condition));
+      if (stored.price) setPrice(String(stored.price));
+      if (stored.location) setLocation(String(stored.location));
+      if (stored.listingType) {
+        setListingType(
+          stored.listingType as
+            | "physical"
+            | "service"
+            | "rental"
+            | "event"
+            | "vehicle"
+            | "job"
+            | "property"
+            | "wanted"
+        );
+      }
+      if (stored.paymentType) setPaymentType(String(stored.paymentType));
+      if (stored.vehicleMake) setVehicleMake(String(stored.vehicleMake));
+      if (stored.vehicleModel) setVehicleModel(String(stored.vehicleModel));
+      if (stored.vehicleGeneration) setVehicleGeneration(String(stored.vehicleGeneration));
+      if (stored.vehicleYear) setVehicleYear(String(stored.vehicleYear));
+      if (stored.vehicleOdometer) setVehicleOdometer(String(stored.vehicleOdometer));
+      if (stored.vehicleColour) setVehicleColour(String(stored.vehicleColour));
+      if (stored.vehicleBodyType) setVehicleBodyType(String(stored.vehicleBodyType));
+      if (stored.vehicleFuelType) setVehicleFuelType(String(stored.vehicleFuelType));
+      if (stored.vehicleTransmission) setVehicleTransmission(String(stored.vehicleTransmission));
+      if (stored.rentalSubType === "property" || stored.rentalSubType === "equipment" || stored.rentalSubType === "vehicle") {
+        setRentalSubType(stored.rentalSubType);
+      }
+      if (stored.rentalPropertyType) setRentalPropertyType(String(stored.rentalPropertyType));
+      if (stored.rentalPriceWeekly) setRentalPriceWeekly(String(stored.rentalPriceWeekly));
+      if (stored.rentalPriceMonthly) setRentalPriceMonthly(String(stored.rentalPriceMonthly));
+      if (stored.rentalDeposit) setRentalDeposit(String(stored.rentalDeposit));
+      if (stored.rentalBedrooms) setRentalBedrooms(String(stored.rentalBedrooms));
+      if (stored.rentalBathrooms) setRentalBathrooms(String(stored.rentalBathrooms));
+      if (stored.rentalParkingSpaces) setRentalParkingSpaces(String(stored.rentalParkingSpaces));
+      if (stored.rentalFurnishedStatus) setRentalFurnishedStatus(String(stored.rentalFurnishedStatus));
+      if (stored.rentalPetsPolicy) setRentalPetsPolicy(String(stored.rentalPetsPolicy));
+      if (stored.rentalAvailableDate) setRentalAvailableDate(String(stored.rentalAvailableDate));
+      if (stored.rentalMinTenancy) setRentalMinTenancy(String(stored.rentalMinTenancy));
+      if (stored.stockQuantity) setStockQuantity(String(stored.stockQuantity));
+      if (stored.serviceDuration) setServiceDuration(String(stored.serviceDuration));
+      if (stored.extras?.length) setDraftExtras(stored.extras.map(String));
+      // Preserve USER provenance so hydrate does not look like a fresh Awhina fill
+      const keys = Object.keys(stored).filter(
+        (k) => k !== "extras" && stored[k as keyof typeof stored]
+      ) as (keyof ListingDraftFormSnapshot)[];
+      if (keys.length) {
+        setFieldProvenance((prev) => markProvenance(prev, keys, "USER"));
+      }
     }
+    setDraftHydrated(true);
   }, []);
 
   useEffect(() => {
+    if (!draftHydrated) return;
     const snapshot: ListingDraftFormSnapshot = {
       title,
       description,
@@ -662,6 +719,7 @@ export default function AIPostPage() {
     // Only confirmed / meaningful values — never untouched visual defaults
     syncListingDraftToSkyAi(buildConfirmedListingContext(snapshot, fieldProvenance));
   }, [
+    draftHydrated,
     title,
     description,
     category,
