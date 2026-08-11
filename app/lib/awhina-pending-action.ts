@@ -1,17 +1,18 @@
 /**
  * Structured pending confirmation actions for Āwhina.
  *
- * When the assistant asks "Want to sell it?", it MUST set:
- *   pendingAction = { type: START_SELLING, ... }
- * Short replies (yes/no) resolve THAT action — never stale search queries.
+ * When the assistant asks a confirmation question, it MUST set a machine-readable
+ * pendingAction (e.g. CONFIRM_IDENTITY / START_SELLING / SEARCH). Displayed prose
+ * is presentation only — never the sole representation of what "Yes" means.
  *
  * Turn order (shared mobile + desktop):
- * 1. pending explicit confirmation
- * 2. correction
- * 3. pending question / slot
- * 4. new explicit intent
- * 5. new facts
- * 6. ONLY THEN inferred navigation/search
+ * 1. UI event
+ * 2. resolvable pendingAction
+ * 3. active listing field / pending slot
+ * 4. local commands
+ * 5. intent router
+ * 6. general AI
+ * 7. ambiguity fallback
  */
 
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
@@ -26,6 +27,15 @@ export type PendingActionType =
 
 export type PendingActionStatus = "active" | "confirmed" | "rejected" | "superseded" | "expired";
 
+/** Machine-readable proposed facts for vision / identity confirmation. */
+export type PendingProposedFacts = {
+  brand?: string;
+  productType?: string;
+  title?: string;
+  category?: string;
+  listingType?: string;
+};
+
 export type AwhinaPendingAction = {
   id: string;
   type: PendingActionType;
@@ -36,10 +46,12 @@ export type AwhinaPendingAction = {
   label?: string;
   /** SEARCH: the query that would run if confirmed */
   searchQuery?: string;
-  /** START_SELLING: identity label */
+  /** START_SELLING / CONFIRM_IDENTITY: identity label */
   identity?: string;
-  /** START_SELLING: listing facts preserved across confirm */
+  /** START_SELLING / CONFIRM_IDENTITY: listing facts preserved across confirm */
   listingFill?: SkyAiListingFill;
+  /** CONFIRM_IDENTITY: structured proposed perception (not prose) */
+  proposedFacts?: PendingProposedFacts;
   needsIdentityConfirm?: boolean;
   /** Prior assistant question that established this action */
   prompt?: string;
@@ -55,10 +67,10 @@ export type ConfirmationClass =
   | "NOT_CONFIRMATION";
 
 const AFFIRM_RE =
-  /^(yes|yeah|yep|yup|ya|sure|ok|okay|alright|all\s*right|do\s+it|go\s+ahead|sounds\s+good|please|cool|keen|sweet|correct|right|that's\s+right|y|k)([.!?,]*)?(\s+please)?$/i;
+  /^(yes|yeah|yep|yup|ya|sure|ok|okay|alright|all\s*right|do\s+it|go\s+ahead|sounds\s+good|please|cool|keen|sweet|correct|right|that'?s\s+right|thats\s+right|that\s+is\s+right|y|k)([.!?,]*)?(\s+please)?$/i;
 
 const REJECT_RE =
-  /^(no|nah|nope|don't|dont|cancel|stop|never\s*mind|no\s+thanks|not\s+now)([.!?,]*)?$/i;
+  /^(no|nah|nope|don't|dont|cancel|stop|never\s*mind|no\s+thanks|not\s+now|wrong|not\s+right|nope\s+wrong)([.!?,]*)?$/i;
 
 const TTL_MS = 30 * 60 * 1000;
 const MAX = 400;
@@ -201,16 +213,26 @@ export type PendingActionResolution =
 
 /**
  * Resolve short contextual replies against the ACTIVE pending action only.
- * Never invent an action from historical search queries.
+ * Never invent an action from historical search queries or assistant prose.
+ *
+ * objectId scoping: if currentObjectId is provided and does not match the
+ * pending action's objectId, the pending is treated as stale (unavailable).
  */
 export function resolvePendingActionTurn(opts: {
   message: string;
   pendingAction?: AwhinaPendingAction | null;
+  /** Active listing / vision object — pending only mutates this object */
+  currentObjectId?: string | null;
 }): PendingActionResolution {
-  const action =
+  let action =
     opts.pendingAction && isActivePendingAction(opts.pendingAction)
       ? opts.pendingAction
       : null;
+
+  if (action && !pendingActionMatchesObject(action, opts.currentObjectId)) {
+    action = null;
+  }
+
   const conf = classifyConfirmationReply(opts.message);
 
   if (!action) {
@@ -243,6 +265,57 @@ export function resolvePendingActionTurn(opts: {
     };
   }
   return { kind: "NONE" };
+}
+
+/** Stable object id from identity label (scoped pending confirmations). */
+export function visionObjectIdFromIdentity(identity: string): string {
+  const norm = String(identity || "item")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 64);
+  return `obj_${norm || "item"}`;
+}
+
+/** Pending confirmation only mutates its objectId; mismatch ⇒ stale. */
+export function pendingActionMatchesObject(
+  action: AwhinaPendingAction | null | undefined,
+  currentObjectId?: string | null
+): boolean {
+  if (!action || !isActivePendingAction(action)) return false;
+  if (!action.objectId || !currentObjectId) return true;
+  return action.objectId === currentObjectId;
+}
+
+/**
+ * New explicit intent / interruption while a pending confirm is open —
+ * supersede so Yes later cannot resolve the stale confirm.
+ */
+export function shouldSupersedePendingAction(opts: {
+  message: string;
+  pending: AwhinaPendingAction;
+}): boolean {
+  const conf = classifyConfirmationReply(opts.message);
+  if (conf !== "NOT_CONFIRMATION") return false;
+  const m = (opts.message || "").trim();
+  if (m.length < 2) return false;
+  if (/\b(actually|instead|wait)\b/i.test(m)) return true;
+  if (
+    /\b(find|search\s+for|looking\s+for|show\s+me|buy\s+me|i\s+want\s+to\s+(find|buy|get))\b/i.test(
+      m
+    )
+  ) {
+    return true;
+  }
+  // Identity correction / replacement while confirming vision identity
+  if (
+    opts.pending.type === "CONFIRM_IDENTITY" &&
+    m.length >= 5 &&
+    !/^(hmm+|uh+|um+|huh|idk|maybe)\.?$/i.test(m)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -293,12 +366,51 @@ export function buildStartSellingPendingAction(opts: {
 }): Omit<AwhinaPendingAction, "id" | "status" | "createdAt"> {
   return {
     type: "START_SELLING",
-    objectId: opts.objectId || opts.identity || "current_object",
+    objectId: opts.objectId || visionObjectIdFromIdentity(opts.identity),
     label: opts.identity,
     identity: opts.identity,
     listingFill: opts.listingFill,
     needsIdentityConfirm: opts.needsIdentityConfirm,
     prompt: opts.prompt || "Want to sell it?",
+  };
+}
+
+/**
+ * Vision identity confirmation — "Looks like X. Is that right?"
+ * MUST be written whenever that question is emitted. Yes/No resolve this
+ * structured action; never infer from assistant prose alone.
+ */
+export function buildConfirmIdentityPendingAction(opts: {
+  identity: string;
+  listingFill: SkyAiListingFill;
+  proposedFacts?: PendingProposedFacts;
+  prompt?: string;
+  objectId?: string;
+}): Omit<AwhinaPendingAction, "id" | "status" | "createdAt"> {
+  const identity = (opts.identity || opts.listingFill.title || "your item").trim();
+  const fill = opts.listingFill || {};
+  const proposedFacts: PendingProposedFacts = {
+    title: fill.title || identity,
+    brand: opts.proposedFacts?.brand,
+    productType: opts.proposedFacts?.productType || fill.category,
+    category: fill.category,
+    listingType: fill.listingType,
+    ...opts.proposedFacts,
+  };
+  // Derive brand from title when not provided (e.g. "Razer Gaming Mouse")
+  if (!proposedFacts.brand && identity) {
+    const first = identity.split(/\s+/)[0];
+    if (first && first.length >= 2) proposedFacts.brand = first;
+  }
+  return {
+    type: "CONFIRM_IDENTITY",
+    objectId: opts.objectId || visionObjectIdFromIdentity(identity),
+    label: identity,
+    identity,
+    listingFill: fill,
+    proposedFacts,
+    needsIdentityConfirm: true,
+    prompt: opts.prompt || `Looks like a ${identity}. Is that right?`,
   };
 }
 
@@ -321,6 +433,11 @@ export function buildSearchPendingAction(opts: {
  */
 export function assistantAskedSellConfirmation(reply: string): boolean {
   return /want to sell (it|this)\?/i.test(reply) || /reply\s+\*?\*?sell this\*?\*?/i.test(reply);
+}
+
+/** Safety-net detector — primary write path is buildConfirmIdentityPendingAction. */
+export function assistantAskedIdentityConfirmation(reply: string): boolean {
+  return /\bis that right\?/i.test(reply || "");
 }
 
 export function assistantAskedSearchConfirmation(reply: string): string | null {

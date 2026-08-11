@@ -131,8 +131,10 @@ import { runIntelligenceTurn } from "./awhina-intelligence-turn";
 import { authorityToListingProvenance } from "./awhina-authority";
 import {
   type AwhinaPendingAction,
+  assistantAskedIdentityConfirmation,
   assistantAskedSearchConfirmation,
   assistantAskedSellConfirmation,
+  buildConfirmIdentityPendingAction,
   buildSearchPendingAction,
   buildStartSellingPendingAction,
   classifyConfirmationReply,
@@ -146,6 +148,8 @@ import {
   resolvePendingActionTurn,
   setPendingAction,
   shouldInvalidateSearchOnEvidence,
+  shouldSupersedePendingAction,
+  visionObjectIdFromIdentity,
 } from "./awhina-pending-action";
 
 export type CanonicalContext = {
@@ -548,6 +552,23 @@ export function processCanonicalAwhina(
           prompt: "Want to sell it?",
         })
       );
+    } else if (partial.reply && assistantAskedIdentityConfirmation(partial.reply)) {
+      // Safety net — primary write is vision bridge buildConfirmIdentityPendingAction
+      const existing = getPendingAction(paKey);
+      if (!existing || existing.type !== "CONFIRM_IDENTITY") {
+        const fill = (partial.listingFill || {}) as import("./sky-ai-listing-fill").SkyAiListingFill;
+        const identity =
+          (fill.title as string) ||
+          existing?.identity ||
+          "this item";
+        setPendingAction(
+          paKey,
+          buildConfirmIdentityPendingAction({
+            identity,
+            listingFill: fill,
+          })
+        );
+      }
     } else if (partial.reply) {
       const q = assistantAskedSearchConfirmation(partial.reply);
       if (q) {
@@ -810,11 +831,74 @@ export function processCanonicalAwhina(
       pathname,
       anonSessionId: context.anonSessionId,
     });
-    const activePa = getPendingAction(paKey);
+    let activePa = getPendingAction(paKey);
+
+    // Interruption / new intent supersedes open confirm (e.g. "actually find me a PS5")
+    if (
+      activePa &&
+      shouldSupersedePendingAction({ message: trimmed, pending: activePa })
+    ) {
+      clearPendingAction(paKey, "superseded");
+      activePa = null;
+    }
+
+    const draftSnap = getListingDraftSession(listKeyPending);
+    // CONFIRM_IDENTITY is object-scoped: draft title must match pending.objectId
+    const draftTitle =
+      (draftSnap?.title && String(draftSnap.title).trim()) ||
+      (context.listingContext?.title && String(context.listingContext.title).trim()) ||
+      "";
+    const currentObjectId =
+      activePa?.type === "CONFIRM_IDENTITY" && draftTitle
+        ? visionObjectIdFromIdentity(draftTitle)
+        : activePa?.objectId || null;
+
     const resolution = resolvePendingActionTurn({
       message: trimmed,
       pendingAction: activePa,
+      currentObjectId,
     });
+
+    if (resolution.kind === "CONFIRM" && resolution.action.type === "CONFIRM_IDENTITY") {
+      confirmPendingAction(paKey);
+      clearSearchSession(memKey);
+      const fill = {
+        ...(resolution.action.listingFill || {}),
+      } as SkyAiListingFill;
+      const identity =
+        resolution.action.identity ||
+        resolution.action.proposedFacts?.title ||
+        (typeof fill.title === "string" ? fill.title : "") ||
+        "your item";
+      if (!fill.title) fill.title = identity;
+      // Accept proposed facts into draft — never ask user to restate identity
+      rememberListingDraft(listKeyPending, fill);
+      const pendingClarification = buildListingSlotPending(fill, `confirm:${identity}`);
+      setActiveTask(scopeKey, "selling", {
+        pendingItem: identity,
+        pendingClarification: pendingClarification || undefined,
+      });
+      const reply = buildReadinessFollowUpReply(fill, {
+        lead: `Yep — **${identity}**.`,
+      });
+      return finish({
+        handled: true,
+        reply,
+        listingFill: fill as Record<string, unknown>,
+        navigateTo: onSellPageEarly ? undefined : "/post/ai",
+        source: "tool",
+        intent: "listing_create",
+        tool: "updateListingDraft",
+        confidence: 0.98,
+        usedLocalExecution: true,
+        avoidedAi: true,
+        toolCall: {
+          tool: "updateListingDraft",
+          args: { updateListingDraft: fill },
+          confidence: 0.98,
+        },
+      });
+    }
 
     if (resolution.kind === "CONFIRM" && resolution.action.type === "START_SELLING") {
       confirmPendingAction(paKey);
@@ -946,16 +1030,19 @@ export function processCanonicalAwhina(
 
     if (resolution.kind === "REJECT" && resolution.action) {
       rejectPendingAction(paKey);
-      return finish({
-        handled: true,
-        reply:
-          resolution.action.type === "START_SELLING"
+      const rejectReply =
+        resolution.action.type === "CONFIRM_IDENTITY"
+          ? "What is it?"
+          : resolution.action.type === "START_SELLING"
             ? "No worries — I won't start a listing. What would you like to do instead?"
             : resolution.action.type === "SEARCH"
               ? "Okay, I won't search. What next?"
-              : "Okay, cancelled.",
+              : "Okay, cancelled.";
+      return finish({
+        handled: true,
+        reply: rejectReply,
         source: "local",
-        intent: "unknown",
+        intent: resolution.action.type === "CONFIRM_IDENTITY" ? "listing_update" : "unknown",
         confidence: 0.9,
         usedLocalExecution: true,
         avoidedAi: true,

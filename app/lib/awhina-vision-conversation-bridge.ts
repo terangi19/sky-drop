@@ -31,6 +31,10 @@ import { persistAwhinaSession } from "./awhina-session-persist";
 import { fuseVisionAndSellerText } from "./awhina-multimodal-fusion";
 import { assessIdentityCompleteness } from "./awhina-identity-composition";
 import { gatePublicListingCopy } from "./awhina-public-copy-gate";
+import {
+  buildConfirmIdentityPendingAction,
+  type AwhinaPendingAction,
+} from "./awhina-pending-action";
 
 /** Fields vision may safely stamp as IMAGE (never price/location). */
 const IMAGE_PROVENANCE_KEYS: (keyof ListingDraftFormSnapshot)[] = [
@@ -79,6 +83,11 @@ export type VisionConversationBridgeResult = {
   assistantMessage: string;
   pendingSlot: string | null;
   pendingClarification: PendingClarification | null;
+  /**
+   * Structured confirmation — REQUIRED when needsIdentityConfirm.
+   * Presentation ("Is that right?") is not enough; Yes resolves this.
+   */
+  pendingAction: AwhinaPendingAction | null;
   focusChat: true;
 };
 
@@ -244,6 +253,17 @@ export function prepareVisionConversationBridge(
     const assistantMessage =
       fused?.assistantMessage ||
       `Looks like a **${identity}**. Is that right?`;
+    // Response → state contract: confirmation prose MUST set structured pendingAction
+    const pendingAction: AwhinaPendingAction = {
+      ...buildConfirmIdentityPendingAction({
+        identity,
+        listingFill: fill,
+        prompt: `Looks like a ${identity}. Is that right?`,
+      }),
+      id: `pa_ident_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+      status: "active",
+      createdAt: Date.now(),
+    };
     return {
       listingFill: fill,
       displayIdentity: identity,
@@ -257,6 +277,7 @@ export function prepareVisionConversationBridge(
           ? "card_subject"
           : null),
       pendingClarification: null,
+      pendingAction,
       focusChat: true,
     };
   }
@@ -282,11 +303,12 @@ export function prepareVisionConversationBridge(
     assistantMessage,
     pendingSlot,
     pendingClarification,
+    pendingAction: null,
     focusChat: true,
   };
 }
 
-/** Push assistant turn + session pendingSlot into the ONE conversation store. */
+/** Push assistant turn + session pendingSlot / pendingAction into the ONE conversation store. */
 export function commitVisionBridgeToConversation(
   bridge: VisionConversationBridgeResult
 ): void {
@@ -305,9 +327,13 @@ export function commitVisionBridgeToConversation(
     updatedAt: Date.now(),
   };
 
+  // Authoritative pendingAction — CONFIRM_IDENTITY when asking, null when continuing
+  const pendingAction = bridge.pendingAction ?? null;
+
   setAwhinaSessionEcho({
     task,
     pendingSlot: bridge.pendingSlot,
+    pendingAction,
   });
 
   const conversationId = getAwhinaConversationState().conversationId;
@@ -315,6 +341,7 @@ export function commitVisionBridgeToConversation(
     conversationId,
     task,
     pendingSlot: bridge.pendingSlot,
+    pendingAction,
     updatedAt: Date.now(),
   });
 }

@@ -38,7 +38,7 @@ describe("prepareVisionConversationBridge", () => {
     );
   });
 
-  it("needs identity confirm → no price pendingSlot yet", () => {
+  it("needs identity confirm → no price pendingSlot yet + CONFIRM_IDENTITY pendingAction", () => {
     const bridge = prepareVisionConversationBridge({
       listingFill: {
         title: "Black game console",
@@ -53,9 +53,12 @@ describe("prepareVisionConversationBridge", () => {
     expect(bridge.pendingSlot).toBeNull();
     expect(bridge.pendingClarification).toBeNull();
     expect(bridge.assistantMessage).toMatch(/Is that right/i);
+    expect(bridge.pendingAction?.type).toBe("CONFIRM_IDENTITY");
+    expect(bridge.pendingAction?.status).toBe("active");
+    expect(bridge.pendingAction?.identity).toMatch(/Black game console/i);
   });
 
-  it("identityConfirmed after Yes → establishes next slot", () => {
+  it("identityConfirmed after Yes → establishes next slot and clears pendingAction", () => {
     const bridge = prepareVisionConversationBridge({
       listingFill: {
         title: "PlayStation 5",
@@ -70,6 +73,7 @@ describe("prepareVisionConversationBridge", () => {
     expect(bridge.needsIdentityConfirm).toBe(false);
     expect(bridge.pendingSlot).toBeTruthy();
     expect(bridge.assistantMessage).not.toMatch(/Is that right/i);
+    expect(bridge.pendingAction).toBeNull();
   });
 
   it("existing USER price → does not ask price again", () => {
@@ -152,5 +156,22 @@ describe("commitVisionBridgeToConversation", () => {
       true
     );
     expect(state.awhinaSession?.task?.task).toBe("selling");
+    expect(state.awhinaSession?.pendingAction).toBeNull();
+  });
+
+  it("identity confirm commit persists CONFIRM_IDENTITY pendingAction", () => {
+    const bridge = prepareVisionConversationBridge({
+      listingFill: {
+        title: "Razer Gaming Mouse",
+        listingType: "physical",
+        category: "Gaming",
+      },
+      displayIdentity: "Razer Gaming Mouse",
+      needsIdentityConfirm: true,
+    });
+    commitVisionBridgeToConversation(bridge);
+    const state = getAwhinaConversationState();
+    expect(state.awhinaSession?.pendingAction?.type).toBe("CONFIRM_IDENTITY");
+    expect(state.awhinaSession?.pendingAction?.identity).toMatch(/Razer/i);
   });
 });

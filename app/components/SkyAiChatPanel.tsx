@@ -94,6 +94,7 @@ import {
 import {
   buildStartSellingPendingAction,
   classifyConfirmationReply,
+  shouldSupersedePendingAction,
   type AwhinaPendingAction,
 } from "../lib/awhina-pending-action";
 import SharedPhotoCapture, { isCameraSupported } from "./SharedPhotoCapture";
@@ -590,6 +591,86 @@ export default function SkyAiChatPanel({
             beginListingWorkspaceHandoff({ autoContinue: true });
             dispatchWorkspaceHandoff({ autoOpen: true, autoContinue: true });
             runNavigate("/post/ai");
+          } finally {
+            setBusy(false);
+            setBusyStatus(false);
+          }
+          return;
+        }
+      }
+
+      // CONFIRM_IDENTITY ("Looks like X. Is that right?") — local Yes/No, zero OpenAI
+      {
+        const pendingAction = awhinaSessionRef.current?.pendingAction as
+          | AwhinaPendingAction
+          | null
+          | undefined;
+        const conf = classifyConfirmationReply(trimmed);
+        const identityPending =
+          !imageUrls.length &&
+          pendingAction?.status === "active" &&
+          pendingAction.type === "CONFIRM_IDENTITY";
+
+        if (
+          identityPending &&
+          pendingAction &&
+          shouldSupersedePendingAction({ message: trimmed, pending: pendingAction })
+        ) {
+          // Interruption (e.g. "actually find me a PS5") — clear confirm, fall through
+          const echo = {
+            ...(awhinaSessionRef.current || {}),
+            pendingAction: null,
+          };
+          awhinaSessionRef.current = echo as typeof awhinaSessionRef.current;
+          setAwhinaSessionEcho(echo as never);
+        } else if (identityPending && pendingAction && (conf === "AFFIRM" || conf === "REJECT")) {
+          setPendingImages([]);
+          const userMsgIdent: ChatMessage = {
+            id: `u-${Date.now()}`,
+            role: "user",
+            text: trimmed,
+          };
+          setMessages((prev) => [...prev.filter((m) => m.id !== "welcome"), userMsgIdent]);
+          setBusy(true);
+          setBusyStatus(true);
+          try {
+            if (conf === "REJECT") {
+              appendMessage({
+                id: `a-ident-no-${Date.now()}`,
+                role: "assistant",
+                text: "What is it?",
+              });
+              const echo = {
+                ...(awhinaSessionRef.current || {}),
+                pendingAction: null,
+              };
+              awhinaSessionRef.current = echo as typeof awhinaSessionRef.current;
+              setAwhinaSessionEcho(echo as never);
+              return;
+            }
+            // AFFIRM — accept proposed facts, continue workflow (next missing required)
+            const bridge = prepareVisionConversationBridge({
+              listingFill: (pendingAction.listingFill || {}) as SkyAiListingFill,
+              displayIdentity: pendingAction.identity || "your item",
+              needsIdentityConfirm: true,
+              identityConfirmed: true,
+              existingDraft: readListingDraftFromSkyAi(),
+            });
+            handleListingFill(bridge.listingFill);
+            commitVisionBridgeToConversation(bridge);
+            const echo = {
+              ...(awhinaSessionRef.current || {}),
+              task: {
+                task: "selling" as const,
+                pendingItem: bridge.displayIdentity,
+                pendingClarification: bridge.pendingClarification || undefined,
+                updatedAt: Date.now(),
+              },
+              pendingAction: null,
+              pendingSlot: bridge.pendingSlot,
+            };
+            awhinaSessionRef.current = echo as typeof awhinaSessionRef.current;
+            setAwhinaSessionEcho(echo as never);
           } finally {
             setBusy(false);
             setBusyStatus(false);
