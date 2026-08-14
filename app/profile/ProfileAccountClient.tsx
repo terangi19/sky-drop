@@ -278,7 +278,6 @@ const tabGroups = [
   { id: "settings", label: "Settings" },
 ] as const;
 
-  const bannerRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
   const referralInitRef = useRef(false);
 
@@ -904,18 +903,6 @@ const tabGroups = [
     await uploadFileToStorage(file, `avatars/${user.uid}/avatar.jpg`, 400, 400, (url) => setProfile((p) => ({ ...p, photoURL: url })));
   }
 
-  async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    const nsfwResult = await checkImage(file);
-    if (!nsfwResult.safe) {
-      showToast(`Banner flagged: ${nsfwResult.reason}`, "error");
-      e.target.value = "";
-      return;
-    }
-    await uploadFileToStorage(file, `banners/${user.uid}/banner.jpg`, 1200, 400, (url) => setProfile((p) => ({ ...p, bannerURL: url })));
-  }
-
   function flashSaved() {
     setSaved(true);
     setSaving("");
@@ -1484,7 +1471,6 @@ const tabGroups = [
       month: "short",
     }) || "";
   const avatarUrl = profile.photoURL;
-  const bannerUrl = profile.bannerURL;
 
   const reviewAvg =
     typeof profile.averageRating === "number" && profile.reviewCount
@@ -2239,7 +2225,8 @@ const tabGroups = [
 
           {/* CONTENT NAV */}
           <nav
-            className="flex gap-1 border-b border-[var(--card-border)]"
+            className="flex gap-1 overflow-x-auto border-b border-[var(--card-border)]"
+            role="tablist"
             aria-label="Profile content"
           >
             {([
@@ -2250,7 +2237,10 @@ const tabGroups = [
               <button
                 key={tab.id}
                 type="button"
-                aria-current={contentTab === tab.id ? "page" : undefined}
+                id={`profile-${tab.id}-tab`}
+                role="tab"
+                aria-selected={contentTab === tab.id}
+                aria-controls={`profile-${tab.id}-panel`}
                 onClick={() => setContentTab(tab.id)}
                 className={`min-h-[44px] px-3.5 py-2.5 text-sm font-semibold transition-colors ${
                   contentTab === tab.id
@@ -2267,7 +2257,7 @@ const tabGroups = [
           </nav>
 
           {contentTab === "listings" && (
-            <section aria-labelledby="profile-listings-heading" className="space-y-3">
+            <section id="profile-listings-panel" role="tabpanel" aria-labelledby="profile-listings-tab" className="space-y-3">
               <div className="flex items-end justify-between gap-3">
                 <h2 id="profile-listings-heading" className="sr-only">Listings</h2>
                 {!listingsLoading && activeListings.length > 0 ? (
@@ -2346,7 +2336,7 @@ const tabGroups = [
           )}
 
           {contentTab === "reviews" && (
-            <section aria-labelledby="profile-reviews-heading" className="space-y-3">
+            <section id="profile-reviews-panel" role="tabpanel" aria-labelledby="profile-reviews-tab" className="space-y-3">
               <h2 id="profile-reviews-heading" className="sr-only">Reviews</h2>
               {reviewsLoading ? (
                 <p className="text-sm text-[var(--muted)]">Loading reviews…</p>
@@ -2380,7 +2370,7 @@ const tabGroups = [
           )}
 
           {contentTab === "following" && (
-            <section aria-labelledby="profile-following-heading" className="space-y-3">
+            <section id="profile-following-panel" role="tabpanel" aria-labelledby="profile-following-tab" className="space-y-3">
               <h2 id="profile-following-heading" className="sr-only">Following</h2>
               {followingLoading && followingList.length === 0 ? (
                 <div className="flex flex-wrap gap-2">

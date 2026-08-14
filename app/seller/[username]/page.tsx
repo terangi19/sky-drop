@@ -27,7 +27,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useParams } from "next/navigation";
 import ReportModal from "../../components/ReportModal";
 import EmptyState from "../../components/EmptyState";
-import { REVIEW_STAR_CLASS, ReviewStars } from "../../components/SellerReviewStars";
+import { ReviewStars } from "../../components/SellerReviewStars";
 import { isListingVisibleInMarketplace } from "../../lib/listing-availability";
 import { countSellerSales } from "../../lib/arrange-purchase-status";
 import {
@@ -399,112 +399,64 @@ export default function SellerPage() {
         <div className="space-y-6">
 
           {/* HEADER */}
-          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02]">
-            {/* Banner */}
-            <div className="relative h-24 sm:h-32 overflow-hidden">
-              {profile.bannerURL ? (
-                <img src={profile.bannerURL} alt="" className="h-full w-full object-cover" />
+          <header className="border-b border-[var(--card-border)] pb-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              {profile.photoURL ? (
+                <img src={profile.photoURL} alt="" className="h-16 w-16 shrink-0 rounded-xl border border-[var(--card-border)] object-cover sm:h-[4.5rem] sm:w-[4.5rem]" />
               ) : (
-                <div className="h-full w-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-sky-500/25 bg-sky-500/10 text-2xl font-bold text-sky-500 sm:h-[4.5rem] sm:w-[4.5rem]">{initial}</div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/60" />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="truncate text-xl font-bold tracking-tight text-[var(--foreground)] sm:text-2xl">{displayName}</h1>
+                  {isFullyVerified && <span className="rounded-full border border-sky-500/25 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-500">Verified</span>}
+                </div>
+                <p className="mt-0.5 text-sm text-[var(--muted)]">{displayHandle}</p>
+                <AwhinaUnderHeader className="mt-2" />
+              </div>
             </div>
 
-            <div className="relative px-5 pb-4">
-              {/* Avatar */}
-              <div className="absolute -top-11 left-5 sm:-top-14 sm:left-6">
-                {profile.photoURL ? (
-                  <img src={profile.photoURL} alt="" className="h-[72px] w-[72px] sm:h-24 sm:w-24 rounded-xl border-[3px] border-[var(--card)] object-cover shadow-[var(--shadow-sm)]" />
-                ) : (
-                  <div className="flex h-[72px] w-[72px] sm:h-24 sm:w-24 items-center justify-center rounded-xl border-[3px] border-[var(--card)] bg-gradient-to-br from-sky-500 via-sky-500 to-sky-600 text-2xl sm:text-3xl font-black text-[var(--foreground)] shadow-[var(--shadow-sm)]">{initial}</div>
-                )}
+            <dl className="mt-5 grid grid-cols-3 divide-x divide-[var(--card-border)] border-y border-[var(--card-border)] py-3">
+              <div className="min-w-0 px-3 first:pl-0">
+                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Reviews</dt>
+                <dd className="mt-1 text-sm font-semibold text-[var(--foreground)]">{reviewCount}</dd>
               </div>
+              <div className="min-w-0 px-3">
+                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Sales</dt>
+                <dd className="mt-1 text-sm font-semibold text-[var(--foreground)]">{completedSalesCount}</dd>
+              </div>
+              <div className="min-w-0 px-3 last:pr-0">
+                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Member since</dt>
+                <dd className="mt-1 truncate text-sm font-semibold text-[var(--foreground)]">{memberDate || "—"}</dd>
+              </div>
+            </dl>
 
-              <div className="pt-9 sm:pt-14">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-lg sm:text-2xl font-black tracking-tight text-[var(--foreground)]">
-                    {displayName}
-                  </h1>
-                  {isFullyVerified && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/25">
-                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
-                      Verified
-                    </span>
-                  )}
-                  {!isFullyVerified && (
-                    <span className="inline-flex items-center rounded-full bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-[var(--muted)] ring-1 ring-white/[0.06]" title="This seller has not completed full verification yet.">
-                      New seller
-                    </span>
-                  )}
-                  {!profile.hideOnline && (
-                    <span className="flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400">
-                      <span className="h-1.5 w-1.5 rounded-full bg-sky-500" /> Online
-                    </span>
-                  )}
-                </div>
-                <AwhinaUnderHeader className="mt-2" />
-
-                <p className="mt-0.5 text-sm font-semibold text-[var(--foreground)]">{displayHandle}</p>
-                <p className="text-xs text-[var(--muted)]">
-                  {memberDate && <span>Joined {memberDate}</span>}
-                </p>
-
-                {/* Trust signals */}
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {profile.trustedSeller && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">Trusted Seller</span>}
-                  {profile.fastReply && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">Fast Reply</span>}
-                  {profile.phoneVerified && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">Phone verified</span>}
-                </div>
-
-                {/* Stats row */}
-                <div className="mt-4 grid grid-cols-4 gap-2">
-                  {[
-                    { icon: "rating", label: "Rating", value: avgRating > 0 ? avgRating.toFixed(1) : "—" },
-                    { icon: null, label: "Sales", value: String(completedSalesCount) },
-                    { icon: null, label: "Listings", value: String(activeListings.length) },
-                    { icon: null, label: "Followers", value: String(followerCount) },
-                  ].map((s) => (
-                    <div key={s.label} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-center">
-                      <p className="text-sm font-bold text-[var(--foreground)]">{s.value}</p>
-                      <p className="text-[10px] font-medium text-[var(--muted)] uppercase tracking-wider">
-                        {s.icon === "rating" ? <span className={REVIEW_STAR_CLASS}>★ </span> : null}{s.label}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
+            <div className="mt-4 flex flex-wrap items-center gap-2">
                 {/* Follow + Message */}
                 {!isOwn && currentUser ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <>
                     <button onClick={toggleFollow} disabled={followLoading}
-                      className={`rounded-xl px-5 py-2.5 text-xs font-bold transition-all duration-200 ${
+                      className={`min-h-[44px] rounded-lg px-4 text-sm font-semibold transition-colors ${
                         following
-                          ? "border border-white/[0.08] bg-white/[0.03] text-[var(--foreground)] hover:bg-white/[0.06]"
+                          ? "border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                           : "btn btn-primary"
                       }`}>
                       {followLoading ? "..." : following ? "Following" : "Follow"}
                     </button>
                     <a
                       href={`/messages?user=${encodeURIComponent(profile.email || profile.username || "")}&source=seller-profile`}
-                      className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-5 py-2.5 text-xs font-bold text-sky-400 transition hover:bg-sky-500/20"
+                      className="inline-flex min-h-[44px] items-center rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-sky-500/25"
                     >
                       Message Seller
                     </a>
-                  </div>
+                  </>
                 ) : !isOwn && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <a
-                      href={"/login?redirect=" + encodeURIComponent(`/seller/${profile.username || ""}`) + "&intent=message"}
-                      className="rounded-xl bg-sky-500 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-sky-400"
-                    >
-                      Message Seller
-                    </a>
-                  </div>
+                  <a href={"/login?redirect=" + encodeURIComponent(`/seller/${profile.username || ""}`) + "&intent=message"} className="inline-flex min-h-[44px] items-center rounded-lg bg-sky-500 px-4 text-sm font-semibold text-white transition-colors hover:bg-sky-400">Message Seller</a>
                 )}
 
                 {/* Report — visible logged out; auth required to submit. Block stays signed-in only. */}
                 {!isOwn && (
-                  <div className="mt-3 flex items-center gap-3">
+                  <>
                     <button
                       onClick={() => {
                         if (!currentUser) {
@@ -530,11 +482,10 @@ export default function SellerPage() {
                         {isBlocked ? "Unblock" : "Block"}
                       </button>
                     )}
-                  </div>
+                  </>
                 )}
-              </div>
             </div>
-          </div>
+          </header>
 
           {/* Report Modal */}
           <ReportModal
