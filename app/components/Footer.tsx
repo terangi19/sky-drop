@@ -1,36 +1,35 @@
-﻿"use client";
-
-import Link from "next/link";
-import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
+﻿import Link from "next/link";
 
 export default function Footer() {
-  const stripeVisible = isStripeCheckoutVisibleClient();
-
   return (
-    <footer className="border-t border-zinc-800/50 py-8 mt-auto">
-      <div className="flex flex-col items-center justify-center gap-4 text-xs text-[var(--muted)]">
-        <p>
-          © 2026 Sky Drop. Operated in New Zealand.{" "}
-          {stripeVisible
-            ? "Card payments handled by Stripe."
-            : "Message sellers to arrange purchases."}
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-          <Link href="/about" className="transition hover:text-[var(--foreground)]">About</Link>
-          <Link href="/faqs" className="transition hover:text-[var(--foreground)]">FAQs</Link>
-          <Link href="/buyer-protection" className="transition hover:text-[var(--foreground)]">
-            {stripeVisible ? "Buyer Protection" : "Stay Safe"}
+    <footer className="mt-auto border-t border-[var(--border)] bg-[var(--background)]">
+      <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 sm:grid-cols-[1fr_auto] sm:px-6">
+        <div>
+          <Link href="/" className="text-sm font-semibold text-[var(--foreground)] outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+            Sky Drop
           </Link>
-          <Link href="/seller-guidelines" className="transition hover:text-[var(--foreground)]">Seller Guide</Link>
-          <Link href="/terms" className="transition hover:text-[var(--foreground)]">Terms</Link>
-          <Link href="/privacy" className="transition hover:text-[var(--foreground)]">Privacy</Link>
+          <p className="mt-2 max-w-md text-xs leading-5 text-[var(--muted)]">
+            A New Zealand marketplace. Browse listings, message sellers, and arrange payment, pickup or delivery directly.
+          </p>
+          <p className="mt-3 text-xs text-[var(--muted)]">© 2026 Sky Drop. Operated in New Zealand.</p>
         </div>
-        <p className="text-[10px] text-zinc-700">
-          {stripeVisible ? (
-            <>Payments powered by <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-300 transition-colors underline">Stripe</a> · </>
-          ) : null}
-          Need help? <Link href="/faqs" className="text-zinc-500 hover:text-zinc-300 transition-colors underline">FAQs</Link> · <a href="https://mail.google.com/mail/?view=cm&fs=1&to=support@skydrop.co.nz" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-300 transition-colors underline">support@skydrop.co.nz</a>
-        </p>
+        <nav aria-label="Help and legal" className="sm:text-right">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--foreground)]">Help &amp; information</p>
+          <div className="mt-3 flex max-w-md flex-wrap gap-x-5 gap-y-3 text-xs text-[var(--muted)] sm:justify-end">
+            <Link href="/about" className="outline-none transition hover:text-sky-400 focus-visible:ring-2 focus-visible:ring-sky-400">About</Link>
+            <Link href="/faqs" className="outline-none transition hover:text-sky-400 focus-visible:ring-2 focus-visible:ring-sky-400">FAQs</Link>
+            <Link href="/buyer-protection" className="outline-none transition hover:text-sky-400 focus-visible:ring-2 focus-visible:ring-sky-400">Stay Safe</Link>
+            <Link href="/seller-guidelines" className="outline-none transition hover:text-sky-400 focus-visible:ring-2 focus-visible:ring-sky-400">Selling on Sky Drop</Link>
+            <Link href="/terms" className="outline-none transition hover:text-sky-400 focus-visible:ring-2 focus-visible:ring-sky-400">Terms</Link>
+            <Link href="/privacy" className="outline-none transition hover:text-sky-400 focus-visible:ring-2 focus-visible:ring-sky-400">Privacy</Link>
+          </div>
+          <p className="mt-4 text-xs text-[var(--muted)]">
+            Need help?{" "}
+            <a href="mailto:support@skydrop.co.nz" className="text-sky-400 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+              support@skydrop.co.nz
+            </a>
+          </p>
+        </nav>
       </div>
     </footer>
   );

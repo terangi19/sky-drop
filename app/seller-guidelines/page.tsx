@@ -1,129 +1,45 @@
-import Navbar from "../components/Navbar";
-import Background from "../components/Background";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { Metadata } from "next";
-import { V1_ARRANGE_SAFETY_ONE_LINER } from "../lib/conversation-safety";
+import HelpTrustLayout from "../components/HelpTrustLayout";
 
 export const metadata: Metadata = {
-  title: "Seller Guidelines — Sky Drop NZ",
-  description:
-    "How to sell on Sky Drop. Free to list. Buyers message you to arrange payment and pickup. Start selling cars, tech, fashion and more.",
-  keywords:
-    "seller guidelines, how to sell on Sky Drop, sell online NZ, free listings NZ, message seller, NZ marketplace",
+  title: "Selling on Sky Drop",
+  description: "Create clear listings, communicate with buyers and arrange sales directly on Sky Drop.",
+  alternates: { canonical: "/seller-guidelines" },
 };
-
-function Section({
-  title,
-  children,
-  id,
-}: {
-  title: string;
-  children: React.ReactNode;
-  id?: string;
-}) {
-  return (
-    <section id={id} className="mt-10 scroll-mt-24">
-      <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">{title}</h2>
-      <div className="mt-3 text-sm leading-relaxed text-[var(--muted)]">{children}</div>
-    </section>
-  );
-}
 
 export default function SellerGuidelinesPage() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
-      <Background />
-      <Navbar />
-      <section className="relative z-10 mx-auto max-w-3xl px-6 py-16 sm:py-24">
-        <Link
-          href="/"
-          className="mb-8 inline-flex items-center gap-2 text-sm text-[var(--muted)] transition-colors hover:text-sky-400"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Marketplace
-        </Link>
+    <HelpTrustLayout activePath="/seller-guidelines" eyebrow="Help" title="Selling on Sky Drop" intro="Create an accurate listing, communicate clearly and arrange each sale directly with the buyer.">
+      <h2 id="create-listing">Create a listing people can trust</h2>
+      <ul>
+        <li>Use a specific title, clear NZD price and the correct category.</li>
+        <li>Add current photos that show the item and any significant wear or faults.</li>
+        <li>Describe condition, included accessories, location and collection or delivery options honestly.</li>
+        <li>Do not list prohibited, illegal, stolen, counterfeit or misleading items.</li>
+      </ul>
 
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Seller Guidelines</h1>
-        <p className="mt-4 text-lg leading-relaxed text-[var(--muted)]">
-          Sell on Sky Drop by listing clearly and messaging buyers. Purchases are arranged directly in chat —
-          not through online checkout.
-        </p>
+      <h2 id="awhina">Use Āwhina as a starting point</h2>
+      <p>Āwhina can help turn a description or supported photo input into a draft listing. Check every generated title, description, price suggestion and field before publishing. You are responsible for making sure your listing is accurate.</p>
+      <p><Link href="/post/ai">Start a listing with Āwhina</Link></p>
 
-        <Section title="Getting started">
-          <p>
-            Create a listing with Āwhina or the manual form. Add clear photos, an honest description, and a fair
-            NZD price. Identity verification is required before you can list.
-          </p>
-        </Section>
+      <h2 id="photos-and-pricing">Photos and pricing</h2>
+      <p>Good photos help buyers make a decision. Use enough light, show important angles and include damage rather than hiding it. A price suggestion is not a valuation or a promise that an item will sell. Consider condition, demand and comparable local listings when choosing your price.</p>
 
-        <Section title="Fees">
-          <p>
-            Listing is <strong className="text-[var(--foreground)]">free</strong>. There are no subscription fees.
-            Optional paid boosts may be available for top placement — fees are shown before you pay.
-          </p>
-          <p className="mt-2">
-            Marketplace deals are messaging-first. Sky Drop does not charge Stripe-style processing fees on listing
-            sales because we do not process those payments.
-          </p>
-        </Section>
+      <h2 id="messages">Messages and arranging a sale</h2>
+      <p>Buyers contact you through Message Seller. Keep the item, price, payment method and pickup or delivery plan clear in Messages. Sky Drop does not process marketplace payment or hold funds, so you and the buyer decide how to complete the arrangement.</p>
+      <ul>
+        <li>Do not send an item or hand it over until you are satisfied the agreed arrangement is complete.</li>
+        <li>For collection, use a safe location and be clear about the time and any conditions.</li>
+        <li>Do not ask buyers for passwords, banking logins or one-time codes.</li>
+      </ul>
 
-        <Section title="Getting paid" id="arrange-payment">
-          <p>
-            Buyers tap <strong className="text-[var(--foreground)]">Message Seller</strong>. Agree on price,
-            payment method, and pickup or delivery in Messages.
-          </p>
-          <p className="mt-2">{V1_ARRANGE_SAFETY_ONE_LINER}</p>
-          <p className="mt-2">
-            Optional: add bank account name and number in Profile so buyers can copy details in chat. Keep
-            communication on Sky Drop so both of you have a record.
-          </p>
-        </Section>
+      <h2 id="after-sale">After the sale</h2>
+      <p>Update or remove a listing when it is no longer available. Eligible completed transaction records may support reviews; reviews are not a substitute for accurate information or safe trading practices.</p>
 
-        <Section title="Listing rules">
-          <ul className="list-disc space-y-1 pl-5">
-            <li>Items must be legal to buy and sell in New Zealand</li>
-            <li>Use accurate photos and descriptions — no stock images for used goods</li>
-            <li>Price in NZD</li>
-            <li>No weapons, drugs, counterfeit or stolen goods, or other prohibited items</li>
-            <li>No duplicate listings for the same item</li>
-          </ul>
-        </Section>
-
-        <Section title="After someone messages you">
-          <ul className="list-disc space-y-1 pl-5">
-            <li>Reply promptly and keep agreements clear in chat</li>
-            <li>Confirm pickup time/place or shipping details before payment</li>
-            <li>For physical goods, meet in public when possible</li>
-          </ul>
-        </Section>
-
-        <Section title="Prohibited conduct">
-          <ul className="list-disc space-y-1 pl-5">
-            <li>Do not pressure buyers to leave Sky Drop Messages before terms are agreed</li>
-            <li>No fake listings, deceptive pricing, harassment, or spam</li>
-            <li>Violations may result in suspension or permanent ban</li>
-          </ul>
-        </Section>
-
-        <Section title="Tips">
-          <ul className="list-disc space-y-1 pl-5">
-            <li>Clear photos sell faster</li>
-            <li>Respond quickly</li>
-            <li>Be honest about condition and flaws</li>
-          </ul>
-        </Section>
-
-        <div className="mt-12 flex flex-wrap gap-3">
-          <Link href="/post/ai" className="btn btn-primary">
-            Create a listing
-          </Link>
-          <Link href="/faqs" className="btn btn-secondary">
-            FAQs
-          </Link>
-        </div>
-      </section>
-    </main>
+      <h2 id="responsibilities">Your responsibilities</h2>
+      <p>Be truthful, respectful and compliant with New Zealand law. Whether consumer-law obligations apply can depend on whether you are trading or selling privately and on the circumstances. This guide is not legal advice. For general information, see <a href="https://www.consumerprotection.govt.nz/general-help/consumer-laws/consumer-guarantees-act" target="_blank" rel="noreferrer">Consumer Protection&apos;s Consumer Guarantees Act guidance</a>.</p>
+      <p><Link href="/buyer-protection">Read safety advice</Link> before arranging collection, delivery or payment.</p>
+    </HelpTrustLayout>
   );
 }

@@ -1,134 +1,47 @@
-"use client";
+import type { Metadata } from "next";
+import HelpTrustLayout from "../components/HelpTrustLayout";
 
-import Link from "next/link";
-import Navbar from "../components/Navbar";
-import Background from "../components/Background";
+export const metadata: Metadata = {
+  title: "Terms",
+  description: "The terms for using Sky Drop's New Zealand marketplace.",
+  alternates: { canonical: "/terms" },
+};
 
-const sections = [
-  {
-    id: "intro",
-    title: "Introduction",
-    content:
-      "Sky Drop is a New Zealand online marketplace that connects buyers and sellers. By using this platform, you agree to these terms. If you don't agree, please don't use the site. We may update these terms from time to time, and continued use means you accept any changes.",
-  },
-  {
-    id: "accounts",
-    title: "Accounts",
-    content:
-      "You're responsible for keeping your account secure. Don't share your password or let anyone else use your account. You must be at least 18 years old to use Sky Drop. We reserve the right to suspend or close accounts that violate these terms or engage in suspicious or fraudulent activity.",
-  },
-  {
-    id: "fraud",
-    title: "Fraud & Illegal Activity",
-    content:
-      "Sky Drop has a zero-tolerance policy for scams, fraud, and illegal activity. Any user found attempting to defraud, deceive, or harm other users — including chargeback fraud, fake listings, non-delivery after payment, or any other dishonest behaviour — will have their account permanently removed from the platform.",
-  },
-  {
-    id: "listings",
-    title: "Listings & Sales",
-    content:
-      "Listings must be accurate and describe the item honestly. Include clear photos, a fair price, and the correct condition. You may not list items you don't own or have permission to sell. All sales are between the buyer and seller — Sky Drop facilitates the connection but is not a party to the transaction.",
-  },
-  {
-    id: "payments",
-    title: "Payments",
-    content:
-      "Marketplace purchases on Sky Drop are arranged directly between buyer and seller in Messages. Sky Drop does not process card checkout, hold funds, or guarantee refunds for those deals. Optional paid upgrades (such as promoted listings) may incur a fee, which is shown before you pay. Attempting to scam other users, pressure off-platform payments before agreeing terms in chat, or abuse the platform is prohibited and may result in account removal.",
-  },
-  {
-    id: "prohibited",
-    title: "Prohibited Items",
-    content:
-      "Weapons, explosives, illegal drugs, stolen goods, counterfeit items, and anything that violates New Zealand law is banned from Sky Drop. We also prohibit dangerous items, adult content, and anything we reasonably consider harmful to the community. Listings found in violation will be removed without notice and reported to authorities where required.",
-  },
-  {
-    id: "disputes",
-    title: "Disputes & Reports",
-    content:
-      "If something goes wrong, try to resolve it directly with the other party in Messages first. If you believe marketplace rules were broken, report the listing or user. Sky Drop may review available evidence and suspend or remove accounts at our discretion. Sky Drop does not process refunds for payments made outside the platform.",
-  },
-  {
-    id: "liability",
-    title: "Limitation of Liability",
-    content:
-      "Sky Drop is provided 'as is' and we make no guarantees about the platform's availability or the behaviour of its users. To the extent permitted by New Zealand law, we are not liable for any loss or damage arising from your use of the site, including failed transactions, misrepresented items, or disputes between users. This does not limit our right to pursue legal action against fraudulent users.",
-  },
-];
-
-function SectionCard({ num, title, content, id }: { num: number; title: string; content: string; id: string }) {
-  return (
-    <div id={id} className="scroll-mt-24 rounded-xl border border-zinc-800 bg-zinc-900/40 p-6">
-      <div className="flex items-start gap-4">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm font-black text-sky-400">
-          {num}
-        </span>
-        <div>
-          <h2 className="text-base font-black text-[var(--foreground)]">{title}</h2>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">{content}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
+const toc = [
+  ["acceptance", "1. Using Sky Drop"], ["accounts", "2. Accounts"], ["listings", "3. Listings"], ["arrangements", "4. Direct arrangements"], ["conduct", "5. Conduct"], ["reports", "6. Reports"], ["availability", "7. Availability"], ["liability", "8. Liability"], ["changes", "9. Changes and contact"],
+] as const;
 
 export default function TermsPage() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] transition-colors duration-300">
-      <Background />
-      <Navbar />
-      <section className="relative z-10 mx-auto max-w-3xl px-6 py-12">
+    <HelpTrustLayout activePath="/terms" eyebrow="Legal" title="Terms of use" intro="These terms govern your use of Sky Drop. Please read them before using the marketplace." toc={toc.map(([id, label]) => ({ id, label }))}>
+      <p>Last updated: 15 August 2026.</p>
+      <h2 id="acceptance">1. Using Sky Drop</h2>
+      <p>Sky Drop is a New Zealand online marketplace that helps users publish listings and communicate with each other. By using Sky Drop, you agree to these terms and applicable law. If you do not agree, do not use the service.</p>
 
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Back
-          </Link>
-        </div>
+      <h2 id="accounts">2. Accounts</h2>
+      <p>You are responsible for information and activity associated with your account and for keeping your credentials secure. Do not share your password or use another person&apos;s account without permission. We may restrict or close accounts that breach these terms, create security risks or appear fraudulent.</p>
 
-        <div className="mb-8">
-          <p className="text-xs uppercase tracking-wider text-[var(--muted)]">Legal</p>
-          <h1 className="mt-1 text-2xl font-black text-[var(--foreground)]">Terms of Service</h1>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-            The rules that govern your use of Sky Drop.
-          </p>
-        </div>
+      <h2 id="listings">3. Listings</h2>
+      <p>Listings must be accurate, lawful and not misleading. You must have the right to offer what you list. Do not list stolen goods, counterfeit goods, illegal goods, prohibited items, deceptive listings, spam or content that infringes another person&apos;s rights. We may remove listings that do not meet these requirements.</p>
 
-        {/* Table of contents */}
-        <nav className="mb-10 rounded-xl border border-zinc-800 bg-zinc-900/30 p-5">
-          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Jump to</p>
-          <ul className="space-y-1.5">
-            {sections.map((s, i) => (
-              <li key={s.id}>
-                <a
-                  href={`#${s.id}`}
-                  className="flex items-center gap-3 text-sm text-sky-400 transition hover:text-sky-300"
-                >
-                  <span className="flex h-5 w-5 items-center justify-center rounded bg-zinc-800 text-[10px] font-bold text-zinc-400">
-                    {i + 1}
-                  </span>
-                  {s.title}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
+      <h2 id="arrangements">4. Direct arrangements between users</h2>
+      <p>Sky Drop&apos;s current marketplace model is messaging-first. Buyers and sellers arrange payment, pickup or delivery directly with each other. Sky Drop is not the seller or buyer of a listed item, does not provide marketplace checkout or escrow, does not hold funds, and does not guarantee a transaction, delivery or refund for a direct arrangement.</p>
+      <p>Users must make their own decisions about payment, collection, delivery and counterparties. Keep relevant terms in Messages and use reasonable care.</p>
 
-        <div className="space-y-5">
-          {sections.map((section, i) => (
-            <SectionCard key={section.id} num={i + 1} title={section.title} content={section.content} id={section.id} />
-          ))}
-        </div>
+      <h2 id="conduct">5. Conduct</h2>
+      <p>Do not scam, harass, impersonate, misrepresent an item, request passwords or one-time codes, interfere with the platform, or use Sky Drop for unlawful activity. You must not pressure another user into an unsafe arrangement. We may suspend or remove access where we reasonably believe this is necessary to protect users or the service.</p>
 
-        <p className="mt-10 text-center text-xs text-[var(--muted)]">
-          Last updated: June 2026
-        </p>
-      </section>
+      <h2 id="reports">6. Reports and enforcement</h2>
+      <p>You can report a listing, user or message through available reporting controls. We may review available information and take action under these terms. Reporting does not make Sky Drop a party to a transaction and does not require us to recover money or resolve every dispute.</p>
 
-    </main>
+      <h2 id="availability">7. Availability and changes</h2>
+      <p>We aim to keep Sky Drop available and useful, but do not promise uninterrupted or error-free access. Features may change, be paused or be removed. We may update these terms by publishing a revised version; continued use after publication means you accept the updated terms to the extent permitted by law.</p>
+
+      <h2 id="liability">8. Liability</h2>
+      <p>To the extent permitted by New Zealand law, Sky Drop is not liable for loss arising from user-generated listings, direct arrangements between users, or your use of the service. Nothing in these terms excludes rights that cannot lawfully be excluded.</p>
+
+      <h2 id="changes">9. Changes and contact</h2>
+      <p>If you have a question about these terms, contact <a href="mailto:support@skydrop.co.nz">support@skydrop.co.nz</a>. These terms should be reviewed by qualified New Zealand legal counsel before relying on them as a complete legal agreement.</p>
+    </HelpTrustLayout>
   );
 }

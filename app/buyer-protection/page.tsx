@@ -1,88 +1,45 @@
-import Navbar from "../components/Navbar";
-import Background from "../components/Background";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { Metadata } from "next";
-import { V1_ARRANGE_SAFETY_ONE_LINER } from "../lib/conversation-safety";
+import HelpTrustLayout from "../components/HelpTrustLayout";
 
 export const metadata: Metadata = {
-  title: "Stay Safe — Sky Drop NZ",
-  description:
-    "Sky Drop safety tips for New Zealand buyers and sellers. Message the seller, arrange purchase directly, meet in public, and verify items before paying.",
-  keywords:
-    "Sky Drop safety, meet safely NZ, marketplace tips, message seller, local buying NZ",
+  title: "Stay Safe",
+  description: "Practical safety advice for arranging a purchase directly with a seller on Sky Drop.",
+  alternates: { canonical: "/buyer-protection" },
 };
 
-/** Public safety page — messaging-first. No Stripe / escrow / buyer-protection claims. */
-export default function BuyerProtectionPage() {
+export default function StaySafePage() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
-      <Background />
-      <Navbar />
-      <section className="relative z-10 mx-auto max-w-3xl px-6 py-16 sm:py-24">
-        <Link
-          href="/"
-          className="mb-8 inline-flex items-center gap-2 text-sm text-[var(--muted)] transition-colors hover:text-sky-400"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Marketplace
-        </Link>
+    <HelpTrustLayout activePath="/buyer-protection" eyebrow="Trust & safety" title="Stay safe on Sky Drop" intro="Sky Drop is messaging-first: buyers and sellers arrange payment, pickup or delivery directly. Take time to check the details before you commit.">
+      <h2 id="before-you-buy">Before you buy</h2>
+      <ul>
+        <li>Read the listing carefully and ask about condition, availability, location and anything that matters to you.</li>
+        <li>Check the seller profile and any available verification or review information, but treat it as one signal—not a guarantee.</li>
+        <li>Keep price, item condition, payment and pickup or delivery details in Sky Drop Messages.</li>
+      </ul>
 
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Stay safe on Sky Drop</h1>
-        <p className="mt-4 text-lg leading-relaxed text-[var(--muted)]">
-          Sky Drop is messaging-first. Browse a listing, message the seller, and arrange the purchase
-          directly. We do not process online checkout or hold funds for marketplace deals.
-        </p>
+      <h2 id="paying-safely">Paying safely</h2>
+      <p>Sky Drop does not operate marketplace checkout, hold funds, provide escrow, or automatically refund direct arrangements. Agree the payment method directly with the seller. For a physical item, inspect it before payment where practical.</p>
+      <ul>
+        <li>Never share your password, bank login, card details or one-time verification code.</li>
+        <li>Do not rely only on a screenshot or email claiming a payment was made.</li>
+        <li>Be wary of requests for gift cards, cryptocurrency, overpayments or a fee to “release” money.</li>
+      </ul>
 
-        <div className="mt-8 rounded-2xl border border-sky-500/25 bg-sky-500/[0.06] p-5">
-          <p className="text-sm font-semibold text-sky-400">How buying works</p>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-            Browse / Search → Listing → Message Seller → Agree in chat → Pay or meet outside Sky Drop.
-          </p>
-          <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">{V1_ARRANGE_SAFETY_ONE_LINER}</p>
-        </div>
+      <h2 id="meeting-and-delivery">Pickup and delivery</h2>
+      <p>Choose a public, well-lit pickup place for physical items where possible. For higher-value items, consider taking someone with you. If delivery is involved, agree who is arranging it, the cost and what happens if it does not arrive before paying.</p>
 
-        <div className="mt-10 space-y-4">
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--soft-card)] p-5">
-            <h3 className="text-sm font-semibold text-[var(--foreground)]">Message the seller</h3>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-              Use Messages to agree on price, pickup or delivery, and payment. Keep the conversation on
-              Sky Drop so you both have a record.
-            </p>
-          </div>
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--soft-card)] p-5">
-            <h3 className="text-sm font-semibold text-[var(--foreground)]">Meet in public</h3>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-              For physical items, meet somewhere public and verify the item before paying. Do not share
-              bank passwords or one-time codes.
-            </p>
-          </div>
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--soft-card)] p-5">
-            <h3 className="text-sm font-semibold text-[var(--foreground)]">No platform payment processing</h3>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-              Sky Drop does not hold funds, process listing payments, or guarantee refunds for deals you
-              arrange with sellers. Report scams via Reports.
-            </p>
-          </div>
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--soft-card)] p-5">
-            <h3 className="text-sm font-semibold text-[var(--foreground)]">Verified sellers</h3>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-              Prefer sellers with identity verification. New sellers may have limits until they build
-              history.
-            </p>
-          </div>
-        </div>
+      <h2 id="scam-signs">Common scam signs</h2>
+      <ul>
+        <li>Pressure to pay immediately, especially before you have agreed the details.</li>
+        <li>A request to move to another app before the terms are clear.</li>
+        <li>Links or messages asking you to sign in, verify a bank account or provide a code.</li>
+        <li>A price that seems implausibly low, or a seller who will not answer basic questions about the item.</li>
+      </ul>
 
-        <div className="mt-10 flex flex-wrap gap-3">
-          <Link href="/messages" className="btn btn-primary">
-            Open Messages
-          </Link>
-          <Link href="/" className="btn btn-secondary">
-            Browse Listings
-          </Link>
-        </div>
-      </section>
-    </main>
+      <h2 id="reporting">Report a concern</h2>
+      <p>If a listing, seller or message breaks Sky Drop&apos;s rules, use the Report option on the listing, seller profile or conversation. Include the relevant facts and keep your messages available. Reports can help Sky Drop review account or listing conduct, but they do not reverse payments made directly between users.</p>
+      <p><Link href="/faqs">Read the FAQs</Link> for more help using the marketplace.</p>
+    </HelpTrustLayout>
   );
 }
