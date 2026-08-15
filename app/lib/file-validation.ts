@@ -19,7 +19,7 @@ function matchesSignature(buffer: Uint8Array, signature: Uint8Array): boolean {
   return true;
 }
 
-export async function validateFileSignature(file: File, expectedType: string): Promise<boolean> {
+export async function validateFileSignature(file: Blob, expectedType: string): Promise<boolean> {
   const signature = FILE_SIGNATURES[expectedType];
   if (!signature) return true; // Unknown type, skip validation
   
@@ -34,7 +34,31 @@ export async function validateFileSignature(file: File, expectedType: string): P
   }
   
   const buffer = await file.slice(0, signature.length).arrayBuffer();
-  return matchesSignature(new Uint8Array(buffer), signature);
+  if (!matchesSignature(new Uint8Array(buffer), signature)) return false;
+
+  // RIFF is a container format; require the WebP subtype rather than accepting
+  // arbitrary RIFF files (WAV/AVI) submitted with an image/webp MIME type.
+  if (expectedType === "image/webp") {
+    const webpHeader = new Uint8Array(await file.slice(8, 12).arrayBuffer());
+    return String.fromCharCode(...webpHeader) === "WEBP";
+  }
+
+  return true;
+}
+
+/**
+ * Image uploads must be a recognized binary image, not active text disguised
+ * behind an image MIME type or appended to a valid image as a polyglot.
+ */
+export async function validateImageUpload(file: Blob, expectedType: string): Promise<boolean> {
+  if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(expectedType)) {
+    return false;
+  }
+  if (!(await validateFileSignature(file, expectedType))) return false;
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const text = new TextDecoder().decode(bytes).toLowerCase();
+  return !/<(?:!doctype|html|svg|script|iframe|object|embed|body)\b/.test(text);
 }
 
 export function isSafeFileName(fileName: string): boolean {

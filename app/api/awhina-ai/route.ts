@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
-import { frictionLimit } from "../../lib/rate-limit";
+import { rateLimit } from "../../lib/rate-limit";
 import { parseIpFromRequest } from "../../lib/geo-check";
+import { isAdminUser } from "../../lib/admin-check.server";
 import {
   processAwhinaAIRequest,
   processAndExecuteAIRequest,
@@ -26,26 +27,24 @@ async function checkRateLimit(req: NextRequest) {
   }
 
   const limitKey = uid ? `awhina-ai:${uid}` : `awhina-ai:ip:${ip}`;
-  const max = uid ? 300 : 100;
-
-  await frictionLimit(limitKey, max, 15 * 60_000, {
-    ip,
-    uid: uid ?? undefined,
-    email,
-    action: "sky-ai-chat",
-  });
-
-  return { uid, email };
+  const limit = await rateLimit(limitKey, uid ? 80 : 15, 15 * 60_000);
+  return { uid, email, allowed: limit.allowed };
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { uid } = await checkRateLimit(req);
+    const { uid, email, allowed } = await checkRateLimit(req);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many Āwhina requests — please try again later." },
+        { status: 429 }
+      );
+    }
 
     const body = await req.json();
     const message = typeof body.message === "string" ? body.message.trim() : "";
     const pathname = typeof body.pathname === "string" ? body.pathname : "/";
-    const isAdmin = typeof body.isAdmin === "boolean" ? body.isAdmin : false;
+    const isAdmin = uid ? await isAdminUser(email, uid) : false;
     const executeTool = body.executeTool === true;
     const conversationHistory = Array.isArray(body.conversationHistory)
       ? body.conversationHistory.slice(-10)
@@ -95,6 +94,12 @@ export async function POST(req: NextRequest) {
         uid: uid || undefined,
         timestamp: Date.now(),
       });
+    }
+    if (!uid) {
+      return NextResponse.json(
+        { error: "Sign in to continue with personalised Āwhina help.", code: "auth_required" },
+        { status: 401 }
+      );
     }
 
     const request: AwhinaAIRequest = {

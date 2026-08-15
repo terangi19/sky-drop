@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
-import { frictionLimit } from "../../lib/rate-limit";
+import { rateLimit } from "../../lib/rate-limit";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import {
   findBestDestination,
@@ -130,15 +130,8 @@ async function checkRateLimit(req: NextRequest) {
   }
 
   const limitKey = uid ? `sky-ai:${uid}` : `sky-ai:ip:${ip}`;
-  const max = uid ? 500 : 100;
-  // Soft-limit: delay heavy users instead of hard 429 (listing creation must stay smooth).
-  await frictionLimit(limitKey, max, 15 * 60_000, {
-    ip,
-    uid: uid ?? undefined,
-    email,
-    action: "sky-ai-chat",
-  });
-  return { uid, email };
+  const limit = await rateLimit(limitKey, uid ? 120 : 20, 15 * 60_000);
+  return { uid, email, allowed: limit.allowed };
 }
 
 function parseListingContext(body: unknown): SkyAiListingContext | null {
@@ -398,7 +391,13 @@ function recordAwhinaQuality(
 
 export async function POST(req: NextRequest) {
   try {
-    const { uid, email } = await checkRateLimit(req);
+    const { uid, email, allowed } = await checkRateLimit(req);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many Āwhina requests — please try again later." },
+        { status: 429 }
+      );
+    }
 
     const body = await req.json();
     const message = typeof body.message === "string" ? body.message.trim() : "";
@@ -414,6 +413,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Message or image required (max 4000 chars)" },
         { status: 400 }
+      );
+    }
+    // Guest chat may use deterministic help, but every OpenAI-backed capability
+    // requires an authenticated Firebase identity.
+    if (images.length > 0 && !uid) {
+      return NextResponse.json(
+        { error: "Sign in to analyse listing photos.", code: "auth_required" },
+        { status: 401 }
       );
     }
 
@@ -849,6 +856,13 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Free-form capability (structured tools only — no prose action parsing) ──
+  if (!uid) {
+    return respondPayload(stream, {
+      reply: "Sign in to continue with personalised Āwhina help.",
+      source: "rules",
+      awhina: { routing: "guest_auth_gate", avoidedAi: true },
+    }, 401);
+  }
   const llm = await runFreeformCapability({
     message,
     pathname,

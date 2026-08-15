@@ -3,22 +3,20 @@ import { verifyIdToken, isAdminInitialized } from "../../lib/firebase-admin";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
 import { uploadBufferToStorage } from "../../lib/storage-upload.server";
+import { validateImageUpload } from "../../lib/file-validation";
 
 export const runtime = "nodejs";
 
-const MAX_BYTES = 12 * 1024 * 1024;
+const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
-  "image/heic",
-  "image/heif",
 ]);
 
 function isAllowedImage(blob: Blob): boolean {
-  const type = blob.type || "image/jpeg";
-  return ALLOWED_TYPES.has(type) || type.startsWith("image/");
+  return ALLOWED_TYPES.has(blob.type.toLowerCase());
 }
 
 export async function POST(req: NextRequest) {
@@ -56,23 +54,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No photo provided" }, { status: 400 });
     }
     if (full.size > MAX_BYTES) {
-      return NextResponse.json({ error: "Photo must be under 12 MB" }, { status: 400 });
+      return NextResponse.json({ error: "Photo must be under 10 MB" }, { status: 400 });
     }
     if (!isAllowedImage(full)) {
-      return NextResponse.json({ error: "Upload a JPEG, PNG, or WebP image" }, { status: 400 });
+      return NextResponse.json({ error: "Upload a JPEG, PNG, WebP, or GIF image" }, { status: 400 });
     }
 
     const thumbBlob = thumb instanceof Blob && thumb.size > 0 ? thumb : full;
     if (thumbBlob.size > MAX_BYTES) {
-      return NextResponse.json({ error: "Thumbnail must be under 12 MB" }, { status: 400 });
+      return NextResponse.json({ error: "Thumbnail must be under 10 MB" }, { status: 400 });
+    }
+    if (!isAllowedImage(thumbBlob)) {
+      return NextResponse.json({ error: "Thumbnail must be a valid image" }, { status: 400 });
+    }
+
+    if (
+      !(await validateImageUpload(full, full.type)) ||
+      !(await validateImageUpload(thumbBlob, thumbBlob.type))
+    ) {
+      return NextResponse.json(
+        { error: "Photo contents do not match the declared image type" },
+        { status: 400 }
+      );
     }
 
     const timestamp = Date.now();
-    const fullExt = (full.type || "image/webp").includes("jpeg") ? "jpg" : "webp";
-    const thumbExt = (thumbBlob.type || "image/webp").includes("jpeg") ? "jpg" : "webp";
+    const extensionForType = (type: string) =>
+      type === "image/jpeg" ? "jpg" : type === "image/png" ? "png" : type === "image/gif" ? "gif" : "webp";
+    const safeIndex = Number.isInteger(index) && index >= 0 && index < 100 ? index : 0;
+    const fullExt = extensionForType(full.type);
+    const thumbExt = extensionForType(thumbBlob.type);
 
-    const fullPath = `listings/${decoded.uid}/${timestamp}_${index}_full.${fullExt}`;
-    const thumbPath = `listings/${decoded.uid}/${timestamp}_${index}_thumb.${thumbExt}`;
+    const fullPath = `listings/${decoded.uid}/${timestamp}_${safeIndex}_full.${fullExt}`;
+    const thumbPath = `listings/${decoded.uid}/${timestamp}_${safeIndex}_thumb.${thumbExt}`;
 
     const fullBuffer = Buffer.from(await full.arrayBuffer());
     const thumbBuffer = Buffer.from(await thumbBlob.arrayBuffer());

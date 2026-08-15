@@ -6,8 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
-import { frictionLimit } from "../../lib/rate-limit";
-import { parseIpFromRequest } from "../../lib/geo-check";
+import { rateLimit } from "../../lib/rate-limit";
 import { isAwhinaVisionListingEnabledServer } from "../../lib/awhina-vision-listing-flags";
 import { runVisionListing } from "../../lib/awhina-vision-listing";
 import type { SkyAiListingContext } from "../../lib/sky-ai-types";
@@ -16,7 +15,6 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 async function checkRateLimit(req: NextRequest) {
-  const ip = parseIpFromRequest(req.headers);
   const authHeader = req.headers.get("authorization");
   let uid: string | null = null;
   let email = "";
@@ -31,17 +29,10 @@ async function checkRateLimit(req: NextRequest) {
     }
   }
 
-  const limitKey = uid ? `awhina-vision:${uid}` : `awhina-vision:ip:${ip}`;
-  const max = uid ? 40 : 12;
+  if (!uid) return { uid: null, email: "", allowed: false };
 
-  await frictionLimit(limitKey, max, 15 * 60_000, {
-    ip,
-    uid: uid ?? undefined,
-    email,
-    action: "sky-ai-chat",
-  });
-
-  return { uid, email };
+  const limit = await rateLimit(`awhina-vision:${uid}`, 40, 15 * 60_000);
+  return { uid, allowed: limit.allowed };
 }
 
 export async function POST(req: NextRequest) {
@@ -58,7 +49,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { uid } = await checkRateLimit(req);
+    const { uid, allowed } = await checkRateLimit(req);
+    if (!uid) {
+      return NextResponse.json(
+        { ok: false, error: "Sign in to analyse listing photos.", code: "auth_required" },
+        { status: 401 }
+      );
+    }
+    if (!allowed) {
+      return NextResponse.json(
+        { ok: false, error: "Too many photo analyses — please try again later." },
+        { status: 429 }
+      );
+    }
     const body = await req.json();
 
     const images = Array.isArray(body.images)

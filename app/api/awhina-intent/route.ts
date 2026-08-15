@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
-import { frictionLimit } from "../../lib/rate-limit";
+import { rateLimit } from "../../lib/rate-limit";
 import { parseIpFromRequest } from "../../lib/geo-check";
+import { isAdminUser } from "../../lib/admin-check.server";
 import {
   classifyIntentWithOpenAI,
   type AwhinaIntentContext,
@@ -25,26 +26,30 @@ async function checkRateLimit(req: NextRequest) {
   }
 
   const limitKey = uid ? `awhina-intent:${uid}` : `awhina-intent:ip:${ip}`;
-  const max = uid ? 200 : 50; // Intent classification is cheaper than full AI
-
-  await frictionLimit(limitKey, max, 15 * 60_000, {
-    ip,
-    uid: uid ?? undefined,
-    email,
-    action: "sky-ai-chat",
-  });
-
-  return { uid, email };
+  const limit = await rateLimit(limitKey, uid ? 80 : 10, 15 * 60_000);
+  return { uid, email, allowed: limit.allowed };
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { uid } = await checkRateLimit(req);
+    const { uid, email, allowed } = await checkRateLimit(req);
+    if (!uid) {
+      return NextResponse.json(
+        { error: "Sign in to use AI intent classification.", code: "auth_required" },
+        { status: 401 }
+      );
+    }
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many classification requests — please try again later." },
+        { status: 429 }
+      );
+    }
 
     const body = await req.json();
     const message = typeof body.message === "string" ? body.message.trim() : "";
     const pathname = typeof body.pathname === "string" ? body.pathname : "/";
-    const isAdmin = typeof body.isAdmin === "boolean" ? body.isAdmin : false;
+    const isAdmin = await isAdminUser(email, uid);
     const conversationHistory = Array.isArray(body.conversationHistory)
       ? body.conversationHistory.slice(-10) // Last 10 messages
       : [];
