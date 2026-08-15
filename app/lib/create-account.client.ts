@@ -1,5 +1,7 @@
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
+  signOut,
   type User,
 } from "firebase/auth";
 import {
@@ -121,7 +123,12 @@ export type CreateAccountInput = {
   inviteCode?: string;
 };
 
-export async function createSkyDropAccount(input: CreateAccountInput): Promise<User> {
+export type CreateAccountResult = {
+  user: User;
+  verificationSent: boolean;
+};
+
+export async function createSkyDropAccount(input: CreateAccountInput): Promise<CreateAccountResult> {
   const email = input.email.trim();
   const password = input.password;
 
@@ -153,9 +160,37 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<U
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   const user = cred.user;
 
+  const referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+  try {
+    await createProfileWithReservedUsername(
+      user.uid,
+      user.email || email,
+      {
+        phone: "",
+        phoneVerified: false,
+        referralCode,
+        memberSince: Timestamp.now(),
+        lastActive: Timestamp.now(),
+        createdAt: serverTimestamp(),
+      },
+      preferredUsername || undefined
+    );
+  } catch (error) {
+    // Auth and marketplace identity are one account-creation transaction from
+    // the seller's perspective. A newly created Auth-only user cannot use the
+    // marketplace and would make retrying with the same email impossible.
+    try {
+      await deleteUser(user);
+    } catch {
+      await signOut(auth).catch(() => {});
+    }
+    throw new Error("We couldn't finish setting up your account. Please try again.");
+  }
+
+  let verificationSent = false;
   try {
     const token = await user.getIdToken();
-    await fetch("/api/send-verification-email", {
+    const response = await fetch("/api/send-verification-email", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -163,24 +198,10 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<U
       },
       body: JSON.stringify({ email: user.email }),
     });
+    verificationSent = response.ok;
   } catch (e) {
     console.error("Email verification send failed:", e);
   }
-
-  const referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-  await createProfileWithReservedUsername(
-    user.uid,
-    user.email || email,
-    {
-      phone: "",
-      phoneVerified: false,
-      referralCode,
-      memberSince: Timestamp.now(),
-      lastActive: Timestamp.now(),
-      createdAt: serverTimestamp(),
-    },
-    preferredUsername || undefined
-  );
 
   const invite = input.inviteCode?.trim().toUpperCase();
   if (invite) {
@@ -203,5 +224,5 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<U
     }
   }
 
-  return user;
+  return { user, verificationSent };
 }

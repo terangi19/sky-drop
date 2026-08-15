@@ -82,4 +82,28 @@ test.describe("Authentication", () => {
       "/signup?redirect=%2Fmessages"
     );
   });
+
+  test("signup preserves only safe redirects", async ({ page }) => {
+    await page.goto("/signup?redirect=%2Fprofile");
+    await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login?redirect=%2Fprofile");
+
+    for (const redirect of ["/%252f%252fevil.example", "/%255c%255cevil.example", "javascript%3Aalert(1)"]) {
+      await page.goto(`/signup?redirect=${redirect}`);
+      await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
+    }
+  });
+
+  test("auth shells remain usable at mobile widths", async ({ page }) => {
+    for (const width of [320, 360, 390, 430]) {
+      await page.setViewportSize({ width, height: 844 });
+      for (const path of ["/login", "/signup", "/forgot-password"]) {
+        await page.goto(path);
+        const main = page.getByRole("main");
+        await expect(main).toBeVisible();
+        // Navbar search can be first in DOM but intentionally hidden on mobile.
+        await expect(main.locator("input:visible").first()).toBeVisible();
+        expect(await page.locator("body").evaluate((body) => body.scrollWidth <= window.innerWidth)).toBe(true);
+      }
+    }
+  });
 });

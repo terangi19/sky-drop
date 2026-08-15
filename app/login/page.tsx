@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
@@ -39,21 +39,23 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [redirectTo, setRedirectTo] = useState("");
+  const [redirectTo] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : sanitizeRedirectPath(new URLSearchParams(window.location.search).get("redirect"))
+  );
   const [user, setUser] = useState<User | null>(null);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const hasRedirected = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("signup") === "1" || params.get("mode") === "signup") {
       const qs = params.toString();
       router.replace(`/signup${qs ? `?${qs}` : ""}`);
-      return;
     }
-    const redir = sanitizeRedirectPath(params.get("redirect"));
-    if (redir) setRedirectTo(redir);
   }, [router]);
 
   useEffect(() => {
@@ -71,7 +73,8 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || hasRedirected.current) return;
+    hasRedirected.current = true;
     router.replace(redirectTo || "/");
   }, [user, redirectTo, router]);
 
@@ -96,7 +99,8 @@ export default function LoginPage() {
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
       showToast("Welcome back!", "success");
-      router.push(redirectTo || "/");
+      // onAuthStateChanged is the single redirect authority. It also covers
+      // persisted sessions resolving after a refresh.
     } catch (error) {
       showToast(loginAuthError(error), "error");
     } finally {
