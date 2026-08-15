@@ -23,24 +23,24 @@ export default function SellEmptyHero({
 
   return (
     <section
-      className="sell-empty-hero space-y-5 motion-safe:animate-[sellFade_180ms_ease-out]"
+      className="sell-empty-hero space-y-2 motion-safe:animate-[sellFade_180ms_ease-out] sm:space-y-5"
       aria-labelledby="sell-empty-heading"
     >
-      <div className="space-y-2 text-center sm:text-left">
+      <div className="text-center sm:space-y-2 sm:text-left">
         <h1
           id="sell-empty-heading"
-          className="text-[1.65rem] font-semibold tracking-tight text-[var(--foreground)] sm:text-3xl"
+          className="text-lg font-semibold leading-tight tracking-tight text-[var(--foreground)] sm:text-3xl"
         >
-          What are you selling?
+          Add a photo and Āwhina will build your listing
         </h1>
-        <p className="text-base font-medium leading-snug text-[var(--foreground)] sm:text-lg">
-          Add a photo and Āwhina will build your listing for you.
+        <p className="hidden text-base font-medium leading-snug text-[var(--foreground)] sm:block sm:text-lg">
+          Start with a clear photo.
         </p>
       </div>
 
       {children}
 
-      <p className="text-center text-sm leading-relaxed text-[var(--muted)] sm:text-left">
+      <p className="pt-1 text-center text-sm leading-relaxed text-[var(--muted)] sm:pt-0 sm:text-left">
         Āwhina identifies the item, writes the title and description, chooses the
         category, and fills visible details. You add price, location, and pickup
         or shipping.

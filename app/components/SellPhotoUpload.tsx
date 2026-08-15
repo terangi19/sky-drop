@@ -105,8 +105,8 @@ export default function SellPhotoUpload({
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
-            className={`flex flex-col items-center justify-center rounded-2xl border border-dashed px-5 text-center transition duration-150 ${
-              compactEmpty ? "min-h-0 py-6 sm:py-8" : "min-h-[14rem] py-10 sm:min-h-[16rem]"
+            className={`flex flex-col items-center justify-center rounded-2xl border border-dashed text-center transition duration-150 ${
+              compactEmpty ? "min-h-0 px-2.5 py-2 sm:px-5 sm:py-6" : "min-h-[14rem] px-5 py-10 sm:min-h-[16rem]"
             } ${dropClass}`}
           >
             {!compactEmpty ? (
@@ -140,18 +140,18 @@ export default function SellPhotoUpload({
                 {cameraFallbackMsg}
               </p>
             ) : null}
-            <div className={`flex w-full max-w-sm flex-col gap-2 sm:flex-row ${compactEmpty ? "" : "mt-5"}`}>
+            <div className={`flex w-full max-w-sm ${compactEmpty ? "flex-row gap-1.5" : "mt-5 flex-col gap-2 sm:flex-row"}`}>
               <button
                 type="button"
                 onClick={openCamera}
-                className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[var(--accent-primary)] px-3 py-2.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:px-4"
               >
                 Take Photo
               </button>
               <button
                 type="button"
                 onClick={openPicker}
-                className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-[var(--surface-3)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition duration-150 hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-[var(--surface-3)] px-3 py-2.5 text-sm font-medium text-[var(--foreground)] transition duration-150 hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:px-4"
               >
                 Choose Photos
               </button>

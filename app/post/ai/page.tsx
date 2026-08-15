@@ -2200,7 +2200,7 @@ export default function AIPostPage() {
       <Navbar />
       {imagePreviews.length > 0 && <img ref={imgRef} src={imagePreviews[0]} style={{display:'none'}} alt="" />}
 
-      <div className="sell-workspace relative z-10 mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-8 lg:px-10">
+      <div className={`sell-workspace relative z-10 mx-auto max-w-6xl px-4 sm:px-6 sm:py-8 lg:px-10 ${isFreshEmpty ? "py-1.5" : "py-5"}`}>
         {editLoading && (
           <div className="mb-6 flex items-center justify-center gap-3 py-3">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--accent-primary)]/70 border-t-transparent" />
@@ -2208,8 +2208,8 @@ export default function AIPostPage() {
           </div>
         )}
 
-        <header className="mb-5 sm:mb-6">
-          <Link href="/" className="mb-3 inline-flex min-h-[44px] items-center gap-1.5 text-sm text-[var(--muted)] transition duration-150 hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+        <header className={isFreshEmpty ? "mb-1 sm:mb-6" : "mb-5 sm:mb-6"}>
+          <Link href="/" className={`${isFreshEmpty ? "mb-0 min-h-9" : "mb-3 min-h-[44px]"} inline-flex items-center gap-1.5 text-sm text-[var(--muted)] transition duration-150 hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]`}>
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
           </Link>
@@ -3248,12 +3248,16 @@ export default function AIPostPage() {
         {/* CONVERSATION COLUMN */}
         {!editId && (
           <div
-            className={`mb-4 flex min-w-0 flex-col lg:mb-0 lg:sticky lg:top-20 lg:h-[min(78vh,760px)] lg:min-h-0 ${
+            className={`mb-4 min-w-0 flex-col lg:mb-0 lg:sticky lg:top-20 lg:flex lg:h-[min(78vh,760px)] lg:min-h-0 ${
               isFreshEmpty
                 ? "min-h-[min(42vh,360px)]"
                 : "min-h-[min(58vh,560px)]"
             } ${
-              showMobileTabs && mobileWorkspaceTab === "listing" ? "hidden lg:flex" : "flex"
+              isFreshEmpty
+                ? "hidden lg:flex"
+                : showMobileTabs && mobileWorkspaceTab === "listing"
+                  ? "hidden"
+                  : "flex"
             }`}
           >
             <div className="mb-2 flex items-center gap-2 px-0.5">
