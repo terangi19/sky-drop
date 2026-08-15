@@ -75,6 +75,11 @@ service cloud.firestore {
       allow update: if request.auth != null
 
         && (isSeller()
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny([
+              'sellerId', 'sellerEmail', 'sellerName', 'sellerUid', 'sellerPhotoURL',
+              'ownerId', 'userId', 'createdBy'
+            ])
 
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'updatedAt'])
 
@@ -97,7 +102,18 @@ service cloud.firestore {
 
         && request.auth.uid == profileId
 
-        && request.resource.data.email == request.auth.token.email;
+        && request.resource.data.email == request.auth.token.email
+        // Server-managed verification, reputation, and moderation state.
+        && !request.resource.data.keys().hasAny([
+          'kycApproved', 'kycReviewedAt', 'kycReviewedBy', 'kycBannedReason',
+          'trustedSeller', 'verified', 'topTrader', 'profileBadge', 'fastReply', 'riskFlag',
+          'badges', 'xp', 'level', 'salesCount', 'averageRating', 'reviewCount',
+          'followers', 'following', 'totalSales'
+        ])
+        && (!('kycStatus' in request.resource.data)
+          || request.resource.data.kycStatus == 'pending'
+          || request.resource.data.kycStatus == 'unsubmitted'
+          || request.resource.data.kycStatus == 'none');
 
       // Users can update their own profile, but CANNOT write server-managed fields:
 
@@ -163,7 +179,9 @@ service cloud.firestore {
 
         && request.resource.data.uid == request.auth.uid
 
-        && request.resource.data.email == request.auth.token.email;
+        && request.resource.data.email == request.auth.token.email
+
+        && request.resource.data.status == 'pending';
 
       // Owner may update only to resubmit (status reset to pending), not to approve themselves.
 
@@ -223,32 +241,10 @@ service cloud.firestore {
 
         && request.auth.token.email in resource.data.participants;
 
-      // Sender MUST match the authenticated user. System messages are server-only (Admin SDK).
-      // Note: Admin SDK bypasses these rules, so server can create system messages.
+      // All message mutations are mediated by API routes using Admin SDK.
+      allow create: if false; // server-only via /api/send-message
 
-      allow create: if request.auth != null
-
-        && request.resource.data.participants != null
-
-        && request.auth.token.email in request.resource.data.participants
-
-        && request.resource.data.sender == request.auth.token.email
-
-        && request.resource.data.sender != "system";
-
-      allow update: if request.auth != null
-
-        && resource.data.participants != null
-
-        && request.auth.token.email in resource.data.participants
-
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
-
-      allow delete: if request.auth != null
-
-        && resource.data.participants != null
-
-        && request.auth.token.email in resource.data.participants;
+      allow update, delete: if false;
 
     }
 
@@ -318,7 +314,11 @@ service cloud.firestore {
 
       allow update: if request.auth != null
 
-        && resource.data.reviewerEmail == request.auth.token.email;
+        && resource.data.reviewerEmail == request.auth.token.email
+
+        && request.resource.data.diff(resource.data).affectedKeys()
+
+          .hasOnly(['rating', 'text', 'comment', 'updatedAt']);
 
       allow delete: if request.auth != null
 
@@ -394,23 +394,8 @@ service cloud.firestore {
 
         && request.auth.token.email in resource.data.participants;
 
-      allow create: if request.auth != null
-
-        && request.resource.data.participants != null
-
-        && request.auth.token.email in request.resource.data.participants;
-
-      allow update: if request.auth != null
-
-        && resource.data.participants != null
-
-        && request.auth.token.email in resource.data.participants;
-
-      allow delete: if request.auth != null
-
-        && resource.data.participants != null
-
-        && request.auth.token.email in resource.data.participants;
+      // Conversation lifecycle is mediated by messaging and purchase APIs.
+      allow create, update, delete: if false;
 
     }
 
@@ -492,13 +477,7 @@ service cloud.firestore {
 
           || resource.data.followingId == request.auth.uid);
 
-      allow create: if request.auth != null
-
-        && request.resource.data.followerId == request.auth.uid;
-
-      allow delete: if request.auth != null
-
-        && resource.data.followerId == request.auth.uid;
+      allow create, update, delete: if false; // server-only via follow APIs
 
     }
 
@@ -522,11 +501,10 @@ service cloud.firestore {
 
     match /config/{docId} {
 
-      // Public UI: site-wide announcement banner + legendary claim toast
-
-      allow get: if docId in ['announcement', 'platform'];
-
-      allow read: if request.auth != null;
+      // Public UI reads only explicitly public documents. Sensitive config is admin-only.
+      allow get: if docId in ['announcement', 'platform']
+        || (request.auth != null && isAdmin());
+      allow list: if request.auth != null && isAdmin();
 
       allow write: if request.auth != null && isAdmin();
 
@@ -614,7 +592,12 @@ service cloud.firestore {
 
         && (resource.data.userId == request.auth.uid
 
-          || resource.data.userEmail == request.auth.token.email);
+          || resource.data.userEmail == request.auth.token.email)
+
+        // A watchlist document can never be reassigned to another account.
+        && !request.resource.data.diff(resource.data).affectedKeys()
+
+          .hasAny(['userId', 'userEmail']);
 
       allow delete: if request.auth != null
 

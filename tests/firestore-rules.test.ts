@@ -412,4 +412,386 @@ describe("Firestore Security Rules", () => {
       );
     });
   });
+
+  describe("P0 ownership and privilege escalation protections", () => {
+    it("blocks a user from creating a profile with privileged trust or KYC fields", async () => {
+      const alice = testEnv
+        .authenticatedContext("alice", { email: "alice@test.com", email_verified: true })
+        .firestore();
+
+      await assertFails(
+        alice.collection("profiles").doc("alice").set({
+          email: "alice@test.com",
+          trustedSeller: true,
+          kycApproved: true,
+          salesCount: 9999,
+          badges: ["verified"],
+        })
+      );
+    });
+
+    it("only permits pending KYC submissions on create", async () => {
+      const alice = testEnv
+        .authenticatedContext("alice-kyc", { email: "alice-kyc@test.com", email_verified: true })
+        .firestore();
+
+      await assertSucceeds(
+        alice.collection("kycSubmissions").doc("alice-kyc").set({
+          uid: "alice-kyc",
+          email: "alice-kyc@test.com",
+          status: "pending",
+        })
+      );
+      await assertFails(
+        alice.collection("kycSubmissions").doc("alice-kyc-approved").set({
+          uid: "alice-kyc",
+          email: "alice-kyc@test.com",
+          status: "approved",
+        })
+      );
+    });
+
+    it("blocks direct message creation, including a forged sender", async () => {
+      const bob = testEnv
+        .authenticatedContext("bob-message", { email: "bob@test.com", email_verified: true })
+        .firestore();
+
+      await assertFails(
+        bob.collection("messages").doc("forged-message").set({
+          participants: ["alice@test.com", "bob@test.com"],
+          sender: "alice@test.com",
+          text: "Forged message",
+        })
+      );
+    });
+
+    it("prevents a listing owner from transferring seller identity", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("listings").doc("alice-listing").set({
+          sellerId: "alice-listing",
+          sellerEmail: "alice-listing@test.com",
+          sellerName: "Alice",
+          title: "Camera",
+        });
+      });
+      const alice = testEnv
+        .authenticatedContext("alice-listing", { email: "alice-listing@test.com", email_verified: true })
+        .firestore();
+      const bob = testEnv
+        .authenticatedContext("bob-listing", { email: "bob-listing@test.com", email_verified: true })
+        .firestore();
+
+      await assertFails(
+        alice.collection("listings").doc("alice-listing").update({ sellerEmail: "bob-listing@test.com" })
+      );
+      await assertFails(bob.collection("listings").doc("alice-listing").update({ title: "Stolen camera" }));
+    });
+
+    it("freezes conversation participants and metadata and disallows client deletion", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("conversations").doc("alice-bob").set({
+          participants: ["alice-conv@test.com", "bob-conv@test.com"],
+          buyerEmail: "alice-conv@test.com",
+          sellerEmail: "bob-conv@test.com",
+          listingId: "listing-1",
+          lastMessage: "Hello",
+        });
+      });
+      const alice = testEnv
+        .authenticatedContext("alice-conv", { email: "alice-conv@test.com", email_verified: true })
+        .firestore();
+      const eve = testEnv
+        .authenticatedContext("eve-conv", { email: "eve-conv@test.com", email_verified: true })
+        .firestore();
+
+      await assertFails(
+        alice.collection("conversations").doc("alice-bob").update({
+          participants: ["alice-conv@test.com", "eve-conv@test.com"],
+        })
+      );
+      await assertFails(alice.collection("conversations").doc("alice-bob").delete());
+      await assertFails(eve.collection("conversations").doc("alice-bob").update({ lastMessage: "Hijacked" }));
+    });
+
+    it("limits review edits and prevents non-reviewers from editing", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("reviews").doc("alice-review").set({
+          reviewerEmail: "alice-review@test.com",
+          sellerEmail: "seller@test.com",
+          rating: 5,
+          text: "Great",
+          purchaseId: "purchase-1",
+        });
+      });
+      const alice = testEnv
+        .authenticatedContext("alice-review", { email: "alice-review@test.com", email_verified: true })
+        .firestore();
+      const bob = testEnv
+        .authenticatedContext("bob-review", { email: "bob-review@test.com", email_verified: true })
+        .firestore();
+
+      await assertFails(
+        alice.collection("reviews").doc("alice-review").update({ sellerEmail: "attacker@test.com" })
+      );
+      await assertFails(bob.collection("reviews").doc("alice-review").update({ rating: 1 }));
+    });
+
+    it("freezes watchlist ownership and blocks another user from editing it", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("watchlist").doc("alice-watch").set({
+          userId: "alice-watch",
+          userEmail: "alice-watch@test.com",
+          listingId: "listing-1",
+        });
+      });
+      const alice = testEnv
+        .authenticatedContext("alice-watch", { email: "alice-watch@test.com", email_verified: true })
+        .firestore();
+      const bob = testEnv
+        .authenticatedContext("bob-watch", { email: "bob-watch@test.com", email_verified: true })
+        .firestore();
+
+      await assertFails(
+        alice.collection("watchlist").doc("alice-watch").update({ userId: "bob-watch" })
+      );
+      await assertFails(bob.collection("watchlist").doc("alice-watch").update({ listingId: "listing-2" }));
+    });
+
+    it("blocks direct follower writes until they are server-mediated", async () => {
+      const alice = testEnv
+        .authenticatedContext("alice-follow", { email: "alice-follow@test.com", email_verified: true })
+        .firestore();
+
+      await assertFails(
+        alice.collection("followers").doc("alice-follows-bob").set({
+          followerId: "alice-follow",
+          followingId: "bob-follow",
+        })
+      );
+    });
+  });
+
+  describe("Cross-account integrity regressions", () => {
+    it("profile owner cannot create a pre-verified or privileged profile", async () => {
+      const alice = testEnv
+        .authenticatedContext("profile-alice", {
+          email: "profile-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+
+      await assertFails(
+        alice.collection("profiles").doc("profile-alice").set({
+          email: "profile-alice@test.com",
+          verified: true,
+          trustedSeller: true,
+          riskFlag: false,
+          xp: 100000,
+        })
+      );
+    });
+
+    it("profile create permits only a safe initial KYC status", async () => {
+      const alice = testEnv
+        .authenticatedContext("profile-kyc-alice", {
+          email: "profile-kyc-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+
+      await assertSucceeds(
+        alice.collection("profiles").doc("profile-kyc-alice").set({
+          email: "profile-kyc-alice@test.com",
+          kycStatus: "pending",
+        })
+      );
+      await assertFails(
+        alice.collection("profiles").doc("profile-kyc-approved").set({
+          email: "profile-kyc-alice@test.com",
+          kycStatus: "approved",
+        })
+      );
+    });
+
+    it("KYC submission owner cannot create an approved submission", async () => {
+      const alice = testEnv
+        .authenticatedContext("kyc-alice", {
+          email: "kyc-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+
+      await assertFails(
+        alice.collection("kycSubmissions").doc("kyc-alice").set({
+          uid: "kyc-alice",
+          email: "kyc-alice@test.com",
+          status: "approved",
+          idImageUrl: "https://example.test/id.jpg",
+        })
+      );
+    });
+
+    it("authenticated clients cannot create messages directly", async () => {
+      const alice = testEnv
+        .authenticatedContext("message-alice", {
+          email: "message-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+
+      await assertFails(
+        alice.collection("messages").doc("direct-bypass").set({
+          participants: ["message-alice@test.com", "victim@test.com"],
+          sender: "message-alice@test.com",
+          receiver: "victim@test.com",
+          text: "bypass",
+        })
+      );
+    });
+
+    it("conversation participants cannot create or take over conversations", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("conversations").doc("locked-conversation").set({
+          participants: ["conversation-alice@test.com", "conversation-bob@test.com"],
+          buyerEmail: "conversation-alice@test.com",
+          sellerEmail: "conversation-bob@test.com",
+          listingId: "listing-1",
+          lastMessage: "hello",
+        });
+      });
+
+      const alice = testEnv
+        .authenticatedContext("conversation-alice", {
+          email: "conversation-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+
+      await assertFails(
+        alice.collection("conversations").doc("client-created-conversation").set({
+          participants: ["conversation-alice@test.com", "victim@test.com"],
+          sellerEmail: "victim@test.com",
+        })
+      );
+      await assertFails(
+        alice.collection("conversations").doc("locked-conversation").update({
+          participants: ["conversation-alice@test.com", "victim@test.com"],
+          sellerEmail: "victim@test.com",
+        })
+      );
+    });
+
+    it("listing seller cannot transfer ownership identity", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("listings").doc("owned-listing").set({
+          title: "Owned item",
+          sellerId: "listing-alice",
+          sellerEmail: "listing-alice@test.com",
+          sellerName: "Alice",
+          ownerId: "listing-alice",
+          userId: "listing-alice",
+          createdBy: "listing-alice",
+        });
+      });
+
+      const alice = testEnv
+        .authenticatedContext("listing-alice", {
+          email: "listing-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        alice.collection("listings").doc("owned-listing").update({
+          ownerId: "listing-bob",
+          userId: "listing-bob",
+          createdBy: "listing-bob",
+        })
+      );
+    });
+
+    it("reviewer cannot rewrite review identity or purchase linkage", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("reviews").doc("immutable-review").set({
+          reviewerEmail: "review-alice@test.com",
+          revieweeId: "seller-1",
+          purchaseId: "purchase-1",
+          rating: 4,
+          text: "Good",
+        });
+      });
+
+      const alice = testEnv
+        .authenticatedContext("review-alice", {
+          email: "review-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        alice.collection("reviews").doc("immutable-review").update({
+          revieweeId: "victim-seller",
+          purchaseId: "purchase-2",
+        })
+      );
+      await assertSucceeds(
+        alice.collection("reviews").doc("immutable-review").update({
+          rating: 5,
+          text: "Excellent",
+        })
+      );
+    });
+
+    it("watchlist owner cannot transfer an entry to another account", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("watchlist").doc("owned-watch").set({
+          userId: "watch-alice",
+          userEmail: "watch-alice@test.com",
+          listingId: "listing-1",
+        });
+      });
+
+      const alice = testEnv
+        .authenticatedContext("watch-alice", {
+          email: "watch-alice@test.com",
+        })
+        .firestore();
+      await assertFails(
+        alice.collection("watchlist").doc("owned-watch").update({
+          userId: "watch-bob",
+          userEmail: "watch-bob@test.com",
+        })
+      );
+    });
+
+    it("clients cannot fabricate follower relationships", async () => {
+      const alice = testEnv
+        .authenticatedContext("follow-alice", {
+          email: "follow-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        alice.collection("followers").doc("victim_follow-alice").set({
+          followerId: "follow-alice",
+          sellerId: "victim",
+          followerEmail: "follow-alice@test.com",
+        })
+      );
+    });
+
+    it("non-admin users cannot read sensitive config documents", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("config").doc("adminEmails").set({
+          emails: ["admin@test.com"],
+        });
+      });
+
+      const alice = testEnv
+        .authenticatedContext("config-alice", {
+          email: "config-alice@test.com",
+        })
+        .firestore();
+      await assertFails(alice.collection("config").doc("adminEmails").get());
+      await assertSucceeds(alice.collection("config").doc("announcement").get());
+    });
+  });
 });
