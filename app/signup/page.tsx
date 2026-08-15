@@ -175,6 +175,8 @@ export default function SignupPage() {
 
   async function handleChangeEmail() {
     await signOut(auth).catch(() => {});
+    const { publishAuthBroadcast } = await import("../lib/auth-broadcast");
+    publishAuthBroadcast({ type: "signed-out" });
     setShowVerificationSent(false);
     setVerificationDeliveryFailed(false);
     setEmail("");

@@ -388,6 +388,8 @@ export default function Navbar() {
 
   async function handleLogout() {
     await signOut(auth);
+    const { publishAuthBroadcast } = await import("../lib/auth-broadcast");
+    publishAuthBroadcast({ type: "signed-out" });
   }
 
   function toggleTheme() {

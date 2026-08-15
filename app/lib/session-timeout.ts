@@ -1,5 +1,6 @@
 import { signOut } from "firebase/auth";
 import { auth } from "./firebase";
+import { publishAuthBroadcast } from "./auth-broadcast";
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const WARNING_TIMEOUT_MS = 25 * 60 * 1000; // 25 minutes (5 min warning)
@@ -49,6 +50,7 @@ function resetSessionTimeout(onTimeout: () => void, onWarning?: () => void): voi
     if (timeSinceActivity >= SESSION_TIMEOUT_MS) {
       try {
         await signOut(auth);
+        publishAuthBroadcast({ type: "signed-out" });
         onTimeout();
       } catch (e) {
         console.error('Auto-logout failed:', e);

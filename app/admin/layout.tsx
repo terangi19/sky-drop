@@ -74,8 +74,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (activityTimeoutRef.current) {
         clearTimeout(activityTimeoutRef.current);
       }
-      activityTimeoutRef.current = setTimeout(() => {
-        auth.signOut();
+      activityTimeoutRef.current = setTimeout(async () => {
+        await auth.signOut().catch(() => {});
+        const { publishAuthBroadcast } = await import("../lib/auth-broadcast");
+        publishAuthBroadcast({ type: "signed-out" });
         window.location.href = "/admin";
       }, ADMIN_SESSION_TIMEOUT_MS);
     };

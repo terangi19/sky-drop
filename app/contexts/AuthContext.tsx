@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
 import { resetAuthReadyCache } from "../lib/auth-session";
+import { subscribeAuthBroadcast } from "../lib/auth-broadcast";
 
 interface AuthContextType {
   user: User | null;
@@ -24,8 +25,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
       setLoading(false);
     });
+    const unsubscribeBroadcast = subscribeAuthBroadcast((message) => {
+      if (message.type === "signed-out") {
+        setUser(null);
+        setLoading(false);
+        resetAuthReadyCache();
+      }
+    });
     return () => {
       unsubscribe();
+      unsubscribeBroadcast();
       resetAuthReadyCache();
     };
   }, []);

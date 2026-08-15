@@ -46,6 +46,7 @@ import { isAdminEmail } from "../lib/admin-check";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
+import { subscribeAuthBroadcast } from "../lib/auth-broadcast";
 import { sendPhoneCode, verifyPhoneCode, maskPhone, isPhoneDevMode, formatNZPhone } from "../lib/phone-auth";
 import { claimVerifiedPhoneOnServer } from "../lib/phone-verification-client";
 import { checkImage } from "../lib/nsfw";
@@ -499,7 +500,17 @@ const tabGroups = [
         referralInitRef.current = false;
       }
     });
-    return () => unsub();
+    const unsubBroadcast = subscribeAuthBroadcast((message) => {
+      if (message.type === "signed-out") {
+        setUser(null);
+        setLoading(false);
+        referralInitRef.current = false;
+      }
+    });
+    return () => {
+      unsub();
+      unsubBroadcast();
+    };
   }, []);
 
   // Fetch profile with getDoc + polling (60 seconds) instead of real-time for cost optimization
