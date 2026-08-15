@@ -10,10 +10,12 @@ type Props = {
   flashTitle?: boolean;
   flashPrice?: boolean;
   isReady?: boolean;
+  isReviewing?: boolean;
   showManualEditor: boolean;
   hasDraft: boolean;
   awhinaIsAsking?: boolean;
   onReview: () => void;
+  onPublish: () => void;
   onEditDetails: () => void;
   onDoneEditing: () => void;
   onAnswerAwhina?: () => void;
@@ -32,10 +34,12 @@ export default function SellListingPreviewCard({
   flashTitle,
   flashPrice,
   isReady,
+  isReviewing,
   showManualEditor,
   hasDraft,
   awhinaIsAsking,
   onReview,
+  onPublish,
   onEditDetails,
   onDoneEditing,
   onAnswerAwhina,
@@ -101,7 +105,15 @@ export default function SellListingPreviewCard({
         )}
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-0.5">
-          {isReady ? (
+          {isReviewing ? (
+            <button
+              type="button"
+              onClick={onPublish}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            >
+              Publish listing
+            </button>
+          ) : isReady ? (
             <button
               type="button"
               onClick={onReview}

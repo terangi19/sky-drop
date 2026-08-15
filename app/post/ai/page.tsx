@@ -242,6 +242,8 @@ export default function AIPostPage() {
   const [liveFieldNotes, setLiveFieldNotes] = useState<string[]>([]);
   /** Manual form opens via Edit details — default clean preview when draft exists */
   const [showManualEditor, setShowManualEditor] = useState(false);
+  /** Review is intentionally distinct from editing: preview first, then publish. */
+  const [isReviewing, setIsReviewing] = useState(false);
   const awhinaConversation = useAwhinaConversation();
   const handoffBootstrapped = useRef(false);
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
@@ -384,6 +386,7 @@ export default function AIPostPage() {
   const showMobileTabs = !editId && !isFreshEmpty;
 
   const openManualEditor = () => {
+    setIsReviewing(false);
     setShowManualEditor(true);
     setMobileWorkspaceTab("listing");
     setTimeout(() => {
@@ -394,6 +397,15 @@ export default function AIPostPage() {
 
   const closeManualEditor = () => {
     setShowManualEditor(false);
+  };
+
+  const startReview = () => {
+    setShowManualEditor(false);
+    setIsReviewing(true);
+    setMobileWorkspaceTab("listing");
+    setTimeout(() => {
+      document.getElementById("live-listing-draft")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   };
 
   const focusAwhinaWorkspace = () => {
@@ -409,6 +421,7 @@ export default function AIPostPage() {
   /** Sticky publish: mobile listing/review only when ready — never over composer. */
   const showStickyPublish =
     !editId &&
+    isReviewing &&
     isReadyToReview &&
     showMobileTabs &&
     mobileWorkspaceTab === "listing";
@@ -2415,10 +2428,12 @@ export default function AIPostPage() {
               flashTitle={draftFlash("title") || draftFlash("make") || draftFlash("model")}
               flashPrice={draftFlash("price")}
               isReady={isReadyToReview}
+              isReviewing={isReviewing}
               showManualEditor={showManualEditor}
               hasDraft={hasDraftContent}
               awhinaIsAsking={awhinaIsAsking}
-              onReview={openManualEditor}
+              onReview={startReview}
+              onPublish={createListing}
               onEditDetails={openManualEditor}
               onDoneEditing={closeManualEditor}
               onAnswerAwhina={focusAwhinaWorkspace}
@@ -2491,7 +2506,7 @@ export default function AIPostPage() {
           </div>
 
           <div className="space-y-4">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">Essentials</p>
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">Basics</p>
             <div className="space-y-1.5">
               <label htmlFor="listing-title" className="block text-xs font-medium text-[var(--muted)]">Title</label>
               <input
@@ -2533,27 +2548,34 @@ export default function AIPostPage() {
               {(listingType === "physical" || listingType === "vehicle") && (
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-[var(--muted)]">Condition</label>
-                  <select
-                    value={condition}
-                    onChange={(e) => { setCondition(e.target.value); markField("condition"); }}
-                    className="w-full cursor-pointer appearance-none rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-3)] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent-primary)]/45 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                  >
-                    <option value="" className="bg-[var(--surface-2)] text-[var(--muted)]">Select condition</option>
-                    <option className="bg-[var(--surface-2)] text-[var(--foreground)]">New</option>
-                    <option className="bg-[var(--surface-2)] text-[var(--foreground)]">Used - Like New</option>
-                    <option className="bg-[var(--surface-2)] text-[var(--foreground)]">Used - Good</option>
-                    <option className="bg-[var(--surface-2)] text-[var(--foreground)]">Used - Fair</option>
-                  </select>
+                  <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Condition">
+                    {[
+                      ["New", "New"],
+                      ["Used - Like New", "Like new"],
+                      ["Used - Good", "Good"],
+                      ["Used - Fair", "Fair"],
+                    ].map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => { setCondition(value); markField("condition"); }}
+                        className={`min-h-[40px] rounded-lg border px-2 text-xs font-medium transition ${
+                          condition === value
+                            ? "border-[var(--accent-primary)]/55 bg-[var(--accent-primary)]/10 text-[var(--accent-star)]"
+                            : "border-[var(--border-subtle)] bg-[var(--surface-3)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            <details className="group rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-3)]/40 open:bg-transparent open:border-0">
-              <summary className="cursor-pointer list-none px-1 py-2 text-xs font-medium text-[var(--muted)] transition hover:text-[var(--foreground)] [&::-webkit-details-marker]:hidden">
-                <span className="inline-flex min-h-[44px] items-center">Description {description.trim() ? "· edit" : "· add"}</span>
-              </summary>
-              <div className="space-y-1.5 pb-1">
-                <label htmlFor="listing-description" className="sr-only">Description</label>
+            <div className="space-y-1.5 pt-1">
+              <label htmlFor="listing-description" className="block text-xs font-medium text-[var(--muted)]">Description</label>
+              <div className="space-y-1.5">
                 <textarea
                   id="listing-description"
                   value={description}
@@ -2573,7 +2595,7 @@ export default function AIPostPage() {
                   )}
                 </div>
               </div>
-            </details>
+            </div>
           </div>
 
           {listingType === "vehicle" && (
@@ -3115,31 +3137,45 @@ export default function AIPostPage() {
           {(listingType === "physical" || listingType === "vehicle") && (
           <div className="rounded-xl bg-white/[0.03] p-4">
             <div className="mb-3">
-              <label className="text-sm font-bold text-[var(--foreground)]">Delivery Options</label>
+              <label className="text-sm font-bold text-[var(--foreground)]">Location & delivery</label>
             </div>
-            <p className="mb-3 text-[10px] text-[var(--muted)]">Select how buyers can receive the item. You can offer both pickup and shipping.</p>
+            <p className="mb-3 text-[10px] text-[var(--muted)]">Choose how buyers can receive the item.</p>
             <div className="space-y-3">
-              <label className="flex cursor-pointer items-center gap-2.5">
-                <input type="checkbox" checked={pickupAvailable} onChange={(e) => setPickupAvailable(e.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
-                <span className="text-sm text-[var(--foreground)]">Pickup available</span>
-              </label>
+              <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Delivery method">
+                {[
+                  { label: "Pickup", pickup: true, shipping: false },
+                  { label: "Shipping", pickup: false, shipping: true },
+                  { label: "Both", pickup: true, shipping: true },
+                ].map((option) => {
+                  const selected = pickupAvailable === option.pickup && shippingAvailable === option.shipping;
+                  return (
+                    <button
+                      key={option.label}
+                      type="button"
+                      onClick={() => { setPickupAvailable(option.pickup); setShippingAvailable(option.shipping); }}
+                      className={`min-h-[42px] rounded-lg border px-2 text-xs font-medium transition ${
+                        selected
+                          ? "border-[var(--accent-primary)]/55 bg-[var(--accent-primary)]/10 text-[var(--accent-star)]"
+                          : "border-[var(--border-subtle)] bg-[var(--surface-3)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
               {pickupAvailable && (
-                <div className="ml-7">
+                <div>
                   <input type="text" value={pickupArea} onChange={(e) => setPickupArea(e.target.value)}
                     placeholder="Pickup location"
                     className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                   <p className="mt-1 text-[10px] text-[var(--muted)]">Buyers will pick up the item from your location.</p>
                 </div>
               )}
+              {shippingAvailable && (
               <div className="border-t border-[var(--border)] pt-3 mt-3 space-y-3">
-                <label className="flex cursor-pointer items-center gap-2.5">
-                  <input type="checkbox" checked={shippingAvailable} onChange={(e) => setShippingAvailable(e.target.checked)}
-                    className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
-                  <span className="text-sm text-[var(--foreground)]">Shipping available</span>
-                </label>
                 {shippingAvailable && (
-                  <div className="ml-7">
+                  <div>
                     <label className="flex cursor-pointer items-center gap-2">
                       <input type="checkbox" checked={freeShipping} onChange={(e) => { setFreeShipping(e.target.checked); if (e.target.checked) setShippingFee(""); }}
                         className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
@@ -3159,6 +3195,7 @@ export default function AIPostPage() {
                   </div>
                 )}
               </div>
+              )}
             </div>
           </div>
           )}
@@ -3181,14 +3218,28 @@ export default function AIPostPage() {
             </label>
           </div>
 
-          <button
-            id="listing-submit-btn"
-            onClick={createListing}
-            disabled={loading || editLoading}
-            className="mt-2 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[var(--accent-primary)] py-3.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-40"
-          >
-            {loading ? "Saving…" : autoPublish && !editId ? "Generate with AI" : editId ? "Save changes" : "Publish listing"}
-          </button>
+          {editId ? (
+            <button
+              id="listing-submit-btn"
+              onClick={createListing}
+              disabled={loading || editLoading}
+              className="mt-2 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[var(--accent-primary)] py-3.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-40"
+            >
+              {loading ? "Saving…" : "Save changes"}
+            </button>
+          ) : (
+            <>
+              {/* Preserves the explicit voice publish action without showing a second CTA. */}
+              <button id="listing-submit-btn" type="button" onClick={createListing} className="hidden" tabIndex={-1} aria-hidden />
+              <button
+                type="button"
+                onClick={startReview}
+                className="mt-2 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[var(--accent-primary)] py-3.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              >
+                Review listing
+              </button>
+            </>
+          )}
         </div>
         </div>
         </div>
