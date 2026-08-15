@@ -1,4 +1,4 @@
-import { defineConfig, devices } from "@playwright/test";
+﻿import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
@@ -24,5 +24,10 @@ export default defineConfig({
       name: "Desktop Chrome",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "Desktop Firefox",
+      use: { ...devices["Desktop Firefox"] },
+    },
   ],
 });
+

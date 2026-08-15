@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+﻿import { test, expect } from "@playwright/test";
 
 test.describe("Authentication", () => {
   test("login page loads", async ({ page }) => {
@@ -50,7 +50,11 @@ test.describe("Authentication", () => {
     const password = page.getByLabel("Password", { exact: true });
     const submit = page.getByRole("button", { name: "Sign in" });
 
+    // Empty fields: cannot submit
     await expect(submit).toBeDisabled();
+    await expect(page).toHaveURL(/\/login/);
+
+    // Invalid email: HTML validity is false
     await email.fill("not-an-email");
     await password.fill("incorrect-password");
     expect(await email.evaluate((input: HTMLInputElement) => input.validity.valid)).toBe(false);
@@ -64,9 +68,18 @@ test.describe("Authentication", () => {
 
   test("login preserves safe navigation links and rejects external redirects", async ({ page }) => {
     await page.goto("/login?redirect=https%3A%2F%2Fevil.example");
-    await expect(page.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/signup");
-    await expect(page.getByRole("link", { name: "Forgot password?" })).toHaveAttribute("href", "/forgot-password");
-    await expect(page.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/terms");
-    await expect(page.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy");
+    const main = page.getByRole("main");
+    // External redirect must not leak into signup (sanitizeRedirectPath rejects it)
+    await expect(main.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/signup");
+    await expect(main.getByRole("link", { name: "Forgot password?" })).toHaveAttribute("href", "/forgot-password");
+    await expect(main.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/terms");
+    await expect(main.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy");
+
+    // Safe internal redirect still passes through to signup
+    await page.goto("/login?redirect=%2Fmessages");
+    await expect(page.getByRole("main").getByRole("link", { name: "Create an account" })).toHaveAttribute(
+      "href",
+      "/signup?redirect=%2Fmessages"
+    );
   });
 });
