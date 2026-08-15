@@ -802,45 +802,62 @@ describe("Firestore Security Rules", () => {
     });
   });
 
-  describe("Launch-gate adversarial attacks", () => {
-    const userA = { uid: "gate-user-a", email: "gate-user-a@example.test" };
-    const userB = { uid: "gate-user-b", email: "gate-user-b@example.test" };
+  /**
+   * Wheedle-class A-vs-B: authenticated peer attacks against another user's
+   * listings, messages, profiles, and admin surfaces (not only anon denials).
+   */
+  describe("Wheedle-class A-vs-B adversarial attacks", () => {
+    const ANON = null;
+    const USER_A = { uid: "gate-user-a", email: "gate-user-a@example.test" };
+    const USER_B = { uid: "gate-user-b", email: "gate-user-b@example.test" };
+    const ADMIN = {
+      uid: "gate-admin",
+      email: "admin@example.test",
+      claims: { admin: true as const },
+    };
+
+    const listingIds = [
+      "gate-direct",
+      "gate-merge",
+      "gate-transaction",
+      "gate-batch",
+      "gate-immutable-owner",
+      "wheedle-update",
+      "wheedle-merge",
+      "wheedle-batch",
+      "wheedle-tx",
+      "wheedle-owner-immutable",
+    ];
 
     beforeAll(async () => {
       await testEnv.withSecurityRulesDisabled(async (ctx) => {
         const db = ctx.firestore();
-        const listingIds = [
-          "gate-direct",
-          "gate-merge",
-          "gate-transaction",
-          "gate-batch",
-          "gate-immutable-owner",
-        ];
         for (const id of listingIds) {
           await db.collection("listings").doc(id).set({
             title: "User A's camera",
-            sellerId: userA.uid,
-            sellerEmail: userA.email,
+            price: "250",
+            sellerId: USER_A.uid,
+            sellerEmail: USER_A.email,
             sellerName: "User A",
-            ownerId: userA.uid,
-            userId: userA.uid,
-            createdBy: userA.uid,
+            ownerId: USER_A.uid,
+            userId: USER_A.uid,
+            createdBy: USER_A.uid,
             views: 0,
           });
         }
         await db.collection("messages").doc("gate-message").set({
-          participants: [userA.email, userB.email],
-          sender: userA.email,
-          receiver: userB.email,
+          participants: [USER_A.email, USER_B.email],
+          sender: USER_A.email,
+          receiver: USER_B.email,
           text: "Private message",
         });
         await db.collection("conversations").doc("gate-conversation").set({
-          participants: [userA.email, userB.email],
-          buyerEmail: userA.email,
-          sellerEmail: userB.email,
+          participants: [USER_A.email, USER_B.email],
+          buyerEmail: USER_A.email,
+          sellerEmail: USER_B.email,
         });
-        await db.collection("profiles").doc(userA.uid).set({
-          email: userA.email,
+        await db.collection("profiles").doc(USER_A.uid).set({
+          email: USER_A.email,
           phone: "+6412345678",
           kycStatus: "approved",
         });
@@ -848,7 +865,7 @@ describe("Firestore Security Rules", () => {
           message: "Welcome",
         });
         await db.collection("config").doc("adminEmails").set({
-          emails: ["admin@example.test"],
+          emails: [ADMIN.email],
         });
         await db.collection("adminAuditLog").doc("gate-entry").set({
           action: "seeded",
@@ -856,17 +873,138 @@ describe("Firestore Security Rules", () => {
       });
     });
 
-    function firestoreFor(user: { uid: string; email: string }) {
+    function firestoreFor(
+      user:
+        | { uid: string; email: string; claims?: Record<string, unknown> }
+        | null
+    ) {
+      if (!user) {
+        return testEnv.unauthenticatedContext().firestore();
+      }
       return testEnv
         .authenticatedContext(user.uid, {
           email: user.email,
           email_verified: true,
+          ...(user.claims ?? {}),
         })
         .firestore();
     }
 
+    describe("WHEEDLE_CLASS_LISTING_ATTACK", () => {
+      it("ANON cannot create, update, or delete listings", async () => {
+        const anon = firestoreFor(ANON);
+        await assertFails(
+          anon.collection("listings").doc("wheedle-anon-create").set({
+            title: "Anon spam",
+            price: "1",
+            sellerEmail: USER_A.email,
+          })
+        );
+        await assertFails(
+          anon.collection("listings").doc("wheedle-update").update({ price: "1" })
+        );
+        await assertFails(anon.collection("listings").doc("wheedle-update").delete());
+      });
+
+      it("USER_B cannot rewrite price/title/sellerId via update", async () => {
+        const attacker = firestoreFor(USER_B);
+        const ref = attacker.collection("listings").doc("wheedle-update");
+        await assertFails(ref.update({ price: "1" }));
+        await assertFails(ref.update({ title: "Stolen by USER_B" }));
+        await assertFails(ref.update({ sellerId: USER_B.uid }));
+        await assertFails(ref.update({ sellerEmail: USER_B.email }));
+        await assertFails(ref.delete());
+      });
+
+      it("USER_B cannot takeover via set merge", async () => {
+        const attacker = firestoreFor(USER_B);
+        await assertFails(
+          attacker.collection("listings").doc("wheedle-merge").set(
+            {
+              price: "1",
+              title: "Merged takeover",
+              sellerId: USER_B.uid,
+              sellerEmail: USER_B.email,
+              ownerId: USER_B.uid,
+            },
+            { merge: true }
+          )
+        );
+      });
+
+      it("USER_B cannot mutate via batch or transaction", async () => {
+        const attacker = firestoreFor(USER_B);
+
+        await assertFails(
+          attacker.runTransaction(async (transaction) => {
+            transaction.update(
+              attacker.collection("listings").doc("wheedle-tx"),
+              { price: "1", title: "Tx takeover", sellerId: USER_B.uid }
+            );
+          })
+        );
+
+        const batch = attacker.batch();
+        batch.update(attacker.collection("listings").doc("wheedle-batch"), {
+          price: "1",
+          title: "Batch takeover",
+          sellerEmail: USER_B.email,
+        });
+        await assertFails(batch.commit());
+      });
+
+      it("USER_A cannot transfer ownership identity fields", async () => {
+        const owner = firestoreFor(USER_A);
+        await assertFails(
+          owner.collection("listings").doc("wheedle-owner-immutable").update({
+            sellerId: USER_B.uid,
+            sellerEmail: USER_B.email,
+            sellerName: "User B",
+            ownerId: USER_B.uid,
+            userId: USER_B.uid,
+            createdBy: USER_B.uid,
+          })
+        );
+      });
+
+      it("ADMIN claim alone does not grant client listing rewrite", async () => {
+        const admin = firestoreFor(ADMIN);
+        await assertFails(
+          admin.collection("listings").doc("wheedle-update").update({
+            price: "0",
+            title: "Admin client rewrite",
+          })
+        );
+      });
+    });
+
+    it("allows user A to update their own listing title (positive control)", async () => {
+      const owner = firestoreFor(USER_A);
+      await assertSucceeds(
+        owner.collection("listings").doc("gate-direct").update({
+          title: "User A's camera (updated)",
+        })
+      );
+    });
+
+    it("denies user B creating a listing forged as user A", async () => {
+      const attacker = firestoreFor(USER_B);
+      await assertFails(
+        attacker.collection("listings").doc("gate-forged-create").set({
+          title: "Forged as A",
+          sellerId: USER_A.uid,
+          sellerEmail: USER_A.email,
+          sellerName: "User A",
+          ownerId: USER_A.uid,
+          userId: USER_A.uid,
+          createdBy: USER_A.uid,
+          views: 0,
+        })
+      );
+    });
+
     it("denies user B's direct cross-account listing update and delete", async () => {
-      const attacker = firestoreFor(userB);
+      const attacker = firestoreFor(USER_B);
       const ref = attacker.collection("listings").doc("gate-direct");
 
       await assertFails(ref.update({ title: "Stolen by user B" }));
@@ -874,14 +1012,14 @@ describe("Firestore Security Rules", () => {
     });
 
     it("denies user B's merge-set ownership takeover", async () => {
-      const attacker = firestoreFor(userB);
+      const attacker = firestoreFor(USER_B);
 
       await assertFails(
         attacker.collection("listings").doc("gate-merge").set(
           {
-            sellerId: userB.uid,
-            sellerEmail: userB.email,
-            ownerId: userB.uid,
+            sellerId: USER_B.uid,
+            sellerEmail: USER_B.email,
+            ownerId: USER_B.uid,
           },
           { merge: true }
         )
@@ -889,7 +1027,7 @@ describe("Firestore Security Rules", () => {
     });
 
     it("denies user B's transaction and batch listing mutations", async () => {
-      const attacker = firestoreFor(userB);
+      const attacker = firestoreFor(USER_B);
 
       await assertFails(
         attacker.runTransaction(async (transaction) => {
@@ -908,17 +1046,17 @@ describe("Firestore Security Rules", () => {
     });
 
     it("denies the owner from changing any listing ownership identity", async () => {
-      const owner = firestoreFor(userA);
+      const owner = firestoreFor(USER_A);
       const ref = owner.collection("listings").doc("gate-immutable-owner");
 
       await assertFails(
         ref.update({
-          sellerId: userB.uid,
-          sellerEmail: userB.email,
+          sellerId: USER_B.uid,
+          sellerEmail: USER_B.email,
           sellerName: "User B",
-          ownerId: userB.uid,
-          userId: userB.uid,
-          createdBy: userB.uid,
+          ownerId: USER_B.uid,
+          userId: USER_B.uid,
+          createdBy: USER_B.uid,
         })
       );
     });
@@ -940,19 +1078,19 @@ describe("Firestore Security Rules", () => {
     });
 
     it("keeps full profiles private while public config remains narrowly allowlisted", async () => {
-      const outsider = firestoreFor(userB);
-      await assertFails(outsider.collection("profiles").doc(userA.uid).get());
+      const outsider = firestoreFor(USER_B);
+      await assertFails(outsider.collection("profiles").doc(USER_A.uid).get());
       await assertSucceeds(outsider.collection("config").doc("announcement").get());
       await assertFails(outsider.collection("config").doc("adminEmails").get());
       await assertFails(
         outsider.collection("config").doc("adminEmails").set({
-          emails: [userB.email],
+          emails: [USER_B.email],
         })
       );
     });
 
     it("does not grant admin-only reads to a self-asserted non-admin identity", async () => {
-      const attacker = firestoreFor(userB);
+      const attacker = firestoreFor(USER_B);
       await assertFails(attacker.collection("adminAuditLog").doc("gate-entry").get());
       await assertFails(
         attacker.collection("adminAuditLog").doc("attacker-entry").set({
@@ -963,13 +1101,7 @@ describe("Firestore Security Rules", () => {
     });
 
     it("permits an authenticated admin claim without weakening non-admin denial", async () => {
-      const admin = testEnv
-        .authenticatedContext("gate-admin", {
-          email: "admin@example.test",
-          email_verified: true,
-          admin: true,
-        })
-        .firestore();
+      const admin = firestoreFor(ADMIN);
 
       await assertSucceeds(admin.collection("config").doc("adminEmails").get());
       await assertSucceeds(
@@ -980,3 +1112,4 @@ describe("Firestore Security Rules", () => {
     });
   });
 });
+

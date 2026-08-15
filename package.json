@@ -22,7 +22,7 @@
     "test:awhina:live": "vitest run app/lib/sky-ai-live-eval.test.ts",
     "test:awhina:smoke": "node scripts/smoke-awhina-manual.cjs",
     "test:awhina:live:compare": "cross-env SKY_AI_COMPARE_PRODUCTION=1 vitest run app/lib/sky-ai-live-eval.test.ts",
-    "test:rules": "vitest run tests/firestore-rules.test.ts tests/storage-rules.test.ts tests/rate-limit.test.ts",
+    "test:rules": "vitest run tests/firestore-rules.test.ts tests/storage-rules.test.ts tests/security-launch-gates.test.ts",
     "test:rules:emulator": "firebase emulators:exec --only firestore,storage \"npm run test:rules\"",
     "git:sync": "powershell -ExecutionPolicy Bypass -File scripts/git-sync.ps1"
   },
@@ -59,6 +59,7 @@
     "@types/react-dom": "^18.2.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "firebase-tools": "^15.27.0",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5",
