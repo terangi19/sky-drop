@@ -150,6 +150,6 @@ export async function POST(req: NextRequest) {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to submit review";
     console.error("[submit-review]", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "Failed to submit review" }, { status: 500 });
   }
 }

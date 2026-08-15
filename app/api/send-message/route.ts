@@ -59,11 +59,8 @@ export async function POST(req: NextRequest) {
     const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
     const createConversation = body.createConversation === true;
     const convKey = typeof body.convKey === "string" ? body.convKey.trim() : "";
-    const buyerEmail = typeof body.buyerEmail === "string" ? body.buyerEmail.trim() : "";
-    const sellerEmail = typeof body.sellerEmail === "string" ? body.sellerEmail.trim() : "";
     const offerAmount = typeof body.offerAmount === "number" ? body.offerAmount : NaN;
     const offerType = typeof body.offerType === "string" ? body.offerType : "";
-    const offerStatus = typeof body.offerStatus === "string" ? body.offerStatus : "pending";
 
     if (!["text", "image", "file", "offer"].includes(msgType)) {
       return NextResponse.json({ error: "Invalid message type" }, { status: 400 });
@@ -217,8 +214,10 @@ export async function POST(req: NextRequest) {
       if (!conversationId) {
         const convData: Record<string, unknown> = {
           participants,
-          buyerEmail: buyerEmail || senderEmail,
-          sellerEmail: sellerEmail || resolvedReceiver,
+          // Conversation identity is derived from the authenticated sender and
+          // resolved receiver, never from client-supplied participant fields.
+          buyerEmail: senderEmail,
+          sellerEmail: resolvedReceiver,
           listingTitle: listingTitle || null,
           listingPrice: listingPrice || null,
           listingImage: listingImage || null,
@@ -258,7 +257,8 @@ export async function POST(req: NextRequest) {
     if (msgType === "offer") {
       messageData.offerType = offerType || null;
       messageData.offerAmount = offerAmount;
-      messageData.offerStatus = offerStatus || "pending";
+      // Only a server-side acceptance flow may transition an offer.
+      messageData.offerStatus = "pending";
     }
 
     const msgRef = await db.collection("messages").add(messageData);

@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
-    const userEmail = decoded.email?.trim();
+    const userEmail = decoded.email?.trim().toLowerCase();
     if (!userEmail) {
       return NextResponse.json({ error: "Could not determine user email" }, { status: 400 });
     }
@@ -63,14 +63,18 @@ export async function POST(req: NextRequest) {
           if (!snap.exists) return;
 
           const data = snap.data() || {};
-          const participants = Array.isArray(data.participants) ? data.participants : [];
+          const participants = Array.isArray(data.participants)
+            ? data.participants
+                .filter((participant): participant is string => typeof participant === "string")
+                .map((participant) => participant.trim().toLowerCase())
+            : [];
           if (!participants.includes(userEmail)) {
             failures.push(messageId);
             return;
           }
 
-          const sender = typeof data.sender === "string" ? data.sender : "";
-          const receiver = typeof data.receiver === "string" ? data.receiver : "";
+          const sender = typeof data.sender === "string" ? data.sender.trim().toLowerCase() : "";
+          const receiver = typeof data.receiver === "string" ? data.receiver.trim().toLowerCase() : "";
           if (receiver && receiver !== userEmail) {
             failures.push(messageId);
             return;

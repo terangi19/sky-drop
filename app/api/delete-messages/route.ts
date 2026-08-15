@@ -55,9 +55,13 @@ export async function POST(req: NextRequest) {
         const snap = await db.collection("messages").doc(messageId).get();
         if (!snap.exists) continue;
         const data = snap.data() || {};
-        const participants = Array.isArray(data.participants) ? data.participants : [];
-        if (!participants.includes(userEmail)) continue;
-        const otherEmail = participants.find((p: string) => p !== userEmail);
+        const participants = Array.isArray(data.participants)
+          ? data.participants.filter((participant): participant is string => typeof participant === "string")
+          : [];
+        if (!participants.some((participant) => participant.trim().toLowerCase() === userEmail)) continue;
+        const otherEmail = participants.find(
+          (participant) => participant.trim().toLowerCase() !== userEmail
+        )?.trim();
         if (!otherEmail) continue;
         const listingId =
           typeof data.listingId === "string" && data.listingId ? data.listingId : null;

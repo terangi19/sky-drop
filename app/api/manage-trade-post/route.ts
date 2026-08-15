@@ -4,6 +4,8 @@ import { FieldValue } from "firebase-admin/firestore";
 import { enforceProtection } from "../../lib/enforce-protection";
 import { parseIpFromRequest } from "../../lib/geo-check";
 
+const ALLOWED_STATUSES = new Set(["live", "sold", "completed", "closed"]);
+
 export async function POST(req: NextRequest) {
   try {
     const ip = parseIpFromRequest(req.headers);
@@ -49,6 +51,9 @@ export async function POST(req: NextRequest) {
       const status = typeof body.status === "string" ? body.status : "";
       if (!postId || !status) {
         return NextResponse.json({ error: "postId and status required" }, { status: 400 });
+      }
+      if (!ALLOWED_STATUSES.has(status)) {
+        return NextResponse.json({ error: "Invalid trade post status" }, { status: 400 });
       }
       const ref = db.collection("tradePosts").doc(postId);
       const snap = await ref.get();
