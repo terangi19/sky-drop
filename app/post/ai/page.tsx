@@ -1028,7 +1028,9 @@ export default function AIPostPage() {
       syncListingDraftToSkyAi(merged);
       const confirmed = readListingDraftFromSkyAi();
       persisted = changedKeys.every(
-        (key) => String(confirmed?.[key as keyof typeof confirmed] || "") === String(merged[key] || "")
+        (key) =>
+          String((confirmed as Record<string, unknown> | null)?.[key] || "") ===
+          String((merged as Record<string, unknown>)[key] || "")
       );
     }
     if (ok && fieldsChanged > 0) {
