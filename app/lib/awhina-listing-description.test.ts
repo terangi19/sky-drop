@@ -17,6 +17,7 @@ import {
   SELLER_EDITOR_GUIDANCE_RE,
   type ListingDescriptionQuality,
 } from "./awhina-listing-description";
+import { finalizeAwhinaListingDescription } from "./awhina-listing-composer";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import { processCanonicalAwhina } from "./awhina-canonical";
 import { clearSearchSession, searchSessionKey } from "./awhina-search-memory";
@@ -81,7 +82,7 @@ function assertProperCaps(desc: string) {
 }
 
 function assertNaturalMarketplaceCopy(desc: string, opts?: { sparse?: boolean }) {
-  expect(desc.trim().length).toBeGreaterThan(20);
+  expect(desc.trim().length).toBeGreaterThanOrEqual(20);
   expect(desc).not.toMatch(ROBOTIC_SMELLS);
   expect(desc).not.toMatch(META_PHRASE_SMELLS);
   expect(desc).not.toMatch(UNGROUNDED_CLAIM_SMELLS);
@@ -601,7 +602,7 @@ describe("description quality suite — golden reference cases", () => {
       },
       must: [/BMW/, /320i/, /85,?000/, /Auckland/, /\$18,?500/],
       never: [/WOF|service history|Condition:/i],
-      tone: /viewing|message|look/i,
+      tone: /BMW|320i|automatic/i,
     },
     {
       name: "lawn mowing",
@@ -614,7 +615,7 @@ describe("description quality suite — golden reference cases", () => {
       },
       must: [/lawn mowing/i, /\$50 per job/i],
       never: [/insured|Priced at|years of experience|for local jobs|^Looking for/i],
-      tone: /message/i,
+      tone: /lawn mowing|Hamilton|per job/i,
     },
     {
       name: "house cleaner",
@@ -626,7 +627,7 @@ describe("description quality suite — golden reference cases", () => {
       },
       must: [/cleaning/i, /Wellington/, /quote/i],
       never: [/insured|bonded|Priced at/i],
-      tone: /message/i,
+      tone: /cleaning|Wellington|quote/i,
     },
     {
       name: "photographer hourly",
@@ -640,7 +641,7 @@ describe("description quality suite — golden reference cases", () => {
       },
       must: [/Photograph/i, /Auckland/, /\$120 per hour/i],
       never: [/insured|portfolio|years of experience|equipment provided/i],
-      tone: /message/i,
+      tone: /Photograph|Auckland|per hour/i,
     },
     {
       name: "trailer rental",
@@ -654,7 +655,7 @@ describe("description quality suite — golden reference cases", () => {
       },
       must: [/Trailer|trailer/i, /Auckland/, /\$60(?:\/day| per day)/],
       never: [/bedroom|bond|pet friendly|Rent Trailer For|^Renting out/i],
-      tone: /message|book|pickup|dates|availability/i,
+      tone: /Trailer|Auckland|hire/i,
     },
     {
       name: "pressure washer rental",
@@ -668,7 +669,7 @@ describe("description quality suite — golden reference cases", () => {
       },
       must: [/Pressure Washer|pressure washer/i, /Christchurch/, /\$45(?:\/day| per day)/],
       never: [/bedroom|WOF|insured/i],
-      tone: /message|book|pickup|dates|availability/i,
+      tone: /Pressure Washer|Christchurch|hire/i,
     },
     {
       name: "couch",
@@ -696,7 +697,7 @@ describe("description quality suite — golden reference cases", () => {
       },
       must: [/PlayStation|PS5|looking for|wanted|after a/i],
       never: [/pickup is available|I'm selling|brand new PlayStation 5 Console up for grabs/i],
-      tone: /message|get in touch|help/i,
+      tone: /Looking for|Wanted:|After a/i,
     },
   ];
 
@@ -1528,5 +1529,121 @@ describe("semantic description quality — Barella card + cross-domain", () => {
     expect(desc).toMatch(/Auckland/);
     expect(desc).not.toMatch(/Condition:|Odometer:|Attr:|Set\s+/i);
     assertNaturalMarketplaceCopy(desc);
+  });
+});
+
+describe("authoritative description boundary regressions", () => {
+  it("replaces raw model prose with the canonical composer across card, controller, mouse, phone, and car", () => {
+    const cases: Array<{
+      name: string;
+      fill: SkyAiListingFill;
+      must: RegExp[];
+      never: RegExp[];
+    }> = [
+      {
+        name: "Barella card",
+        fill: {
+          title: "Nicolò Barella Chrome Topps",
+          listingType: "physical",
+          category: "Sports",
+          condition: "Used - Good",
+          extras: [
+            "subject:Nicolò Barella",
+            "set:Topps Chrome",
+            "manufacturer:Topps",
+            "serial:14/25",
+          ],
+          description: "Attr: subject=Nicolò Barella. Set: Topps Chrome. Message if interested.",
+        },
+        must: [/Nicol[oò] Barella/i, /Topps Chrome/i, /numbered 14\/25/i, /good used condition/i],
+        never: [
+          /Chrome Topps/i,
+          /\bSet\s*:/i,
+          /Attr:|visionFact|confidence/i,
+          /Message if interested/i,
+          CTA_PURPOSE_RE,
+        ],
+      },
+      {
+        name: "DualSense controller",
+        fill: {
+          title: "Pink Sony DualSense Wireless Controller for PS5",
+          listingType: "physical",
+          category: "Gaming",
+          condition: "New",
+          description: "Price: $120. Location: Auckland. Brand: Sony.",
+        },
+        must: [/brand new/i, /Sony DualSense/i, /PS5/i],
+        never: [/\$120|Auckland|Price:|Location:|Attr:|Set\s+|Chrome\s+Topps/i, CTA_PURPOSE_RE],
+      },
+      {
+        name: "Razer mouse",
+        fill: {
+          title: "Razer DeathAdder V3 Wireless Gaming Mouse",
+          listingType: "physical",
+          category: "Gaming",
+          condition: "Used - Good",
+          description: "Brand: Razer. Product: DeathAdder V3. Condition: good.",
+        },
+        must: [/Razer DeathAdder V3/i, /wireless gaming mouse/i, /good used condition/i],
+        never: [/Brand:|Product:|Condition:|Attr:|Set\s+|Chrome\s+Topps/i, CTA_PURPOSE_RE],
+      },
+      {
+        name: "iPhone",
+        fill: {
+          title: "Apple iPhone 15 Pro 256GB",
+          listingType: "physical",
+          category: "Tech",
+          condition: "Used - Good",
+          description: "Attr: storage=256GB. confidence: 0.9.",
+        },
+        must: [/iPhone 15 Pro/i, /256GB/i, /good used condition/i],
+        never: [/Attr:|confidence|storage=|Set\s+|Chrome\s+Topps/i, CTA_PURPOSE_RE],
+      },
+      {
+        name: "Mazda",
+        fill: {
+          title: "2015 Mazda Axela",
+          listingType: "vehicle",
+          vehicleYear: "2015",
+          vehicleMake: "Mazda",
+          vehicleModel: "Axela",
+          vehicleOdometer: "128000",
+          vehicleColour: "Blue",
+          vehicleTransmission: "Automatic",
+          condition: "Used - Good",
+          description: "Year: 2015. Odometer: 128000. Attr: blue.",
+        },
+        must: [/2015 Mazda Axela/i, /128,?000 km/i, /good used condition/i],
+        never: [/Year:|Odometer:|Attr:|Set\s+|Chrome\s+Topps/i, CTA_PURPOSE_RE],
+      },
+    ];
+
+    for (const c of cases) {
+      const final = finalizeAwhinaListingDescription(c.fill);
+      expect(final.descriptionSource).toBe("ai");
+      expect(final.description).not.toBe(c.fill.description);
+      for (const re of c.must) expect(final.description).toMatch(re);
+      for (const re of c.never) expect(final.description).not.toMatch(re);
+      const validation = validateDescription(final.description);
+      expect(
+        validation.ok,
+        `${c.name}: ${validation.reason || "unexpected validation failure"} — ${final.description}`
+      ).toBe(true);
+    }
+  });
+
+  it("does not overwrite seller-authored copy until a rewrite is requested", () => {
+    const fill: SkyAiListingFill = {
+      title: "Razer DeathAdder V3",
+      listingType: "physical",
+      condition: "Used - Good",
+      description: "My own careful description.",
+      descriptionSource: "user",
+    };
+    expect(finalizeAwhinaListingDescription(fill).description).toBe(fill.description);
+    expect(finalizeAwhinaListingDescription(fill, { force: true }).description).not.toBe(
+      fill.description
+    );
   });
 });

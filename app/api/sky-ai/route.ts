@@ -39,6 +39,7 @@ import {
 import { finalizePageAwareResponse } from "../../lib/sky-ai-page-intent";
 import { validateListingFillFields } from "../../lib/awhina-listing-fill-tools";
 import { sanitizeProfileFillProposal } from "../../lib/awhina-profile-tools";
+import { finalizeAwhinaListingDescription } from "../../lib/awhina-listing-composer";
 import type { SkyAiProfileContext } from "../../lib/sky-ai-profile-context";
 import { runVisionCapability } from "../../lib/awhina-vision-capability";
 import { runFreeformCapability } from "../../lib/awhina-freeform-capability";
@@ -220,12 +221,17 @@ function finalizeListingFill(
   if (fresh) {
     const seed = { ...listingFill, replaceDraft: true };
     const enhanced = enhanceListingFillFromMessage(message, seed) ?? seed;
-    return { ...enhanced, replaceDraft: true };
+    return {
+      ...finalizeAwhinaListingDescription(enhanced),
+      replaceDraft: true,
+    };
   }
 
   const merged = mergeFillWithContext(listingContext, listingFill);
   if (!merged) return undefined;
-  return enhanceListingFillFromMessage(message, merged) ?? merged;
+  return finalizeAwhinaListingDescription(
+    enhanceListingFillFromMessage(message, merged) ?? merged
+  );
 }
 
 const MAX_SKY_AI_IMAGES = 4;

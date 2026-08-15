@@ -14,7 +14,7 @@ import {
   type ListingFieldProvenanceMap,
   isUserLockedProvenance,
 } from "./listing-draft-confirmed";
-import { recomposeListingDescription } from "./awhina-listing-composer";
+import { finalizeAwhinaListingDescription } from "./awhina-listing-composer";
 import {
   buildListingSlotPending,
   nextListingSlotQuestion,
@@ -208,12 +208,6 @@ export function prepareVisionConversationBridge(
   const mayComposeDescription =
     !isUserLockedDescription(input.descriptionProvenance) &&
     (fused ? identityAssessment.isComplete : !needsConfirm);
-  if (mayComposeDescription) {
-    const composed = recomposeListingDescription(draftForCompose, {
-      quality: "premium_plus",
-    });
-    if (composed?.trim()) fill.description = composed.trim();
-  }
 
   // Public copy gate — Attr:/lone manufacturer never reach draft
   const gated = gatePublicListingCopy(fill, {
@@ -226,6 +220,19 @@ export function prepareVisionConversationBridge(
   Object.assign(fill, gated.fill);
   if (isFreshObject && !input.listingFill.price) delete fill.price;
   if (isFreshObject && !input.listingFill.condition) delete fill.condition;
+  if (mayComposeDescription) {
+    // Recompose only after the public-copy gate and field-provenance resolution:
+    // vision never publishes raw model prose and every AI path uses one finalizer.
+    const finalizerInput = { ...draftForCompose, ...fill };
+    if (isFreshObject && !input.listingFill.price) delete finalizerInput.price;
+    if (isFreshObject && !input.listingFill.condition) delete finalizerInput.condition;
+    Object.assign(
+      fill,
+      finalizeAwhinaListingDescription(finalizerInput, {
+        quality: "premium_plus",
+      })
+    );
+  }
 
   const imageFieldKeys = collectImageKeys(fill);
   const provenanceOverrides: ListingFieldProvenanceMap = {};
@@ -240,7 +247,8 @@ export function prepareVisionConversationBridge(
     provenanceOverrides.location = provenanceOverrides.location || "USER";
   }
   // Composed description is writer output, not IMAGE raw
-  if (fill.description?.trim()) {
+  const finalDescription = (fill as Record<string, unknown>).description;
+  if (typeof finalDescription === "string" && finalDescription.trim()) {
     provenanceOverrides.description = "AWHINA";
   }
 

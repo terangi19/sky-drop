@@ -24,6 +24,7 @@ import {
 } from "../../lib/listing-type-config";
 import { hasActiveListingDraft, mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi, syncListingDraftToSkyAi, clearListingDraftFromSkyAi } from "../../lib/sky-ai-listing-context";
+import { finalizeAwhinaListingDescription } from "../../lib/awhina-listing-composer";
 import {
   buildConfirmedListingContext,
   markProvenance,
@@ -859,8 +860,14 @@ export default function AIPostPage() {
       setStockQuantity("");
       setServiceDuration("");
     }
-    const merged = replaceDraft ? { ...fill } : mergeListingFillWithDraft(prior, fill);
+    let merged = replaceDraft ? { ...fill } : mergeListingFillWithDraft(prior, fill);
     const isUpdate = !replaceDraft && hasActiveListingDraft(prior);
+    // Last client boundary for photo, voice, text, and global-chat handoffs.
+    // Form edits are locked USER copy; every other description is rebuilt from
+    // canonical draft fields instead of trusting a model-provided prose string.
+    if (!isUserLockedField("description")) {
+      merged = finalizeAwhinaListingDescription(merged);
+    }
 
     const beforeSnapshot = { title, description, category, condition, price, listingType, location };
     let fieldsChanged = 0;

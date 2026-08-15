@@ -186,9 +186,50 @@ export function composeListingTitleAndDescription(
 /** Re-compose description after draft fields change (keeps title unless raw). */
 export function recomposeListingDescription(
   fill: SkyAiListingFill,
-  opts?: { quality?: ListingDescriptionQuality }
+  opts?: { quality?: ListingDescriptionQuality; force?: boolean }
 ): string {
   return buildListingDescriptionFromFacts(fill, {
     quality: opts?.quality ?? "premium_plus",
+    force: opts?.force,
   });
+}
+
+/**
+ * The sole finalizer for Āwhina-owned buyer copy.
+ *
+ * Model, vision, and text parsers may propose a `description`, but that value is
+ * never public copy by itself. Compose again from the merged canonical facts so
+ * every surface gets the same semantic dedupe and public-copy quality gate.
+ * A seller-authored description remains untouched unless an explicit rewrite
+ * has set `force`.
+ */
+export function finalizeAwhinaListingDescription(
+  fill: SkyAiListingFill,
+  opts?: { quality?: ListingDescriptionQuality; force?: boolean }
+): SkyAiListingFill {
+  if (fill.descriptionSource === "user" && fill.description?.trim() && !opts?.force) {
+    return { ...fill, description: fill.description.trim() };
+  }
+
+  let description = recomposeListingDescription(fill, {
+    ...opts,
+    force: opts?.force || Boolean(fill.description?.trim()),
+  });
+  // Contact actions already exist in the listing UI; never auto-pad public
+  // copy with a template CTA.
+  description = description
+    .split(/(?<=[.!?])\s+/)
+    .filter(
+      (sentence) =>
+        !/\b(message|get in touch|feel free|send me a message|drop me a message|happy to (sort|arrange|chat|answer)|if you'?re (interested|keen)|come take a look|just message)\b/i.test(
+          sentence
+        )
+    )
+    .join(" ")
+    .trim();
+  return {
+    ...fill,
+    description,
+    descriptionSource: "ai",
+  };
 }

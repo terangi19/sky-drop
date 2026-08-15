@@ -51,7 +51,10 @@ import {
   getVehicleDraftReadiness,
   isVehicleListingFill,
 } from "./awhina-product-ux";
-import { composeListingTitleAndDescription } from "./awhina-listing-composer";
+import {
+  composeListingTitleAndDescription,
+  finalizeAwhinaListingDescription,
+} from "./awhina-listing-composer";
 import {
   looksLikeVehicleYearToken,
   parseVehicleYear,
@@ -275,6 +278,9 @@ export function validateListingFillFields(
 
   if (fill.title) out.title = String(fill.title).trim().slice(0, 120);
   if (fill.description) out.description = String(fill.description).trim().slice(0, 8000);
+  if (fill.descriptionSource === "user" || fill.descriptionSource === "ai") {
+    out.descriptionSource = fill.descriptionSource;
+  }
   if (fill.location) out.location = String(fill.location).trim().slice(0, 80);
   if (fill.pickupArea) out.pickupArea = String(fill.pickupArea).trim().slice(0, 80);
   if (typeof fill.pickupAvailable === "boolean") out.pickupAvailable = fill.pickupAvailable;
@@ -350,7 +356,10 @@ export function validateListingFillFields(
     }
   }
   if (fill.replaceDraft === true) fillOut.replaceDraft = true;
-  return { ok: true, fill: hydrateVehicleGeneration(fillOut) as SkyAiListingFill };
+  const hydrated = hydrateVehicleGeneration(fillOut) as SkyAiListingFill;
+  // One authoritative buyer-copy boundary: proposed LLM/vision descriptions
+  // are replaced with deterministic prose from the validated canonical facts.
+  return { ok: true, fill: finalizeAwhinaListingDescription(hydrated) };
 }
 
 export function validatePriceString(

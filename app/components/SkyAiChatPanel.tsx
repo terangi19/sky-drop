@@ -62,6 +62,7 @@ import {
 import { AWHINA_CHAT_BACKDROP_Z, AWHINA_CHAT_SHEET_Z } from "../lib/floating-ui-layout";
 import { mergeListingFillWithDraft } from "../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi, clearListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
+import { finalizeAwhinaListingDescription } from "../lib/awhina-listing-composer";
 import {
   dispatchListingImages,
   prepareSkyAiImages,
@@ -157,17 +158,18 @@ function handleListingFill(fill: SkyAiListingFill | undefined, _navigateTo?: str
   const merged = replaceDraft
     ? { ...fill }
     : mergeListingFillWithDraft(readListingDraftFromSkyAi(), fill);
+  const finalized = finalizeAwhinaListingDescription(merged);
   const hasContent =
-    !!merged.title ||
-    !!merged.description ||
-    !!merged.price ||
-    !!merged.rentalPriceWeekly ||
-    !!merged.rentalPriceMonthly ||
-    !!merged.vehicleMake ||
-    !!merged.vehicleModel ||
-    !!(merged.extras && merged.extras.length > 0);
+    !!finalized.title ||
+    !!finalized.description ||
+    !!finalized.price ||
+    !!finalized.rentalPriceWeekly ||
+    !!finalized.rentalPriceMonthly ||
+    !!finalized.vehicleMake ||
+    !!finalized.vehicleModel ||
+    !!(finalized.extras && finalized.extras.length > 0);
   if (!hasContent) return _navigateTo;
-  dispatchListingFill(merged);
+  dispatchListingFill(finalized);
   return "/post/ai";
 }
 

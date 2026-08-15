@@ -1241,8 +1241,10 @@ export function passesListingDescriptionQualityGate(
   if (t.includes("\n\n")) return false;
   if (countCtas(t) > 1) return false;
   const n = wordCount(t);
-  // Sparse facts → short clean copy is OK; rich copy still stays under 100 words
-  const min = opts?.sparse ? 8 : 10;
+  // Facts set length, not a template target. A complete product + condition
+  // sentence (for example a brand-new DualSense) can be excellent at 8–9 words.
+  // Rich copy still stays under 100 words.
+  const min = 8;
   if (n < min || n > 100) return false;
   const sentences = splitSentences(t);
   if (sentences.length < 1 || sentences.length > 5) return false;
@@ -1703,8 +1705,6 @@ function writePhysical(facts: DescriptionFacts): string {
   const d = facts.delivery;
   const struct = hashSeed(seed + ":struct") % 3;
   const parts: string[] = [];
-
-  // One lead sentence: merge condition + item + place + price (no field stitching)
   let opener: string;
   if (loc && money) {
     if (struct === 0) {
@@ -1728,7 +1728,6 @@ function writePhysical(facts: DescriptionFacts): string {
     opener = `${capFirst(noun)}.`;
   }
   parts.push(polishParagraph(opener));
-
   // Delivery only when it adds a real option — never "Available in X, asking Y"
   if (d === "pickup_or_shipping") {
     parts.push(
@@ -1761,7 +1760,7 @@ function writePhysical(facts: DescriptionFacts): string {
     { title: facts.item, extras: facts.extras, listingType: "physical" },
     facts.extras
   ).weaveExtras;
-  const extrasProse = composeExtrasProse(weaveOnly.length ? weaveOnly : facts.extras);
+  const extrasProse = composeExtrasProse(weaveOnly);
   if (extrasProse) parts.push(extrasProse);
 
   return parts.join(" ");
@@ -1908,7 +1907,8 @@ function writeService(facts: DescriptionFacts): string {
   if (facts.serviceDuration) {
     parts.push(`Typical jobs run about ${facts.serviceDuration}.`);
   }
-  if (facts.extras.length) parts.push(`${facts.extras.join("; ")}.`);
+  const extrasProse = composeExtrasProse(facts.extras);
+  if (extrasProse) parts.push(extrasProse);
 
   return parts.join(" ");
 }
@@ -1970,9 +1970,10 @@ function writeRental(facts: DescriptionFacts): string {
   }
   if (rates.length) bits.push(rates.join(", "));
   if (r?.availableFrom) bits.push(`available from ${r.availableFrom}`);
-  if (facts.extras.length) bits.push(...facts.extras);
+  const extrasProse = composeExtrasProse(facts.extras);
 
   if (bits.length) parts.push(capFirst(`${bits.join(", ")}.`));
+  if (extrasProse) parts.push(extrasProse);
 
   return parts.join(" ");
 }

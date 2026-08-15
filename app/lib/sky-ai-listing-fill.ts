@@ -553,6 +553,9 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
   const out: SkyAiListingFill = {};
   if (raw.title) out.title = raw.title.slice(0, 120);
   if (raw.description) out.description = raw.description.slice(0, 8000);
+  if (o.descriptionSource === "user" || o.descriptionSource === "ai") {
+    out.descriptionSource = o.descriptionSource;
+  }
   if (raw.extras?.length) out.extras = raw.extras.slice(0, 24);
   if (listingType) out.listingType = listingType;
   const pricingHint = `${raw.title || ""} ${raw.description || ""} ${raw.pricingType || ""} ${raw.servicePricingType || ""}`;
