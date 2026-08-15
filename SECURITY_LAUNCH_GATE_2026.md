@@ -144,35 +144,69 @@ No enforcement was enabled or changed. A legitimate-versus-direct request test i
 
 ## Gate 10 — Rate limiting and Āwhina abuse controls
 
-**Status: FAIL — production Upstash calls are configured but broken at runtime.**
+**Status: BLOCKED — production Upstash hostname is stale/deleted (DNS `ENOTFOUND`); agent cannot rotate secrets without interactive Upstash + Vercel console access.**
 
-### Production configuration evidence
+### How the code uses Upstash
 
-- `vercel env ls production` listed both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` as Production variables.
-- Vercel's environment download redacts those values in this session, so a direct Redis `PING` could not be authenticated without an approved secret-access path.
-- Production runtime logs from controlled requests provide stronger evidence: `/api/sky-ai`, `/api/send-message`, `/api/create-listing`, and `/api/save-profile` all logged `Upstash error, falling back to Firestore` with `TypeError: Cannot read properties of undefined (reading 'evalsha')`.
-- Root cause: `rateLimitUpstash()` constructed a new limiter from the private `(rl as any).redis` field, which is undefined in the installed Upstash library version. Current `main` now retains the actual `Redis` client and supplies it directly to each route-specific limiter.
-- Commit `9528743` deployed as `dpl_7ZDvJDTrvRjrWGau5KtB62mHEL29` and removed the `evalsha` implementation error. One bounded request to each route then exposed the underlying configuration failure: all four production logs reported `fetch failed`, caused by DNS `ENOTFOUND` for the configured Upstash hostname. Distributed limiting therefore remains unavailable; requests fall back to Firestore/in-memory.
-- Current code selects Upstash first when configured, then Firestore, then in-memory fallback (`app/lib/rate-limit.ts`). The sensitive routes below use the enforcing `rateLimit()` primitive, not the soft `frictionLimit()` primitive:
-  - `/api/sky-ai`: authenticated 120 / guest 20 per 15 minutes.
-  - `/api/awhina-vision`: authenticated 40 per user per 15 minutes.
-  - `/api/send-message`: 25 per IP per minute.
-  - `/api/create-listing`: 10 per IP per minute.
+- `app/lib/rate-limit-upstash.ts` reads `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`, constructs `@upstash/redis` `Redis({ url, token })`, and runs `@upstash/ratelimit` sliding windows with prefix `sd`.
+- If either env var is missing, limiters degrade immediately (`degraded: true`) and callers fall through to Firestore / in-memory (`app/lib/rate-limit.ts`).
+- If env vars are present but Redis is unreachable, `rateLimitUpstash()` catches the error, logs `[rate-limit] Upstash error, falling back to Firestore:`, and returns `degraded: true` (fail-open to fallback — not distributed limiting).
+- Note: startup log `[rate-limit] Upstash Redis ACTIVE` only means both env vars are set; it does **not** prove DNS/connectivity. `GET /api/security-health` (public) similarly reports overall integrity only; Upstash “active” in metrics is env-presence, not a live `PING`.
 
-### Controlled production probes
+### Production configuration evidence (revalidated 2026-08-15)
 
-All requests below used no bearer token and `{}` or a bounded navigation-only text payload; no listing, message, image analysis, or payment mutation was attempted.
+- `vercel env ls` shows both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` as Encrypted Production vars (age ~60d).
+- `vercel env pull --environment=production` redacts both values to empty in this CLI session — secrets cannot be read or `PING`ed from the agent.
+- `vercel integration ls` reports **no** linked Upstash/Redis resources on the project.
+- No `UPSTASH_EMAIL` / `UPSTASH_API_KEY` in the agent environment; `@upstash/cli` requires interactive login.
+- Hostname diagnosis (from runtime logs only; value never printed or committed): pattern `<db>***.upstash.io` — correct `*.upstash.io` shape, but DNS `getaddrinfo ENOTFOUND`. This is consistent with a **deleted or rotated Upstash database**, not a missing env var or the older `evalsha` client bug.
 
-| Command form | Result |
-| --- | --- |
-| `POST /api/awhina-vision` without authorization | `401 {"code":"auth_required"}` |
-| `POST /api/send-message` without authorization | `401 {"error":"Unauthorized"}` |
-| `POST /api/create-listing` with valid CSRF token but no bearer token | `401 {"error":"Unauthorized"}` |
-| Two `POST /api/sky-ai` guest navigation probes | Both `401`, `source:"rules"`, `awhina.routing:"guest_auth_gate"`, `avoidedAi:true` |
+### Prior client fix (still valid)
 
-### Remaining blocker
+- Commit `9528743` removed the `(rl as any).redis` / `evalsha` implementation error. Distributed limiting still fails afterward solely because the configured REST hostname does not resolve.
 
-Do not perform a threshold-exhaustion test against production. Replace the stale/deleted Upstash URL and token through the approved Vercel secret path, then repeat one bounded request per route and verify there is no fallback warning. To fully close this gate, use a non-production Upstash database and dedicated UID/IP to prove each `429` boundary and capture counter evidence without printing credentials.
+### Controlled production probes (2026-08-15, non-abusive)
+
+No bearer token; no listing/message/payment mutations; no threshold exhaustion.
+
+| Probe | Result | Runtime log (redacted) |
+| --- | --- | --- |
+| `GET /api/security-health` | `200 {"ok":true,"status":"DEGRADED"}` | (public payload does not include Upstash detail) |
+| `POST /api/create-listing` with CSRF cookie + `x-csrf-token`, body `{}` | `401 Unauthorized` | `Upstash Redis ACTIVE` then `Upstash error, falling back to Firestore` / `ENOTFOUND <db>***.upstash.io` |
+| `POST /api/send-message` body `{}` | `401 Unauthorized` | same `ENOTFOUND` fallback |
+
+Sensitive routes still enforce via `rateLimit()` (Firestore/in-memory fallback active), not soft `frictionLimit()`:
+
+- `/api/sky-ai`: authenticated 120 / guest 20 per 15 minutes
+- `/api/awhina-vision`: authenticated 40 per user per 15 minutes
+- `/api/send-message`: 25 per IP per minute
+- `/api/create-listing`: 10 per IP per minute
+
+### What was not done (and why)
+
+- Did **not** create/link a new Upstash Redis DB: no Upstash API credentials and no Vercel Upstash integration resource.
+- Did **not** overwrite Production env vars: cannot obtain a valid REST URL/token without the Upstash console (or Integration Marketplace link flow).
+- Did **not** enable App Check enforcement.
+- Did **not** load-test or exhaust rate-limit thresholds in production.
+- Firebase CLI: session was previously revoked after accidental OAuth exposure — do **not** reuse old Firebase login tokens; re-auth only if a human explicitly needs Firebase for a separate task (not required for Gate 10).
+
+### Human steps to unblock Gate 10 → PASS
+
+1. Open [Upstash Console](https://console.upstash.com/) → create a **new Redis** database (or restore the intended one) in a region close to Vercel production.
+2. Copy **REST URL** and **REST TOKEN** from the Upstash dashboard (do not paste into chat, git, or screenshots committed to the repo).
+3. In [Vercel → sky-drop → Settings → Environment Variables](https://vercel.com/), for **Production** (and Preview if desired):
+   - Update `UPSTASH_REDIS_REST_URL` to the new REST URL
+   - Update `UPSTASH_REDIS_REST_TOKEN` to the new REST TOKEN
+   - Optional cleaner path: Vercel Marketplace → add **Upstash** integration and let it set these vars, then remove any stale manual duplicates.
+4. **Redeploy** production (env changes do not apply to already-running serverless isolates until a new deployment).
+5. Verify with **one** bounded request each (no threshold test), e.g. CSRF + `POST /api/create-listing` `{}` expecting `401`, and `POST /api/send-message` `{}` expecting `401`.
+6. In `vercel logs skydrop.co.nz --expand --query "rate-limit"` confirm:
+   - Present: `[rate-limit] Upstash Redis ACTIVE`
+   - **Absent**: `falling back to Firestore`, `ENOTFOUND`, `fetch failed`
+7. Optional: admin `GET /api/security-health` with a valid admin bearer — overall should move off Upstash-related degradation once connectivity is real (today’s public `DEGRADED` may also reflect other subsystems).
+8. Re-mark this gate **PASS** only after step 6 evidence is captured (redact hostnames; never commit secrets).
+
+Until steps 1–6 complete, production rate limiting remains **Firestore + in-memory fallback**, not distributed Upstash.
 
 ## Gate 11 — CSRF classification and validation
 
