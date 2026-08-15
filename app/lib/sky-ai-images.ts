@@ -14,6 +14,8 @@ export const SKY_AI_LISTING_IMAGES_EVENT = "sky-ai-listing-images";
 export type SkyAiListingImagesDetail = {
   dataUrls: string[];
   names: string[];
+  /** Stable capture operation ID shared by chat and listing bridge. */
+  operationId?: string;
   /**
    * When false, /post/ai only attaches photos to the listing (caller runs vision).
    * Default true — listing tab / first-image path still analyzes.
@@ -99,7 +101,7 @@ export function dataUrlToFile(dataUrl: string, name: string): File {
 export function dispatchListingImages(
   dataUrls: string[],
   names: string[],
-  opts?: { analyze?: boolean }
+  opts?: { analyze?: boolean; operationId?: string }
 ) {
   if (typeof window === "undefined" || !dataUrls.length) return;
   window.dispatchEvent(
@@ -108,6 +110,7 @@ export function dispatchListingImages(
         dataUrls,
         names,
         analyze: opts?.analyze !== false,
+        operationId: opts?.operationId,
       },
     })
   );

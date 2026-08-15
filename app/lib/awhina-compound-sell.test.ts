@@ -340,6 +340,7 @@ describe("compound multi-field pending-slot replies", () => {
     expect(t3.listingFill?.condition).toBe(before.condition);
     expect(t3.listingFill?.location).toBe(before.location);
     expect(String(t3.listingFill?.description || "").trim().length).toBeGreaterThan(10);
+    expect(t3.listingFill?.forceDescriptionRewrite).toBe(true);
   });
 });
 

@@ -240,6 +240,8 @@ export default function AIPostPage() {
   const [skyChatOpen, setSkyChatOpen] = useState(true);
   /** Capture must reveal the conversation before its real photo message arrives. */
   const [photoConversationActive, setPhotoConversationActive] = useState(false);
+  /** Each top-capture operation may reach this bridge only once. */
+  const processedListingPhotoOperations = useRef(new Set<string>());
   const [skyAutoQuery, setSkyAutoQuery] = useState<string | undefined>();
   /** Mobile workspace: conversation is primary; listing is the draft pane */
   const [mobileWorkspaceTab, setMobileWorkspaceTab] = useState<"chat" | "listing">("chat");
@@ -823,6 +825,7 @@ export default function AIPostPage() {
   ) => {
     const prior = readListingDraftFromSkyAi();
     const replaceDraft = fill.replaceDraft === true;
+    const explicitDescriptionRewrite = fill.forceDescriptionRewrite === true;
     // Explicit NEW sell: clear prior draft — do not keep stale price/year/vehicle fields
     if (replaceDraft) {
       clearListingDraftFromSkyAi();
@@ -865,7 +868,7 @@ export default function AIPostPage() {
     // Last client boundary for photo, voice, text, and global-chat handoffs.
     // Form edits are locked USER copy; every other description is rebuilt from
     // canonical draft fields instead of trusting a model-provided prose string.
-    if (!isUserLockedField("description")) {
+    if (!isUserLockedField("description") || explicitDescriptionRewrite) {
       merged = finalizeAwhinaListingDescription(merged);
     }
 
@@ -958,7 +961,13 @@ export default function AIPostPage() {
     const guardSet =
       <T,>(key: keyof ListingDraftFormSnapshot, setter: (v: T) => void) =>
       (v: T) => {
-        if (!replaceDraft && isUserLockedField(key)) return;
+        if (
+          !replaceDraft &&
+          isUserLockedField(key) &&
+          !(key === "description" && explicitDescriptionRewrite)
+        ) {
+          return;
+        }
         setter(v);
       };
 
@@ -1002,6 +1011,26 @@ export default function AIPostPage() {
       setStockQuantity: guardSet("stockQuantity", setStockQuantity),
       setServiceDuration: guardSet("serviceDuration", setServiceDuration),
     });
+    // Persist and read back the exact canonical proposal before callers are
+    // allowed to acknowledge a mutation. React state settles asynchronously,
+    // so the storage draft is the synchronous, refresh-safe confirmation.
+    const changedKeys = Object.entries(merged)
+      .filter(
+        ([key, next]) =>
+          key !== "replaceDraft" &&
+          key !== "forceDescriptionRewrite" &&
+          typeof next !== "undefined" &&
+          JSON.stringify((prior as Record<string, unknown> | null)?.[key]) !== JSON.stringify(next)
+      )
+      .map(([key]) => key);
+    let persisted = false;
+    if (ok && changedKeys.length > 0) {
+      syncListingDraftToSkyAi(merged);
+      const confirmed = readListingDraftFromSkyAi();
+      persisted = changedKeys.every(
+        (key) => String(confirmed?.[key as keyof typeof confirmed] || "") === String(merged[key] || "")
+      );
+    }
     if (ok && fieldsChanged > 0) {
       const notes: string[] = [];
       if (merged.vehicleYear) notes.push(`Year ${merged.vehicleYear}`);
@@ -1039,6 +1068,11 @@ export default function AIPostPage() {
     } else if (!ok) {
       showToast("Āwhina couldn't fill your form — try describing the item again", "error");
     }
+    return {
+      applied: Boolean(ok && changedKeys.length > 0 && persisted),
+      changedKeys,
+      draft: persisted ? readListingDraftFromSkyAi() : null,
+    };
   }, [imagePreviews.length, title, description, category, condition, price, listingType, location, autoPublish, choosePaymentType, isUserLockedField]);
 
   /**
@@ -1275,8 +1309,12 @@ export default function AIPostPage() {
 
     const onImages = async (e: Event) => {
       const detail = (e as CustomEvent<SkyAiListingImagesDetail>).detail || {};
-      const { dataUrls, names } = detail;
+      const { dataUrls, names, operationId } = detail;
       if (!dataUrls?.length) return;
+      if (operationId) {
+        if (processedListingPhotoOperations.current.has(operationId)) return;
+        processedListingPhotoOperations.current.add(operationId);
+      }
       // Chat composer may run vision itself — still sync photo onto listing
       const shouldAnalyze = detail.analyze !== false;
 
@@ -1644,7 +1682,11 @@ export default function AIPostPage() {
     setSkyChatOpen(true);
     setMobileWorkspaceTab("chat");
     dispatchSkyAiOpen();
-    dispatchSkyAiConversationPhotos(files);
+    const operationId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `photo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    dispatchSkyAiConversationPhotos(files, operationId);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 

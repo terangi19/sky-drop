@@ -67,6 +67,12 @@ export type SkyAiListingFill = {
    */
   descriptionSource?: "ai" | "user";
   /**
+   * An explicit user request to rewrite the description. This is deliberately
+   * distinct from ordinary AI fills so a seller's edit lock is only overridden
+   * when they have asked Āwhina to replace that copy.
+   */
+  forceDescriptionRewrite?: boolean;
+  /**
    * Per-field authority stamps from the intelligence merge layer.
    * Client applyFill maps these onto ListingFieldProvenance so USER_CORRECTED
    * survives re-photo / later AI fills.
@@ -700,6 +706,7 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
   }
 
   if (raw.replaceDraft === true) out.replaceDraft = true;
+  if (o.forceDescriptionRewrite === true) out.forceDescriptionRewrite = true;
 
   // Preserve intelligence-layer authority stamps (USER_CORRECTED must survive normalize)
   if (o.fieldAuthority && typeof o.fieldAuthority === "object") {

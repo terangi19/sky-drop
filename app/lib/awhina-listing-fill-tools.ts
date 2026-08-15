@@ -281,6 +281,8 @@ export function validateListingFillFields(
   if (fill.descriptionSource === "user" || fill.descriptionSource === "ai") {
     out.descriptionSource = fill.descriptionSource;
   }
+  if (fill.forceDescriptionRewrite === true) out.forceDescriptionRewrite = true;
+  if (fill.fieldAuthority) out.fieldAuthority = fill.fieldAuthority;
   if (fill.location) out.location = String(fill.location).trim().slice(0, 80);
   if (fill.pickupArea) out.pickupArea = String(fill.pickupArea).trim().slice(0, 80);
   if (typeof fill.pickupAvailable === "boolean") out.pickupAvailable = fill.pickupAvailable;
@@ -946,6 +948,15 @@ export function processListingFillMessage(
         ) {
           // Explicit write-description OR new facts → recompose from FULL confirmed draft
           const forceDesc = draftCmds.commands.includes("regenerate_description");
+          if (forceDesc) {
+            // The seller explicitly requested new copy: this is the only
+            // command allowed to supersede their prior description lock.
+            merged.forceDescriptionRewrite = true;
+            merged.fieldAuthority = {
+              ...merged.fieldAuthority,
+              description: "AWHINA",
+            };
+          }
           if (!merged.title && titleCore) {
             merged.title = buildPremiumListingTitle({
               item: titleCore,

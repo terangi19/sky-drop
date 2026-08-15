@@ -107,22 +107,35 @@ type ChatMessage = AwhinaConversationMessage;
 type PendingAttachment = { dataUrl: string; name: string };
 
 type QuickPrompt = { label: string; query: string };
+type ListingMutationResult = {
+  applied: boolean;
+  changedKeys: string[];
+  draft: SkyAiListingFill | null;
+};
 
 const SKY_AI_CONVERSATION_PHOTOS_EVENT = "sky-ai-conversation-photos";
 
 type SkyAiConversationPhotosDetail = {
   files: File[];
+  operationId: string;
 };
 
 /**
  * Sends photos selected outside the composer through its real send routine.
  * This keeps the chat message, listing attachment, and vision bridge atomic.
  */
-export function dispatchSkyAiConversationPhotos(files: File[]) {
+export function dispatchSkyAiConversationPhotos(files: File[], operationId?: string) {
   if (typeof window === "undefined" || !files.length) return;
   window.dispatchEvent(
     new CustomEvent<SkyAiConversationPhotosDetail>(SKY_AI_CONVERSATION_PHOTOS_EVENT, {
-      detail: { files },
+      detail: {
+        files,
+        operationId:
+          operationId ||
+          (typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `photo-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+      },
     })
   );
 }
@@ -135,7 +148,8 @@ export type SkyAiChatPanelProps = {
   /** Send this message once when the panel opens (e.g. quick prompt chip) */
   autoQuery?: string;
   onAutoQueryConsumed?: () => void;
-  onFill?: (fill: SkyAiListingFill) => void;
+  /** Must report whether the canonical listing draft was actually changed and persisted. */
+  onFill?: (fill: SkyAiListingFill) => ListingMutationResult;
   /** Sheet mode: show built-in bottom-right FAB (default true). */
   floatingFab?: boolean;
   quickPrompts?: QuickPrompt[];
@@ -308,6 +322,7 @@ export default function SkyAiChatPanel({
   const [photoLooking, setPhotoLooking] = useState(false);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const processedPhotoOperations = useRef(new Set<string>());
   /** Stash vision fill when global bubble asks "Want to sell it?" — not a second brain */
   const visionOfferFillRef = useRef<{
     fill: SkyAiListingFill;
@@ -538,13 +553,21 @@ export default function SkyAiChatPanel({
   };
 
   const respond = useCallback(
-    async (query: string, attachmentOverride?: PendingAttachment[]) => {
+    async (
+      query: string,
+      attachmentOverride?: PendingAttachment[],
+      photoOperationId?: string
+    ) => {
       const trimmed = query.trim();
       const attachments = attachmentOverride ?? pendingImages;
       const imageUrls = attachments.map((a) => a.dataUrl);
       const imageNames = attachments.map((a) => a.name);
 
       if ((!trimmed && imageUrls.length === 0) || busy) return;
+      if (photoOperationId) {
+        if (processedPhotoOperations.current.has(photoOperationId)) return;
+        processedPhotoOperations.current.add(photoOperationId);
+      }
 
       const switchedIntent =
         isSkyAiGeneralQuestion(trimmed) ||
@@ -729,7 +752,10 @@ export default function SkyAiChatPanel({
         try {
           if (isSellPage) {
             // Sync photo onto listing; page runs bridge → conversation store
-            dispatchListingImages(imageUrls, imageNames, { analyze: true });
+            dispatchListingImages(imageUrls, imageNames, {
+              analyze: true,
+              operationId: photoOperationId,
+            });
             const done = await waitForVisionBridgeDone(60_000);
             if (!done.ok && !getAwhinaConversationState().messages.some(
               (m) => m.role === "assistant" && m.id.startsWith("vision-")
@@ -1052,12 +1078,12 @@ export default function SkyAiChatPanel({
                       const merged = replaceDraft
                         ? { ...evt.listingFill }
                         : mergeListingFillWithDraft(readListingDraftFromSkyAi(), evt.listingFill);
-                      onFill?.(merged);
+                      const mutation = onFill?.(merged);
                       navigateTo = undefined;
                       const aiReply = evt.reply || stripSkyAiMachineTags(accumulated);
-                      const cleanReply = aiReply && aiReply.length > 10
-                        ? aiReply
-                        : SKY_AI_LISTING_FILL_SUCCESS;
+                      const cleanReply = mutation?.applied
+                        ? (aiReply && aiReply.length > 10 ? aiReply : SKY_AI_LISTING_FILL_SUCCESS)
+                        : "I couldn't update the listing draft yet, so I haven't changed anything.";
                       updateAssistant(assistantId, {
                         text: cleanReply,
                         _rawText: accumulated, // Preserve raw text with LISTING_FILL tags
@@ -1141,12 +1167,12 @@ export default function SkyAiChatPanel({
               const merged = replaceDraft
                 ? { ...data.listingFill }
                 : mergeListingFillWithDraft(readListingDraftFromSkyAi(), data.listingFill);
-              onFill?.(merged);
+              const mutation = onFill?.(merged);
               navigateTo = undefined;
               const aiReply = data.reply || "";
-              const cleanReply = aiReply && aiReply.length > 10
-                ? aiReply
-                : SKY_AI_LISTING_FILL_SUCCESS;
+              const cleanReply = mutation?.applied
+                ? (aiReply && aiReply.length > 10 ? aiReply : SKY_AI_LISTING_FILL_SUCCESS)
+                : "I couldn't update the listing draft yet, so I haven't changed anything.";
               updateAssistant(assistantId, {
                 text: cleanReply,
                 streaming: false,
@@ -1356,8 +1382,11 @@ export default function SkyAiChatPanel({
 
   useEffect(() => {
     const onWorkspacePhotos = async (e: Event) => {
-      const files = (e as CustomEvent<SkyAiConversationPhotosDetail>).detail?.files || [];
+      const detail = (e as CustomEvent<SkyAiConversationPhotosDetail>).detail;
+      const files = detail?.files || [];
       if (!files.length) return;
+      const operationId = detail?.operationId;
+      if (!operationId || processedPhotoOperations.current.has(operationId)) return;
 
       const batches = await Promise.all(
         Array.from(
@@ -1383,7 +1412,7 @@ export default function SkyAiChatPanel({
 
       // Do not stage these in the composer: workspace capture is an immediate
       // message, exactly as if the user had pressed Send with an attachment.
-      await respond("", attachments);
+      await respond("", attachments, operationId);
     };
     window.addEventListener(SKY_AI_CONVERSATION_PHOTOS_EVENT, onWorkspacePhotos);
     return () => window.removeEventListener(SKY_AI_CONVERSATION_PHOTOS_EVENT, onWorkspacePhotos);
