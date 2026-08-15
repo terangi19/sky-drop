@@ -997,15 +997,25 @@ export function processListingFillMessage(
           validated.fill,
           validated.fill.title || "listing"
         );
+        // A rewrite command is successful only when its visible prose changed.
+        // The deterministic composer can correctly return the same copy for the
+        // same facts; never describe that idempotent result as an update.
+        const descriptionChanged =
+          (validated.fill.description || "").replace(/\s+/g, " ").trim() !==
+          (baseDraftEarly.description || "").replace(/\s+/g, " ").trim();
         const noteBits = [...extracted.notes];
-        if (draftCmds.commands.includes("regenerate_description")) {
+        if (
+          draftCmds.commands.includes("regenerate_description") &&
+          descriptionChanged
+        ) {
           noteBits.push("updated the description");
         }
         if (draftCmds.commands.includes("improve_title") || extracted.filledSlots.includes("generation")) {
           noteBits.push("updated the title");
         }
-        const lead =
-          draftCmds.commands.includes("regenerate_description") &&
+        const lead = !descriptionChanged && draftCmds.commands.includes("regenerate_description")
+          ? "I couldn't improve the description from the facts I have yet — what else should I include?"
+          : draftCmds.commands.includes("regenerate_description") &&
           (extracted.filledSlots.includes("generation") || extracted.filledSlots.includes("variant"))
             ? `Done — I've updated the title and description for your **${validated.fill.title}**.`
             : noteBits.length

@@ -1014,13 +1014,19 @@ export default function AIPostPage() {
     // Persist and read back the exact canonical proposal before callers are
     // allowed to acknowledge a mutation. React state settles asynchronously,
     // so the storage draft is the synchronous, refresh-safe confirmation.
+    const normalizeDescription = (value: unknown) =>
+      typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
     const changedKeys = Object.entries(merged)
       .filter(
         ([key, next]) =>
           key !== "replaceDraft" &&
           key !== "forceDescriptionRewrite" &&
           typeof next !== "undefined" &&
-          JSON.stringify((prior as Record<string, unknown> | null)?.[key]) !== JSON.stringify(next)
+          (key === "description"
+            ? normalizeDescription((prior as Record<string, unknown> | null)?.[key]) !==
+              normalizeDescription(next)
+            : JSON.stringify((prior as Record<string, unknown> | null)?.[key]) !==
+              JSON.stringify(next))
       )
       .map(([key]) => key);
     let persisted = false;
@@ -1071,7 +1077,14 @@ export default function AIPostPage() {
       showToast("Āwhina couldn't fill your form — try describing the item again", "error");
     }
     return {
-      applied: Boolean(ok && changedKeys.length > 0 && persisted),
+      // A force rewrite is a claimed description mutation. Other changed
+      // fields do not make an unchanged description a successful rewrite.
+      applied: Boolean(
+        ok &&
+          changedKeys.length > 0 &&
+          persisted &&
+          (!explicitDescriptionRewrite || changedKeys.includes("description"))
+      ),
       changedKeys,
       draft: persisted ? readListingDraftFromSkyAi() : null,
     };
@@ -1086,7 +1099,7 @@ export default function AIPostPage() {
       listingFill: SkyAiListingFill | null;
       identity: string;
       needsIdentityConfirm: boolean;
-    }, opts?: { identityConfirmed?: boolean }) => {
+    }, opts?: { identityConfirmed?: boolean; operationId?: string }) => {
       if (!visionState.listingFill) return;
       const bridge = prepareVisionConversationBridge({
         listingFill: visionState.listingFill,
@@ -1096,6 +1109,7 @@ export default function AIPostPage() {
         fieldProvenance: fieldProvenanceRef.current,
         existingDraft: readListingDraftFromSkyAi(),
         identityConfirmed: opts?.identityConfirmed,
+        operationId: opts?.operationId,
       });
 
       const provenanceOverrides: ListingFieldProvenanceMap = {
@@ -1136,7 +1150,10 @@ export default function AIPostPage() {
   );
 
   const runVisionAnalyzeAndBridge = useCallback(
-    async (files: File[], opts?: { force?: boolean; message?: string }) => {
+    async (
+      files: File[],
+      opts?: { force?: boolean; message?: string; operationId?: string }
+    ) => {
       if (!files.length) return;
       if (!AWHINA_VISION_LISTING_UI_ENABLED) {
         console.warn(
@@ -1178,7 +1195,7 @@ export default function AIPostPage() {
         dispatchVisionBridgeDone({ ok: false, errorMessage: failText });
         return;
       }
-      bridgeVisionIntoAwhina(result);
+      bridgeVisionIntoAwhina(result, { operationId: opts?.operationId });
     },
     [bridgeVisionIntoAwhina, user?.uid, visionCompanionNote, visionListing]
   );
@@ -1342,7 +1359,10 @@ export default function AIPostPage() {
 
       if (shouldAnalyze && (isFirst || detail.analyze === true)) {
         if (AWHINA_VISION_LISTING_UI_ENABLED) {
-          void runVisionAnalyzeAndBridge(addFiles.slice(0, 4), { force: !isFirst });
+          void runVisionAnalyzeAndBridge(addFiles.slice(0, 4), {
+            force: !isFirst,
+            operationId,
+          });
         } else {
           setAnalyzing(true);
           setDetected("");

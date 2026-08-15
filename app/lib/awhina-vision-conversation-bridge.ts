@@ -70,6 +70,8 @@ export type VisionConversationBridgeInput = {
   identityConfirmed?: boolean;
   /** Companion seller text attached with the photo — fuse before reply */
   sellerMessage?: string;
+  /** Stable photo operation identity, used to make the conversation commit idempotent. */
+  operationId?: string;
 };
 
 export type VisionConversationBridgeResult = {
@@ -89,6 +91,7 @@ export type VisionConversationBridgeResult = {
    */
   pendingAction: AwhinaPendingAction | null;
   focusChat: true;
+  operationId?: string;
 };
 
 function isUserLockedDescription(p?: ListingFieldProvenance): boolean {
@@ -287,6 +290,7 @@ export function prepareVisionConversationBridge(
       pendingClarification: null,
       pendingAction,
       focusChat: true,
+    operationId: input.operationId,
     };
   }
 
@@ -313,6 +317,7 @@ export function prepareVisionConversationBridge(
     pendingClarification,
     pendingAction: null,
     focusChat: true,
+    operationId: input.operationId,
   };
 }
 
@@ -320,7 +325,15 @@ export function prepareVisionConversationBridge(
 export function commitVisionBridgeToConversation(
   bridge: VisionConversationBridgeResult
 ): void {
-  const id = `vision-bridge-${Date.now()}`;
+  const id = bridge.operationId
+    ? `vision-bridge-${bridge.operationId}`
+    : `vision-bridge-${Date.now()}`;
+  // Both the page and chat can observe a photo handoff. A stable operation id
+  // makes the canonical store the final idempotency boundary, so a repeated
+  // listener/event cannot add another assistant vision turn.
+  if (getAwhinaConversationState().messages.some((message) => message.id === id)) {
+    return;
+  }
   appendMessage({
     id,
     role: "assistant",

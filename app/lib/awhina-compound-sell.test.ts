@@ -358,3 +358,44 @@ describe("active-draft command grammar", () => {
     expect(r.isActionOnly).toBe(true);
   });
 });
+
+describe("description rewrite truthfulness", () => {
+  it("does not claim a rewrite when deterministic composition returns identical copy", () => {
+    const conversationId = "rewrite-noop-truthfulness";
+    wipe(conversationId);
+    const baseline = processCanonicalAwhina(
+      "sell my Marin mountain bike, used, Auckland, $500",
+      {
+        conversationId,
+        pathname: "/post/ai",
+      }
+    );
+    const result = processCanonicalAwhina("write a better description", {
+      conversationId,
+      pathname: "/post/ai",
+      listingContext: baseline.listingFill as never,
+    });
+
+    expect(result.listingFill?.description).toBe(baseline.listingFill?.description);
+    expect(result.reply).toMatch(/couldn't improve the description/i);
+    expect(result.reply).not.toMatch(/updated the description/i);
+  });
+
+  it("acknowledges a rewrite only when new facts change composed copy", () => {
+    const conversationId = "rewrite-change-truthfulness";
+    wipe(conversationId);
+    const baseline = processCanonicalAwhina("sell my Marin mountain bike", {
+      conversationId,
+      pathname: "/post/ai",
+    });
+    const result = processCanonicalAwhina("brand new write a better description", {
+      conversationId,
+      pathname: "/post/ai",
+      listingContext: baseline.listingFill as never,
+    });
+
+    expect(result.listingFill?.description).not.toBe(baseline.listingFill?.description);
+    expect(result.reply).toMatch(/updated the description/i);
+    expect(result.reply).not.toMatch(/couldn't improve the description/i);
+  });
+});

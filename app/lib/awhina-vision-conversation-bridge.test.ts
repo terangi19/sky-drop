@@ -174,4 +174,25 @@ describe("commitVisionBridgeToConversation", () => {
     expect(state.awhinaSession?.pendingAction?.type).toBe("CONFIRM_IDENTITY");
     expect(state.awhinaSession?.pendingAction?.identity).toMatch(/Razer/i);
   });
+
+  it("commits one assistant turn for a repeated photo operation", () => {
+    const bridge = prepareVisionConversationBridge({
+      listingFill: {
+        title: "Marin mountain bike",
+        listingType: "physical",
+        category: "Sports",
+      },
+      displayIdentity: "Marin mountain bike",
+      needsIdentityConfirm: false,
+      operationId: "marin-photo-1",
+    });
+
+    commitVisionBridgeToConversation(bridge);
+    commitVisionBridgeToConversation(bridge);
+
+    const messages = getAwhinaConversationState().messages.filter(
+      (message) => message.id === "vision-bridge-marin-photo-1"
+    );
+    expect(messages).toHaveLength(1);
+  });
 });

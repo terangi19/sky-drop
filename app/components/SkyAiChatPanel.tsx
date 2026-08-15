@@ -113,6 +113,23 @@ type ListingMutationResult = {
   draft: SkyAiListingFill | null;
 };
 
+function buildMutationAcknowledgement(mutation: ListingMutationResult): string {
+  const labels: Record<string, string> = {
+    title: "title",
+    description: "description",
+    category: "category",
+    condition: "condition",
+    price: "price",
+    location: "location",
+    listingType: "listing type",
+  };
+  const changed = mutation.changedKeys
+    .map((key) => labels[key])
+    .filter((label): label is string => Boolean(label));
+  if (!changed.length) return SKY_AI_LISTING_FILL_SUCCESS;
+  return `Updated your listing draft: ${changed.join(", ")}.`;
+}
+
 const SKY_AI_CONVERSATION_PHOTOS_EVENT = "sky-ai-conversation-photos";
 
 type SkyAiConversationPhotosDetail = {
@@ -1080,9 +1097,8 @@ export default function SkyAiChatPanel({
                         : mergeListingFillWithDraft(readListingDraftFromSkyAi(), evt.listingFill);
                       const mutation = onFill?.(merged);
                       navigateTo = undefined;
-                      const aiReply = evt.reply || stripSkyAiMachineTags(accumulated);
                       const cleanReply = mutation?.applied
-                        ? (aiReply && aiReply.length > 10 ? aiReply : SKY_AI_LISTING_FILL_SUCCESS)
+                        ? buildMutationAcknowledgement(mutation)
                         : "I couldn't update the listing draft yet, so I haven't changed anything.";
                       updateAssistant(assistantId, {
                         text: cleanReply,
@@ -1169,9 +1185,8 @@ export default function SkyAiChatPanel({
                 : mergeListingFillWithDraft(readListingDraftFromSkyAi(), data.listingFill);
               const mutation = onFill?.(merged);
               navigateTo = undefined;
-              const aiReply = data.reply || "";
               const cleanReply = mutation?.applied
-                ? (aiReply && aiReply.length > 10 ? aiReply : SKY_AI_LISTING_FILL_SUCCESS)
+                ? buildMutationAcknowledgement(mutation)
                 : "I couldn't update the listing draft yet, so I haven't changed anything.";
               updateAssistant(assistantId, {
                 text: cleanReply,
