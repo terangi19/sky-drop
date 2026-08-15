@@ -22,6 +22,8 @@
     "test:awhina:live": "vitest run app/lib/sky-ai-live-eval.test.ts",
     "test:awhina:smoke": "node scripts/smoke-awhina-manual.cjs",
     "test:awhina:live:compare": "cross-env SKY_AI_COMPARE_PRODUCTION=1 vitest run app/lib/sky-ai-live-eval.test.ts",
+    "test:rules": "vitest run tests/firestore-rules.test.ts tests/storage-rules.test.ts",
+    "test:rules:emulator": "firebase emulators:exec --only firestore,storage \"npm run test:rules\"",
     "git:sync": "powershell -ExecutionPolicy Bypass -File scripts/git-sync.ps1"
   },
   "dependencies": {
@@ -37,7 +39,7 @@
     "firebase": "^10.12.2",
     "firebase-admin": "^13.10.0",
     "lucide-react": "^1.14.0",
-    "next": "^16.2.6",
+    "next": "16.3.1",
     "nodemailer": "^8.0.7",
     "nsfwjs": "^4.3.0",
     "openai": "^6.42.0",
@@ -61,5 +63,11 @@
     "ts-node": "^10.9.2",
     "typescript": "^5",
     "vitest": "^4.1.8"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.9",
+    "fast-uri": "3.1.5",
+    "undici": "6.28.0",
+    "websocket-driver": "0.7.5"
   }
 }
