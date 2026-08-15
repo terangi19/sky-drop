@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
-import { requireCsrf } from "../../lib/csrf";
+import { CsrfError, requireCsrf } from "../../lib/csrf";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
 import {
@@ -528,6 +528,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (e: any) {
     console.error("[create-listing] Error:", e?.message || e);
+    if (e instanceof CsrfError) {
+      return NextResponse.json({ error: "CSRF token validation failed" }, { status: 403 });
+    }
     const message = e instanceof Error ? e.message : "Failed to create listing";
     const safeMessage =
       message.includes("Firestore") || message.includes("PERMISSION_DENIED")

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
-import { requireCsrf } from "../../lib/csrf";
+import { CsrfError, requireCsrf } from "../../lib/csrf";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
@@ -209,6 +209,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, username: trimmedUsername });
   } catch (e: unknown) {
     console.error("save-profile error:", e);
+    if (e instanceof CsrfError) {
+      return NextResponse.json({ error: "CSRF token validation failed" }, { status: 403 });
+    }
     const message = e instanceof Error ? e.message : "Failed to save profile";
     if (message.includes("NOT_FOUND") || message.includes("404")) {
       return NextResponse.json(
