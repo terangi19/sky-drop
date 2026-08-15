@@ -11,7 +11,6 @@ import { getFreshIdToken } from "../../lib/api-auth";
 import { uploadListingImagesViaApi } from "../../lib/upload-listing-image.client";
 import { createPendingXP, trackListingCreated } from "../../lib/xpValidation";
 import { trackFunnelEvent } from "../../lib/funnel-events";
-import { checkImage } from "../../lib/nsfw";
 import { showToast } from "../../components/Toast";
 import { detectScam } from "../../lib/scamdetection";
 import { detectSuspiciousPrice } from "../../lib/pricedetection";
@@ -47,7 +46,9 @@ import {
   SKY_AI_LISTING_IMAGES_EVENT,
   type SkyAiListingImagesDetail,
 } from "../../lib/sky-ai-images";
-import SkyAiChatPanel from "../../components/SkyAiChatPanel";
+import SkyAiChatPanel, {
+  dispatchSkyAiConversationPhotos,
+} from "../../components/SkyAiChatPanel";
 import SellPhotoUpload from "../../components/SellPhotoUpload";
 import SellEmptyHero from "../../components/sell/SellEmptyHero";
 import SellWorkingStrip from "../../components/sell/SellWorkingStrip";
@@ -236,6 +237,8 @@ export default function AIPostPage() {
 
   /** Workspace keeps chat open by default — homepage handoff continues here */
   const [skyChatOpen, setSkyChatOpen] = useState(true);
+  /** Capture must reveal the conversation before its real photo message arrives. */
+  const [photoConversationActive, setPhotoConversationActive] = useState(false);
   const [skyAutoQuery, setSkyAutoQuery] = useState<string | undefined>();
   /** Mobile workspace: conversation is primary; listing is the draft pane */
   const [mobileWorkspaceTab, setMobileWorkspaceTab] = useState<"chat" | "listing">("chat");
@@ -380,7 +383,11 @@ export default function AIPostPage() {
 
   /** Fresh empty: calm hero — no Chat/Listing jargon, no giant empty editor. */
   const isFreshEmpty =
-    !editId && !hasDraftContent && imagePreviews.length === 0 && visionListing.state.status === "idle";
+    !editId &&
+    !photoConversationActive &&
+    !hasDraftContent &&
+    imagePreviews.length === 0 &&
+    visionListing.state.status === "idle";
 
   /** Tabs only once there is something to inspect on Listing. */
   const showMobileTabs = !editId && !isFreshEmpty;
@@ -1288,7 +1295,7 @@ export default function AIPostPage() {
 
       if (shouldAnalyze && (isFirst || detail.analyze === true)) {
         if (AWHINA_VISION_LISTING_UI_ENABLED) {
-          void runVisionAnalyzeAndBridge(addFiles, { force: !isFirst });
+          void runVisionAnalyzeAndBridge(addFiles.slice(0, 4), { force: !isFirst });
         } else {
           setAnalyzing(true);
           setDetected("");
@@ -1623,36 +1630,15 @@ export default function AIPostPage() {
       }
     }
 
-    // Instant local previews (object URLs) — NSFW check runs after paint
-    const instantPreviews = files.map((file) => URL.createObjectURL(file));
-    const isFirstImage = imagePreviews.length === 0;
-    setImagePreviews((prev) => [...prev, ...instantPreviews].slice(0, 8));
-    setImageFiles((prev) => [...prev, ...files].slice(0, 8));
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const nsfwResult = await checkImage(file);
-      if (!nsfwResult.safe) {
-        showToast(`"${file.name}" flagged: ${nsfwResult.reason}. Remove it and try again.`, "error");
-        URL.revokeObjectURL(instantPreviews[i]);
-        setImagePreviews((prev) => prev.filter((url) => url !== instantPreviews[i]));
-        setImageFiles((prev) => prev.filter((f) => f !== file));
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
-    }
-
-    if (isFirstImage) {
-      if (AWHINA_VISION_LISTING_UI_ENABLED) {
-        // Stay on Listing while "Āwhina is checking…"; bridge switches to Chat on success
-        void runVisionAnalyzeAndBridge(files.slice(0, 4));
-      } else {
-        setAnalyzing(true);
-        setDetected("");
-        await runDetection();
-        setAnalyzing(false);
-      }
-    }
+    // Workspace capture/picker is a chat attachment, not a second listing-only
+    // upload path. The mounted composer creates the real user message, runs its
+    // vision bridge, then emits the canonical image data for this listing once.
+    setPhotoConversationActive(true);
+    setSkyChatOpen(true);
+    setMobileWorkspaceTab("chat");
+    dispatchSkyAiOpen();
+    dispatchSkyAiConversationPhotos(files);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const createListing = async () => {

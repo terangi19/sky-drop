@@ -107,6 +107,25 @@ type PendingAttachment = { dataUrl: string; name: string };
 
 type QuickPrompt = { label: string; query: string };
 
+const SKY_AI_CONVERSATION_PHOTOS_EVENT = "sky-ai-conversation-photos";
+
+type SkyAiConversationPhotosDetail = {
+  files: File[];
+};
+
+/**
+ * Sends photos selected outside the composer through its real send routine.
+ * This keeps the chat message, listing attachment, and vision bridge atomic.
+ */
+export function dispatchSkyAiConversationPhotos(files: File[]) {
+  if (typeof window === "undefined" || !files.length) return;
+  window.dispatchEvent(
+    new CustomEvent<SkyAiConversationPhotosDetail>(SKY_AI_CONVERSATION_PHOTOS_EVENT, {
+      detail: { files },
+    })
+  );
+}
+
 export type SkyAiChatPanelProps = {
   mode: SkyAiChatPanelMode;
   /** Inline: controlled visibility from parent */
@@ -1332,6 +1351,41 @@ export default function SkyAiChatPanel({
     window.addEventListener(SKY_AI_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(SKY_AI_OPEN_EVENT, onOpen);
   }, [respond, setOpen]);
+
+  useEffect(() => {
+    const onWorkspacePhotos = async (e: Event) => {
+      const files = (e as CustomEvent<SkyAiConversationPhotosDetail>).detail?.files || [];
+      if (!files.length) return;
+
+      const batches = await Promise.all(
+        Array.from(
+          { length: Math.ceil(Math.min(files.length, 8) / SKY_AI_MAX_IMAGES_PER_MESSAGE) },
+          (_, i) =>
+            prepareSkyAiImages(
+              files.slice(i * SKY_AI_MAX_IMAGES_PER_MESSAGE, (i + 1) * SKY_AI_MAX_IMAGES_PER_MESSAGE)
+            )
+        )
+      );
+      const failed = batches.find((batch) => "error" in batch);
+      if (failed && "error" in failed) {
+        showToast(failed.error, "error");
+        return;
+      }
+      const prepared = batches as Exclude<(typeof batches)[number], { error: string }>[];
+      const attachments = prepared.flatMap((batch) =>
+        batch.dataUrls.map((dataUrl, i) => ({
+          dataUrl,
+          name: batch.names[i] || `photo-${i + 1}.jpg`,
+        }))
+      );
+
+      // Do not stage these in the composer: workspace capture is an immediate
+      // message, exactly as if the user had pressed Send with an attachment.
+      await respond("", attachments);
+    };
+    window.addEventListener(SKY_AI_CONVERSATION_PHOTOS_EVENT, onWorkspacePhotos);
+    return () => window.removeEventListener(SKY_AI_CONVERSATION_PHOTOS_EVENT, onWorkspacePhotos);
+  }, [respond]);
 
   useEffect(() => {
     const onFill = (e: Event) => {
