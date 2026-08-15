@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Authentication", () => {
   test("login page loads", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByRole("heading", { name: "Log in" })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible({ timeout: 10000 });
   });
 
   test("signup page loads", async ({ page }) => {
@@ -44,8 +44,29 @@ test.describe("Authentication", () => {
     }
   });
 
-  test("login links to signup", async ({ page }) => {
+  test("login validates and exposes accessible credentials controls", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByRole("link", { name: /Join free/i })).toBeVisible({ timeout: 10000 });
+    const email = page.getByLabel("Email address");
+    const password = page.getByLabel("Password", { exact: true });
+    const submit = page.getByRole("button", { name: "Sign in" });
+
+    await expect(submit).toBeDisabled();
+    await email.fill("not-an-email");
+    await password.fill("incorrect-password");
+    expect(await email.evaluate((input: HTMLInputElement) => input.validity.valid)).toBe(false);
+    await expect(submit).toBeEnabled();
+
+    await page.getByRole("button", { name: "Show password" }).click();
+    await expect(password).toHaveAttribute("type", "text");
+    await page.getByRole("button", { name: "Hide password" }).click();
+    await expect(password).toHaveAttribute("type", "password");
+  });
+
+  test("login preserves safe navigation links and rejects external redirects", async ({ page }) => {
+    await page.goto("/login?redirect=https%3A%2F%2Fevil.example");
+    await expect(page.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/signup");
+    await expect(page.getByRole("link", { name: "Forgot password?" })).toHaveAttribute("href", "/forgot-password");
+    await expect(page.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/terms");
+    await expect(page.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy");
   });
 });
