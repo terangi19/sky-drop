@@ -152,6 +152,7 @@ No enforcement was enabled or changed. A legitimate-versus-direct request test i
 - Vercel's environment download redacts those values in this session, so a direct Redis `PING` could not be authenticated without an approved secret-access path.
 - Production runtime logs from controlled requests provide stronger evidence: `/api/sky-ai`, `/api/send-message`, `/api/create-listing`, and `/api/save-profile` all logged `Upstash error, falling back to Firestore` with `TypeError: Cannot read properties of undefined (reading 'evalsha')`.
 - Root cause: `rateLimitUpstash()` constructed a new limiter from the private `(rl as any).redis` field, which is undefined in the installed Upstash library version. Current `main` now retains the actual `Redis` client and supplies it directly to each route-specific limiter.
+- Commit `9528743` deployed as `dpl_7ZDvJDTrvRjrWGau5KtB62mHEL29` and removed the `evalsha` implementation error. One bounded request to each route then exposed the underlying configuration failure: all four production logs reported `fetch failed`, caused by DNS `ENOTFOUND` for the configured Upstash hostname. Distributed limiting therefore remains unavailable; requests fall back to Firestore/in-memory.
 - Current code selects Upstash first when configured, then Firestore, then in-memory fallback (`app/lib/rate-limit.ts`). The sensitive routes below use the enforcing `rateLimit()` primitive, not the soft `frictionLimit()` primitive:
   - `/api/sky-ai`: authenticated 120 / guest 20 per 15 minutes.
   - `/api/awhina-vision`: authenticated 40 per user per 15 minutes.
@@ -171,7 +172,7 @@ All requests below used no bearer token and `{}` or a bounded navigation-only te
 
 ### Remaining blocker
 
-Do not perform a threshold-exhaustion test against production. The code fix must deploy first; then repeat one bounded request per route and verify the `evalsha` fallback warning is absent. To fully close this gate, use a non-production Upstash database and dedicated UID/IP to prove each `429` boundary and capture counter evidence without printing credentials.
+Do not perform a threshold-exhaustion test against production. Replace the stale/deleted Upstash URL and token through the approved Vercel secret path, then repeat one bounded request per route and verify there is no fallback warning. To fully close this gate, use a non-production Upstash database and dedicated UID/IP to prove each `429` boundary and capture counter evidence without printing credentials.
 
 ## Gate 11 — CSRF classification and validation
 
