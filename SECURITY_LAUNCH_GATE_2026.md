@@ -1,58 +1,76 @@
-# Security Launch Gate — Emulator Execution Evidence
-
-**Date:** 2026-08-15 (hard relaunch)  
-**Branch tested:** `main` (harness commit after this evidence record)  
-**Overall verdict:** **NOT GO** — emulator Java prerequisite missing; adversarial rules suites are committed and ready but unexecuted.  
-**Scope:** launch gates 1–7 and 14. This record contains execution evidence only; it does not convert static rule review into an emulator result.
-
-## Gate results
-
-| Gate | Result | Actual evidence |
-| --- | --- | --- |
-| 1 — Java / Emulator prerequisite | **BLOCKED** | `java -version` failed: `java` is not recognized. Hard relaunch tried `winget install Microsoft.OpenJDK.17 --scope user --accept-package-agreements --accept-source-agreements`. Winget found the package, downloaded, and verified the installer hash, then stalled past the 2-minute anti-stall budget with no successful install (likely MSI elevation). Process killed; `java` still absent from PATH. |
-| 2 — Firestore adversarial rules (Wheedle-class A-vs-B) | **BLOCKED** | `tests/firestore-rules.test.ts` includes Wheedle-class A-vs-B coverage (user A positive control, forged create as A, direct/merge/transaction/batch cross-account listing attacks, immutable ownership, message/conversation isolation, profile privacy, admin boundary). Could not execute: Firestore emulator requires Java. |
-| 3 — Storage adversarial rules (Wheedle-class A-vs-B) | **BLOCKED** | `tests/storage-rules.test.ts` covers public assets, cross-account writes, KYC/proof privacy, MIME validation, and default-deny prefixes. Could not execute: Storage emulator requires Java. |
-| 4 — Combined emulator execution | **BLOCKED** | Emulator suite not run this relaunch because Java remained unavailable. Prior attempt: `npm run test:rules:emulator` exited 1 with `Error: Could not spawn \`java -version\`. Please make sure Java is installed and on your system PATH.` |
-| 5 — Repeatable/CI-ready suite | **PASS (harness only)** | `package.json` scripts `test:rules` and `test:rules:emulator` present; `.github/workflows/security-rules.yml` runs emulator suite on Ubuntu with Temurin 21. Tests typecheck (`npx tsc --noEmit` exit 0). This is **not** a local emulator pass. |
-| 6 — Evidence record | **PASS** | This file records the exact blocker and observed command outcomes. |
-| 7 — Commit and push | **PASS (harness + BLOCKED evidence)** | Tests + this gate doc + scripts committed and pushed while overall verdict remains NOT GO. |
-| 14 — Rate-limit execution | **BLOCKED** | The Firebase emulator suite does not exercise deployed rate-limit backends, and no configured runtime/test environment was available for an execution result. No rate-limit pass is claimed. |
-
-## Commands executed (hard relaunch)
-
-```text
-java -version
-# PowerShell: java is not recognized as a command.
-
-winget install Microsoft.OpenJDK.17 --scope user --accept-package-agreements --accept-source-agreements
-# Found Microsoft.OpenJDK.17 17.0.10.7
-# Downloaded + Successfully verified installer hash
-# Stalled >2 minutes with no completed install (anti-stall: killed)
-# java still not on PATH afterward
-
-# Skipped (Java missing):
-npm run test:rules:emulator
-
-npx tsc --noEmit --pretty false
-# Exit 0 (project typecheck; no errors in rules test files)
-```
-
-## Added executable coverage (committed; pending Java)
-
-- Firestore Wheedle-class A-vs-B: user A own-listing update positive control; user B forged create as A; direct, merge-set, transaction, and batch cross-account listing attacks; immutable seller/owner fields; message and conversation participant isolation; full-profile privacy; narrow public-config allowlist; non-admin audit/config escalation attempts.
-- Storage Wheedle-class A-vs-B: anonymous and cross-UID avatar/listing uploads; public image MIME rejection; verified-owner KYC and proof-of-address writes; unverified and invalid-document rejection; cross-user sensitive-document reads/writes; default-deny prefix checks.
-
-## Required next action
-
-Install a JDK that provides `java` on `PATH` **without** relying on cancelled elevation (portable Temurin zip under `tools/` + session `JAVA_HOME`/`PATH`, or admin-approved winget), then rerun:
-
-```text
-npm run test:rules:emulator
-```
-
-Only if that command exits 0 may gates 2–4 move from BLOCKED to PASS. Do **not** upgrade overall verdict to GO while Java/emulator evidence is missing.
-
 # Security Launch Gate 2026
+
+**Execution date:** 2026-08-15  
+**Executed branch:** `main`  
+**Rules/CI commits:** `979bfb3`, `af37145`
+
+## Executive verdict
+
+**CONDITIONAL GO.** Gates 1–7 passed for the executable Firebase rules and public-profile boundaries in scope. Gate 14 now has a permanent PR/main workflow. Existing production/App Check/browser-E2E blockers later in this document still prevent an unconditional GO.
+
+## Gate 1 — Firestore adversarial execution
+
+**PASS.** A user-local Temurin JDK 21.0.12 was installed from the Adoptium portable ZIP at `%LOCALAPPDATA%\Programs\Temurin21`; no administrator elevation was required. Firestore and Storage emulators started and the final combined run completed successfully.
+
+The suite executes anonymous, user A, user B, outsider user C, and admin-claim contexts against the repository rules.
+
+## Gate 2 — Wheedle-class listing attack
+
+**WHEEDLE_CLASS_LISTING_ATTACK = PASS (Firestore rules).**
+
+Executed denials cover cross-account `update`, `set(..., { merge: true })`, transaction, batch, and delete attacks. Crafted changes include ordinary listing content and seller/owner substitution. Both existing cross-account tests and the added user-A/user-B fixtures ran against the Firestore emulator.
+
+This proves the direct Firestore boundary. Genuine two-account browser/API ID-substitution remains Gate 13 and is still BLOCKED as documented below.
+
+## Gate 3 — Ownership immutability
+
+**PASS (Firestore rules).** The legitimate owner could not rewrite `sellerId`, `sellerEmail`, `sellerName`, `ownerId`, `userId`, or `createdBy` to user B. Existing profile/KYC privileged-field tests also executed in the same suite.
+
+## Gate 4 — Message privacy
+
+**PASS (Firestore rules).** An unrelated user could not read a guessed message or conversation document, inject conversation metadata, or use direct client message mutations. Existing forged-sender, participant-freezing, anonymous, and typing-isolation tests executed successfully.
+
+## Gate 5 — Private/public profile privacy
+
+**PASS.** Firestore denied user B access to user A's full profile containing email, phone, and KYC state. The executable public-profile regression passed a record with newly added private fields through `pickPublicProfileFields()` and proved only the explicit public allowlist was returned.
+
+## Gate 6 — Admin escalation
+
+**PASS (Firestore rules).** A normal user could not read/write `adminAuditLog`, read sensitive admin config, or add themselves to `config/adminEmails`. A separate authenticated `admin: true` claim context successfully exercised the intended admin path, proving the negative tests were not caused by a blanket deny.
+
+This emulator result does not claim genuine browser/API admin-manipulation execution; that remains part of the still-BLOCKED Gate 13.
+
+## Gate 7 — Storage adversarial suite
+
+**PASS (Storage rules).** The emulator denied anonymous uploads, user-B writes into user-A avatar/listing/KYC/proof paths, cross-user KYC/proof reads, unverified KYC uploads, invalid MIME types, unsafe unallowlisted prefixes, and SVG/PDF content types on image-only paths. Intended public image reads and owner-only private reads succeeded.
+
+Storage rules can validate request metadata and size, not file magic bytes, extension/content agreement, malformed image decoding, duplicate semantics, or server-generated filenames. Those controls require server upload-route tests and are not claimed by this result.
+
+## Gate 14 — Security regression CI
+
+**PASS.** `.github/workflows/security-rules.yml` runs on relevant pull requests, pushes to `main`, and manual dispatch. It installs Node 22 and Temurin 21, runs `npm ci`, then executes `npm run test:rules:emulator`. `firebase-tools` is a lockfile development dependency, so CI does not depend on a global CLI.
+
+Protected regression coverage includes cross-account listing writes, ownership mutation, message participant isolation, private-profile access, public-profile leakage, admin escalation, and Storage cross-account writes.
+
+## Exact execution evidence
+
+```text
+> npm run test:rules:emulator
+> firebase emulators:exec --only firestore,storage "npm run test:rules"
+
+> vitest run tests/firestore-rules.test.ts tests/storage-rules.test.ts tests/security-launch-gates.test.ts
+
+Test Files  3 passed (3)
+Tests       70 passed (70)
+Script exited successfully (code 0)
+```
+
+```text
+> npx tsc --noEmit --pretty false
+Exit code: 0
+```
+
+The first elevated MSI attempt exited `1602`; it was superseded by the successful user-local portable JDK installation and is not a remaining blocker.
 
 ## Gate 8 — Production dependency audit
 
