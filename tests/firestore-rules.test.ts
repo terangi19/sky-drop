@@ -605,9 +605,16 @@ describe("Firestore Security Rules", () => {
           kycStatus: "pending",
         })
       );
+
+      const attacker = testEnv
+        .authenticatedContext("profile-kyc-approved", {
+          email: "profile-kyc-approved@test.com",
+          email_verified: true,
+        })
+        .firestore();
       await assertFails(
-        alice.collection("profiles").doc("profile-kyc-approved").set({
-          email: "profile-kyc-alice@test.com",
+        attacker.collection("profiles").doc("profile-kyc-approved").set({
+          email: "profile-kyc-approved@test.com",
           kycStatus: "approved",
         })
       );
