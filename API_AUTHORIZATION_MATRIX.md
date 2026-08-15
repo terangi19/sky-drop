@@ -2,6 +2,10 @@
 
 Last reviewed: 2026-08-15
 
+## Scope
+
+This matrix records the authorization evidence reviewed for the highest-risk listing, messaging, review, and administration mutations. It is not an exhaustive API inventory and does not replace executed two-account route tests.
+
 | Route | Actor | Authorization boundary | Sensitive fields/actions | Enforcement |
 | --- | --- | --- | --- | --- |
 | `POST /api/create-listing` | Authenticated, verified user | Firebase token UID is the seller identity | Listing ownership, payment type, demo flags | `sellerId` and `sellerEmail` are overwritten from the token; client `isDemo`/`demoNotice` are rejected; IP rate limit, abuse decision, and verification checks apply. |
