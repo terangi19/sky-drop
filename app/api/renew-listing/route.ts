@@ -1,6 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getAdminDb, getAdminAuth } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+
+const NEAR_EXPIRY_MS = 3 * 86400000;
+
+function timestampToMillis(value: unknown): number | null {
+  if (value instanceof Date) return value.getTime();
+  if (value && typeof value === "object" && "toMillis" in value) {
+    const millis = (value as { toMillis: () => number }).toMillis();
+    return Number.isFinite(millis) ? millis : null;
+  }
+  return null;
+}
+
+function isOwnedByToken(
+  listing: Record<string, unknown>,
+  token: { uid: string; email?: string }
+): boolean {
+  if (listing.sellerId === token.uid) return true;
+  const listingEmail = typeof listing.sellerEmail === "string"
+    ? listing.sellerEmail.trim().toLowerCase()
+    : "";
+  const tokenEmail = token.email?.trim().toLowerCase() || "";
+  return !!listingEmail && listingEmail === tokenEmail;
+}
+
+function isRenewable(listing: Record<string, unknown>, now: number): boolean {
+  const expiresAt = timestampToMillis(listing.expiresAt);
+  if (expiresAt === null) return false;
+  const status = String(listing.status || "").toLowerCase();
+  return (
+    (status === "live" && expiresAt <= now + NEAR_EXPIRY_MS) ||
+    (status === "expired" && expiresAt <= now)
+  );
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,9 +67,8 @@ export async function POST(req: NextRequest) {
       let count = 0;
       const now = Date.now();
       for (const doc of listings.docs) {
-        const d = doc.data();
-        const exp = d.expiresAt?.toMillis?.();
-        if (d.status === "live" && exp && exp - now < 3 * 86400000 && exp > now) {
+        const d = doc.data() as Record<string, unknown>;
+        if (isOwnedByToken(d, token) && isRenewable(d, now)) {
           await doc.ref.update({ expiresAt, status: "live", updatedAt: new Date() });
           count++;
         }
@@ -54,9 +86,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
-    const data = listing.data()!;
-    if (data.sellerEmail !== token.email && data.userId !== token.uid) {
+    const data = listing.data()! as Record<string, unknown>;
+    if (!isOwnedByToken(data, token)) {
       return NextResponse.json({ error: "You can only renew your own listings" }, { status: 403 });
+    }
+
+    if (!isRenewable(data, Date.now())) {
+      return NextResponse.json(
+        { error: "Only listings that are expired or within three days of expiry can be renewed" },
+        { status: 409 }
+      );
     }
 
     const { resolveListingPaymentTypeForWrite } = await import("../../lib/listing-payment-type-write");
@@ -75,6 +114,6 @@ export async function POST(req: NextRequest) {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to renew listing";
     console.error("[renew-listing]", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "Failed to renew listing" }, { status: 500 });
   }
 }

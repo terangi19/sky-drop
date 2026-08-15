@@ -69,6 +69,10 @@ export async function POST(req: NextRequest) {
   try {
     await requireCsrf(req);
     const ip = parseIpFromRequest(req.headers);
+    const { allowed } = await rateLimit(`create-listing:${ip}`, 10, 60_000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -166,8 +170,6 @@ export async function POST(req: NextRequest) {
       "paymentType",
       "pricingType",
       "type",
-      "isDemo",
-      "demoNotice",
     ];
     const clientData: Record<string, unknown> = {};
     for (const key of allowedFields) {

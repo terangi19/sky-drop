@@ -66,7 +66,6 @@ export async function POST(req: NextRequest) {
       notifQuietHoursEnd,
       notifDigest,
       phone,
-      phoneVerified,
       bankAccountName,
       bankAccountNumber,
       bankReference,
@@ -97,8 +96,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const nextPhoneVerified =
-      existingData?.phoneVerified === true || phoneVerified === true;
+    // Phone verification is an authoritative server-side state. This profile
+    // endpoint must never elevate it from client-provided request data.
+    const nextPhoneVerified = existingData?.phoneVerified === true;
     const nextEmailVerified = !!decodedToken.email_verified;
 
     const profileData = {
