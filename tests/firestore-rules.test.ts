@@ -801,4 +801,182 @@ describe("Firestore Security Rules", () => {
       await assertSucceeds(alice.collection("config").doc("announcement").get());
     });
   });
+
+  describe("Launch-gate adversarial attacks", () => {
+    const userA = { uid: "gate-user-a", email: "gate-user-a@example.test" };
+    const userB = { uid: "gate-user-b", email: "gate-user-b@example.test" };
+
+    beforeAll(async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const db = ctx.firestore();
+        const listingIds = [
+          "gate-direct",
+          "gate-merge",
+          "gate-transaction",
+          "gate-batch",
+          "gate-immutable-owner",
+        ];
+        for (const id of listingIds) {
+          await db.collection("listings").doc(id).set({
+            title: "User A's camera",
+            sellerId: userA.uid,
+            sellerEmail: userA.email,
+            sellerName: "User A",
+            ownerId: userA.uid,
+            userId: userA.uid,
+            createdBy: userA.uid,
+            views: 0,
+          });
+        }
+        await db.collection("messages").doc("gate-message").set({
+          participants: [userA.email, userB.email],
+          sender: userA.email,
+          receiver: userB.email,
+          text: "Private message",
+        });
+        await db.collection("conversations").doc("gate-conversation").set({
+          participants: [userA.email, userB.email],
+          buyerEmail: userA.email,
+          sellerEmail: userB.email,
+        });
+        await db.collection("profiles").doc(userA.uid).set({
+          email: userA.email,
+          phone: "+6412345678",
+          kycStatus: "approved",
+        });
+        await db.collection("config").doc("announcement").set({
+          message: "Welcome",
+        });
+        await db.collection("config").doc("adminEmails").set({
+          emails: ["admin@example.test"],
+        });
+        await db.collection("adminAuditLog").doc("gate-entry").set({
+          action: "seeded",
+        });
+      });
+    });
+
+    function firestoreFor(user: { uid: string; email: string }) {
+      return testEnv
+        .authenticatedContext(user.uid, {
+          email: user.email,
+          email_verified: true,
+        })
+        .firestore();
+    }
+
+    it("denies user B's direct cross-account listing update and delete", async () => {
+      const attacker = firestoreFor(userB);
+      const ref = attacker.collection("listings").doc("gate-direct");
+
+      await assertFails(ref.update({ title: "Stolen by user B" }));
+      await assertFails(ref.delete());
+    });
+
+    it("denies user B's merge-set ownership takeover", async () => {
+      const attacker = firestoreFor(userB);
+
+      await assertFails(
+        attacker.collection("listings").doc("gate-merge").set(
+          {
+            sellerId: userB.uid,
+            sellerEmail: userB.email,
+            ownerId: userB.uid,
+          },
+          { merge: true }
+        )
+      );
+    });
+
+    it("denies user B's transaction and batch listing mutations", async () => {
+      const attacker = firestoreFor(userB);
+
+      await assertFails(
+        attacker.runTransaction(async (transaction) => {
+          transaction.update(
+            attacker.collection("listings").doc("gate-transaction"),
+            { title: "Transaction takeover" }
+          );
+        })
+      );
+
+      const batch = attacker.batch();
+      batch.update(attacker.collection("listings").doc("gate-batch"), {
+        title: "Batch takeover",
+      });
+      await assertFails(batch.commit());
+    });
+
+    it("denies the owner from changing any listing ownership identity", async () => {
+      const owner = firestoreFor(userA);
+      const ref = owner.collection("listings").doc("gate-immutable-owner");
+
+      await assertFails(
+        ref.update({
+          sellerId: userB.uid,
+          sellerEmail: userB.email,
+          sellerName: "User B",
+          ownerId: userB.uid,
+          userId: userB.uid,
+          createdBy: userB.uid,
+        })
+      );
+    });
+
+    it("keeps messages and conversations isolated to their participants", async () => {
+      const outsider = firestoreFor({
+        uid: "gate-outsider",
+        email: "gate-outsider@example.test",
+      });
+      await assertFails(outsider.collection("messages").doc("gate-message").get());
+      await assertFails(
+        outsider.collection("conversations").doc("gate-conversation").get()
+      );
+      await assertFails(
+        outsider.collection("conversations").doc("gate-conversation").update({
+          lastMessage: "Injected",
+        })
+      );
+    });
+
+    it("keeps full profiles private while public config remains narrowly allowlisted", async () => {
+      const outsider = firestoreFor(userB);
+      await assertFails(outsider.collection("profiles").doc(userA.uid).get());
+      await assertSucceeds(outsider.collection("config").doc("announcement").get());
+      await assertFails(outsider.collection("config").doc("adminEmails").get());
+      await assertFails(
+        outsider.collection("config").doc("adminEmails").set({
+          emails: [userB.email],
+        })
+      );
+    });
+
+    it("does not grant admin-only reads to a self-asserted non-admin identity", async () => {
+      const attacker = firestoreFor(userB);
+      await assertFails(attacker.collection("adminAuditLog").doc("gate-entry").get());
+      await assertFails(
+        attacker.collection("adminAuditLog").doc("attacker-entry").set({
+          action: "grant-admin",
+          admin: true,
+        })
+      );
+    });
+
+    it("permits an authenticated admin claim without weakening non-admin denial", async () => {
+      const admin = testEnv
+        .authenticatedContext("gate-admin", {
+          email: "admin@example.test",
+          email_verified: true,
+          admin: true,
+        })
+        .firestore();
+
+      await assertSucceeds(admin.collection("config").doc("adminEmails").get());
+      await assertSucceeds(
+        admin.collection("adminAuditLog").doc("gate-admin-entry").set({
+          action: "verified-admin-write",
+        })
+      );
+    });
+  });
 });
