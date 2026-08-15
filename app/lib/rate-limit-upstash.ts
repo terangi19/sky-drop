@@ -1,7 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-let upstashRatelimit: Ratelimit | null = null;
+let upstashRedis: Redis | null = null;
 let statusLogged = false;
 
 function logStatus() {
@@ -27,22 +27,16 @@ export type UpstashRateLimitResult = {
   degraded?: boolean;
 };
 
-function getUpstashRatelimit(): Ratelimit | null {
-  if (upstashRatelimit) return upstashRatelimit;
+function getUpstashRedis(): Redis | null {
+  if (upstashRedis) return upstashRedis;
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) {
     return null;
   }
   try {
-    const redis = new Redis({ url, token });
-    upstashRatelimit = new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(150, "60 s"),
-      analytics: true,
-      prefix: "sky-drop",
-    });
-    return upstashRatelimit;
+    upstashRedis = new Redis({ url, token });
+    return upstashRedis;
   } catch {
     return null;
   }
@@ -61,8 +55,8 @@ export async function rateLimitUpstash(
   maxRequests: number,
   windowMs: number
 ): Promise<UpstashRateLimitResult> {
-  const rl = getUpstashRatelimit();
-  if (!rl) {
+  const redis = getUpstashRedis();
+  if (!redis) {
     // Fall back to Firestore/in-memory — do not block user-facing routes when Redis is misconfigured.
     return {
       allowed: true,
@@ -75,7 +69,7 @@ export async function rateLimitUpstash(
   try {
     const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
     const limiter = new Ratelimit({
-      redis: (rl as any).redis,
+      redis,
       limiter: Ratelimit.slidingWindow(maxRequests, `${windowSeconds} s`),
       analytics: true,
       prefix: "sd",
