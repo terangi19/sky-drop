@@ -81,6 +81,10 @@ test.describe("Authentication", () => {
       "href",
       "/signup?redirect=%2Fmessages"
     );
+    await expect(page.getByRole("main").getByRole("link", { name: "Forgot password?" })).toHaveAttribute(
+      "href",
+      "/forgot-password?redirect=%2Fmessages"
+    );
   });
 
   test("signup preserves only safe redirects", async ({ page }) => {
@@ -105,5 +109,13 @@ test.describe("Authentication", () => {
         expect(await page.locator("body").evaluate((body) => body.scrollWidth <= window.innerWidth)).toBe(true);
       }
     }
+  });
+
+  test("forgot-password keeps a safe return path", async ({ page }) => {
+    await page.goto("/forgot-password?redirect=%2Fpost%2Fai");
+    await expect(page.getByRole("link", { name: /back to login/i }).first()).toHaveAttribute(
+      "href",
+      "/login?redirect=%2Fpost%2Fai"
+    );
   });
 });

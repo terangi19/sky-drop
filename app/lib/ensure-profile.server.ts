@@ -9,16 +9,16 @@ type AuthProfileIdentity = {
 };
 
 function usernameBase(email: string): string {
-  const local = (email.split("@")[0] || "user")
-    .replace(/[^a-zA-Z0-9_]/g, "")
-    .slice(0, 20);
-  const safe = local || "user";
-  return /^[a-zA-Z]/.test(safe) ? safe : `user${safe}`.slice(0, 20);
+  const local = (email.split("@")[0] || "").replace(/[^a-zA-Z0-9_]/g, "");
+  const withLetterPrefix = /^[a-zA-Z]/.test(local) ? local : `user${local}`;
+  const candidate = (withLetterPrefix || "user").slice(0, 20);
+  return candidate.length >= 3 ? candidate : `${candidate}user`.slice(0, 20);
 }
 
 function usernameCandidate(base: string, attempt: number): string {
   if (attempt === 0) return base;
-  return `${base}${attempt + 1}`.slice(0, 30);
+  const suffix = String(attempt + 1);
+  return `${base.slice(0, 30 - suffix.length)}${suffix}`;
 }
 
 /**
@@ -32,40 +32,62 @@ export async function ensureProfileForAuthenticatedUser(identity: AuthProfileIde
 
   return db.runTransaction(async (transaction) => {
     const existing = await transaction.get(profileRef);
-    if (existing.exists) return existing.data()!;
+    const existingProfile = existing.exists ? existing.data()! : null;
 
     const email = identity.email?.trim().toLowerCase() || "";
     const base = usernameBase(email);
     let username = "";
+    const currentUsername = String(existingProfile?.username || "")
+      .trim()
+      .replace(/^@+/, "")
+      .replace(/[^a-zA-Z0-9_]/g, "")
+      .slice(0, 30);
 
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const candidate = usernameCandidate(base, attempt);
-      const usernameRef = db.collection("usernames").doc(candidate.toLowerCase());
-      const usernameSnap = await transaction.get(usernameRef);
-      if (!usernameSnap.exists || usernameSnap.data()?.uid === identity.uid) {
-        username = candidate;
-        transaction.set(usernameRef, { uid: identity.uid }, { merge: true });
-        break;
+    if (currentUsername) {
+      const currentRef = db.collection("usernames").doc(currentUsername.toLowerCase());
+      const currentSnap = await transaction.get(currentRef);
+      if (!currentSnap.exists || currentSnap.data()?.uid === identity.uid) {
+        username = currentUsername;
+        if (!currentSnap.exists) transaction.set(currentRef, { uid: identity.uid });
+      }
+    }
+
+    if (!username) {
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const candidate = usernameCandidate(base, attempt);
+        const usernameRef = db.collection("usernames").doc(candidate.toLowerCase());
+        const usernameSnap = await transaction.get(usernameRef);
+        if (!usernameSnap.exists || usernameSnap.data()?.uid === identity.uid) {
+          username = candidate;
+          transaction.set(usernameRef, { uid: identity.uid }, { merge: true });
+          break;
+        }
       }
     }
 
     if (!username) throw new Error("Unable to reserve a profile username");
 
+    if (existingProfile && username === currentUsername) return existingProfile;
+
     const now = new Date();
     const profile = {
-      email,
+      ...(existingProfile || {}),
+      email: String(existingProfile?.email || email),
       username,
-      displayName: "",
-      phone: "",
-      phoneVerified: false,
-      emailVerified: identity.emailVerified === true,
-      referralCode: Math.random().toString(36).slice(2, 8).toUpperCase(),
-      memberSince: now,
-      lastActive: now,
-      createdAt: now,
+      displayName: String(existingProfile?.displayName || ""),
+      phone: String(existingProfile?.phone || ""),
+      phoneVerified: existingProfile?.phoneVerified === true,
+      emailVerified:
+        identity.emailVerified === true || existingProfile?.emailVerified === true,
+      referralCode:
+        String(existingProfile?.referralCode || "") ||
+        Math.random().toString(36).slice(2, 8).toUpperCase(),
+      memberSince: existingProfile?.memberSince || now,
+      lastActive: existingProfile?.lastActive || now,
+      createdAt: existingProfile?.createdAt || now,
       recoveredAt: now,
     };
-    transaction.set(profileRef, profile);
+    transaction.set(profileRef, profile, { merge: true });
     return profile;
   });
 }

@@ -111,6 +111,9 @@ export default function LoginPage() {
   const signupHref = redirectTo
     ? `/signup?redirect=${encodeURIComponent(redirectTo)}`
     : "/signup";
+  const forgotPasswordHref = redirectTo
+    ? `/forgot-password?redirect=${encodeURIComponent(redirectTo)}`
+    : "/forgot-password";
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[#090d14] text-white">
@@ -171,7 +174,7 @@ export default function LoginPage() {
                   <label htmlFor="login-password" className="text-sm font-medium text-slate-100">
                   Password
                   </label>
-                  <Link href="/forgot-password" className="text-sm font-medium text-cyan-300 underline-offset-4 hover:text-cyan-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
+                  <Link href={forgotPasswordHref} className="text-sm font-medium text-cyan-300 underline-offset-4 hover:text-cyan-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
                     Forgot password?
                   </Link>
                 </div>

@@ -22,7 +22,8 @@ import {
 
 function candidateUsername(base: string, attempt: number): string {
   if (attempt === 0) return base;
-  return `${base}${attempt + 1}`.slice(0, 30);
+  const suffix = String(attempt + 1);
+  return `${base.slice(0, 30 - suffix.length)}${suffix}`;
 }
 
 async function createProfileWithReservedUsername(
@@ -111,7 +112,24 @@ export function signupAuthError(error: unknown): string {
     case "auth/too-many-requests":
       return "Too many attempts. Please wait a few minutes and try again.";
     default:
-      return error instanceof Error ? error.message : "Unable to create account. Please check your details and try again.";
+      // Only intentional client validation messages are safe to show. Never
+      // surface Firebase or Firestore implementation details to the browser.
+      if (
+        error instanceof Error &&
+        [
+          "Security check failed. Please try again.",
+          "Temporary email addresses aren't allowed. Use a permanent email.",
+          "Password does not meet requirements",
+          "Password must be at least 8 characters",
+          "Use at least 3 of: uppercase, lowercase, number, or special character",
+          "Username must be at least 3 characters.",
+          "Username must be 30 characters or less.",
+          "Start with a letter; use letters, numbers, and underscores only.",
+        ].includes(error.message)
+      ) {
+        return error.message;
+      }
+      return "We couldn't create your account. Please check your details and try again.";
   }
 }
 
@@ -162,6 +180,10 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<C
 
   const referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
   try {
+    // Wait for the fresh Auth session to be usable by Firestore rules before
+    // reserving the username/profile. Without this, a just-created user can
+    // occasionally race Firestore as unauthenticated.
+    await user.getIdToken();
     await createProfileWithReservedUsername(
       user.uid,
       user.email || email,

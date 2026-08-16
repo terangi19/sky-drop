@@ -37,6 +37,8 @@ export default function SignupPage() {
   const [authLoading, setAuthLoading] = useState(true);
   const [emailVerified, setEmailVerified] = useState(false);
   const [verificationDeliveryFailed, setVerificationDeliveryFailed] = useState(false);
+  const [signupCreatedThisVisit, setSignupCreatedThisVisit] = useState(false);
+  const submitInFlight = useRef(false);
   const startedForUser = useRef<string | null>(null);
   const verifiedForUser = useRef<string | null>(null);
 
@@ -59,7 +61,11 @@ export default function SignupPage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      setEmailVerified(isVerifiedSignupUser(u));
+      const isVerified = isVerifiedSignupUser(u);
+      setEmailVerified(isVerified);
+      // An existing, unverified member who returns to signup needs the same
+      // resend/change-email recovery path — never a misleading bypass button.
+      if (u && !isVerified && !submitInFlight.current) setShowVerificationSent(true);
       setAuthLoading(false);
     });
     return () => unsubscribe();
@@ -79,6 +85,8 @@ export default function SignupPage() {
       return;
     }
 
+    if (submitInFlight.current) return;
+    submitInFlight.current = true;
     setLoading(true);
     try {
       const result = await createSkyDropAccount({
@@ -89,20 +97,28 @@ export default function SignupPage() {
       });
       setVerificationDeliveryFailed(!result.verificationSent);
       setShowVerificationSent(true);
+      setSignupCreatedThisVisit(true);
       setResendDisabled(true);
       setResendTimer(60);
     } catch (error) {
       showToast(signupAuthError(error), "error");
+    } finally {
+      submitInFlight.current = false;
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   useEffect(() => {
-    if (user && showVerificationSent && startedForUser.current !== user.uid) {
+    if (
+      user &&
+      signupCreatedThisVisit &&
+      showVerificationSent &&
+      startedForUser.current !== user.uid
+    ) {
       startedForUser.current = user.uid;
       funnel.signupStarted(user.uid);
     }
-  }, [user, showVerificationSent]);
+  }, [user, signupCreatedThisVisit, showVerificationSent]);
 
   useEffect(() => {
     if (!user || !showVerificationSent) return;
@@ -192,7 +208,7 @@ export default function SignupPage() {
           <div>
             <p className="text-xs font-bold tracking-[0.22em] text-cyan-300">SKY DROP</p>
             <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white">Join Sky Drop</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-300">Free to join — browse and buy straight away.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Free to join — browse straight away. Verify your email to message, buy, or sell.</p>
           </div>
 
           {authLoading ? (
@@ -214,7 +230,7 @@ export default function SignupPage() {
                   ? "Your account is ready."
                   : verificationDeliveryFailed
                     ? "Your account was created, but we couldn't send the verification email."
-                    : <>We sent a verification link to <span className="font-medium text-white">{email}</span></>}
+                    : <>We sent a verification link to <span className="font-medium text-white">{user?.email || email}</span></>}
               </p>
               {!verified && (
                 <p className="text-center text-sm text-slate-300">
@@ -229,7 +245,7 @@ export default function SignupPage() {
                     Continue
                   </button>
                 ) : <>
-                  <button onClick={handleResendVerification} disabled={resendDisabled} className="flex h-12 w-full items-center justify-center rounded-lg bg-cyan-400 px-4 text-sm font-semibold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-slate-300">
+                  <button onClick={handleResendVerification} disabled={resendDisabled || loading} className="flex h-12 w-full items-center justify-center rounded-lg bg-cyan-400 px-4 text-sm font-semibold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-slate-300">
                     {resendDisabled ? `Resend in ${resendTimer}s` : "Resend email"}
                   </button>
                   <button onClick={handleChangeEmail} className="flex h-12 w-full items-center justify-center rounded-lg border border-slate-600 px-4 text-sm font-semibold text-slate-100 hover:border-slate-500">

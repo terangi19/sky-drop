@@ -22,13 +22,13 @@ export async function GET(req: NextRequest) {
     const ref = db.collection("profiles").doc(decoded.uid);
     const snap = await ref.get();
 
-    const profile = snap.exists
-      ? snap.data()!
-      : await ensureProfileForAuthenticatedUser({
-          uid: decoded.uid,
-          email: decoded.email,
-          emailVerified: decoded.email_verified,
-        });
+    // This boundary is also the idempotent repair path for legacy/corrupt
+    // profiles whose canonical username or reservation is missing.
+    const profile = await ensureProfileForAuthenticatedUser({
+      uid: decoded.uid,
+      email: decoded.email,
+      emailVerified: decoded.email_verified,
+    });
 
     void ref.set({ lastActive: new Date() }, { merge: true }).catch(() => {});
 

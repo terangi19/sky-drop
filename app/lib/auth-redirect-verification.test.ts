@@ -17,6 +17,10 @@ describe("auth redirect and verification safeguards", () => {
     "/profile/../login",
     "/%2e%2e/admin",
     "javascript:alert(1)",
+    "/profile%00evil",
+    "/%5c%5cevil.example",
+    "/profile/%2e%2e%2fadmin",
+    "/%E0%A4%A",
   ])("rejects unsafe redirect %s", (path) => {
     expect(sanitizeRedirectPath(path)).toBe("");
   });
