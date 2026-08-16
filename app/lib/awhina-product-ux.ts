@@ -26,6 +26,7 @@ import {
   type ListingDescriptionQuality,
   type ListingDescriptionStyle,
 } from "./awhina-listing-description";
+import { getListingDetailBatch } from "./awhina-pending-slots";
 
 export {
   buildListingDescriptionFromFacts,
@@ -1010,6 +1011,13 @@ export function buildCompleteDraftReply(fill: SkyAiListingFill): string {
 /** Incomplete new listing — never "Started a draft for…". Seller guidance only. */
 export function buildIncompleteDraftReply(fill: SkyAiListingFill, missing: string[]): string {
   const title = fill.title || "your item";
+  const batch = getListingDetailBatch(fill);
+  if (batch) {
+    const lead = isVehicleListingFill(fill)
+      ? `I've started the **${title}** listing.`
+      : `I've put **${title}** on the form.`;
+    return `${lead} ${batch.question}`;
+  }
   if (isVehicleListingFill(fill)) {
     const readiness = getVehicleDraftReadiness(fill);
     if (readiness.nextClarification) {

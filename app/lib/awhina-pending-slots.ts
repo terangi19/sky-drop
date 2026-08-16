@@ -207,15 +207,123 @@ export function nextListingSlotQuestion(
   return { slot, question: SLOT_QUESTIONS[slot] };
 }
 
+export type ListingDetailBatch = {
+  slots: ListingMissingSlot[];
+  question: string;
+};
+
+function joinNatural(values: string[]): string {
+  if (values.length <= 1) return values[0] || "";
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+}
+
+/**
+ * One seller turn should collect a small related group, while `pendingSlot`
+ * remains the first slot for short-answer compatibility and persistence.
+ * Domain/object schemas determine the candidate list; this merely groups the
+ * high-value unknowns into buyer-friendly language.
+ */
+export function getListingDetailBatch(
+  fill: Partial<SkyAiListingFill>,
+  max = 5
+): ListingDetailBatch | null {
+  const hydrated = hydrateVehicleGeneration(fill);
+  const canonical = resolveCanonicalListingObject(hydrated);
+  const missing = computeMissingListingSlots(hydrated);
+  if (!missing.length) return null;
+
+  const isSealedCardProduct =
+    canonical.family === "trading_card" &&
+    /\b(?:booster|display|box|pack|etb|tin)\b/i.test(
+      [hydrated.title, ...(hydrated.extras || [])].filter(Boolean).join(" ")
+    );
+  const preferred: ListingMissingSlot[] =
+    canonical.family === "vehicle"
+      ? ["generation", "year", "odometer", "transmission", "condition", "price", "fuel", "colour"]
+      : isSealedCardProduct
+        ? ["condition", "price", "location"]
+        : canonical.family === "electronics"
+          ? ["storage", "condition", "colour", "price", "location"]
+          : canonical.family === "clothing"
+            ? ["size", "condition", "price", "location"]
+            : ["condition", "price", "location", "size", "colour"];
+  const slots = [
+    ...preferred.filter((slot) => missing.includes(slot)),
+    ...missing.filter((slot) => !preferred.includes(slot)),
+  ];
+  // Colour is a useful seller detail for phones/controllers even when the
+  // object schema does not make it publish-blocking. It belongs in the same
+  // compact batch, not a separate follow-up.
+  if (
+    canonical.family === "electronics" &&
+    !hasExtra(hydrated, "colour:") &&
+    !slots.includes("colour")
+  ) {
+    const afterCondition = slots.indexOf("condition");
+    slots.splice(afterCondition >= 0 ? afterCondition + 1 : 0, 0, "colour");
+  }
+  slots.splice(max);
+  if (!slots.length) return null;
+
+  const identity = hydrated.title || "your item";
+  if (canonical.family === "vehicle") {
+    const labels: Partial<Record<ListingMissingSlot, string>> = {
+      year: "year",
+      generation: "generation",
+      odometer: "mileage",
+      transmission: "transmission",
+      condition: "condition",
+      price: "asking price",
+      fuel: "fuel type",
+      colour: "colour",
+    };
+    return {
+      slots,
+      question: `What's the ${joinNatural(slots.map((slot) => labels[slot] || slot.replace(/_/g, " ")))}? Mention any modifications or faults too if relevant. You can give me everything in one message.`,
+    };
+  }
+  if (isSealedCardProduct) {
+    const includesCondition = slots.includes("condition");
+    const includesPrice = slots.includes("price");
+    return {
+      slots,
+      question: `${includesCondition ? "Is it factory sealed, and what condition is the box in?" : ""}${includesPrice ? " What's the asking price?" : ""} You can give me everything in one message.`.replace(/\s+/g, " ").trim(),
+    };
+  }
+
+  const labels: Partial<Record<ListingMissingSlot, string>> = {
+    storage: "storage size",
+    condition: "condition",
+    colour: "colour",
+    size: "size",
+    price: "asking price",
+    location: "location",
+  };
+  const followUp =
+    canonical.family === "electronics" && canonical.objectType === "phone"
+      ? " Include battery health too if you know it."
+      : canonical.family === "clothing"
+        ? " Mention any wear or marks buyers should know about."
+        : /\b(?:bike|cycling)/i.test(`${canonical.objectType} ${identity}`)
+          ? " Mention any upgrades, faults, or recent maintenance too."
+          : "";
+  return {
+    slots,
+    question: `What's the ${joinNatural(slots.map((slot) => labels[slot] || slot.replace(/_/g, " ")))}?${followUp} You can give me everything in one message.`,
+  };
+}
+
 export function buildListingSlotPending(
   fill: Partial<SkyAiListingFill>,
   priorMessage: string
 ): PendingClarification | null {
+  const batch = getListingDetailBatch(fill);
   const next = nextListingSlotQuestion(fill);
-  if (!next) return null;
+  if (!next || !batch) return null;
   return buildOpenListingSlotClarification({
     priorMessage,
-    missingSlots: computeMissingListingSlots(fill).slice(0, 4),
+    missingSlots: batch.slots,
     activeSlot: next.slot,
     item: fill.title || "item",
     domain: detectSellDomain(fill),
@@ -1272,14 +1380,35 @@ export function extractCompoundListingFacts(
       .trim();
   }
 
+  // Preserve seller-supplied modifications, faults, and maintenance as factual
+  // listing notes. They are intentionally freeform rather than a vehicle-only
+  // schema field, so one batched response can carry several useful details.
+  const sellerDetailMatch = residual.match(
+    /\b(?:mostly stock|aftermarket|modified|modifications?|exhaust|wheels?|upgrades?|faults?|issues?|maintenance|serviced?|service history)\b[\s\S]*/i
+  );
+  if (sellerDetailMatch) {
+    const detail = sellerDetailMatch[0]
+      .replace(/^[,;:\s-]+|[,;:\s-]+$/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (detail.length >= 3) {
+      partial.extras = mergeExtras(partial.extras || base.extras, [
+        `seller_notes:${detail}`,
+      ]);
+      notes.push(detail);
+      residual = residual.replace(sellerDetailMatch[0], " ").replace(/\s+/g, " ").trim();
+    }
+  }
+
   // If active slot was generation and we filled it — good.
   // Soft: try classic short parser on leftover for the active slot
   if (opts?.activeSlot && residual) {
     const slotResult = parseShortReplyForPendingSlot(residual, opts.activeSlot);
     if (slotResult.matched) {
+      const extractedExtras = partial.extras;
       Object.assign(partial, slotResult.partial);
-      if (slotResult.partial.extras) {
-        partial.extras = mergeExtras(partial.extras, slotResult.partial.extras);
+      if (extractedExtras || slotResult.partial.extras) {
+        partial.extras = mergeExtras(extractedExtras, slotResult.partial.extras);
       }
       if (slotResult.filledSlot && !filledSlots.includes(slotResult.filledSlot)) {
         filledSlots.push(slotResult.filledSlot);

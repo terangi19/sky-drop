@@ -9,6 +9,7 @@ import {
 } from "./awhina-listing-description";
 import {
   computeMissingListingSlots,
+  getListingDetailBatch,
   nextListingSlotQuestion,
   composeVehicleIdentityTitle,
   hydrateVehicleGeneration,
@@ -84,7 +85,8 @@ export function buildStickyIdentityTitle(fill: Partial<SkyAiListingFill>): strin
 }
 
 /**
- * Reply after compound / list-it turns — one next question, never false ready.
+ * Reply after compound / list-it turns — one compact grouped question, never
+ * false ready. The persisted active slot remains available for terse replies.
  */
 export function buildReadinessFollowUpReply(
   fill: SkyAiListingFill,
@@ -97,6 +99,7 @@ export function buildReadinessFollowUpReply(
   const state = getListingReadinessState(fill);
   const title = buildStickyIdentityTitle(fill) || fill.title || "your listing";
   const next = nextListingSlotQuestion(fill);
+  const batch = getListingDetailBatch(fill);
   const lead =
     opts?.lead ||
     (opts?.notes?.length
@@ -107,12 +110,12 @@ export function buildReadinessFollowUpReply(
     if (state === "READY_TO_PUBLISH" || state === "READY_TO_REVIEW") {
       return `${lead} Your draft looks solid — add photos, then tap **Publish** on the form when you're ready.`;
     }
-    const q = next?.question || SLOT_QUESTIONS.year;
+    const q = batch?.question || next?.question || SLOT_QUESTIONS.year;
     return `I've got **${title}** started — I still need more before we can publish. ${q}`;
   }
 
-  if (next) {
-    return `${lead} ${next.question}`;
+  if (batch) {
+    return `${lead} ${batch.question}`;
   }
   if (state === "READY_TO_PUBLISH" || state === "READY_TO_REVIEW") {
     return `${lead} Your listing's ready. Review details, then hit **Publish**.`;
