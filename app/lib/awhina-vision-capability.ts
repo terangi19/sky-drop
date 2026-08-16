@@ -99,7 +99,7 @@ Multi-image: reason across ALL photos together. Produce ONE normalized result.
 Do not contradict yourself across photos (e.g. don't say New and Used). Prefer MEDIUM/LOW and clarifyQuestions when photos conflict.
 
 Condition: only visual clues ("box open", "scuffs on corner", "looks unused in packaging") — never claim "fully working".
-Category: prefer Tech, Gaming, Home, Fashion, Sports, Cars, Other (physical) when unsure.
+Category: prefer Tech, Gaming, Home, Fashion, Collectibles, Sports, Cars, Other (physical) when unsure. Cards/TCG → Collectibles; sporting gear → Sports.
 listingType: default physical for tangible goods; vehicle only if clearly a car/ute/bike; digital only if user says digital OR screenshot of software/files.
 
 If the user message is a CORRECTION (e.g. "digital edition", "controller isn't included"), apply ONLY those partial updates — do not rewrite unrelated fields.

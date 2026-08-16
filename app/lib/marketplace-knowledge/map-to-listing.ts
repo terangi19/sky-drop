@@ -98,7 +98,11 @@ export function mapEntityToListingHints(
       }
     }
     if (extras.length) hints.extras = extras.slice(0, 12);
-    set("category", "Other", "LOCAL_DATA");
+    set(
+      "category",
+      entity.category?.skyDropCategory || "Collectibles",
+      "LOCAL_DATA"
+    );
     set("listingType", "physical", "LOCAL_DATA");
   }
 

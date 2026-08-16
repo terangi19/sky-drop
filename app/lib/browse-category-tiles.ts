@@ -14,4 +14,6 @@ export const BROWSE_CATEGORY_TILES: BrowseCategoryTile[] = [
   { key: "gaming", emoji: "🎮", label: "Gaming", filter: "Gaming" },
   { key: "fashion", emoji: "👟", label: "Fashion", filter: "Fashion" },
   { key: "home", emoji: "🏡", label: "Home", filter: "Home" },
+  { key: "collectibles", emoji: "🃏", label: "Collectibles", filter: "Collectibles" },
+  { key: "sports", emoji: "⚽", label: "Sports", filter: "Sports" },
 ];

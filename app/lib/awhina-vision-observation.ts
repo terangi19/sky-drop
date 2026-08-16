@@ -189,8 +189,8 @@ IDENTITY vs ATTRIBUTES (critical):
 
 Condition: VISIBLE wear only. Do NOT map uncertain / looks-clean / shiny to New or Like New. New only for sealed/unopened packaging evidence.
 listingType: physical | vehicle | digital | service | rental
-category: Tech, Gaming, Home, Fashion, Sports, Cars, Other
-(Use Sports for trading cards / sports collectibles — there is no Collectibles form category.)
+category: Tech, Gaming, Home, Fashion, Collectibles, Sports, Cars, Other
+(Use Collectibles for trading cards / TCGs / sealed card products / graded cards / memorabilia. Use Sports for sporting equipment, not cards.)
 displayIdentity: short human label that actually identifies the item (e.g. PlayStation 5). Empty-ish category OK if unsure.
 visualDescription: 1-2 natural sentences of safe visible facts - no marketing. PERCEPTION ONLY — never write marketplace listing copy.
 

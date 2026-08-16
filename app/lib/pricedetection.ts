@@ -4,6 +4,7 @@ const CATEGORY_THRESHOLDS: Record<string, number> = {
   Gaming: 30,
   Fashion: 20,
   Home: 20,
+  Collectibles: 20,
   Sports: 20,
   Property: 10000,
   Electronics: 20,

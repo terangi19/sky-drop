@@ -331,11 +331,9 @@ export function prepareVisionConversationBridge(
       imageFieldKeys,
       provenanceOverrides,
       assistantMessage,
-      pendingSlot:
-        fused?.pendingSlot ||
-        (fused && identityAssessment.domain === "TRADING_CARD"
-          ? "card_subject"
-          : null),
+      // Confirm is identity-only. Never hardcode card_subject — sealed TCG
+      // products must inherit next slot from the object-type schema after Yes.
+      pendingSlot: fused?.pendingSlot || null,
       pendingClarification: null,
       pendingAction,
       focusChat: true,

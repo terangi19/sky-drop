@@ -179,7 +179,7 @@ function resolve(input: DomainResolveInput): DomainResolveResult {
     category: {
       id: "collectibles",
       label: "Collectibles",
-      skyDropCategory: "Other",
+      skyDropCategory: "Collectibles",
       listingTypeHint: "physical",
     },
     attributes,

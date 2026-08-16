@@ -228,11 +228,14 @@ function navReply(title: string, path: string, already: boolean): CanonicalResul
 }
 
 const PRODUCT_FORMAT_REPLY_RE =
-  /\b(booster\s*box|hobby\s*box|blaster\s*box|mega\s*box|booster\s*pack|starter\s*pack|multi\s*pack|sealed\s*set|tin|pack)\b/i;
+  /\b(booster\s*(?:box|display)|hobby\s*box|blaster\s*box|mega\s*box|booster\s*pack|starter\s*pack|multi\s*pack|elite\s*trainer\s*box|\betb\b|sealed\s*set|tin|pack)\b/i;
 
 function productFormatFromPendingReply(message: string): string | undefined {
   const match = String(message || "").match(PRODUCT_FORMAT_REPLY_RE);
-  return match?.[1]?.toLowerCase().replace(/\s+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  if (!match?.[1]) return undefined;
+  const raw = match[1].toLowerCase().replace(/\s+/g, " ");
+  if (raw === "etb") return "Elite Trainer Box";
+  return raw.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function applyConfirmedProductFormat(
@@ -246,7 +249,7 @@ function applyConfirmedProductFormat(
     [`productFormat:${format}`]
   );
   const priorTitle = String(fill.title || "").replace(
-    /\b(?:booster\s*box|hobby\s*box|blaster\s*box|mega\s*box|booster\s*pack|starter\s*pack|multi\s*pack|sealed\s*set|tin|pack)\b/gi,
+    /\b(?:booster\s*(?:box|display)|hobby\s*box|blaster\s*box|mega\s*box|booster\s*pack|starter\s*pack|multi\s*pack|elite\s*trainer\s*box|\betb\b|sealed\s*set|tin|pack)\b/gi,
     ""
   );
   return {

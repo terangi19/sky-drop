@@ -500,14 +500,21 @@ function applyVisionDomainFacts(
     extras.push(`${prefix}${field.value.trim()}`);
   };
 
-  if (obs.cardSubject) push("subject:", obs.cardSubject);
   if (obs.cardSet) push("set:", obs.cardSet);
   if (obs.brand) push("manufacturer:", obs.brand);
   if (obs.league) push("league:", obs.league);
   if (obs.season) push("season:", obs.season);
   if (obs.productFormat) push("productFormat:", obs.productFormat);
   if (obs.quantity) push("quantity:", obs.quantity);
-  if (obs.grader && obs.grade) {
+  if (obs.cardYear) push("year:", obs.cardYear);
+  const sealed =
+    isSealedTradingCardProductFormat(obs.productFormat?.value) ||
+    isSealedTradingCardProductFormat(
+      `${fill.title || ""} ${extras.join(" ")}`
+    );
+  // Box/pack art characters are not card subjects on sealed products.
+  if (!sealed && obs.cardSubject) push("subject:", obs.cardSubject);
+  if (!sealed && obs.grader && obs.grade) {
     const g = mayPopulateFromVision(obs.grader, { allowMedium: true })
       ? obs.grader.value
       : "";
@@ -517,16 +524,10 @@ function applyVisionDomainFacts(
     if (g && gr && !extras.some((e) => e.toLowerCase().startsWith("grade:"))) {
       extras.push(`grade:${g.toUpperCase()} ${gr}`);
     }
-  } else if (obs.grade) {
+  } else if (!sealed && obs.grade) {
     push("grade:", obs.grade);
   }
-  if (obs.serialNumber) push("serial:", obs.serialNumber);
-  if (obs.cardYear) push("year:", obs.cardYear);
-  const sealed =
-    isSealedTradingCardProductFormat(obs.productFormat?.value) ||
-    isSealedTradingCardProductFormat(
-      `${fill.title || ""} ${extras.join(" ")}`
-    );
+  if (!sealed && obs.serialNumber) push("serial:", obs.serialNumber);
   if (!sealed && obs.parallel) push("parallel:", obs.parallel);
   // Colour on cards → parallel colour evidence (structured), not Attr:orange background
   if (
