@@ -386,6 +386,34 @@ export default function AIPostPage() {
   /** When Āwhina is waiting on a field, answering chat is the only primary action. */
   const awhinaIsAsking = Boolean(progressNextSlot) && !isReadyToReview;
 
+  /**
+   * This is deliberately derived from the same draft and pending slot that
+   * drive the conversation. It is a reading of canonical state, never a second
+   * progress model.
+   */
+  const listingProgress = useMemo(() => {
+    const current = String(progressNextSlot || "").toLowerCase();
+    const stateFor = (key: string, complete: boolean) =>
+      complete ? ("complete" as const) : current === key ? ("current" as const) : ("later" as const);
+    const deliveryKnown = pickupAvailable || shippingAvailable;
+    return [
+      { key: "photos", label: "Photos", state: stateFor("photos", imagePreviews.length > 0) },
+      { key: "price", label: "Price", state: stateFor("price", Boolean(price)) },
+      { key: "condition", label: "Condition", state: stateFor("condition", Boolean(condition)) },
+      { key: "location", label: "Location", state: stateFor("location", Boolean(location || pickupArea)) },
+      { key: "delivery", label: "Delivery", state: stateFor("delivery", deliveryKnown) },
+    ];
+  }, [
+    condition,
+    imagePreviews.length,
+    location,
+    pickupArea,
+    pickupAvailable,
+    price,
+    progressNextSlot,
+    shippingAvailable,
+  ]);
+
   const hasDraftContent = Boolean(
     title.trim() ||
       (listingType === "vehicle" && (vehicleMake || vehicleYear)) ||
@@ -436,6 +464,12 @@ export default function AIPostPage() {
         .querySelector<HTMLTextAreaElement>(".awhina-listing-workspace-chat textarea")
         ?.focus();
     }, 80);
+  };
+
+  const answerAwhinaWith = (answer: string) => {
+    setMobileWorkspaceTab("chat");
+    setSkyChatOpen(true);
+    setSkyAutoQuery(answer);
   };
 
   /** Sticky publish: mobile listing/review only when ready — never over composer. */
@@ -586,7 +620,7 @@ export default function AIPostPage() {
     (nextSlotFieldMap[normalizedNextSlot] || normalizedNextSlot) ===
     field.replace(/[_\s-]/g, "").toLowerCase();
   const fieldAttentionClass = (field: string) =>
-    `${isNextField(field) ? "sell-next-field" : ""} ${
+    `${showManualEditor && isNextField(field) ? "sell-next-field" : ""} ${
       mutatedFieldKeys.includes(field) ? "sell-field-mutated" : ""
     }`.trim();
 
@@ -2621,7 +2655,7 @@ export default function AIPostPage() {
             category={liveDraftTypeLabel}
             statusLabel={
               visionListing.state.status === "checking" || analyzing
-                ? "Looking…"
+                ? "Āwhina is looking at your photo…"
                 : awhinaIsAsking
                   ? progressNextLabel
                     ? `Next: ${progressNextLabel}`
@@ -2650,6 +2684,14 @@ export default function AIPostPage() {
               onEditDetails={openManualEditor}
               onDoneEditing={closeManualEditor}
               onAnswerAwhina={focusAwhinaWorkspace}
+              progress={listingProgress}
+              progressLabel={
+                isReadyToReview
+                  ? "Listing ready"
+                  : `${Math.max(0, 5 - listingProgress.filter((item) => item.state === "complete").length)} details left`
+              }
+              onQuickAnswer={answerAwhinaWith}
+              emphasizeSummaryNext={!showManualEditor}
             />
           )}
 

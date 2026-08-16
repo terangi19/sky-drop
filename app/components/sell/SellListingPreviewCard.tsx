@@ -19,6 +19,14 @@ type Props = {
   onEditDetails: () => void;
   onDoneEditing: () => void;
   onAnswerAwhina?: () => void;
+  progress?: Array<{
+    key: string;
+    label: string;
+    state: "complete" | "current" | "later";
+  }>;
+  progressLabel?: string;
+  onQuickAnswer?: (answer: string) => void;
+  emphasizeSummaryNext?: boolean;
 };
 
 /**
@@ -43,7 +51,19 @@ export default function SellListingPreviewCard({
   onEditDetails,
   onDoneEditing,
   onAnswerAwhina,
+  progress = [],
+  progressLabel,
+  onQuickAnswer,
+  emphasizeSummaryNext = true,
 }: Props) {
+  const current = progress.find((item) => item.state === "current");
+  const quickAnswers =
+    current?.key === "condition"
+      ? ["New", "Like new", "Good", "Fair"]
+      : current?.key === "delivery"
+        ? ["Pickup", "Shipping", "Both"]
+        : [];
+
   return (
     <div
       id="live-listing-draft"
@@ -65,6 +85,14 @@ export default function SellListingPreviewCard({
       ) : null}
 
       <div className="space-y-3 p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+            Your listing
+          </p>
+          {progressLabel ? (
+            <p className="text-xs font-medium text-[var(--muted)]">{progressLabel}</p>
+          ) : null}
+        </div>
         {hasDraft ? (
           <div className="space-y-1.5">
             <h2
@@ -103,6 +131,46 @@ export default function SellListingPreviewCard({
             </p>
           </div>
         )}
+
+        {progress.length ? (
+          <div className="grid grid-cols-2 gap-1.5 border-t border-[var(--border-subtle)] pt-3 sm:grid-cols-3">
+            {progress.map((item) => (
+              <div
+                key={item.key}
+                className={`flex min-h-[34px] items-center gap-1.5 rounded-lg px-2 text-xs ${
+                  item.state === "current"
+                    ? `${emphasizeSummaryNext ? "sell-next-field " : ""}font-semibold text-[var(--foreground)]`
+                    : item.state === "complete"
+                      ? "bg-[var(--surface-3)] text-[var(--text-secondary)]"
+                      : "text-[var(--muted)]"
+                }`}
+              >
+                <span aria-hidden>{item.state === "complete" ? "✓" : item.state === "current" ? "◉" : "○"}</span>
+                <span className="truncate">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {current && quickAnswers.length && onQuickAnswer ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-[var(--text-secondary)]">
+              Answer Āwhina: {current.label}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {quickAnswers.map((answer) => (
+                <button
+                  key={answer}
+                  type="button"
+                  onClick={() => onQuickAnswer(answer)}
+                  className="min-h-[44px] rounded-xl border border-[var(--border-strong)] bg-[var(--surface-3)] px-3 text-sm font-medium text-[var(--foreground)] transition hover:border-[var(--accent-primary)]/45 hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                >
+                  {answer}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-0.5">
           {isReviewing ? (
