@@ -60,12 +60,14 @@ describe("classifyConfirmationReply — affirmatives / negatives", () => {
       "thats right",
       "yup",
       "Yep!",
+      "yeah booster box",
+      "yes it's a booster box",
     ]) {
       expect(classifyConfirmationReply(m), m).toBe("AFFIRM");
     }
   });
   it("accepts required negatives", () => {
-    for (const m of ["No", "nah", "nope", "wrong", "not right"]) {
+    for (const m of ["No", "nah", "nope", "wrong", "not right", "nah hobby box"]) {
       expect(classifyConfirmationReply(m), m).toBe("REJECT");
     }
   });
@@ -139,6 +141,53 @@ describe("Barella → Razer → Yes exact sequence", () => {
     expect(yes.intent).toMatch(/listing/i);
     // Must not force user to restate identity
     expect(yes.reply || "").not.toMatch(/what (are you|do you want to) sell/i);
+  });
+
+  it("Yes is a booster box confirms identity and refines the active listing", () => {
+    const pending = {
+      ...buildConfirmIdentityPendingAction({
+        identity: "2026 Topps Premier League",
+        listingFill: {
+          title: "2026 Topps Premier League",
+          listingType: "physical",
+          category: "Sports",
+        },
+      }),
+      id: "pa_booster",
+      status: "active" as const,
+      createdAt: Date.now(),
+    };
+    const result = processCanonicalAwhina("Yes is a booster box", {
+      conversationId: `booster_${Math.random().toString(36).slice(2, 10)}`,
+      pathname: "/post/ai",
+      clientPendingAction: pending,
+      listingContext: { title: "2026 Topps Premier League", listingType: "physical" },
+    });
+    expect(result.avoidedAi).toBe(true);
+    expect(result.listingFill?.title).toBe("2026 Topps Premier League Booster Box");
+    expect(result.listingFill?.extras).toContain("productFormat:Booster Box");
+    expect(result.reply).toMatch(/asking price|price/i);
+    expect(result.reply).not.toMatch(/clarify what you'd like me to do/i);
+  });
+
+  it.each([
+    "list it",
+    "list it for sale",
+    "sell this",
+    "post it",
+    "make a listing",
+  ])("routes active-draft command %s to selling, not generic clarification", (message) => {
+    const result = processCanonicalAwhina(message, {
+      conversationId: `sell_command_${message}`,
+      pathname: "/post/ai",
+      listingContext: {
+        title: "2026 Topps Premier League Booster Box",
+        listingType: "physical",
+        category: "Sports",
+      },
+    });
+    expect(result.reply || "").not.toMatch(/clarify what you'd like me to do/i);
+    expect(result.intent).toMatch(/listing/);
   });
 
   it("orphan Yes without pending still clarifies (unchanged safety)", () => {

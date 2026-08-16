@@ -227,6 +227,35 @@ function navReply(title: string, path: string, already: boolean): CanonicalResul
     : `Taking you to **${title}** now.`;
 }
 
+const PRODUCT_FORMAT_REPLY_RE =
+  /\b(booster\s*box|hobby\s*box|blaster\s*box|mega\s*box|booster\s*pack|starter\s*pack|multi\s*pack|sealed\s*set|tin|pack)\b/i;
+
+function productFormatFromPendingReply(message: string): string | undefined {
+  const match = String(message || "").match(PRODUCT_FORMAT_REPLY_RE);
+  return match?.[1]?.toLowerCase().replace(/\s+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function applyConfirmedProductFormat(
+  fill: SkyAiListingFill,
+  message: string
+): SkyAiListingFill {
+  const format = productFormatFromPendingReply(message);
+  if (!format) return fill;
+  const extras = mergeExtras(
+    (fill.extras || []).filter((entry) => !/^productFormat:/i.test(entry)),
+    [`productFormat:${format}`]
+  );
+  const priorTitle = String(fill.title || "").replace(
+    /\b(?:booster\s*box|hobby\s*box|blaster\s*box|mega\s*box|booster\s*pack|starter\s*pack|multi\s*pack|sealed\s*set|tin|pack)\b/gi,
+    ""
+  );
+  return {
+    ...fill,
+    title: `${priorTitle} ${format}`.replace(/\s+/g, " ").trim(),
+    extras,
+  };
+}
+
 function toolFromLocal(local: ReturnType<typeof tryLocalExecution>): AwhinaToolCall | null {
   if (!local.handled || !local.toolCall) return null;
   const tc = local.toolCall;
@@ -863,13 +892,14 @@ export function processCanonicalAwhina(
     if (resolution.kind === "CONFIRM" && resolution.action.type === "CONFIRM_IDENTITY") {
       confirmPendingAction(paKey);
       clearSearchSession(memKey);
-      const fill = {
+      let fill = {
         ...(resolution.action.listingFill || {}),
       } as SkyAiListingFill;
+      fill = applyConfirmedProductFormat(fill, trimmed);
       const identity =
+        fill.title ||
         resolution.action.identity ||
         resolution.action.proposedFacts?.title ||
-        (typeof fill.title === "string" ? fill.title : "") ||
         "your item";
       if (!fill.title) fill.title = identity;
       // Accept proposed facts into draft — never ask user to restate identity
@@ -879,9 +909,13 @@ export function processCanonicalAwhina(
         pendingItem: identity,
         pendingClarification: pendingClarification || undefined,
       });
-      const reply = buildReadinessFollowUpReply(fill, {
-        lead: `Yep — **${identity}**.`,
-      });
+      const confirmedFormat = productFormatFromPendingReply(trimmed);
+      const reply =
+        confirmedFormat && !fill.price
+          ? `Got it — **${identity}**. What's your asking price?`
+          : buildReadinessFollowUpReply(fill, {
+              lead: `Got it — **${identity}**.`,
+            });
       return finish({
         handled: true,
         reply,
@@ -1031,6 +1065,36 @@ export function processCanonicalAwhina(
 
     if (resolution.kind === "REJECT" && resolution.action) {
       rejectPendingAction(paKey);
+      const correctedFill =
+        resolution.action.type === "CONFIRM_IDENTITY"
+          ? applyConfirmedProductFormat(
+              { ...(resolution.action.listingFill || {}) } as SkyAiListingFill,
+              trimmed
+            )
+          : null;
+      if (
+        correctedFill &&
+        productFormatFromPendingReply(trimmed) &&
+        correctedFill.title
+      ) {
+        rememberListingDraft(listKeyPending, correctedFill);
+        const reply = !correctedFill.price
+          ? `Got it — **${correctedFill.title}**. What's your asking price?`
+          : buildReadinessFollowUpReply(correctedFill, {
+              lead: `Got it — **${correctedFill.title}**.`,
+            });
+        return finish({
+          handled: true,
+          reply,
+          listingFill: correctedFill as Record<string, unknown>,
+          source: "tool",
+          intent: "listing_update",
+          tool: "updateListingDraft",
+          confidence: 0.96,
+          usedLocalExecution: true,
+          avoidedAi: true,
+        });
+      }
       const rejectReply =
         resolution.action.type === "CONFIRM_IDENTITY"
           ? "What is it?"
@@ -1447,6 +1511,39 @@ export function processCanonicalAwhina(
   const listSessionEarly = getListingDraftSession(listKeyEarly);
   const hasListDraftEarly =
     hasActiveListingDraft(context.listingContext) || Boolean(listSessionEarly?.draft);
+
+  // On the sell workspace, a terse listing command always means continue the
+  // current draft. Never send it through generic capability ambiguity.
+  if (pathname.startsWith("/post/ai") && hasListDraftEarly && hasListingSellIntent(trimmed)) {
+    const fill = reconstructListingDraftBase({
+      listingContext: context.listingContext,
+      sessionKey: listKeyEarly,
+      freshStart: false,
+    });
+    rememberListingDraft(listKeyEarly, fill);
+    setActiveTask(scopeKey, "selling", {
+      pendingItem: fill.title || "your item",
+      pendingClarification: buildListingSlotPending(fill, "sell-command") || undefined,
+    });
+    return finish({
+      handled: true,
+      reply: buildReadinessFollowUpReply(fill, {
+        lead: fill.title ? `Sure — let's list **${fill.title}**.` : "Sure — let's finish your listing.",
+      }),
+      listingFill: fill as Record<string, unknown>,
+      source: "tool",
+      intent: "listing_update",
+      tool: "updateListingDraft",
+      confidence: 0.99,
+      usedLocalExecution: true,
+      avoidedAi: true,
+      toolCall: {
+        tool: "updateListingDraft",
+        args: { updateListingDraft: fill },
+        confidence: 0.99,
+      },
+    });
+  }
 
   const searchLang = hasSearchIntentLanguage(trimmed);
   const explicitSell =

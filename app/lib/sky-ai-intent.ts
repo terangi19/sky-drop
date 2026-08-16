@@ -22,6 +22,8 @@ export type SkyAiIntent =
 
 const SELL_RE =
   /\b(i\s*('m|am)?\s*(sell|selling|list|listing|post|create|make|put up|advertise|flog)|want to sell|for sale|selling my|get rid of|clearing out|listing my)\b/i;
+const LISTING_COMMAND_RE =
+  /^(?:list|sell|post|make)(?:\s+(?:it|this|that|a listing|the listing))?(?:\s+(?:for sale|up))?$/i;
 
 const FIND_RE =
   /\b(find(?: me| a| an)?|show me|looking for|search for|want to buy|wanna buy|wanna\s+(?:a|an)\b|want a|want an|i want a|i want an|need a|need an|i need a|i need an|iso\b|in search of|hunting for|where can i (find|get)|anyone selling|under \$?\d)\b/i;
@@ -247,6 +249,7 @@ export function hasListingSellIntent(message: string): boolean {
   const m = normalizedAwhinaText(message);
   if (!m) return false;
   if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
+  if (LISTING_COMMAND_RE.test(m)) return true;
   if (hasServiceOfferingIntent(m)) return true;
   if (hasRentalOfferingIntent(m)) return true;
   if (STRUCTURED_LISTING.test(m)) return true;

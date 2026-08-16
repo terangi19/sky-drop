@@ -68,9 +68,13 @@ export type ConfirmationClass =
 
 const AFFIRM_RE =
   /^(yes|yeah|yep|yup|ya|sure|ok|okay|alright|all\s*right|do\s+it|go\s+ahead|sounds\s+good|please|cool|keen|sweet|correct|right|that'?s\s+right|thats\s+right|that\s+is\s+right|y|k)([.!?,]*)?(\s+please)?$/i;
+const AFFIRM_WITH_DETAIL_RE =
+  /^(?:yes|yeah|yep|yup|ya|sure|correct|right|that'?s\s+right|thats\s+right)\b[\s,!.-]+.{1,56}$/i;
 
 const REJECT_RE =
   /^(no|nah|nope|don't|dont|cancel|stop|never\s*mind|no\s+thanks|not\s+now|wrong|not\s+right|nope\s+wrong)([.!?,]*)?$/i;
+const REJECT_WITH_DETAIL_RE =
+  /^(?:no|nah|nope|wrong|not\s+right)\b[\s,!.-]+.{1,56}$/i;
 
 const TTL_MS = 30 * 60 * 1000;
 const MAX = 400;
@@ -104,8 +108,8 @@ export function pendingActionKey(opts: {
 export function classifyConfirmationReply(message: string): ConfirmationClass {
   const m = (message || "").trim();
   if (!m || m.length > 64) return "NOT_CONFIRMATION";
-  if (AFFIRM_RE.test(m)) return "AFFIRM";
-  if (REJECT_RE.test(m)) return "REJECT";
+  if (AFFIRM_RE.test(m) || AFFIRM_WITH_DETAIL_RE.test(m)) return "AFFIRM";
+  if (REJECT_RE.test(m) || REJECT_WITH_DETAIL_RE.test(m)) return "REJECT";
   // Short vague acknowledgements without clear polarity
   if (/^(maybe|idk|not\s+sure|dunno)\b/i.test(m)) return "UNCLEAR";
   return "NOT_CONFIRMATION";
