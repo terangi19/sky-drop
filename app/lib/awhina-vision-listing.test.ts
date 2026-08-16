@@ -114,6 +114,22 @@ describe("identity scenarios", () => {
     expect(adapted.listingFill.extras).toContain("productFormat:booster box");
   });
 
+  it("never converts sealed packaging colour into a card parallel", () => {
+    const adapted = adaptVisionObservationToListing(
+      obs({
+        domain: "trading-cards",
+        displayIdentity: "Riftbound Unleashed Booster Display",
+        itemIdentity: field("Riftbound Unleashed Booster Display", "HIGH", "READABLE"),
+        productFormat: field("booster display", "HIGH", "READABLE"),
+        colour: field("purple", "HIGH", "VISIBLE"),
+        category: field("Sports", "HIGH", "VISIBLE"),
+        overallConfidence: "HIGH",
+      })
+    );
+    expect(adapted.listingFill.extras?.join(" ")).not.toMatch(/parallelColor:purple/i);
+    expect(adapted.listingFill.extras?.join(" ")).not.toMatch(/parallel:purple/i);
+  });
+
   it("does not collapse manufacturer-only sealed facts into Topps trading card", () => {
     expect(
       composeTradingCardTitle({

@@ -520,7 +520,11 @@ function applyVisionDomainFacts(
   if (
     obs.colour?.value &&
     mayPopulateFromVision(obs.colour, { allowMedium: true }) &&
-    /trading-?card|collectible/i.test(obs.domain || "")
+    /trading-?card|collectible/i.test(obs.domain || "") &&
+    !(
+      obs.productFormat?.value &&
+      /\b(?:box|pack|tin|etb|sealed|display)\b/i.test(obs.productFormat.value)
+    )
   ) {
     if (!extras.some((e) => /^parallelcolour:/i.test(e))) {
       extras.push(`parallelColour:${obs.colour.value.trim()}`);
