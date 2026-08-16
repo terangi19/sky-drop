@@ -53,10 +53,10 @@ export type DescriptionWriterFacts = {
 
 const STRUCTURED_EXTRA_KEY_RE =
   /^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|categoryid|condition_code|conditioncode|vision_confidence|visionconfidence|provenance|field_source|fieldsource)$/i;
-const MARKETING_FILLER_RE =
-  /\b(?:great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout player|legendary (?:figures|status)|perfect for|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|any .* collection)\b/i;
+export const MARKETING_FILLER_RE =
+  /\b(?:must[- ]have|perfect(?:\s+(?:for|addition))?|great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout player|legendary (?:figures|status)|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|reliable performance|reliable choice|any .* collection|don'?t miss out|highly sought[- ]after|rare|valuable|iconic|grab a bargain|sure to impress)\b/i;
 
-function removeUnsupportedMarketingTail(proposed: string): string {
+export function stripUnsupportedPromotionalSentences(proposed: string): string {
   return splitListingDescriptionSentences(proposed)
     .map((sentence) =>
       sentence
@@ -64,14 +64,14 @@ function removeUnsupportedMarketingTail(proposed: string): string {
           /,?\s*making (?:it|this) (?:a|an)\s+(?:unique|notable|great)\s+collectible(?:\s+for\s+(?:fans?|collectors?)(?:\s+and\s+collectors?)?)?\s*(?:alike)?\.?$/i,
           "."
         )
+        .replace(/,?\s*ensuring\s+reliable\s+performance\.?$/i, ".")
+        .replace(/,?\s*making\s+(?:it|this)\s+a\s+reliable\s+choice[^.]*\.?$/i, ".")
         .replace(/\s{2,}/g, " ")
         .trim()
     )
     .filter(
       (sentence) =>
-        !/\b(?:enjoy seamless gaming|step up your sneaker game|experience gaming like never before)\b/i.test(
-          sentence
-        )
+        !MARKETING_FILLER_RE.test(sentence)
     )
     .join(" ")
     .trim();
@@ -323,7 +323,7 @@ export function validateAiListingDescription(
 ): string | null {
   const description = stripStructuredMetadataLeakage(
     removeStructuredPriceCopy(
-      removeUnsupportedMarketingTail(orderParentBeforeCollection(proposed, facts))
+      stripUnsupportedPromotionalSentences(orderParentBeforeCollection(proposed, facts))
     )
   )
     .replace(/\s+/g, " ")
@@ -462,7 +462,7 @@ Writing rules:
 - Never mention price, location, contact actions, "for sale", marketing filler, database labels, or unsupported claims.
 - Include the supplied condition naturally whenever one is present.
 - Condition grammar: "is/are brand new", "is/are new", "is/are in like-new condition", "is/are in good condition", "is/are in good used condition", or "is/are in fair condition". Never write "in brand new".
-- Do not use generic selling language such as "great addition", "perfect opportunity", "enhance your", "showcase", "ideal for", "perfect for", "legendary", or "vibrant design".
+- Stop once the supported useful facts are covered. Do not pad sparse listings with phrases such as "must-have", "perfect for collectors", "great addition", "don't miss out", "ideal for enthusiasts", "sure to impress", "rare", "valuable", "iconic", or generic calls to action.
 - Never emit raw metadata such as bundle_quantity:3, listing_type:physical, brand:Nike, or any key:value labels.
 - Never add facts, specifications, authenticity, working status, or condition not in JSON.`,
       },

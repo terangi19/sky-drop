@@ -26,6 +26,8 @@ import {
 } from "./awhina-listing-composer";
 import {
   buildDescriptionWriterFacts,
+  MARKETING_FILLER_RE,
+  stripUnsupportedPromotionalSentences,
   validateAiListingDescription,
 } from "./awhina-description-writer";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
@@ -322,6 +324,100 @@ describe("grounded AI description writer quality gate", () => {
         facts
       )
     ).toBeNull();
+  });
+
+  it("removes unsupported promotional tails instead of padding useful prose", () => {
+    const original =
+      "This set includes three Yu-Gi-Oh! Egyptian God Cards: The Winged Dragon of Ra, Slifer the Sky Dragon, and Obelisk the Tormentor, all in good used condition. These iconic cards are a must-have for any serious collector or player.";
+    const expected =
+      "This set includes three Yu-Gi-Oh! Egyptian God Cards: The Winged Dragon of Ra, Slifer the Sky Dragon, and Obelisk the Tormentor, all in good used condition.";
+    expect(
+      validateAiListingDescription(original, buildDescriptionWriterFacts(godCards))
+    ).toBe(expected);
+  });
+
+  it("does not pad cards, electronics, bikes, vehicles, or clothing with sales fluff", () => {
+    const cases: Array<{ name: string; fill: SkyAiListingFill; copy: string }> = [
+      {
+        name: "Yu-Gi-Oh cards",
+        fill: godCards,
+        copy:
+          "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set. These iconic cards are a must-have for any serious collector.",
+      },
+      {
+        name: "Topps Chrome",
+        fill: {
+          title: "Nicolò Barella Topps Chrome",
+          listingType: "physical",
+          condition: "Used - Good",
+          extras: ["subject:Nicolò Barella", "set:Topps Chrome", "serial:14/25"],
+        },
+        copy:
+          "This Nicolò Barella Topps Chrome card is numbered 14/25 and is in good used condition. A perfect addition to your collection.",
+      },
+      {
+        name: "DualSense",
+        fill: {
+          title: "Sony DualSense Wireless Controller",
+          listingType: "physical",
+          condition: "Used - Good",
+          extras: ["Comes with charging cable"],
+        },
+        copy:
+          "Sony DualSense Wireless Controller in good used condition. Comes with charging cable. Sure to impress any gamer.",
+      },
+      {
+        name: "iPhone",
+        fill: {
+          title: "Apple iPhone 15 Pro 256GB",
+          listingType: "physical",
+          condition: "Used - Good",
+          extras: ["storage:256GB", "Battery health 94%"],
+        },
+        copy:
+          "Apple iPhone 15 Pro with 256GB of storage is in good used condition. Battery health is 94%, ensuring reliable performance.",
+      },
+      {
+        name: "mountain bike",
+        fill: {
+          title: "Marin Bobcat Trail Mountain Bike",
+          listingType: "physical",
+          condition: "Used - Good",
+          extras: ["29 inch wheels", "Hydraulic disc brakes"],
+        },
+        copy:
+          "Marin Bobcat Trail Mountain Bike in good used condition with 29 inch wheels and hydraulic disc brakes, making it a reliable choice for your mountain biking adventures.",
+      },
+      {
+        name: "vehicle",
+        fill: {
+          title: "2011 BMW 335i",
+          listingType: "vehicle",
+          condition: "Used - Good",
+          extras: ["New tyres"],
+        },
+        copy:
+          "2011 BMW 335i is in good used condition and comes with new tyres. A valuable find.",
+      },
+      {
+        name: "clothing",
+        fill: {
+          title: "North Face Jacket",
+          listingType: "physical",
+          condition: "Used - Good",
+          extras: ["Size Large"],
+        },
+        copy:
+          "North Face Jacket in good used condition, size Large. A great addition to any wardrobe.",
+      },
+    ];
+
+    for (const testCase of cases) {
+      const result = stripUnsupportedPromotionalSentences(testCase.copy);
+      expect(result, testCase.name).not.toMatch(MARKETING_FILLER_RE);
+      expect(result, testCase.name).toMatch(/\.$/);
+      expect(result.split(/(?<=[.])\s+/).length, testCase.name).toBeLessThanOrEqual(2);
+    }
   });
 
   it("rejects generic copy that drops supported collection or product details", () => {
