@@ -246,6 +246,7 @@ export default function ListingPage() {
     "Phones",
     "Tech",
     "Clothing",
+    "Collectibles",
     "Other",
   ];
 

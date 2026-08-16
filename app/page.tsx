@@ -98,6 +98,7 @@ const categories = [
   "Gaming",
   "Fashion",
   "Home",
+  "Collectibles",
   "Sports",
   "Other",
 ];
@@ -135,6 +136,7 @@ const trendingCategories = [
   { emoji: "", name: "Gaming" },
   { emoji: "", name: "Fashion" },
   { emoji: "", name: "Home" },
+  { emoji: "", name: "Collectibles" },
   { emoji: "", name: "Sports" },
 ];
 

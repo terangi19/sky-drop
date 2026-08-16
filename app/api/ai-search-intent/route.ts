@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
             role: "system",
             content: `You are a search intent parser for Sky Drop, a New Zealand marketplace. Extract structured search filters from natural language queries.
 
-Valid categories: Tech, Cars, Gaming, Fashion, Home, Sports, Other
+Valid categories: Tech, Cars, Gaming, Fashion, Home, Collectibles, Sports, Other
 Valid listing types: physical, digital, service, rental, vehicle, wanted
 Valid conditions: New, Used - Like New, Used - Good, Used - Fair
 

@@ -66,7 +66,7 @@ The user will provide a URL from another marketplace (TradeMe, Facebook Marketpl
 2. If the URL contains identifiable information (like item name, category, etc.), extract it
 3. If the URL doesn't contain enough information, ask the user to provide more details
 
-Valid categories: Tech, Cars, Gaming, Fashion, Home, Sports, Other
+Valid categories: Tech, Cars, Gaming, Fashion, Home, Collectibles, Sports, Other
 Valid listing types: physical, digital, service, rental, vehicle, wanted
 Valid conditions: New, Used - Like New, Used - Good, Used - Fair
 
