@@ -96,6 +96,7 @@ const CATEGORIES = new Set([
   "Gaming",
   "Fashion",
   "Home",
+  "Collectibles",
   "Sports",
   "Other",
 ]);
@@ -134,13 +135,13 @@ export function inferPhysicalCategoryFromText(text: string): string | undefined 
   }
   if (/fashion|clothes|shoe|sneaker|jacket/i.test(lower)) return "Fashion";
   if (/couch|sofa|furniture|home|table|chair|mattress/i.test(lower)) return "Home";
-  // Trading cards / collectibles → Sports (existing physical taxonomy; no Collectibles bucket)
+  // Trading cards / collectibles have their own physical category.
   if (
     /trading\s*card|sports?\s*card|football\s*card|soccer\s*card|pokemon|pokémon|yugioh|yu-gi-oh|topps|panini|psa\s*\d|graded\s*card|collectible/i.test(
       lower
     )
   ) {
-    return "Sports";
+    return "Collectibles";
   }
   if (/sport|bike|bicycle|golf|tennis/i.test(lower)) return "Sports";
   return undefined;
@@ -212,8 +213,7 @@ function normalizeCategory(raw: string, listingType?: string): string | undefine
   if (s === "Cars" && listingType !== "vehicle") {
     return listingType === "physical" ? "Other" : "Cars";
   }
-  // Collectibles is not a physical form category — map to Sports
-  if (/^collectibles?$/i.test(s)) return "Sports";
+  if (/^collectibles?$/i.test(s)) return "Collectibles";
   if (CATEGORIES.has(s) && s !== "Cars") return s;
   if (s === "Cars") return "Cars";
   const lower = s.toLowerCase();
@@ -229,7 +229,7 @@ function normalizeCategory(raw: string, listingType?: string): string | undefine
       lower
     )
   ) {
-    return "Sports";
+    return "Collectibles";
   }
   if (/sport/i.test(lower)) return "Sports";
   return "Other";

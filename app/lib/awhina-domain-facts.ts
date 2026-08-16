@@ -13,6 +13,10 @@
 
 import type { ListingMissingSlot } from "./awhina-pending-slots";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
+import {
+  normalizeAwhinaObjectType,
+  type AwhinaObjectType,
+} from "./awhina-domain-knowledge";
 
 /** Coarse fact-domain used by identity / fusion (kept for compatibility). */
 export type AwhinaFactDomain =
@@ -156,6 +160,30 @@ const TRADING_CARD_SCHEMA: DomainFactSchema = {
   ],
 };
 
+const SEALED_TCG_SCHEMA: DomainFactSchema = {
+  domain: "TRADING_CARD",
+  family: "trading_card",
+  subtype: "sealed_tcg_product",
+  fields: [
+    { key: "title", slot: "title", required: true, highValue: true, askPriority: 100 },
+    { key: "price", slot: "price", required: true, highValue: true, askPriority: 90, hallucinationRisk: true },
+    { key: "condition", slot: "condition", required: false, highValue: true, askPriority: 70 },
+    { key: "location", slot: "location", required: false, highValue: true, askPriority: 60 },
+  ],
+};
+
+const CARD_BUNDLE_SCHEMA: DomainFactSchema = {
+  domain: "TRADING_CARD",
+  family: "trading_card",
+  subtype: "card_bundle",
+  fields: [
+    { key: "title", slot: "title", required: true, highValue: true, askPriority: 100 },
+    { key: "price", slot: "price", required: true, highValue: true, askPriority: 90, hallucinationRisk: true },
+    { key: "condition", slot: "condition", required: false, highValue: true, askPriority: 70 },
+    { key: "location", slot: "location", required: false, highValue: true, askPriority: 60 },
+  ],
+};
+
 const CLOTHING_SCHEMA: DomainFactSchema = {
   domain: "GENERIC",
   family: "clothing",
@@ -294,6 +322,19 @@ const SPECIALIST_SLOTS_BY_FAMILY: Partial<
   rental: new Set(["rental_rate"]),
 };
 
+const SEALED_TCG_OBJECT_TYPES = new Set<AwhinaObjectType>([
+  "booster_pack",
+  "booster_box",
+  "booster_display",
+  "hobby_box",
+  "blaster_box",
+  "mega_box",
+  "starter_pack",
+  "tin",
+  "etb",
+  "sealed_set",
+]);
+
 function fillBlob(fill: Partial<SkyAiListingFill>): string {
   return [fill.title, fill.category, fill.listingType, ...(fill.extras || [])]
     .filter(Boolean)
@@ -421,6 +462,41 @@ export function resolveCanonicalListingObject(
     };
   }
 
+  const objectType = normalizeAwhinaObjectType(blob);
+  if (SEALED_TCG_OBJECT_TYPES.has(objectType)) {
+    return {
+      family: "trading_card",
+      subtype: objectType,
+      factDomain: "TRADING_CARD",
+      brand,
+      title,
+      objectKey,
+      blob,
+    };
+  }
+  if (objectType === "card_bundle") {
+    return {
+      family: "trading_card",
+      subtype: "card_bundle",
+      factDomain: "TRADING_CARD",
+      brand,
+      title,
+      objectKey,
+      blob,
+    };
+  }
+  if (objectType === "individual_card" || objectType === "graded_card") {
+    return {
+      family: "trading_card",
+      subtype: objectType,
+      factDomain: "TRADING_CARD",
+      brand,
+      title,
+      objectKey,
+      blob,
+    };
+  }
+
   if (
     /card|psa|bgs|cgc|topps|panini|pokemon|yugioh|sports card|trading card|collectibles?/.test(
       blob
@@ -429,7 +505,7 @@ export function resolveCanonicalListingObject(
   ) {
     return {
       family: "trading_card",
-      subtype: "trading_card",
+      subtype: "individual_card",
       factDomain: "TRADING_CARD",
       brand,
       title,
@@ -523,6 +599,10 @@ export function getDomainFactSchema(
     case "vehicle":
       return VEHICLE_SCHEMA;
     case "trading_card":
+      if (SEALED_TCG_OBJECT_TYPES.has(obj.subtype as AwhinaObjectType)) {
+        return SEALED_TCG_SCHEMA;
+      }
+      if (obj.subtype === "card_bundle") return CARD_BUNDLE_SCHEMA;
       return TRADING_CARD_SCHEMA;
     case "clothing":
       return CLOTHING_SCHEMA;
@@ -619,7 +699,12 @@ export function isFieldRelevant(
 
   if (slot === "size") return obj.family === "clothing";
   if (slot === "card_set" || slot === "card_subject" || slot === "grade") {
-    return obj.family === "trading_card";
+    return (
+      obj.family === "trading_card" &&
+      (obj.subtype === "trading_card" ||
+        obj.subtype === "individual_card" ||
+        obj.subtype === "graded_card")
+    );
   }
   if (
     slot === "year" ||
@@ -673,8 +758,11 @@ export function isDraftSufficientToSkipOptional(
   if (obj.family === "vehicle") {
     return Boolean(fill.vehicleYear?.trim()) && hasLocation;
   }
-  // Cards: subject needed for identity
+  // Individual cards need a subject for identity. Sealed products/bundles do not.
   if (obj.family === "trading_card") {
+    if (SEALED_TCG_OBJECT_TYPES.has(obj.subtype as AwhinaObjectType) || obj.subtype === "card_bundle") {
+      return hasLocation && Boolean(fill.condition?.trim());
+    }
     const hasSubject = (fill.extras || []).some((e) =>
       e.toLowerCase().startsWith("subject:")
     );

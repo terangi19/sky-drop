@@ -233,6 +233,61 @@ describe("cross-domain field relevance", () => {
   });
 });
 
+describe("TCG object type controls the schema", () => {
+  const sealedCases = [
+    ["Riftbound League of Legends Unleashed booster display", "booster_display"],
+    ["Topps Premier League booster box", "booster_box"],
+    ["Pokémon Elite Trainer Box", "etb"],
+  ] as const;
+
+  it.each(sealedCases)(
+    "%s uses the sealed-product schema",
+    (title, subtype) => {
+      const fill = {
+        title,
+        listingType: "physical" as const,
+        category: "Collectibles",
+        extras: [`productFormat:${subtype.replace(/_/g, " ")}`],
+      };
+      const object = resolveCanonicalListingObject(fill);
+      expect(object.family).toBe("trading_card");
+      expect(object.subtype).toBe(subtype);
+      expect(computeMissingListingSlots(fill)).not.toEqual(
+        expect.arrayContaining(["card_subject", "card_set", "grade"])
+      );
+      expect(isFieldRelevant("card_subject", fill)).toBe(false);
+      expect(isFieldRelevant("grade", fill)).toBe(false);
+      expect(nextListingSlotQuestion(fill)?.slot).toBe("price");
+    }
+  );
+
+  it("individual, graded, and bundled cards retain only their applicable policy", () => {
+    const individual = {
+      title: "Topps Premier League football card",
+      listingType: "physical" as const,
+      category: "Collectibles",
+    };
+    const graded = {
+      title: "Yu-Gi-Oh! Dark Magician PSA 10",
+      listingType: "physical" as const,
+      category: "Collectibles",
+    };
+    const bundle = {
+      title: "Three-card Pokémon bundle",
+      listingType: "physical" as const,
+      category: "Collectibles",
+    };
+
+    expect(resolveCanonicalListingObject(individual).subtype).toBe("individual_card");
+    expect(isFieldRelevant("card_subject", individual)).toBe(true);
+    expect(resolveCanonicalListingObject(graded).subtype).toBe("graded_card");
+    expect(isFieldRelevant("grade", graded)).toBe(true);
+    expect(resolveCanonicalListingObject(bundle).subtype).toBe("card_bundle");
+    expect(isFieldRelevant("card_subject", bundle)).toBe(false);
+    expect(nextListingSlotQuestion(bundle)?.slot).toBe("price");
+  });
+});
+
 describe("next-best-question + multi-fact skip", () => {
   it("mouse with price + location skips optional interrogation", () => {
     const fill = {

@@ -27,6 +27,8 @@ import { clearAllListingDraftCacheForTests } from "./awhina-listing-fill-tools";
 import { enrichObservationWithKnowledge } from "./awhina-vision-knowledge";
 import { retrieveKnowledgePack } from "./awhina-knowledge-packs";
 import { composeTradingCardTitle } from "./awhina-public-copy-gate";
+import { resolveCanonicalListingObject } from "./awhina-domain-facts";
+import { nextListingSlotQuestion } from "./awhina-pending-slots";
 
 function field(
   value: string,
@@ -134,6 +136,11 @@ describe("identity scenarios", () => {
     expect(adapted.listingFill.title || "").not.toMatch(/purple/i);
     expect(adapted.listingFill.description || "").not.toMatch(/parallel/i);
     expect(adapted.listingFill.description || "").not.toMatch(/purple/i);
+    expect(adapted.listingFill.category).toBe("Collectibles");
+    expect(resolveCanonicalListingObject(adapted.listingFill).subtype).toBe(
+      "booster_display"
+    );
+    expect(nextListingSlotQuestion(adapted.listingFill)?.slot).toBe("price");
   });
 
   it("does not collapse manufacturer-only sealed facts into Topps trading card", () => {
@@ -291,7 +298,7 @@ describe("USER provenance outranks vision", () => {
     expect(String(adapted.listingFill.title || "")).toMatch(/topps/i);
     expect(adapted.listingFill.price).toBeUndefined();
     expect(adapted.listingFill.condition).not.toBe("New");
-    expect(adapted.listingFill.category).toBe("Sports");
+    expect(adapted.listingFill.category).toBe("Collectibles");
     expect(adapted.listingFill.location).toMatch(/Auckland/i);
     const extras = (adapted.listingFill.extras || []).join(" ");
     expect(extras).not.toMatch(/^attr:/im);

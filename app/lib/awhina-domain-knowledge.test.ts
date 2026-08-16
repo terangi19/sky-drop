@@ -8,7 +8,7 @@ import {
 
 describe("Āwhina domain knowledge ontology", () => {
   it.each([
-    ["Topps Premier League Booster Display", "booster_box"],
+    ["Topps Premier League Booster Display", "booster_display"],
     ["Riftbound booster box", "booster_box"],
     ["Topps individual card", "individual_card"],
     ["PSA 10 graded card", "graded_card"],
@@ -28,7 +28,7 @@ describe("Āwhina domain knowledge ontology", () => {
   it("removes card-only attributes from sealed products", () => {
     const result = applyAwhinaDomainKnowledge({
       title: "Topps Premier League Booster Box",
-      extras: ["productFormat:booster box", "parallelColor:purple", "serial:14/25", "packsPerBox:24"],
+      extras: ["productFormat:booster box", "subject:LeBron James", "parallelColor:purple", "serial:14/25", "packsPerBox:24"],
     });
     expect(result.extras).toEqual(["productFormat:booster box", "packsPerBox:24"]);
   });
@@ -62,6 +62,7 @@ describe("Āwhina domain knowledge ontology", () => {
 
   it("keeps the sealed-product rule distinct from the individual-card rule", () => {
     expect(getAwhinaDomainRule("booster_box")?.forbiddenAttributes).toContain("grade");
+    expect(getAwhinaDomainRule("booster_box")?.forbiddenAttributes).toContain("subject");
     expect(getAwhinaDomainRule("individual_card")?.allowedAttributes).toContain("grade");
   });
 });

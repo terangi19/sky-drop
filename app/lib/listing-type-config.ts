@@ -49,6 +49,7 @@ export const PHYSICAL_LISTING_CATEGORIES = [
   "Gaming",
   "Fashion",
   "Home",
+  "Collectibles",
   "Sports",
   "Other",
 ] as const;

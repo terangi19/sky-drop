@@ -433,11 +433,5 @@ export function gatePublicListingCopy(
     notes.push("unsupported_new_cleared");
   }
 
-  if (out.category === "Collectibles") {
-    // Existing Sky Drop physical taxonomy has Sports, not Collectibles
-    out.category = "Sports";
-    notes.push("category_collectibles_to_sports");
-  }
-
   return { fill: out, rejected, notes };
 }

@@ -408,14 +408,14 @@ export function adaptVisionObservationToListing(
     listingFill = { ...listingFill, title: identity.displayIdentity };
   }
 
-  // Category: trading cards → Sports (existing physical taxonomy)
+  // Category: trading cards / TCG products are collectibles, not sports by default.
   if (
     domain === "TRADING_CARD" ||
     /trading-?card|collectible/i.test(obs.domain || "") ||
     /collectibles/i.test(String(listingFill.category || ""))
   ) {
-    if (!listingFill.category || listingFill.category === "Other" || listingFill.category === "Collectibles") {
-      listingFill = { ...listingFill, category: "Sports" };
+    if (!listingFill.category || listingFill.category === "Other" || listingFill.category === "Sports") {
+      listingFill = { ...listingFill, category: "Collectibles" };
     }
   }
 

@@ -134,6 +134,7 @@ const ALLOWED_PHYSICAL_CATEGORIES = new Set([
   "Gaming",
   "Fashion",
   "Home",
+  "Collectibles",
   "Sports",
   "Other",
 ]);

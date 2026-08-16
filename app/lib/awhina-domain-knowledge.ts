@@ -7,7 +7,7 @@ import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 
 export type AwhinaObjectType =
   | "individual_card" | "graded_card" | "booster_pack" | "booster_box"
-  | "hobby_box" | "blaster_box" | "mega_box" | "starter_pack" | "tin" | "etb"
+  | "booster_display" | "hobby_box" | "blaster_box" | "mega_box" | "starter_pack" | "tin" | "etb"
   | "sealed_set" | "card_bundle" | "phone" | "phone_case" | "console"
   | "controller" | "headphones" | "charger" | "gaming_mouse" | "game"
   | "boxed_hardware" | "vehicle" | "toy_vehicle" | "vehicle_part"
@@ -28,15 +28,28 @@ export type DomainKnowledgeRule = {
 };
 
 const TCG_COMMON = ["brand", "franchise", "set", "season", "productFormat", "language", "edition", "sealed"];
-const CARD_ONLY = ["parallelColor", "parallel", "serialNumber", "autograph", "grade"];
+const CARD_ONLY = [
+  "subject",
+  "player",
+  "character",
+  "parallelColor",
+  "parallel",
+  "serialNumber",
+  "autograph",
+  "grade",
+];
 
 export const AWHINA_DOMAIN_KNOWLEDGE: readonly DomainKnowledgeRule[] = [
   { domain: "trading_cards", objectType: "individual_card", aliases: ["individual card", "raw card", "single card"], allowedAttributes: [...TCG_COMMON, ...CARD_ONLY, "subject", "condition"], forbiddenAttributes: ["packsPerBox", "cardsPerPack"], importantListingFacts: ["price", "condition", "subject", "set"], sellerOnlyFacts: [], descriptionPriorities: ["subject", "set", "condition"], identityHints: ["card", "trading card"] },
   { domain: "trading_cards", objectType: "graded_card", aliases: ["graded", "slab", "psa", "bgs", "cgc"], allowedAttributes: [...TCG_COMMON, ...CARD_ONLY, "subject", "condition"], forbiddenAttributes: ["packsPerBox", "cardsPerPack"], importantListingFacts: ["price", "grade", "subject"], sellerOnlyFacts: [], descriptionPriorities: ["subject", "grade", "set"], identityHints: ["graded card", "slab"] },
-  ...(["booster_pack", "booster_box", "hobby_box", "blaster_box", "mega_box", "starter_pack", "tin", "etb", "sealed_set"] as const).map((objectType) => ({
+  ...(["booster_pack", "booster_box", "booster_display", "hobby_box", "blaster_box", "mega_box", "starter_pack", "tin", "etb", "sealed_set"] as const).map((objectType) => ({
     domain: "trading_cards",
     objectType,
-    aliases: objectType === "etb" ? ["etb", "elite trainer box"] : [objectType.replace(/_/g, " "), objectType === "booster_box" ? "booster display" : ""].filter(Boolean),
+    aliases: objectType === "etb"
+      ? ["etb", "elite trainer box"]
+      : objectType === "booster_display"
+        ? ["booster display", "display box"]
+        : [objectType.replace(/_/g, " ")],
     allowedAttributes: [...TCG_COMMON, "packsPerBox", "cardsPerPack", "quantity"],
     forbiddenAttributes: CARD_ONLY,
     importantListingFacts: ["price", "condition", "location"],
@@ -75,7 +88,8 @@ export function normalizeAwhinaObjectType(text: string): AwhinaObjectType {
       return rule.objectType;
     }
   }
-  if (/\bbooster\s*(?:box|display)\b/.test(source)) return "booster_box";
+  if (/\bbooster\s*display\b/.test(source)) return "booster_display";
+  if (/\bbooster\s*box\b/.test(source)) return "booster_box";
   if (/\b(?:hobby|blaster|mega)\s*box\b/.test(source)) return source.includes("hobby") ? "hobby_box" : source.includes("blaster") ? "blaster_box" : "mega_box";
   if (/\b(?:elite trainer box|etb)\b/.test(source)) return "etb";
   if (/\b(?:psa|bgs|cgc|sgc)\b/.test(source)) return "graded_card";

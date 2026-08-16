@@ -283,6 +283,7 @@ describe("canonical vehicle vs physical semantics", () => {
       "Gaming",
       "Fashion",
       "Home",
+      "Collectibles",
       "Sports",
       "Other",
     ]);

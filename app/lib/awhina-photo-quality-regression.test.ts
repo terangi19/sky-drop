@@ -3,7 +3,7 @@
  * - Panini must not leak into new Topps Chrome photo
  * - Attr: never reaches public copy
  * - Stale $20 / unsupported New cleared on NEW_OBJECT
- * - Category not Other for trading cards (→ Sports)
+ * - Category not Other for trading cards (→ Collectibles)
  * - Cross-domain Nike→iPhone, BMW→PS5
  */
 
@@ -124,7 +124,7 @@ describe("Panini → Topps Chrome regression (eval fixture only)", () => {
     expect(String(adapted.listingFill.title)).toMatch(/topps/i);
     expect(adapted.listingFill.price).toBeUndefined();
     expect(adapted.listingFill.condition).not.toBe("New");
-    expect(adapted.listingFill.category).toBe("Sports");
+    expect(adapted.listingFill.category).toBe("Collectibles");
     expect(adapted.listingFill.location).toMatch(/Auckland/i);
 
     const bridge = prepareVisionConversationBridge({
@@ -219,11 +219,11 @@ describe("cross-domain object continuity", () => {
 });
 
 describe("category mapping", () => {
-  it("trading card text maps to Sports not Other", () => {
+  it("trading card text maps to Collectibles, never Sports", () => {
     expect(inferPhysicalCategoryFromText("Topps Chrome football trading card")).toBe(
-      "Sports"
+      "Collectibles"
     );
     const gated = gatePublicListingCopy({ category: "Collectibles", title: "Card" });
-    expect(gated.fill.category).toBe("Sports");
+    expect(gated.fill.category).toBe("Collectibles");
   });
 });
