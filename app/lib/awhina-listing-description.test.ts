@@ -2122,6 +2122,39 @@ describe("authoritative description boundary regressions", () => {
     expect(validateDescription(description).ok, description).toBe(true);
   });
 
+  it("does not collapse a title-only Riftbound booster box to a title sentence", () => {
+    // Real photo path often lands with objectType/format but no set: fact, so
+    // domain stays general — description must still be seller prose.
+    const fills: SkyAiListingFill[] = [
+      {
+        title: "Riftbound League of Legends Unleashed booster box",
+        listingType: "physical",
+        category: "Collectibles",
+      },
+      {
+        title: "Riftbound League of Legends Unleashed booster box",
+        listingType: "physical",
+        category: "Collectibles",
+        extras: ["objectType:booster_box", "productFormat:booster box"],
+      },
+      {
+        title: "Riftbound League of Legends Unleashed booster display",
+        listingType: "physical",
+        category: "Collectibles",
+      },
+    ];
+
+    for (const fill of fills) {
+      const description = String(finalizeAwhinaListingDescription(fill).description || "");
+      expect(description, fill.title).toMatch(/^This\b/i);
+      expect(description, fill.title).toMatch(/being sold as/i);
+      expect(description, fill.title).not.toBe(`${fill.title}.`);
+      expect(description, fill.title).not.toMatch(/Riftbound Unleashed.*Riftbound Unleashed/i);
+      expect(passesListingDescriptionQualityGate(description), description).toBe(true);
+      expect(validateDescription(description).ok, description).toBe(true);
+    }
+  });
+
   it("keeps the universal identifier as facts across marketplace domains", () => {
     const cases: Array<{ name: string; fill: SkyAiListingFill; identity: RegExp }> = [
       {

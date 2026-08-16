@@ -1674,8 +1674,15 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
     if (selected.domain === "trading_card") {
       return writeTradingCard(facts, selected);
     }
-    // Price belongs in the price field — never in buyer prose.
-    if (facts.location) {
+    const sealedClause = sealedProductConfigurationClause(
+      `${facts.item || ""} ${(facts.extras || []).join(" ")} ${noun}`
+    );
+    if (sealedClause) {
+      parts.push(
+        polishParagraph(`This ${attributiveConditionPhrase(noun)} ${sealedClause}.`)
+      );
+    } else if (facts.location) {
+      // Price belongs in the price field — never in buyer prose.
       parts.push(polishParagraph(`${capFirst(noun)} for sale in ${facts.location}.`));
     } else {
       parts.push(polishParagraph(`${capFirst(noun)}.`));
@@ -1711,6 +1718,37 @@ function physicalNounPhrase(facts: DescriptionFacts): string {
   if (/brand new/i.test(cond)) return `brand new ${item}`;
   if (/like-new/i.test(cond)) return `like-new ${item}`;
   return `${item} in ${cond}`;
+}
+
+/**
+ * Qualified sealed-product formats only. Bare "box", "pack" or "display" would
+ * misfire on ordinary goods (shoe box, battery pack, display cabinet).
+ */
+const SEALED_PRODUCT_CONFIGURATION_RE =
+  /\b(?:booster\s*(?:box|display|pack)|hobby\s*(?:box|display)|blaster\s*box|mega\s*box|elite\s*trainer\s*box|etb|display\s*box|trading\s*card\s*(?:box|pack|tin)|card\s*tin|sealed\s*(?:box|case|set))\b/i;
+
+/**
+ * How a sealed collectible is being sold is a grounded fact the identity alone
+ * cannot express, so it carries a real description where the bare noun phrase
+ * would only echo the title. Never states pack counts or contents.
+ */
+function sealedProductConfigurationClause(formatSource: string): string | null {
+  const match = formatSource.match(SEALED_PRODUCT_CONFIGURATION_RE)?.[0]?.toLowerCase();
+  if (!match) return null;
+  if (/display/.test(match) && !/display\s*box/.test(match)) {
+    return "is being sold as a complete display rather than as individual packs";
+  }
+  if (/box|case/.test(match)) {
+    return "is being sold as one box rather than as individual packs";
+  }
+  if (/tin/.test(match)) return "is being sold as a complete tin";
+  if (/pack/.test(match)) return "is being sold as a single pack rather than as a full box";
+  return "is being sold as a complete sealed set";
+}
+
+/** "brand new X" reads as "brand-new X" once it modifies a sentence subject. */
+function attributiveConditionPhrase(phrase: string): string {
+  return phrase.replace(/^brand new\s+/i, "brand-new ");
 }
 
 function bundleQuantityFromExtras(extras: string[]): number | null {
@@ -1906,22 +1944,16 @@ function writeTradingCard(
   const bundleQuantity = facts.bundleQuantity;
   const subjects = cardFacts.playerName || selected.playerName || null;
   const collection = line || cardFacts.productLine || null;
-  const sealedSellerIdentity = opener.replace(/^brand new\s+/i, "brand-new ");
-
-  // A sealed display/box is a product configuration, not merely a title. Use
-  // that grounded relationship to produce seller-style copy even when no pack
-  // count or other specifications are known. This is the restrained offline
-  // fallback when the grounded async writer is unavailable or rejects its
-  // output; it never invents contents.
-  if (sealed && /\b(?:booster\s*)?display\b/i.test(cardFacts.productFormat || identity)) {
-    return polishParagraph(
-      `This ${sealedSellerIdentity} is being sold as a complete display rather than as individual packs.`
+  const sealedClause = sealed
+    ? sealedProductConfigurationClause(`${cardFacts.productFormat || ""} ${identity}`)
+    : null;
+  if (sealedClause) {
+    parts.push(
+      polishParagraph(`This ${attributiveConditionPhrase(opener)} ${sealedClause}.`)
     );
-  }
-  if (sealed && /\b(?:booster|hobby|blaster|mega)\s*box\b/i.test(cardFacts.productFormat || identity)) {
-    return polishParagraph(
-      `This ${sealedSellerIdentity} is being sold as one box rather than as individual packs.`
-    );
+    const sealedExtras = composeExtrasProse(deduped.weaveExtras);
+    if (sealedExtras) parts.push(sealedExtras);
+    return parts.join(" ");
   }
 
   // A multi-card listing needs to say that it is a single set, not serialize
@@ -1989,6 +2021,47 @@ function writePhysical(facts: DescriptionFacts): string {
   const d = facts.delivery;
   const struct = hashSeed(seed + ":struct") % 3;
   const parts: string[] = [];
+  // Sparse sealed collectibles often never get a set: fact, so domain stays
+  // general — still write seller configuration prose instead of a bare title.
+  const sealedClause = sealedProductConfigurationClause(
+    `${facts.item || ""} ${(facts.extras || []).join(" ")} ${noun}`
+  );
+  if (sealedClause) {
+    parts.push(
+      polishParagraph(`This ${attributiveConditionPhrase(noun)} ${sealedClause}.`)
+    );
+    if (d === "pickup_or_shipping") {
+      parts.push(
+        pickVariant(seed + ":ps", [
+          "Pickup or shipping can be arranged.",
+          "Happy to do local pickup or arrange shipping.",
+        ])
+      );
+    } else if (d === "shipping") {
+      parts.push(
+        loc
+          ? pickVariant(seed + ":ship", [
+              `Shipping from ${loc} can be arranged.`,
+              `Can ship from ${loc}.`,
+            ])
+          : "Shipping can be arranged."
+      );
+    } else if (d === "pickup" || d === "pickup_only") {
+      parts.push(
+        pickVariant(seed + ":pu", [
+          "Local pickup is available.",
+          "Pickup available locally.",
+        ])
+      );
+    }
+    const weaveOnly = selectDescriptionFacts(
+      { title: facts.item, extras: facts.extras, listingType: "physical" },
+      facts.extras
+    ).weaveExtras;
+    const extrasProse = composeExtrasProse(weaveOnly);
+    if (extrasProse) parts.push(extrasProse);
+    return parts.join(" ");
+  }
   // Structured price is never buyer-facing prose for ordinary physical goods.
   let opener: string;
   if (loc) {
