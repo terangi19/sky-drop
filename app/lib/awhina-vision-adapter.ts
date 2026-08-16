@@ -281,6 +281,11 @@ export function adaptVisionObservationToListing(
 
   // Apply structured vision domain facts (cards etc.) into extras — not Attr dumps
   listingFill = applyVisionDomainFacts(obs, listingFill);
+  const packagedCardProduct =
+    mayPopulateFromVision(obs.productFormat, { allowMedium: true }) &&
+    /\b(?:box|pack|tin|sealed set|starter pack|multipack)\b/i.test(
+      obs.productFormat.value
+    );
 
   const domain = resolveFactDomain(listingFill);
   const cardFacts = extractTradingCardFactsFromExtras(listingFill.extras);
@@ -310,6 +315,16 @@ export function adaptVisionObservationToListing(
   let displayIdentity = identity.isComplete
     ? identity.displayIdentity
     : identity.knownSummary.replace(/^an?\s+/i, "") || "this item";
+
+  // A sealed product's readable package identity is authoritative. Do not let
+  // card-title composition re-order it into "Premier League Booster Box Topps".
+  if (
+    packagedCardProduct &&
+    mayPopulateFromVision(obs.itemIdentity, { allowMedium: true }) &&
+    obs.displayIdentity.trim()
+  ) {
+    displayIdentity = obs.displayIdentity.trim();
+  }
 
   // Prefer structured card title over lone manufacturer / soft category
   if (
@@ -403,18 +418,24 @@ export function adaptVisionObservationToListing(
     !identity.isComplete ||
     obs.overallConfidence !== "HIGH" ||
     suggestions.some((s) => s.field === "itemIdentity" || s.field === "title") ||
-    (domain === "TRADING_CARD" && !cardFacts.playerName && !obs.cardSubject?.value);
+    (domain === "TRADING_CARD" &&
+      !packagedCardProduct &&
+      !cardFacts.playerName &&
+      !obs.cardSubject?.value);
 
   const missingPrompts: string[] = [];
   if (!listingFill.price) missingPrompts.push("price");
   if (!listingFill.location) missingPrompts.push("location");
-  if (!identity.isComplete || (domain === "TRADING_CARD" && !cardFacts.playerName)) {
+  if (
+    !identity.isComplete ||
+    (domain === "TRADING_CARD" && !packagedCardProduct && !cardFacts.playerName)
+  ) {
     missingPrompts.push("identity");
   }
 
   const missingCore =
     identity.missingCoreQuestion ||
-    (domain === "TRADING_CARD" && !cardFacts.playerName
+    (domain === "TRADING_CARD" && !packagedCardProduct && !cardFacts.playerName
       ? "I can't confidently read the player's name — who is it?"
       : "");
   const foundReply = needsIdentityConfirm
@@ -455,6 +476,10 @@ function applyVisionDomainFacts(
   if (obs.cardSubject) push("subject:", obs.cardSubject);
   if (obs.cardSet) push("set:", obs.cardSet);
   if (obs.brand) push("manufacturer:", obs.brand);
+  if (obs.league) push("league:", obs.league);
+  if (obs.season) push("season:", obs.season);
+  if (obs.productFormat) push("productFormat:", obs.productFormat);
+  if (obs.quantity) push("quantity:", obs.quantity);
   if (obs.grader && obs.grade) {
     const g = mayPopulateFromVision(obs.grader, { allowMedium: true })
       ? obs.grader.value

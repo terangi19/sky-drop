@@ -62,7 +62,8 @@ export async function compressImageFile(
 }
 
 export async function prepareSkyAiImages(
-  files: File[]
+  files: File[],
+  maxSide = 1280
 ): Promise<{ dataUrls: string[]; names: string[]; files: File[] } | { error: string }> {
   const slice = files.slice(0, SKY_AI_MAX_IMAGES_PER_MESSAGE);
   const dataUrls: string[] = [];
@@ -77,7 +78,7 @@ export async function prepareSkyAiImages(
     if (!nsfw.safe) {
       return { error: `"${file.name}" flagged: ${nsfw.reason || "not allowed"}.` };
     }
-    const { dataUrl, file: compressed } = await compressImageFile(file);
+    const { dataUrl, file: compressed } = await compressImageFile(file, maxSide);
     if (dataUrl.length > 6_000_000) {
       return { error: `"${file.name}" is too large after compression.` };
     }

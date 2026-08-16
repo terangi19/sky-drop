@@ -89,6 +89,29 @@ describe("condition — never uncertain → Like New", () => {
 });
 
 describe("identity scenarios", () => {
+  it("keeps a readable sealed booster box distinct from an individual card", () => {
+    const adapted = adaptVisionObservationToListing(
+      obs({
+        domain: "trading-cards",
+        displayIdentity: "Topps Premier League Booster Box",
+        itemIdentity: field("Topps Premier League Booster Box", "HIGH", "READABLE"),
+        brand: field("Topps", "HIGH", "READABLE"),
+        product: field("Premier League trading-card product", "HIGH", "READABLE"),
+        league: field("Premier League", "HIGH", "READABLE"),
+        productFormat: field("booster box", "HIGH", "READABLE"),
+        visibleCondition: field("factory sealed packaging", "HIGH", "VISIBLE"),
+        category: field("Sports", "HIGH", "VISIBLE"),
+        visibleText: ["Topps", "Premier League", "Booster Box"],
+        overallConfidence: "HIGH",
+      })
+    );
+    expect(adapted.listingFill.title).toBe("Topps Premier League Booster Box");
+    expect(adapted.listingFill.condition).toBe("New");
+    expect(adapted.foundReply).toMatch(/Topps Premier League Booster Box/i);
+    expect(adapted.missingPrompts).not.toContain("identity");
+    expect(adapted.listingFill.extras).toContain("productFormat:booster box");
+  });
+
   it("PS5 multi-photo → one PlayStation 5 listing", () => {
     const adapted = adaptVisionObservationToListing(
       obs({

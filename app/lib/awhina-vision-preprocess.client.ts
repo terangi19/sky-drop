@@ -1,11 +1,10 @@
 /**
- * Client preprocess for vision: resize before upload, instant thumbnails.
- * Does not modify protected sky-ai-images — wraps its compressor at a smaller side.
+ * Client preprocess for vision: one high-quality resize before upload, instant thumbnails.
  */
 
 "use client";
 
-import { compressImageFile, prepareSkyAiImages } from "./sky-ai-images";
+import { prepareSkyAiImages } from "./sky-ai-images";
 
 /** Vision max edge — preserve small text/serials/logos (was 1024, too aggressive). */
 export const AWHINA_VISION_MAX_SIDE = 1536;
@@ -14,28 +13,29 @@ export async function prepareVisionListingImages(
   files: File[]
 ): Promise<{ dataUrls: string[]; names: string[]; files: File[] } | { error: string }> {
   const slice = files.slice(0, 4);
-  // Reuse NSFW + type checks from prepareSkyAiImages, then re-compress smaller for vision API
-  const prepared = await prepareSkyAiImages(slice);
+  // Reuse checks and perform ONE resize. Previously this first reduced files to
+  // 1280px, then attempted 1536px, so packaging text could never recover detail.
+  const prepared = await prepareSkyAiImages(slice, AWHINA_VISION_MAX_SIDE);
   if ("error" in prepared) return prepared;
 
-  const dataUrls: string[] = [];
-  const names: string[] = [];
-  const outFiles: File[] = [];
-
-  for (let i = 0; i < prepared.files.length; i++) {
-    const { dataUrl, file } = await compressImageFile(
-      prepared.files[i],
-      AWHINA_VISION_MAX_SIDE
+  if (process.env.NODE_ENV === "development") {
+    await Promise.all(
+      prepared.files.map(async (file, index) => {
+        const bitmap = await createImageBitmap(file);
+        console.info("[awhina-vision:image]", {
+          source: files[index]?.name || file.name,
+          width: bitmap.width,
+          height: bitmap.height,
+          mimeType: file.type,
+          encodedBytes: file.size,
+          orientation: "browser-normalized",
+        });
+        bitmap.close();
+      })
     );
-    if (dataUrl.length > 4_500_000) {
-      return { error: `"${prepared.names[i]}" is too large after resize.` };
-    }
-    dataUrls.push(dataUrl);
-    names.push(file.name);
-    outFiles.push(file);
   }
 
-  return { dataUrls, names, files: outFiles };
+  return prepared;
 }
 
 /** Instant local object-URL thumbnails (do not block UI). */

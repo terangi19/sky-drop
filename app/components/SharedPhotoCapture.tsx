@@ -83,7 +83,6 @@ export default function SharedPhotoCapture({
   const [starting, setStarting] = useState(false);
   const [sessionFiles, setSessionFiles] = useState<File[]>([]);
   const [sessionPreviews, setSessionPreviews] = useState<string[]>([]);
-  const [phase, setPhase] = useState<"live" | "review">("live");
 
   const cleanupStream = useCallback(() => {
     stopStream(streamRef.current);
@@ -150,7 +149,6 @@ export default function SharedPhotoCapture({
         }
 
         setCanFlip(await hasMultipleCameras());
-        setPhase("live");
       } catch {
         setError("Camera couldn't be opened. Choose a photo instead.");
         cleanupStream();
@@ -171,7 +169,6 @@ export default function SharedPhotoCapture({
     previewUrlsRef.current = [];
     setSessionFiles([]);
     setSessionPreviews([]);
-    setPhase("live");
     setError(null);
     setFacing("environment");
     void startCamera("environment");
@@ -199,7 +196,6 @@ export default function SharedPhotoCapture({
     cleanupStream();
     revokeAllPreviews();
     setSessionFiles([]);
-    setPhase("live");
     setError(null);
     onClose();
   };
@@ -214,27 +210,13 @@ export default function SharedPhotoCapture({
     }
     const preview = URL.createObjectURL(file);
     previewUrlsRef.current.push(preview);
+    // Camera capture is complete now. Hand the original capture to the existing
+    // upload/vision path immediately; the workspace owns analysis and its thumbnail.
     setSessionFiles((prev) => [...prev, file]);
     setSessionPreviews((prev) => [...prev, preview]);
-    setPhase("review");
-  };
-
-  const handleTakeAnother = () => {
-    if (sessionFiles.length >= maxCaptures) return;
-    setPhase("live");
-    if (!streamRef.current) {
-      void startCamera(facing);
-    }
-  };
-
-  const handleUsePhotos = () => {
-    if (!sessionFiles.length) return;
-    const files = [...sessionFiles];
     cleanupStream();
+    onCapture([file]);
     revokeAllPreviews();
-    setSessionFiles([]);
-    setPhase("live");
-    onCapture(files);
     onClose();
   };
 
@@ -307,7 +289,7 @@ export default function SharedPhotoCapture({
           <>
             <video
               ref={videoRef}
-              className={`absolute inset-0 h-full w-full object-cover ${phase === "review" ? "opacity-40" : "opacity-100"}`}
+              className="absolute inset-0 h-full w-full object-cover"
               playsInline
               muted
               autoPlay
@@ -317,64 +299,23 @@ export default function SharedPhotoCapture({
                 <p className="text-sm text-white/70">Starting camera…</p>
               </div>
             ) : null}
-            {phase === "review" && sessionPreviews.length > 0 ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-4">
-                <img
-                  src={sessionPreviews[sessionPreviews.length - 1]}
-                  alt="Captured"
-                  className="max-h-[55vh] w-auto max-w-full rounded-xl object-contain shadow-lg ring-1 ring-white/10"
-                />
-                {sessionPreviews.length > 1 ? (
-                  <div className="flex max-w-full gap-2 overflow-x-auto px-1">
-                    {sessionPreviews.map((src, i) => (
-                      <img
-                        key={src}
-                        src={src}
-                        alt={`Photo ${i + 1}`}
-                        className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-white/15"
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
           </>
         )}
       </div>
 
       {!error ? (
         <div className="flex flex-col gap-3 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
-          {phase === "review" ? (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleTakeAnother}
-                disabled={atLimit}
-                className="flex-1 rounded-xl border border-white/20 bg-white/[0.06] px-4 py-3 text-sm font-medium text-white transition hover:bg-white/[0.1] disabled:opacity-40"
-              >
-                Take another
-              </button>
-              <button
-                type="button"
-                onClick={handleUsePhotos}
-                className="flex-1 rounded-xl bg-sky-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-sky-400"
-              >
-                Use photo{sessionFiles.length === 1 ? "" : "s"}
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center py-2">
-              <button
-                type="button"
-                onClick={() => void handleShutter()}
-                disabled={starting || atLimit}
-                className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border-[3px] border-white/90 bg-white/15 transition active:scale-95 disabled:opacity-40"
-                aria-label="Shutter"
-              >
-                <span className="h-14 w-14 rounded-full bg-white shadow-inner" />
-              </button>
-            </div>
-          )}
+          <div className="flex items-center justify-center py-2">
+            <button
+              type="button"
+              onClick={() => void handleShutter()}
+              disabled={starting || atLimit}
+              className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border-[3px] border-white/90 bg-white/15 transition active:scale-95 disabled:opacity-40"
+              aria-label="Take photo"
+            >
+              <span className="h-14 w-14 rounded-full bg-white shadow-inner" />
+            </button>
+          </div>
         </div>
       ) : null}
     </div>

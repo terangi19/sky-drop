@@ -36,6 +36,12 @@ export type VisionListingObservation = {
   cardSubject: VisionObservedField;
   cardSet: VisionObservedField;
   cardYear: VisionObservedField;
+  /** Packaged collectible identity, kept separate from a single card. */
+  productFormat: VisionObservedField;
+  league: VisionObservedField;
+  season: VisionObservedField;
+  quantity: VisionObservedField;
+  visibleText: string[];
   parallel: VisionObservedField;
   grader: VisionObservedField;
   grade: VisionObservedField;
@@ -71,6 +77,11 @@ export const VISION_LISTING_OBSERVATION_SCHEMA = {
     "cardSubject",
     "cardSet",
     "cardYear",
+    "productFormat",
+    "league",
+    "season",
+    "quantity",
+    "visibleText",
     "parallel",
     "grader",
     "grade",
@@ -102,6 +113,11 @@ export const VISION_LISTING_OBSERVATION_SCHEMA = {
     cardSubject: { $ref: "#/$defs/observedField" },
     cardSet: { $ref: "#/$defs/observedField" },
     cardYear: { $ref: "#/$defs/observedField" },
+    productFormat: { $ref: "#/$defs/observedField" },
+    league: { $ref: "#/$defs/observedField" },
+    season: { $ref: "#/$defs/observedField" },
+    quantity: { $ref: "#/$defs/observedField" },
+    visibleText: { type: "array", items: { type: "string" } },
     parallel: { $ref: "#/$defs/observedField" },
     grader: { $ref: "#/$defs/observedField" },
     grade: { $ref: "#/$defs/observedField" },
@@ -151,11 +167,13 @@ storage/battery/mileage unless READABLE, exact year unless READABLE.
 Never invent unreadable player/character names, set names, or serial numbers.
 Never copy a prior conversation brand — identify ONLY what is in THESE photos.
 
-READ DEEPLY (critical for trading cards / labels / electronics):
+READ DEEPLY (critical for packaging, trading cards / labels / electronics):
 - Logos and manufacturer marks (Topps, Panini, Nike, Apple, etc.)
 - Printed player/character names, team names, product line (Chrome, Prizm, …)
 - Serial fractions (e.g. 14/25), card numbers, parallel/refractor colour cues
 - Graders and grades on slabs (PSA/BGS/CGC) when readable
+- Packaging format: distinguish an individual card, graded card, pack, booster pack, multipack, booster box, hobby box, blaster box, mega box, starter pack, tin, sealed set, or loose bundle. The object photographed is the listing — a sealed box is NOT an individual card inside it.
+- For packaged collectibles, capture clearly readable brand, product line, league/franchise, season/year, productFormat, quantity and visibleText. Leave any unreadable value empty; never guess Chrome, a season, hobby vs retail, or pack count.
 - Put shallow visual noise (orange background, shiny surface, player image) in visibleFeatures ONLY — never as identity.
 
 IDENTITY vs ATTRIBUTES (critical):
@@ -163,6 +181,7 @@ IDENTITY vs ATTRIBUTES (critical):
 - NEVER set displayIdentity to attribute stacks alone: grader+grade+brand (e.g. "PSA 10 Panini"), brand+size, brand+storage, make+transmission.
 - NEVER set displayIdentity to a lone manufacturer (e.g. "Panini" or "Topps") when richer readable facts exist.
 - Trading cards: put player/character in cardSubject when READABLE; brand/publisher in brand; product line in cardSet or product; grader/grade/serial/parallel/year in their fields.
+- Sealed trading-card products: use itemIdentity/displayIdentity such as "Topps Premier League booster box" when the packaging supports it. Keep productFormat separate and use trading-card product / sealed product semantics, not "trading card".
 - If player/character is unreadable: leave cardSubject empty, put "player name" in unknowns, and set displayIdentity to a soft category like "Topps Chrome football card" or "graded football card" — NOT "Panini" alone.
 - Phones: model in product/model; storage is NOT identity.
 - Shoes: model/line is identity; size is attribute.
@@ -198,6 +217,11 @@ export function emptyVisionObservation(): VisionListingObservation {
     cardSubject: emptyObservedField(),
     cardSet: emptyObservedField(),
     cardYear: emptyObservedField(),
+    productFormat: emptyObservedField(),
+    league: emptyObservedField(),
+    season: emptyObservedField(),
+    quantity: emptyObservedField(),
+    visibleText: [],
     parallel: emptyObservedField(),
     grader: emptyObservedField(),
     grade: emptyObservedField(),
@@ -265,6 +289,11 @@ export function parseVisionObservation(raw: unknown): VisionListingObservation {
     cardSubject: parseObservedField(o.cardSubject),
     cardSet: parseObservedField(o.cardSet),
     cardYear: parseObservedField(o.cardYear),
+    productFormat: parseObservedField(o.productFormat),
+    league: parseObservedField(o.league),
+    season: parseObservedField(o.season),
+    quantity: parseObservedField(o.quantity),
+    visibleText: parseStringArray(o.visibleText),
     parallel: parseObservedField(o.parallel),
     grader: parseObservedField(o.grader),
     grade: parseObservedField(o.grade),
