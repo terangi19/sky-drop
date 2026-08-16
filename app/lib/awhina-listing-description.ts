@@ -1517,7 +1517,6 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
         parts.push(polishParagraph(extra.endsWith(".") ? extra : `${extra}.`));
       }
     }
-    if (facts.money) parts.push(`Asking ${facts.money}.`);
   } else if (facts.kind === "service") {
     const priceBit =
       facts.priceMode === "hourly" && facts.money
@@ -1564,14 +1563,9 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
     if (selected.domain === "trading_card") {
       return writeTradingCard(facts, selected);
     }
-    if (facts.location && facts.money) {
-      parts.push(
-        polishParagraph(`${capFirst(noun)} for sale in ${facts.location}, asking ${facts.money}.`)
-      );
-    } else if (facts.location) {
+    // Price belongs in the price field — never in buyer prose.
+    if (facts.location) {
       parts.push(polishParagraph(`${capFirst(noun)} for sale in ${facts.location}.`));
-    } else if (facts.money) {
-      parts.push(polishParagraph(`${capFirst(noun)}, asking ${facts.money}.`));
     } else {
       parts.push(polishParagraph(`${capFirst(noun)}.`));
     }
@@ -1703,7 +1697,6 @@ function writeTradingCard(
 
   const parts: string[] = [];
   const loc = facts.location;
-  const money = facts.money;
   const bundleQuantity = bundleQuantityFromExtras(facts.extras);
   const subjects = cardFacts.playerName || selected.playerName || null;
   const collection = line || cardFacts.productLine || null;
@@ -1724,14 +1717,9 @@ function writeTradingCard(
     if (extrasProse) parts.push(extrasProse);
     return parts.join(" ");
   }
-  if (loc && money) {
-    parts.push(
-      polishParagraph(`${capFirst(opener)} for sale in ${loc}, asking ${money}.`)
-    );
-  } else if (loc) {
+  // Price stays on the listing price field — never "asking $…" in card prose.
+  if (loc) {
     parts.push(polishParagraph(`${capFirst(opener)} for sale in ${loc}.`));
-  } else if (money) {
-    parts.push(polishParagraph(`${capFirst(opener)}, asking ${money}.`));
   } else {
     parts.push(polishParagraph(`${capFirst(opener)}.`));
   }
@@ -1760,29 +1748,16 @@ function writePhysical(facts: DescriptionFacts): string {
   const seed = facts.seed;
   const noun = physicalNounPhrase(facts);
   const loc = facts.location;
-  const money = facts.money;
   const d = facts.delivery;
   const struct = hashSeed(seed + ":struct") % 3;
   const parts: string[] = [];
+  // Structured price is never buyer-facing prose for ordinary physical goods.
   let opener: string;
-  if (loc && money) {
-    if (struct === 0) {
-      opener = `${capFirst(noun)} for sale in ${loc}, asking ${money}.`;
-    } else if (struct === 1) {
-      opener = `${capFirst(noun)} for sale in ${loc} for ${money}.`;
-    } else {
-      opener = `${capFirst(noun)} in ${loc}, asking ${money}.`;
-    }
-  } else if (loc) {
+  if (loc) {
     opener =
       struct === 0
         ? `${capFirst(noun)} for sale in ${loc}.`
         : `${capFirst(noun)} in ${loc}.`;
-  } else if (money) {
-    opener =
-      struct === 0
-        ? `${capFirst(noun)}, asking ${money}.`
-        : `${capFirst(noun)} for sale, asking ${money}.`;
   } else {
     opener = `${capFirst(noun)}.`;
   }
@@ -1874,21 +1849,10 @@ function writeVehicle(facts: DescriptionFacts): string {
     parts.push(extrasProse);
   }
 
-  if (facts.conditionPhrase && facts.conditionPhrase !== "brand new" && facts.money) {
+  if (facts.conditionPhrase && facts.conditionPhrase !== "brand new") {
     parts.push(
-      polishParagraph(
-        `The car is in ${facts.conditionPhrase}, asking ${facts.money}.`
-      )
+      polishParagraph(`The car is in ${facts.conditionPhrase}.`)
     );
-  } else {
-    if (facts.conditionPhrase && facts.conditionPhrase !== "brand new") {
-      parts.push(capFirst(`${facts.conditionPhrase}.`));
-    }
-    if (facts.money) {
-      parts.push(
-        pickVariant(seed + ":vp", [`Asking ${facts.money}.`, `I'm asking ${facts.money}.`])
-      );
-    }
   }
 
   return parts.join(" ");
@@ -2228,6 +2192,11 @@ export function buildListingDescriptionFromFacts(
       runQualityPass(writeFromFacts(facts), facts),
       facts
     );
+  }
+  // Ordinary physical/vehicle marketplace listings keep price in the price
+  // field only. Service/rental/wanted writers may still mention rates/budgets.
+  if (facts.kind === "physical" || facts.kind === "vehicle") {
+    return removeStructuredPriceCopy(out);
   }
   return out;
 }

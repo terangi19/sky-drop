@@ -35,6 +35,7 @@ import {
   buildConfirmedListingContext,
   markProvenance,
   restoreListingDraftProvenance,
+  isUserLockedProvenance,
   type ListingFieldProvenance,
   type ListingFieldProvenanceMap,
   type ListingDraftFormSnapshot,
@@ -780,8 +781,35 @@ export default function AIPostPage() {
     const stored = readListingDraftFromSkyAi();
     if (stored && hasActiveListingDraft(stored)) {
       draftIdRef.current = stored.draftId || createListingDraftId();
+      // Ownership is durable: an AI/vision title must remain rewriteable after
+      // refresh, while explicit seller edits keep their USER lock. Older drafts
+      // have no stamps, so leave them unknown/AI-eligible rather than locking
+      // every stored value as USER.
+      const restoredProvenance = restoreListingDraftProvenance(
+        stored.fieldProvenance
+      );
+      fieldProvenanceRef.current = restoredProvenance;
+      setFieldProvenance(restoredProvenance);
       if (stored.title) setTitle(String(stored.title));
-      if (stored.description) setDescription(String(stored.description));
+      if (stored.description) {
+        const rawDescription = String(stored.description);
+        // Zombie drafts from before the price-free boundary can still contain
+        // "asking $…". Re-finalize AI-owned copy once on hydrate; never touch
+        // USER-locked seller prose.
+        if (
+          !isUserLockedProvenance(restoredProvenance.description) &&
+          /asking\s+\$/i.test(rawDescription)
+        ) {
+          const cleaned = finalizeAwhinaListingDescription({
+            ...stored,
+            description: rawDescription,
+            descriptionSource: "ai",
+          } as SkyAiListingFill);
+          setDescription(cleaned.description || "");
+        } else {
+          setDescription(rawDescription);
+        }
+      }
       if (stored.category) setCategory(String(stored.category));
       if (stored.condition) setCondition(String(stored.condition));
       if (stored.price) setPrice(String(stored.price));
@@ -826,15 +854,6 @@ export default function AIPostPage() {
       if (stored.stockQuantity) setStockQuantity(String(stored.stockQuantity));
       if (stored.serviceDuration) setServiceDuration(String(stored.serviceDuration));
       if (stored.extras?.length) setDraftExtras(stored.extras.map(String));
-      // Ownership is durable: an AI/vision title must remain rewriteable after
-      // refresh, while explicit seller edits keep their USER lock. Older drafts
-      // have no stamps, so leave them unknown/AI-eligible rather than locking
-      // every stored value as USER.
-      const restoredProvenance = restoreListingDraftProvenance(
-        stored.fieldProvenance
-      );
-      fieldProvenanceRef.current = restoredProvenance;
-      setFieldProvenance(restoredProvenance);
     }
     setDraftHydrated(true);
   }, []);

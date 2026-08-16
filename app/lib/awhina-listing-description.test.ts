@@ -168,7 +168,7 @@ describe("listing description quality levels", () => {
       const desc = buildListingDescriptionFromFacts(base, { quality });
       expect(desc).toMatch(/PlayStation\s*5/i);
       expect(desc).toMatch(/Auckland/);
-      expect(desc).toMatch(/\$650/);
+      expect(desc).not.toMatch(/\$650|asking|priced at/i);
       expect(desc).not.toMatch(/controller|dualsense|games|SSD|warranty|authentic/i);
       expect(desc).not.toMatch(/Condition:|Message me with any questions|I'm selling this/i);
       assertOneCtaMax(desc);
@@ -205,7 +205,7 @@ describe("category-aware description snapshots", () => {
         category: "Gaming",
         listingType: "physical",
       },
-      must: [/PlayStation\s*5/i, /Auckland/, /\$650/],
+      must: [/PlayStation\s*5/i, /Auckland/],
       never: [
         /Condition:/i,
         /Message me with any questions/i,
@@ -226,7 +226,7 @@ describe("category-aware description snapshots", () => {
         category: "Tech",
         listingType: "physical",
       },
-      must: [/iPhone\s*15\s*Pro/i, /Wellington/, /\$950/, /pickup/i, /shipping/i],
+      must: [/iPhone\s*15\s*Pro/i, /Wellington/, /pickup/i, /shipping/i],
       never: [
         /Condition:/i,
         /256GB|battery|charger included/i,
@@ -251,7 +251,7 @@ describe("category-aware description snapshots", () => {
         location: "Auckland",
         condition: "Used - Good",
       },
-      must: [/2018/, /BMW/, /320i/, /Auckland/, /85,?000/, /blue/i, /\$18,?500/],
+      must: [/2018/, /BMW/, /320i/, /Auckland/, /85,?000/, /blue/i],
       never: [
         /Condition:/i,
         /Odometer:/i,
@@ -274,7 +274,7 @@ describe("category-aware description snapshots", () => {
         category: "Home",
         listingType: "physical",
       },
-      must: [/couch/i, /Christchurch/, /\$250/, /pickup/i, /good used condition/i],
+      must: [/couch/i, /Christchurch/, /pickup/i, /good used condition/i],
       never: [/Condition:/i, /Message me with any questions/i, /leather|recliner|stain/i, META_PHRASE_SMELLS],
     },
     {
@@ -288,7 +288,7 @@ describe("category-aware description snapshots", () => {
         category: "Home",
         listingType: "physical",
       },
-      must: [/Lawn Mower|lawn mower/i, /Palmerston North/, /\$180/],
+      must: [/Lawn Mower|lawn mower/i, /Palmerston North/],
       never: [/Condition:/i, /self[- ]propelled|petrol|warranty/i, /I'm selling this/i],
     },
     {
@@ -302,7 +302,7 @@ describe("category-aware description snapshots", () => {
         category: "Fashion",
         listingType: "physical",
       },
-      must: [/North Face|Jacket/i, /Hamilton/, /\$120/, /like-new/i],
+      must: [/North Face|Jacket/i, /Hamilton/, /like-new/i],
       never: [/Condition:/i, /size M|waterproof|genuine/i],
     },
     {
@@ -316,7 +316,7 @@ describe("category-aware description snapshots", () => {
         category: "Sports",
         listingType: "physical",
       },
-      must: [/bike/i, /Dunedin/, /\$400/],
+      must: [/bike/i, /Dunedin/],
       never: [/Condition:/i, /shimano|disc brakes|helmet/i],
     },
     {
@@ -459,7 +459,7 @@ describe("physical description natural prose regressions", () => {
     expect((desc.match(/\bfor sale\b/gi) || []).length).toBeLessThanOrEqual(1);
   }
 
-  it("PS5: merges condition/location/price into natural prose", () => {
+  it("PS5: merges condition/location into natural prose", () => {
     const desc = buildListingDescriptionFromFacts({
       title: "PlayStation 5 Console",
       price: "500",
@@ -472,7 +472,7 @@ describe("physical description natural prose regressions", () => {
     expect(desc).toMatch(/brand new/i);
     expect(desc).toMatch(/PlayStation\s*5/i);
     expect(desc).toMatch(/Auckland/);
-    expect(desc).toMatch(/\$500/);
+    expect(desc).not.toMatch(/\$500|asking|priced at/i);
     expect(desc).toMatch(/pickup/i);
     expect(desc).not.toMatch(/Message if interested/i);
     assertPhysicalNatural(desc);
@@ -490,7 +490,8 @@ describe("physical description natural prose regressions", () => {
       listingType: "physical",
     });
     expect(desc).toMatch(/iPhone\s*15\s*Pro/i);
-    expect(desc).toMatch(/like-new|Wellington|\$900/i);
+    expect(desc).toMatch(/like-new|Wellington/i);
+    expect(desc).not.toMatch(/\$900|asking|priced at/i);
     expect(desc).toMatch(/pickup/i);
     expect(desc).toMatch(/shipping/i);
     assertPhysicalNatural(desc);
@@ -510,7 +511,7 @@ describe("physical description natural prose regressions", () => {
     expect(desc).toMatch(/couch/i);
     expect(desc).toMatch(/good used condition/i);
     expect(desc).toMatch(/Christchurch/);
-    expect(desc).toMatch(/\$250/);
+    expect(desc).not.toMatch(/\$250|asking|priced at/i);
     expect(desc).not.toMatch(/good used condition available/i);
     assertPhysicalNatural(desc);
   });
@@ -527,7 +528,7 @@ describe("physical description natural prose regressions", () => {
     });
     expect(desc).toMatch(/Nike|Air Force/i);
     expect(desc).toMatch(/Auckland/);
-    expect(desc).toMatch(/\$80/);
+    expect(desc).not.toMatch(/\$80|asking|priced at/i);
     expect(desc).toMatch(/good used condition/i);
     assertPhysicalNatural(desc);
   });
@@ -544,7 +545,7 @@ describe("physical description natural prose regressions", () => {
     });
     expect(desc).toMatch(/Pokemon|Trading Cards|cards/i);
     expect(desc).toMatch(/Hamilton/);
-    expect(desc).toMatch(/\$45/);
+    expect(desc).not.toMatch(/\$45|asking|priced at/i);
     assertPhysicalNatural(desc);
   });
 });
@@ -568,7 +569,7 @@ describe("description quality suite — golden reference cases", () => {
         category: "Gaming",
         listingType: "physical",
       },
-      must: [/PlayStation|PS5/i, /Auckland/, /\$200/, /pickup/i],
+      must: [/PlayStation|PS5/i, /Auckland/, /pickup/i],
       never: [/controller|warranty|games included|no guesswork|Message if interested/i],
       tone: /PlayStation|Auckland|pickup/i,
     },
@@ -583,7 +584,7 @@ describe("description quality suite — golden reference cases", () => {
         category: "Tech",
         listingType: "physical",
       },
-      must: [/iPhone\s*15\s*Pro/i, /128/, /Hamilton/, /\$900/, /good used condition/i],
+      must: [/iPhone\s*15\s*Pro/i, /128/, /Hamilton/, /good used condition/i],
       never: [/battery|charger|warranty|box included|no guesswork|Message if interested/i],
       tone: /iPhone|Hamilton|good used/i,
     },
@@ -602,7 +603,7 @@ describe("description quality suite — golden reference cases", () => {
         location: "Auckland",
         condition: "Used - Good",
       },
-      must: [/BMW/, /320i/, /85,?000/, /Auckland/, /\$18,?500/],
+      must: [/BMW/, /320i/, /85,?000/, /Auckland/],
       never: [/WOF|service history|Condition:/i],
       tone: /BMW|320i|automatic/i,
     },
@@ -684,7 +685,7 @@ describe("description quality suite — golden reference cases", () => {
         category: "Home",
         listingType: "physical",
       },
-      must: [/couch/i, /Christchurch/, /\$250/, /good used condition/i],
+      must: [/couch/i, /Christchurch/, /good used condition/i],
       never: [/leather|stain|recliner|Message if interested/i],
       tone: /couch|Christchurch|good used/i,
     },
@@ -859,7 +860,7 @@ describe("sparse listings stay grounded", () => {
       expect(desc).not.toMatch(
         /\bworks well\b|\bworks perfectly\b|\bperfect condition\b|\bexcellent condition\b|\bclean upgrade\b|\bwell looked after\b|\bphotos?\b/i
       );
-      expect(desc).toMatch(/\$\d+/);
+      expect(desc).not.toMatch(/\$\d+|asking|priced at/i);
       assertOneCtaMax(desc);
       expect(isRoboticListingDescription(desc)).toBe(false);
     });
@@ -882,7 +883,7 @@ describe("iPhone Hamilton natural seller copy", () => {
     expect(desc).toMatch(/good used condition/i);
     expect(desc).toMatch(/Hamilton/i);
     expect(desc).toMatch(/pickup/i);
-    expect(desc).toMatch(/\$900/);
+    expect(desc).not.toMatch(/\$900|asking|priced at/i);
     expect(desc).not.toMatch(/Message if interested/i);
     expect(desc).not.toMatch(/Pickup is available in/i);
     expect(desc).not.toMatch(META_PHRASE_SMELLS);
@@ -1302,7 +1303,7 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     });
     expect(rich).toMatch(/1999|Nissan|Skyline|R34/i);
     expect(rich).toMatch(/Auckland/);
-    expect(rich).toMatch(/\$30,?000/);
+    expect(rich).not.toMatch(/\$30,?000|asking|priced at/i);
     expect(rich).not.toMatch(SELLER_LEAK);
     assertNaturalMarketplaceCopy(rich);
   });
@@ -1389,7 +1390,7 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     expect(desc).toMatch(/screen/i);
     expect(desc).toMatch(/89\s*%/);
     expect(desc).toMatch(/Henderson|Auckland/i);
-    expect(desc).toMatch(/\$900/);
+    expect(desc).not.toMatch(/\$900|asking|priced at/i);
     expect(desc).toMatch(/pickup/i);
     assertNaturalMarketplaceCopy(desc);
   });
@@ -1409,7 +1410,7 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     expect(desc).not.toMatch(/Couple Scratches ON Sides But/i);
     expect(desc).toMatch(/scratch/i);
     expect(desc).toMatch(/256\s*GB/i);
-    expect(desc).toMatch(/\$900/);
+    expect(desc).not.toMatch(/\$900|asking|priced at/i);
     assertNaturalMarketplaceCopy(desc);
   });
 
@@ -1488,7 +1489,7 @@ describe("semantic description quality — Barella card + cross-domain", () => {
     expect(desc).toMatch(/iPhone\s*15\s*Pro/i);
     expect(desc).toMatch(/good used condition/i);
     expect(desc).toMatch(/Auckland/);
-    expect(desc).toMatch(/\$1,?100/);
+    expect(desc).not.toMatch(/\$1,?100|asking|priced at/i);
     expect(desc).not.toMatch(/Attr:|Message if interested|Set\s+/i);
     assertNaturalMarketplaceCopy(desc);
   });
@@ -1505,7 +1506,7 @@ describe("semantic description quality — Barella card + cross-domain", () => {
     });
     expect(desc).toMatch(/Razer|DeathAdder/i);
     expect(desc).toMatch(/Wellington/);
-    expect(desc).toMatch(/\$80/);
+    expect(desc).not.toMatch(/\$80|asking|priced at/i);
     expect(desc).not.toMatch(/Message if interested|Attr:|Set\s+/i);
     assertNaturalMarketplaceCopy(desc);
   });

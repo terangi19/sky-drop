@@ -29,6 +29,7 @@ import {
 
 export {
   buildListingDescriptionFromFacts,
+  removeStructuredPriceCopy,
   isRoboticListingDescription,
   passesListingDescriptionQualityGate,
   resolveListingDescriptionStyle,
@@ -955,17 +956,18 @@ export function autoImproveListingDraft(fill: SkyAiListingFill): SkyAiListingFil
     if (isVehicleListingFill(out) && !getVehicleDraftReadiness(out).worthGeneratingBuyerCopy) {
       out.description = "";
     } else {
-      // This repair path can run before the route/page finalizer. Keep it
-      // price-free so it cannot revive the legacy "asking $…" prose.
-      out.description = removeStructuredPriceCopy(buildListingDescriptionFromFacts(out));
+      out.description = buildListingDescriptionFromFacts(out);
     }
   } else if (out.description) {
-    // Normalize product tokens but preserve paragraph breaks
-    out.description = out.description
-      .split(/\n{2,}/)
-      .map((para) => normalizeProductName(para))
-      .join("\n\n")
-      .slice(0, 8000);
+    // Normalize product tokens but preserve paragraph breaks. Also migrate any
+    // leftover structured price prose that survived older drafts.
+    out.description = removeStructuredPriceCopy(
+      out.description
+        .split(/\n{2,}/)
+        .map((para) => normalizeProductName(para))
+        .join("\n\n")
+        .slice(0, 8000)
+    );
   }
   if (out.title && (!out.extras || out.extras.length === 0)) {
     const kw = out.title
