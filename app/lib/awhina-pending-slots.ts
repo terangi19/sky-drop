@@ -21,6 +21,7 @@ import {
   resolveCanonicalListingObject,
   selectNextBestListingSlot,
 } from "./awhina-domain-facts";
+import { selectDomainKnowledgeQuestions } from "./awhina-domain-knowledge";
 
 export type ListingMissingSlot =
   | "price"
@@ -150,6 +151,7 @@ export function computeMissingListingSlots(
   fill: Partial<SkyAiListingFill>
 ): ListingMissingSlot[] {
   const hydrated = hydrateVehicleGeneration(fill);
+  const knowledgePriorities = selectDomainKnowledgeQuestions(hydrated as SkyAiListingFill);
   const canonical = resolveCanonicalListingObject(hydrated);
 
   // Vehicle: preserve generation gate + ordered specialist slots via registry,
@@ -172,9 +174,19 @@ export function computeMissingListingSlots(
   }
 
   // All other domains: single registry brain (relevance + required/high-value + priority)
-  return computeDomainAwareMissingSlots(hydrated).filter((slot) =>
-    isListingSlotQuestionValid(slot, hydrated)
-  );
+  return computeDomainAwareMissingSlots(hydrated)
+    .filter((slot) => isListingSlotQuestionValid(slot, hydrated))
+    .filter((slot) => {
+      // Sealed TCG products do not have a player/grade question.
+      if (
+        knowledgePriorities.includes("price") &&
+        !knowledgePriorities.includes("subject") &&
+        (slot === "card_subject" || slot === "grade")
+      ) {
+        return false;
+      }
+      return true;
+    });
 }
 
 export function nextListingSlotQuestion(

@@ -89,6 +89,7 @@ import {
   getListingReadinessState,
   buildReadinessFollowUpReply,
 } from "./awhina-listing-readiness";
+import { applyAwhinaDomainKnowledge } from "./awhina-domain-knowledge";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSIONS = 400;
@@ -357,7 +358,9 @@ export function validateListingFillFields(
     }
   }
   if (fill.replaceDraft === true) fillOut.replaceDraft = true;
-  const hydrated = hydrateVehicleGeneration(fillOut) as SkyAiListingFill;
+  const hydrated = applyAwhinaDomainKnowledge(
+    hydrateVehicleGeneration(fillOut) as SkyAiListingFill
+  );
   // One authoritative buyer-copy boundary: proposed LLM/vision descriptions
   // are replaced with deterministic prose from the validated canonical facts.
   return { ok: true, fill: finalizeAwhinaListingDescription(hydrated) };
