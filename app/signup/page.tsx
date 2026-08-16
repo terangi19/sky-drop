@@ -128,6 +128,11 @@ export default function SignupPage() {
     async function trackVerifiedSignup() {
       await signupUser.reload();
       const refreshedUser = auth.currentUser;
+      if (isVerifiedSignupUser(refreshedUser)) {
+        // The verification endpoint updates Firebase Admin state. Force a new
+        // ID token so profile/navbar reads immediately see email_verified.
+        await refreshedUser!.getIdToken(true);
+      }
       setEmailVerified(isVerifiedSignupUser(refreshedUser));
       if (
         !cancelled &&
