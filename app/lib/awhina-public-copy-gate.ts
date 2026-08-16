@@ -203,7 +203,7 @@ export function repairCardProductLineOrder(raw: string): string {
 }
 
 const SEALED_CARD_PRODUCT_FORMAT_RE =
-  /\b(?:booster\s*box|hobby\s*box|blaster\s*box|mega\s*box|booster\s*pack|multi\s*pack|starter\s*pack|sealed\s*set|\btin\b|\bpack\b|\bbox\b)\b/i;
+  /\b(?:booster\s*(?:box|display)|hobby\s*box|blaster\s*box|mega\s*box|booster\s*pack|multi\s*pack|starter\s*pack|sealed\s*set|elite\s*trainer\s*box|\betb\b|\btin\b|\bpack\b|\bbox\b|\bdisplay\b)\b/i;
 
 export function isSealedTradingCardProductFormat(value: string | undefined): boolean {
   return Boolean(value && SEALED_CARD_PRODUCT_FORMAT_RE.test(value));

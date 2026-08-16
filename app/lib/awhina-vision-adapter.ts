@@ -36,11 +36,13 @@ import {
   composeTradingCardTitle,
   extractTradingCardFactsFromExtras,
   gatePublicListingCopy,
+  isSealedTradingCardProductFormat,
 } from "./awhina-public-copy-gate";
 import {
   isUserLockedProvenance,
   type ListingFieldProvenanceMap,
 } from "./listing-draft-confirmed";
+import { applyAwhinaDomainKnowledge } from "./awhina-domain-knowledge";
 
 export type VisionAdapterResult = {
   facts: StructuredListingFacts;
@@ -280,11 +282,11 @@ export function adaptVisionObservationToListing(
   if (validated.ok) listingFill = validated.fill;
 
   // Apply structured vision domain facts (cards etc.) into extras — not Attr dumps
-  listingFill = applyVisionDomainFacts(obs, listingFill);
+  listingFill = applyAwhinaDomainKnowledge(applyVisionDomainFacts(obs, listingFill));
   const packagedCardProduct =
-    mayPopulateFromVision(obs.productFormat, { allowMedium: true }) &&
-    /\b(?:box|pack|tin|sealed set|starter pack|multipack)\b/i.test(
-      obs.productFormat.value
+    isSealedTradingCardProductFormat(obs.productFormat?.value) ||
+    isSealedTradingCardProductFormat(
+      `${listingFill.title || ""} ${(listingFill.extras || []).join(" ")}`
     );
 
   const domain = resolveFactDomain(listingFill);
@@ -295,7 +297,12 @@ export function adaptVisionObservationToListing(
   if (obs.cardSet?.value && mayPopulateFromVision(obs.cardSet, { allowMedium: true })) {
     cardFacts.productLine = cardFacts.productLine || obs.cardSet.value;
   }
-  if (obs.colour?.value && mayPopulateFromVision(obs.colour, { allowMedium: true })) {
+  // Packaging colour is never a card parallel on sealed products.
+  if (
+    !packagedCardProduct &&
+    obs.colour?.value &&
+    mayPopulateFromVision(obs.colour, { allowMedium: true })
+  ) {
     cardFacts.parallelColour = cardFacts.parallelColour || obs.colour.value;
   }
   if (obs.productFormat?.value && mayPopulateFromVision(obs.productFormat, { allowMedium: true })) {
@@ -515,16 +522,18 @@ function applyVisionDomainFacts(
   }
   if (obs.serialNumber) push("serial:", obs.serialNumber);
   if (obs.cardYear) push("year:", obs.cardYear);
-  if (obs.parallel) push("parallel:", obs.parallel);
+  const sealed =
+    isSealedTradingCardProductFormat(obs.productFormat?.value) ||
+    isSealedTradingCardProductFormat(
+      `${fill.title || ""} ${extras.join(" ")}`
+    );
+  if (!sealed && obs.parallel) push("parallel:", obs.parallel);
   // Colour on cards → parallel colour evidence (structured), not Attr:orange background
   if (
+    !sealed &&
     obs.colour?.value &&
     mayPopulateFromVision(obs.colour, { allowMedium: true }) &&
-    /trading-?card|collectible/i.test(obs.domain || "") &&
-    !(
-      obs.productFormat?.value &&
-      /\b(?:box|pack|tin|etb|sealed|display)\b/i.test(obs.productFormat.value)
-    )
+    /trading-?card|collectible/i.test(obs.domain || "")
   ) {
     if (!extras.some((e) => /^parallelcolour:/i.test(e))) {
       extras.push(`parallelColour:${obs.colour.value.trim()}`);

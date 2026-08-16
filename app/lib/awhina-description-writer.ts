@@ -15,6 +15,7 @@ import {
   splitListingDescriptionSentences,
   stripStructuredMetadataLeakage,
 } from "./awhina-listing-description";
+import { isSealedTradingCardProductFormat } from "./awhina-public-copy-gate";
 
 const MODEL = process.env.OPENAI_DESCRIPTION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini";
 const CTA_RE =
@@ -205,6 +206,7 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
   let quantity: number | undefined;
   let collection: string | undefined;
   let items: string | undefined;
+  let productFormat: string | undefined;
   const product: NonNullable<DescriptionWriterFacts["product"]> = {};
   const collectible: NonNullable<DescriptionWriterFacts["collectible"]> = {};
   const freeformExtras: string[] = [];
@@ -253,6 +255,10 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
         collectible.serialNumber = value;
         continue;
       }
+      if (key === "productformat" || key === "product_format" || key === "format") {
+        productFormat = value;
+        continue;
+      }
       if (key === "parallel") {
         collectible.parallel = value;
         continue;
@@ -289,6 +295,20 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
   quantity ??= inferListedItemCount(items);
   const title = cleanDescriptionItemName(fill.title || "");
   const parentIdentity = inferParentIdentity(title, items, collection);
+  const sealed = isSealedTradingCardProductFormat(
+    productFormat || `${title} ${(fill.extras || []).join(" ")}`
+  );
+  if (sealed) {
+    // Sealed packaging colour / parallel cues are not card attributes.
+    delete collectible.parallel;
+    delete collectible.parallelColour;
+    delete collectible.serialNumber;
+    delete collectible.grade;
+    delete collectible.grader;
+    items = undefined;
+    // Bare packaging colour is not a verified product attribute either.
+    delete product.colour;
+  }
 
   return {
     listingType: fill.listingType || "physical",
@@ -458,6 +478,7 @@ Writing rules:
 - Format lists as natural prose: "A, B and C", never "A, B, C".
 - When quantity and multiple related items are supplied, make clear they are being sold together as one set or bundle.
 - For cards, prioritize set/product, character/player, parallel, numbering, grade, quantity, and condition.
+- For sealed card products (box, pack, tin, display), never invent parallels, players, pack counts, or card attributes. Use only product identity and condition.
 - For electronics, bikes, clothing, and vehicles, prioritise only confirmed useful details.
 - Never mention price, location, contact actions, "for sale", marketing filler, database labels, or unsupported claims.
 - Include the supplied condition naturally whenever one is present.

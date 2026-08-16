@@ -122,12 +122,18 @@ describe("identity scenarios", () => {
         itemIdentity: field("Riftbound Unleashed Booster Display", "HIGH", "READABLE"),
         productFormat: field("booster display", "HIGH", "READABLE"),
         colour: field("purple", "HIGH", "VISIBLE"),
+        parallel: field("purple", "HIGH", "VISIBLE"),
         category: field("Sports", "HIGH", "VISIBLE"),
         overallConfidence: "HIGH",
       })
     );
-    expect(adapted.listingFill.extras?.join(" ")).not.toMatch(/parallelColor:purple/i);
-    expect(adapted.listingFill.extras?.join(" ")).not.toMatch(/parallel:purple/i);
+    const extrasJoined = adapted.listingFill.extras?.join(" ") || "";
+    expect(extrasJoined).not.toMatch(/parallelColour:purple/i);
+    expect(extrasJoined).not.toMatch(/parallelColor:purple/i);
+    expect(extrasJoined).not.toMatch(/parallel:purple/i);
+    expect(adapted.listingFill.title || "").not.toMatch(/purple/i);
+    expect(adapted.listingFill.description || "").not.toMatch(/parallel/i);
+    expect(adapted.listingFill.description || "").not.toMatch(/purple/i);
   });
 
   it("does not collapse manufacturer-only sealed facts into Topps trading card", () => {

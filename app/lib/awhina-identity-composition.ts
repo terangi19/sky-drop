@@ -68,7 +68,7 @@ const CARD_CATEGORY_RE =
 const PRODUCT_LINE_BRANDISH =
   /\b(panini|topps|fleer|upper\s*deck|bowman|donruss|prizm|select|optic|chrome|mosaic|pokemon|yugioh|yu-gi-oh)\b/i;
 const SEALED_CARD_PRODUCT_FORMAT_RE =
-  /\b(?:booster\s*box|hobby\s*box|blaster\s*box|mega\s*box|booster\s*pack|multi\s*pack|starter\s*pack|sealed\s*set|\btin\b|\bpack\b|\bbox\b)\b/i;
+  /\b(?:booster\s*(?:box|display)|hobby\s*box|blaster\s*box|mega\s*box|booster\s*pack|multi\s*pack|starter\s*pack|sealed\s*set|elite\s*trainer\s*box|\betb\b|\btin\b|\bpack\b|\bbox\b|\bdisplay\b)\b/i;
 
 function sealedTradingCardFormatFromFill(
   fill: Partial<SkyAiListingFill>

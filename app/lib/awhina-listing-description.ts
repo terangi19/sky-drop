@@ -19,6 +19,7 @@ import {
   sanitizePublicCopyText,
   extractTradingCardFactsFromExtras,
   composeTradingCardTitle,
+  isSealedTradingCardProductFormat,
   repairCardProductLineOrder,
   normalizeTradingCardProductLine,
 } from "./awhina-public-copy-gate";
@@ -337,14 +338,21 @@ export function selectDescriptionFacts(
       ? `${card.grader.toUpperCase()} ${card.grade}`
       : card.grade || null;
 
+  const sealed = isSealedTradingCardProductFormat(
+    card.productFormat || `${fill.title || ""} ${rawExtras.join(" ")}`
+  );
+
   return {
     domain: isCard ? "trading_card" : "general",
-    playerName: card.playerName?.trim() || null,
+    playerName: sealed ? null : card.playerName?.trim() || null,
     productLine,
     manufacturer,
-    serial: card.serialNumber?.replace(/^#/, "").trim() || null,
-    grade,
-    parallel: [card.parallelColour, card.parallel].filter(Boolean).join(" ").trim() || null,
+    serial: sealed ? null : card.serialNumber?.replace(/^#/, "").trim() || null,
+    grade: sealed ? null : grade,
+    // Packaging colour must never become parallel prose on sealed products.
+    parallel: sealed
+      ? null
+      : [card.parallelColour, card.parallel].filter(Boolean).join(" ").trim() || null,
     weaveExtras,
   };
 }
@@ -1773,22 +1781,31 @@ function writeTradingCard(
   selected: SelectedDescriptionFacts
 ): string {
   const cardFacts = extractTradingCardFactsFromExtras(facts.extras);
+  const sealed = isSealedTradingCardProductFormat(
+    cardFacts.productFormat || `${facts.item || ""} ${(facts.extras || []).join(" ")}`
+  );
   // Prefer atomic title from structured facts when opener identity is weak/reordered
   const structuredTitle = composeTradingCardTitle({
-    playerName: cardFacts.playerName || selected.playerName || undefined,
+    playerName: sealed ? undefined : cardFacts.playerName || selected.playerName || undefined,
     manufacturer: cardFacts.manufacturer || undefined,
     productLine: cardFacts.productLine || selected.productLine || undefined,
     // Serial woven as prose below — keep out of identity phrase
-    grader: cardFacts.grader,
-    grade: cardFacts.grade,
-    parallel: cardFacts.parallel,
-    parallelColour: cardFacts.parallelColour,
+    grader: sealed ? undefined : cardFacts.grader,
+    grade: sealed ? undefined : cardFacts.grade,
+    parallel: sealed ? undefined : cardFacts.parallel,
+    parallelColour: sealed ? undefined : cardFacts.parallelColour,
     year: cardFacts.year,
+    productFormat: cardFacts.productFormat,
+    league: cardFacts.league,
+    season: cardFacts.season,
   });
   const cleanedItem = cleanDescriptionItemName(facts.item);
-  const player =
-    cardFacts.playerName || selected.playerName || null;
-  let identity = repairCardProductLineOrder(cleanedItem || structuredTitle || "Trading card");
+  const player = sealed
+    ? null
+    : cardFacts.playerName || selected.playerName || null;
+  let identity = repairCardProductLineOrder(
+    cleanedItem || structuredTitle || (sealed ? "Sealed trading-card product" : "Trading card")
+  );
 
   // Prefer structured title when it carries player/set the item label lacks
   if (
