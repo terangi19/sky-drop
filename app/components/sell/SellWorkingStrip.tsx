@@ -6,6 +6,7 @@ type Props = {
   category?: string;
   statusLabel?: string;
   visible: boolean;
+  analysing?: boolean;
 };
 
 /**
@@ -17,6 +18,7 @@ export default function SellWorkingStrip({
   category,
   statusLabel = "Building listing…",
   visible,
+  analysing = false,
 }: Props) {
   if (!visible) return null;
 
@@ -42,11 +44,13 @@ export default function SellWorkingStrip({
       )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-[var(--foreground)]">
-          {title?.trim() || "Looking at your photo…"}
+          {analysing ? statusLabel : title?.trim() || "Building your listing…"}
         </p>
-        <p className="truncate text-xs text-[var(--muted)]">
-          {[category, statusLabel].filter(Boolean).join(" · ")}
-        </p>
+        {!analysing ? (
+          <p className="truncate text-xs text-[var(--muted)]">
+            {[category, statusLabel].filter(Boolean).join(" · ")}
+          </p>
+        ) : null}
       </div>
       <span
         className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[var(--accent-primary)]/70 border-t-transparent"

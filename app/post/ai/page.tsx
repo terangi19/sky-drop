@@ -135,7 +135,6 @@ export default function AIPostPage() {
   const [detected, setDetected] = useState<string>("");
   const [modelReady, setModelReady] = useState(false);
   const visionListing = useAwhinaVisionListing();
-  const [visionCompanionNote, setVisionCompanionNote] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -773,7 +772,6 @@ export default function AIPostPage() {
     setImageFiles([]);
     setExistingImages([]);
     setExistingThumbnails([]);
-    setVisionCompanionNote("");
     setPhotoConversationActive(false);
     visionListing.reset();
   }, [visionListing]);
@@ -1350,7 +1348,7 @@ export default function AIPostPage() {
       }
       const result = await visionListing.analyze({
         files: files.slice(0, 4),
-        message: opts?.message ?? visionCompanionNote,
+        message: opts?.message,
         listingContext: readListingDraftFromSkyAi(),
         draftKey: `${user?.uid || "sell"}:${requestDraftId}`,
         force: opts?.force,
@@ -1379,7 +1377,7 @@ export default function AIPostPage() {
         expectedDraftId: requestDraftId,
       });
     },
-    [bridgeVisionIntoAwhina, user?.uid, visionCompanionNote, visionListing]
+    [bridgeVisionIntoAwhina, user?.uid, visionListing]
   );
 
   // Homepage → workspace expand: same conversation, auto-open chat, zero reset
@@ -2586,73 +2584,30 @@ export default function AIPostPage() {
           )}
 
           {AWHINA_VISION_LISTING_UI_ENABLED ? (
-            <div className="space-y-2">
-              {imagePreviews.length > 0 || visionListing.state.status !== "idle" ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={visionCompanionNote}
-                    onChange={(e) => setVisionCompanionNote(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && imageFiles.length > 0) {
-                        e.preventDefault();
-                        void runVisionAnalyzeAndBridge(imageFiles.slice(0, 4), {
-                          force: true,
-                          message: visionCompanionNote,
-                        });
-                      }
-                    }}
-                    placeholder='Optional note — e.g. "want $850 pickup Henderson"'
-                    aria-label="Optional note for Āwhina"
-                    className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-3)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:border-[var(--accent-primary)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                  />
-                  {imageFiles.length > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void runVisionAnalyzeAndBridge(imageFiles.slice(0, 4), {
-                          force: true,
-                          message: visionCompanionNote,
-                        })
-                      }
-                      className="min-h-[44px] shrink-0 rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-sm text-[var(--text-secondary)] transition duration-150 hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                    >
-                      Update
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-              <AwhinaVisionFoundCard
-                status={visionListing.state.status}
-                identity={visionListing.state.identity}
-                message={visionListing.state.message}
-                onYes={() => {
-                  bridgeVisionIntoAwhina(visionListing.state, {
-                    identityConfirmed: true,
-                  });
-                }}
-                onChange={() => {
-                  visionListing.reset();
-                  setVisionCompanionNote("");
-                  focusAwhinaWorkspace();
-                  dispatchSkyAiOpen();
-                  showToast("Tell Āwhina what it really is in chat", "info");
-                }}
-              />
-            </div>
-          ) : (
-            (analyzing || (detected && !analyzing)) && (
-              <div className="text-center text-sm text-[var(--muted)]">
-                {analyzing ? "Detecting…" : detected}
-              </div>
-            )
-          )}
+            <AwhinaVisionFoundCard
+              status={visionListing.state.status}
+              identity={visionListing.state.identity}
+              message={visionListing.state.message}
+              onYes={() => {
+                bridgeVisionIntoAwhina(visionListing.state, {
+                  identityConfirmed: true,
+                });
+              }}
+              onChange={() => {
+                visionListing.reset();
+                focusAwhinaWorkspace();
+                dispatchSkyAiOpen();
+                showToast("Tell Āwhina what it really is in chat", "info");
+              }}
+            />
+          ) : null}
 
           <SellWorkingStrip
             visible={isBuildingListing && !showManualEditor}
             thumbUrl={imagePreviews[0] || null}
             title={marketplaceTitle || visionListing.state.identity || ""}
             category={liveDraftTypeLabel}
+            analysing={visionListing.state.status === "checking" || analyzing}
             statusLabel={
               visionListing.state.status === "checking" || analyzing
                 ? "Āwhina is looking at your photo…"
