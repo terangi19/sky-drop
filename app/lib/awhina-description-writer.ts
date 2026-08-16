@@ -93,6 +93,18 @@ function describesKnownCondition(description: string, condition: string | undefi
   return description.toLowerCase().includes(condition.toLowerCase());
 }
 
+function inferListedItemCount(items: string | undefined): number | undefined {
+  if (!items) return undefined;
+  const normalized = items
+    .replace(/\s*,\s*(?:and\s+)?/gi, "|")
+    .replace(/\s+\band\b\s+/gi, "|");
+  const parts = normalized
+    .split("|")
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 2);
+  return parts.length > 1 && parts.length <= 20 ? parts.length : undefined;
+}
+
 export function buildDescriptionWriterFacts(fill: SkyAiListingFill): DescriptionWriterFacts {
   const vehicle = Object.fromEntries(
     [
@@ -190,6 +202,8 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
     }
     freeformExtras.push(extra);
   }
+
+  quantity ??= inferListedItemCount(items);
 
   return {
     listingType: fill.listingType || "physical",

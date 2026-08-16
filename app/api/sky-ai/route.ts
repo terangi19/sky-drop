@@ -39,8 +39,10 @@ import {
 import { finalizePageAwareResponse } from "../../lib/sky-ai-page-intent";
 import { validateListingFillFields } from "../../lib/awhina-listing-fill-tools";
 import { sanitizeProfileFillProposal } from "../../lib/awhina-profile-tools";
-import { finalizeAwhinaListingDescription } from "../../lib/awhina-listing-composer";
-import { writeAwhinaListingDescription } from "../../lib/awhina-description-writer";
+import {
+  finalizeAwhinaListingDescription,
+  finalizeAwhinaListingDescriptionAsync,
+} from "../../lib/awhina-listing-composer";
 import type { SkyAiProfileContext } from "../../lib/sky-ai-profile-context";
 import { runVisionCapability } from "../../lib/awhina-vision-capability";
 import { runFreeformCapability } from "../../lib/awhina-freeform-capability";
@@ -92,10 +94,9 @@ async function enhanceAiOwnedDescription(
 ): Promise<SkyAiListingFill | undefined> {
   if (!fill || !shouldWriteDescription(fill, prior, message)) return fill;
   try {
-    const description = await writeAwhinaListingDescription(fill, {
+    return await finalizeAwhinaListingDescriptionAsync(fill, {
       force: /\b(?:rewrite|regenerate|improve|update|make).{0,30}\b(?:description|desc)\b/i.test(message),
     });
-    return description ? { ...fill, description, descriptionSource: "ai" } : fill;
   } catch {
     // Description polish must never prevent a safe canonical listing update.
     return fill;

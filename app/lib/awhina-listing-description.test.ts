@@ -196,6 +196,25 @@ describe("grounded AI description writer quality gate", () => {
     expect(JSON.stringify(facts)).not.toMatch(/bundle_quantity/i);
   });
 
+  it("infers a three-card bundle from the structured photo subject list", () => {
+    const fill: SkyAiListingFill = {
+      title:
+        "The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor Yu-Gi-Oh!",
+      listingType: "physical",
+      category: "Sports",
+      condition: "Used - Good",
+      extras: [
+        "set:Egyptian God Cards",
+        "subject:The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor",
+      ],
+    };
+    const facts = buildDescriptionWriterFacts(fill);
+    expect(facts.quantity).toBe(3);
+    expect(finalizeAwhinaListingDescription(fill).description).toBe(
+      "Set of three Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor. All three cards are in good used condition."
+    );
+  });
+
   it("promotes photo-extracted product and card details into grounded writer facts", () => {
     const facts = buildDescriptionWriterFacts({
       title: "Nicolò Barella Topps Chrome",

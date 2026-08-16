@@ -936,7 +936,9 @@ export function extractDescriptionFacts(
   // bundle_quantity stays on the canonical draft. For prose we only keep a
   // numeric internal field — never re-inject "bundle_quantity:3" into extras
   // where composeExtrasProse could append it after natural "Set of three…".
-  const bundleQuantity = bundleQuantityFromExtras(fill.extras || []);
+  const bundleQuantity =
+    bundleQuantityFromExtras(fill.extras || []) ||
+    bundleQuantityFromSubject(fill.extras || []);
   const lifted = liftFreeformFactsFromConfirmedText(title, ...(fill.extras || []));
   const extras = [
     ...woven,
@@ -1631,6 +1633,22 @@ function bundleQuantityFromExtras(extras: string[]): number | null {
     .find(Boolean);
   const quantity = value ? Number(value) : NaN;
   return Number.isInteger(quantity) && quantity > 1 ? quantity : null;
+}
+
+function bundleQuantityFromSubject(extras: string[]): number | null {
+  const subject = extras
+    .map((extra) =>
+      String(extra || "").match(/^(?:subject|player|playername):\s*(.+)$/i)?.[1]
+    )
+    .find(Boolean);
+  if (!subject) return null;
+  const parts = subject
+    .replace(/\s*,\s*(?:and\s+)?/gi, "|")
+    .replace(/\s+\band\b\s+/gi, "|")
+    .split("|")
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 2);
+  return parts.length > 1 && parts.length <= 20 ? parts.length : null;
 }
 
 function bundleQuantityWord(quantity: number): string {
