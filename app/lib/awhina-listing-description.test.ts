@@ -211,7 +211,7 @@ describe("grounded AI description writer quality gate", () => {
     const facts = buildDescriptionWriterFacts(fill);
     expect(facts.quantity).toBe(3);
     expect(finalizeAwhinaListingDescription(fill).description).toBe(
-      "Set of three Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor. All three cards are in good used condition."
+      "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set."
     );
   });
 
@@ -258,6 +258,35 @@ describe("grounded AI description writer quality gate", () => {
         facts
       )
     ).toBeNull();
+  });
+
+  it("rejects generic copy that drops supported collection or product details", () => {
+    const cardFacts = buildDescriptionWriterFacts(godCards);
+    expect(
+      validateAiListingDescription(
+        "Set of three Yu-Gi-Oh! Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three are in good used condition and sold together as a set.",
+        cardFacts
+      )
+    ).toBeNull();
+
+    const controllerFacts = buildDescriptionWriterFacts({
+      title: "Sony DualSense Wireless Controller",
+      listingType: "physical",
+      condition: "Used - Good",
+      extras: ["colour:Midnight Black", "variant:Limited Edition"],
+    });
+    expect(
+      validateAiListingDescription(
+        "Sony DualSense Wireless Controller in good used condition. Includes the confirmed product details.",
+        controllerFacts
+      )
+    ).toBeNull();
+    expect(
+      validateAiListingDescription(
+        "Sony DualSense Wireless Controller in the Midnight Black Limited Edition variant. The controller is in good used condition.",
+        controllerFacts
+      )
+    ).toMatch(/Midnight Black/);
   });
 
   it("never exposes the title + condition + location fallback when AI writing is unavailable", async () => {
@@ -1832,7 +1861,7 @@ describe("authoritative description boundary regressions", () => {
 
     const initial = finalizeAwhinaListingDescription(fill);
     expect(initial.description).toMatch(
-      /Set of three Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor\./
+      /Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor\./
     );
     expect(initial.description).not.toMatch(/\$100|asking|priced at/i);
     expect(initial.description).not.toMatch(/bundle_quantity|Bundle_quantity|:3\b/i);
@@ -1845,11 +1874,13 @@ describe("authoritative description boundary regressions", () => {
       description: initial.description,
       descriptionSource: "ai",
     });
-    expect(conditioned.description).toMatch(/All three cards are in good used condition\./i);
+    expect(conditioned.description).toMatch(
+      /All three cards are in good used condition and are being sold together as a set\./i
+    );
     expect(conditioned.description).not.toMatch(/\$100|asking|priced at/i);
     expect(conditioned.description).not.toMatch(/bundle_quantity|Bundle_quantity|:3\b/i);
     expect(String(conditioned.description).trim()).toBe(
-      "Set of three Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition."
+      "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set."
     );
   });
 
@@ -1870,7 +1901,7 @@ describe("authoritative description boundary regressions", () => {
     expect(description).not.toMatch(/Bundle_quantity/i);
     expect(description).not.toMatch(/:3/);
     expect(description).toBe(
-      "Set of three Yu-Gi-Oh! Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor. All three cards are in good used condition."
+      "Set of three Yu-Gi-Oh! Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set."
     );
   });
 
@@ -1901,10 +1932,12 @@ describe("authoritative description boundary regressions", () => {
     ).toBe("Nice shoes.");
     expect(
       validateAiListingDescription(
-        "Set of three Yu-Gi-Oh! Cards featuring Ra, Slifer and Obelisk. All three cards are in good used condition. Bundle_quantity:3.",
+        "Pair of Nike Air Force 1 shoes in good used condition. Both shoes are being sold together. Bundle_quantity:2.",
         buildDescriptionWriterFacts(fill)
       )
-    ).toMatch(/^Set of three Yu-Gi-Oh! Cards featuring Ra, Slifer and Obelisk\. All three cards are in good used condition\.$/);
+    ).toMatch(
+      /^Pair of Nike Air Force 1 shoes in good used condition\. Both shoes are being sold together\.$/
+    );
   });
 
   it("treats a price for a pictured card set as price plus bundle context, then asks condition", () => {
@@ -1965,7 +1998,9 @@ describe("authoritative description boundary regressions", () => {
     expect(turn.handled).toBe(true);
     if (!turn.handled || !turn.listingFill) return;
     expect(turn.listingFill.description).not.toBe(oldDescription);
-    expect(turn.listingFill.description).toMatch(/Set of three Egyptian God Cards/i);
+    expect(turn.listingFill.description).toMatch(
+      /Set of three Yu-Gi-Oh! Egyptian God Cards/i
+    );
     expect(turn.listingFill.description).toMatch(/All three cards are in good used condition/i);
     expect(turn.listingFill.description).not.toMatch(/\$100|asking|priced at/i);
     expect(turn.reply).toMatch(/updated the description/i);

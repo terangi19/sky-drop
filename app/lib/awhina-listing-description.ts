@@ -1642,13 +1642,70 @@ function bundleQuantityFromSubject(extras: string[]): number | null {
     )
     .find(Boolean);
   if (!subject) return null;
-  const parts = subject
-    .replace(/\s*,\s*(?:and\s+)?/gi, "|")
-    .replace(/\s+\band\b\s+/gi, "|")
-    .split("|")
-    .map((part) => part.trim())
-    .filter((part) => part.length >= 2);
+  const parts = splitNaturalList(subject);
   return parts.length > 1 && parts.length <= 20 ? parts.length : null;
+}
+
+function splitNaturalList(value: string): string[] {
+  const commaParts = value
+    .split(/\s*,\s*/)
+    .map((part) => part.replace(/^(?:and|&)\s+/i, "").trim())
+    .filter(Boolean);
+  if (commaParts.length > 1) {
+    const last = commaParts.pop() || "";
+    const finalPair = last
+      .split(/\s+(?:and|&)\s+/i)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return [...commaParts, ...finalPair];
+  }
+  return value
+    .split(/\s+(?:and|&)\s+/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function formatNaturalList(value: string): string {
+  const items = splitNaturalList(value);
+  if (items.length <= 1) return value.trim();
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
+function escapeDescriptionRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Recover a supported parent identity (brand/franchise/product family) from
+ * the title after removing the structured item names and collection. This is
+ * generic: e.g. "Yu-Gi-Oh!" + "Egyptian God Cards", without naming either in
+ * code.
+ */
+function parentIdentityFromTitle(
+  title: string,
+  subjects: string,
+  collection: string | null
+): string | null {
+  let remainder = cleanDescriptionItemName(title);
+  for (const item of splitNaturalList(subjects)) {
+    remainder = remainder.replace(new RegExp(escapeDescriptionRegExp(item), "gi"), " ");
+  }
+  if (collection) {
+    remainder = remainder.replace(
+      new RegExp(escapeDescriptionRegExp(collection), "gi"),
+      " "
+    );
+  }
+  remainder = remainder
+    .replace(/[,:;|–—]+/g, " ")
+    .replace(/(?:^|\s)(?:and|&)(?=\s|$)/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!remainder || /^(?:set|bundle|collection|trading\s+)?cards?$/i.test(remainder)) {
+    return null;
+  }
+  return remainder;
 }
 
 function bundleQuantityWord(quantity: number): string {
@@ -1746,12 +1803,26 @@ function writeTradingCard(
   // the card names into a title-shaped sentence. This works for any collection
   // whose vision/user facts provide a subject list and bundle quantity.
   if (bundleQuantity && subjects) {
-    const collectionNoun = collection
-      ? `${collection} ${/\bcards?\b/i.test(collection) ? "" : "cards"}`
+    const parentIdentity = parentIdentityFromTitle(facts.item, subjects, collection);
+    const specificCollection = [parentIdentity, collection]
+      .filter(Boolean)
+      .filter(
+        (value, index, all) =>
+          all.findIndex(
+            (candidate) =>
+              String(candidate).toLowerCase() === String(value).toLowerCase()
+          ) === index
+      )
+      .join(" ");
+    const collectionNoun = specificCollection
+      ? `${specificCollection} ${/\bcards?\b/i.test(specificCollection) ? "" : "cards"}`
       : "trading cards";
-    let bundleSentence = `Set of ${bundleQuantityWord(bundleQuantity)} ${collectionNoun} featuring ${subjects}.`;
+    const naturalSubjects = formatNaturalList(subjects);
+    let bundleSentence = `Set of ${bundleQuantityWord(bundleQuantity)} ${collectionNoun} featuring ${naturalSubjects}.`;
     if (cond) {
-      bundleSentence += ` All ${bundleQuantityWord(bundleQuantity)} cards are in ${cond}.`;
+      bundleSentence += ` All ${bundleQuantityWord(bundleQuantity)} cards are in ${cond} and are being sold together as a set.`;
+    } else {
+      bundleSentence += " They are being sold together as a set.";
     }
     parts.push(polishParagraph(bundleSentence));
     // Wear / feature extras only — never re-append structured quantity tags.

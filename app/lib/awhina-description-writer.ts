@@ -93,16 +93,44 @@ function describesKnownCondition(description: string, condition: string | undefi
   return description.toLowerCase().includes(condition.toLowerCase());
 }
 
-function inferListedItemCount(items: string | undefined): number | undefined {
-  if (!items) return undefined;
-  const normalized = items
-    .replace(/\s*,\s*(?:and\s+)?/gi, "|")
-    .replace(/\s+\band\b\s+/gi, "|");
-  const parts = normalized
-    .split("|")
+function splitListedItems(items: string | undefined): string[] {
+  if (!items) return [];
+  const commaParts = items
+    .split(/\s*,\s*/)
+    .map((part) => part.replace(/^(?:and|&)\s+/i, "").trim())
+    .filter(Boolean);
+  if (commaParts.length > 1) {
+    const last = commaParts.pop() || "";
+    return [
+      ...commaParts,
+      ...last
+        .split(/\s+(?:and|&)\s+/i)
+        .map((part) => part.trim())
+        .filter(Boolean),
+    ];
+  }
+  return items
+    .split(/\s+(?:and|&)\s+/i)
     .map((part) => part.trim())
     .filter((part) => part.length >= 2);
+}
+
+function inferListedItemCount(items: string | undefined): number | undefined {
+  const parts = splitListedItems(items);
   return parts.length > 1 && parts.length <= 20 ? parts.length : undefined;
+}
+
+function mentionsSupportedValue(description: string, value: string): boolean {
+  const haystack = description
+    .toLowerCase()
+    .replace(/,/g, "")
+    .replace(/[^a-z0-9]+/g, " ");
+  const tokens = value
+    .toLowerCase()
+    .replace(/,/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  return tokens.length > 0 && tokens.every((token) => haystack.includes(token));
 }
 
 export function buildDescriptionWriterFacts(fill: SkyAiListingFill): DescriptionWriterFacts {
@@ -256,6 +284,35 @@ export function validateAiListingDescription(
     return null;
   }
   if (!describesKnownCondition(description, facts.condition)) return null;
+  if (
+    facts.collection &&
+    !description.toLowerCase().includes(facts.collection.toLowerCase())
+  ) {
+    return null;
+  }
+  const supportedNamedValues = [
+    ...Object.values(facts.product || {}),
+    ...Object.values(facts.collectible || {}),
+    ...Object.values(facts.vehicle || {}),
+  ].filter((value): value is string => Boolean(value?.trim()));
+  if (
+    supportedNamedValues.some(
+      (value) => !mentionsSupportedValue(description, value)
+    )
+  ) {
+    return null;
+  }
+  if (facts.quantity && facts.items) {
+    const listedItems = splitListedItems(facts.items);
+    if (
+      listedItems.some(
+        (item) => !description.toLowerCase().includes(item.toLowerCase())
+      ) ||
+      !/\b(?:set|bundle|sold together|together as)\b/i.test(description)
+    ) {
+      return null;
+    }
+  }
 
   // Location and price are UI data for ordinary sale listings, not writing
   // material. Service/rental rates are intentionally handled elsewhere.
@@ -327,6 +384,9 @@ Writing rules:
 - Use 1–4 useful sentences based on fact richness.
 - Compose relationships; never serialize title, condition, price, or location.
 - For related/bundled items, explain the relationship naturally when facts support it.
+- Preserve the most specific supplied collection, group, model, or product-family name; do not replace it with a generic category.
+- Format lists as natural prose: "A, B and C", never "A, B, C".
+- When quantity and multiple related items are supplied, make clear they are being sold together as one set or bundle.
 - For cards, prioritize set/product, character/player, parallel, numbering, grade, quantity, and condition.
 - For electronics, bikes, clothing, and vehicles, prioritise only confirmed useful details.
 - Never mention price, location, contact actions, "for sale", marketing filler, database labels, or unsupported claims.
