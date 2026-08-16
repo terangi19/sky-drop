@@ -12,6 +12,7 @@ import {
   resolveListingDescriptionStyle,
   cleanRentalItemName,
   validateDescription,
+  stripStructuredMetadataLeakage,
   IMPLY_CLAIMS_RE,
   CTA_PURPOSE_RE,
   SELLER_EDITOR_GUIDANCE_RE,
@@ -152,7 +153,8 @@ describe("grounded AI description writer quality gate", () => {
     const facts = buildDescriptionWriterFacts(godCards);
     expect(facts.title).toContain("Winged Dragon of Ra");
     expect(facts.condition).toBe("Used - Good");
-    expect(facts.extras).toContain("bundle_quantity:3");
+    expect(facts.quantity).toBe(3);
+    expect(facts.extras).not.toContain("bundle_quantity:3");
     expect(JSON.stringify(facts)).not.toContain("Auckland");
   });
 
@@ -181,6 +183,14 @@ describe("grounded AI description writer quality gate", () => {
         buildDescriptionWriterFacts(godCards)
       )
     ).toMatch(/Set of three/);
+  });
+
+  it("does not pass raw bundle_quantity into the writer JSON", () => {
+    const facts = buildDescriptionWriterFacts(godCards);
+    expect(facts.quantity).toBe(3);
+    expect(facts.collection).toMatch(/Egyptian God Cards/i);
+    expect(facts.items).toMatch(/Winged Dragon of Ra/i);
+    expect(JSON.stringify(facts)).not.toMatch(/bundle_quantity/i);
   });
 
   it("finalize keeps validated AI prose instead of collapsing to templates", () => {
@@ -1744,6 +1754,43 @@ describe("authoritative description boundary regressions", () => {
     });
     expect(conditioned.description).toMatch(/All three cards are in good used condition\./i);
     expect(conditioned.description).not.toMatch(/\$100|asking|priced at/i);
+    expect(conditioned.description).not.toMatch(/bundle_quantity|Bundle_quantity/i);
+    expect(String(conditioned.description).trim()).toBe(
+      "Set of three Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition."
+    );
+  });
+
+  it("never leaks structured metadata keys into public descriptions", () => {
+    const fill: SkyAiListingFill = {
+      title: "Nike Air Force 1",
+      listingType: "physical",
+      condition: "Used - Good",
+      extras: [
+        "brand:Nike",
+        "listing_type:physical",
+        "domain:footwear",
+        "condition_code:good",
+        "vision_confidence:HIGH",
+        "provenance:IMAGE",
+        "field_source:vision",
+        "bundle_quantity:2",
+      ],
+    };
+    const desc = finalizeAwhinaListingDescription(fill).description;
+    expect(desc).not.toMatch(
+      /brand:|listing_type:|domain:|condition_code:|vision_confidence:|provenance:|field_source:|bundle_quantity:/i
+    );
+    expect(
+      stripStructuredMetadataLeakage(
+        "Nice shoes. brand:Nike. listing_type:physical. Bundle_quantity:2."
+      )
+    ).toBe("Nice shoes.");
+    expect(
+      validateAiListingDescription(
+        "Set of three Yu-Gi-Oh! Cards featuring Ra, Slifer and Obelisk. All three cards are in good used condition. Bundle_quantity:3.",
+        buildDescriptionWriterFacts(fill)
+      )
+    ).toMatch(/^Set of three Yu-Gi-Oh! Cards featuring Ra, Slifer and Obelisk\. All three cards are in good used condition\.$/);
   });
 
   it("treats a price for a pictured card set as price plus bundle context, then asks condition", () => {

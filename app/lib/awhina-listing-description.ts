@@ -120,7 +120,23 @@ const FIELD_LABEL_RE =
 
 /** Field-label / metadata serialization smells in buyer copy. */
 const METADATA_SERIALIZATION_RE =
-  /(?:^|\.\s+)Set\s+[A-Z][^.]{0,60}\.|Attr\s*:|^(?:Topps|Panini|Upper Deck)\.\s*$/im;
+  /(?:^|\.\s+)Set\s+[A-Z][^.]{0,60}\.|Attr\s*:|^(?:Topps|Panini|Upper Deck)\.\s*$|Bundle[_\s-]?quantity\s*:|(?:^|\.\s+)(?:bundle_quantity|listing_type|domain|category_id|condition_code|vision_confidence|provenance|field_source)\s*:/im;
+
+/** Strip leftover structured key:value dumps from public description prose. */
+export function stripStructuredMetadataLeakage(text: string): string {
+  return String(text || "")
+    .replace(
+      /\b(?:bundle[_\s-]?quantity|listing[_\s-]?type|domain|category[_\s-]?id|condition[_\s-]?code|vision[_\s-]?confidence|provenance|field[_\s-]?source|brand|subject|player(?:name)?|set|product(?:[_\s-]?line)?|manufacturer|serial(?:[_\s-]?number)?|grader?|parallel(?:[_\s-]?colour)?|quantity)\s*:\s*[^\s.]+/gi,
+      " "
+    )
+    // Any remaining snake_case key:value is internal structured fact leakage
+    .replace(/\b[a-z]+(?:_[a-z0-9]+){1,6}\s*:\s*[^\s.]+/gi, " ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([.,!?])/g, "$1")
+    .replace(/\.{2,}/g, ".")
+    .replace(/\s*\.\s*\./g, ".")
+    .trim();
+}
 
 
 export const BANNED_TEMPLATE_RE =
@@ -410,13 +426,14 @@ function reconcileConditionPhrase(
 
 /** Turn confirmed extras into buyer prose — never raw slot / field-label concatenation. */
 function composeExtrasProse(extras: string[]): string | null {
-  // Identity / catalog tags are composed elsewhere — never "Set X." / lone "Topps."
+  // Identity / catalog / internal structured tags are composed elsewhere —
+  // never "Set X.", "Bundle_quantity:3.", or lone "Topps."
   const bits = extras
     .map((e) => String(e || "").trim())
     .filter(Boolean)
     .filter(
       (e) =>
-        !/^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team):/i.test(
+        !/^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|categoryid|condition_code|conditioncode|vision_confidence|visionconfidence|provenance|field_source|fieldsource):/i.test(
           e
         )
     )
@@ -432,6 +449,8 @@ function composeExtrasProse(extras: string[]): string | null {
         .trim()
     )
     .filter((e) => e.length >= 3)
+    // Any remaining key:value / key_value:value residue is metadata, not prose
+    .filter((e) => !/^[a-z][a-z0-9_]{1,40}\s*:/i.test(e))
     .filter((e) => !/^(brand|new|like|console|the|and|for|with|black|white)$/i.test(e))
     .filter(
       (e) =>
@@ -2154,6 +2173,7 @@ export function buildListingDescriptionFromFacts(
   let out = runQualityPass(draft, facts);
   out = applyDescriptionContradictionGuard(out, facts);
   out = sanitizePublicCopyText(out);
+  out = stripStructuredMetadataLeakage(out);
   out = repairCardProductLineOrder(out);
 
   const selected = selectDescriptionFacts(
@@ -2173,6 +2193,7 @@ export function buildListingDescriptionFromFacts(
       applyDescriptionContradictionGuard(safeFallbackDescription(facts), facts)
     );
     out = sanitizePublicCopyText(out);
+    out = stripStructuredMetadataLeakage(out);
     // Strip any CTA that safe fallback shouldn't have reintroduced for physical
     if (facts.kind === "physical") {
       out = splitSentences(out)
@@ -2193,6 +2214,7 @@ export function buildListingDescriptionFromFacts(
       facts
     );
   }
+  out = stripStructuredMetadataLeakage(out);
   // Ordinary physical/vehicle marketplace listings keep price in the price
   // field only. Service/rental/wanted writers may still mention rates/budgets.
   if (facts.kind === "physical" || facts.kind === "vehicle") {

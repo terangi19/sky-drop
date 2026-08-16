@@ -11,6 +11,7 @@ import {
 import {
   buildListingDescriptionFromFacts,
   removeStructuredPriceCopy,
+  stripStructuredMetadataLeakage,
 } from "./awhina-listing-description";
 import {
   buildDescriptionWriterFacts,
@@ -252,6 +253,7 @@ export function finalizeAwhinaListingDescription(
     force: opts?.force || Boolean(fill.description?.trim()),
   });
   description = removeStructuredPriceCopy(description);
+  description = stripStructuredMetadataLeakage(description);
   // Contact actions already exist in the listing UI; never auto-pad public
   // copy with a template CTA.
   description = description

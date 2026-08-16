@@ -12,6 +12,7 @@ import {
   SELLER_EDITOR_GUIDANCE_RE,
   cleanDescriptionItemName,
   removeStructuredPriceCopy,
+  stripStructuredMetadataLeakage,
 } from "./awhina-listing-description";
 
 const MODEL = process.env.OPENAI_DESCRIPTION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini";
@@ -23,9 +24,15 @@ export type DescriptionWriterFacts = {
   listingType: string;
   title: string;
   condition?: string;
+  quantity?: number;
+  collection?: string;
+  items?: string;
   extras: string[];
   vehicle?: Record<string, string>;
 };
+
+const STRUCTURED_EXTRA_KEY_RE =
+  /^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|categoryid|condition_code|conditioncode|vision_confidence|visionconfidence|provenance|field_source|fieldsource)$/i;
 
 export function buildDescriptionWriterFacts(fill: SkyAiListingFill): DescriptionWriterFacts {
   const vehicle = Object.fromEntries(
@@ -41,14 +48,52 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
     ].filter(([, value]) => typeof value === "string" && value.trim())
   );
 
+  let quantity: number | undefined;
+  let collection: string | undefined;
+  let items: string | undefined;
+  const freeformExtras: string[] = [];
+
+  for (const raw of fill.extras || []) {
+    const extra = String(raw || "").trim();
+    if (!extra) continue;
+    const match = extra.match(/^([a-z][a-z0-9_]*)\s*:\s*(.+)$/i);
+    if (match) {
+      const key = match[1].toLowerCase();
+      const value = match[2].trim();
+      if (key === "bundle_quantity" || key === "bundlequantity" || key === "quantity") {
+        const n = Number(value);
+        if (Number.isInteger(n) && n > 1) quantity = n;
+        continue;
+      }
+      if (key === "set" || key === "productline" || key === "product_line") {
+        collection = value;
+        continue;
+      }
+      if (key === "subject" || key === "player" || key === "playername") {
+        items = value;
+        continue;
+      }
+      if (STRUCTURED_EXTRA_KEY_RE.test(key)) {
+        // Useful internally, never as raw key:value writer input.
+        continue;
+      }
+      if (key === "storage" || key === "variant") {
+        freeformExtras.push(value);
+        continue;
+      }
+      continue;
+    }
+    freeformExtras.push(extra);
+  }
+
   return {
     listingType: fill.listingType || "physical",
     title: cleanDescriptionItemName(fill.title || ""),
     condition: fill.condition?.trim() || undefined,
-    extras: (fill.extras || [])
-      .map((value) => String(value).trim())
-      .filter(Boolean)
-      .slice(0, 20),
+    quantity,
+    collection,
+    items,
+    extras: freeformExtras.slice(0, 20),
     vehicle: Object.keys(vehicle).length ? vehicle : undefined,
   };
 }
@@ -56,6 +101,9 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
 function hasMeaningfulFacts(facts: DescriptionWriterFacts): boolean {
   return Boolean(
     facts.condition ||
+      facts.quantity ||
+      facts.collection ||
+      facts.items ||
       facts.extras.length ||
       facts.vehicle ||
       facts.title.split(/\s+/).length >= 3
@@ -66,7 +114,9 @@ export function validateAiListingDescription(
   proposed: string,
   facts: DescriptionWriterFacts
 ): string | null {
-  const description = removeStructuredPriceCopy(proposed)
+  const description = stripStructuredMetadataLeakage(
+    removeStructuredPriceCopy(proposed)
+  )
     .replace(/\s+/g, " ")
     .trim();
   if (
@@ -76,7 +126,10 @@ export function validateAiListingDescription(
     METADATA_RE.test(description) ||
     BANNED_TEMPLATE_RE.test(description) ||
     SELLER_EDITOR_GUIDANCE_RE.test(description) ||
-    IMPLY_CLAIMS_RE.test(description)
+    IMPLY_CLAIMS_RE.test(description) ||
+    /\b(?:bundle[_\s-]?quantity|listing[_\s-]?type|condition[_\s-]?code|field[_\s-]?source)\s*:/i.test(
+      description
+    )
   ) {
     return null;
   }
@@ -144,6 +197,7 @@ Writing rules:
 - For cards, prioritize set/product, character/player, parallel, numbering, grade, quantity, and condition.
 - For electronics, bikes, clothing, and vehicles, prioritise only confirmed useful details.
 - Never mention price, location, contact actions, "for sale", marketing filler, database labels, or unsupported claims.
+- Never emit raw metadata such as bundle_quantity:3, listing_type:physical, brand:Nike, or any key:value labels.
 - Never add facts, specifications, authenticity, working status, or condition not in JSON.`,
       },
       { role: "user", content: JSON.stringify(facts) },
