@@ -1,4 +1,9 @@
 export type SkyAiListingContext = {
+  /**
+   * Durable identity for one coherent listing task. It is intentionally stored
+   * with the draft so late photo/AI work can never apply to a replacement task.
+   */
+  draftId?: string;
   title?: string;
   description?: string;
   category?: string;

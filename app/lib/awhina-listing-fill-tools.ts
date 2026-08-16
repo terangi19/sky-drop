@@ -1003,6 +1003,9 @@ export function processListingFillMessage(
         const descriptionChanged =
           (validated.fill.description || "").replace(/\s+/g, " ").trim() !==
           (baseDraftEarly.description || "").replace(/\s+/g, " ").trim();
+        const titleChanged =
+          (validated.fill.title || "").replace(/\s+/g, " ").trim() !==
+          (baseDraftEarly.title || "").replace(/\s+/g, " ").trim();
         const noteBits = [...extracted.notes];
         if (
           draftCmds.commands.includes("regenerate_description") &&
@@ -1010,7 +1013,10 @@ export function processListingFillMessage(
         ) {
           noteBits.push("updated the description");
         }
-        if (draftCmds.commands.includes("improve_title") || extracted.filledSlots.includes("generation")) {
+        if (
+          (draftCmds.commands.includes("improve_title") || extracted.filledSlots.includes("generation")) &&
+          titleChanged
+        ) {
           noteBits.push("updated the title");
         }
         const lead = !descriptionChanged && draftCmds.commands.includes("regenerate_description")

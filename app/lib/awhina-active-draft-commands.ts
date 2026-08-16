@@ -25,7 +25,7 @@ const DESC_REWRITE_RE =
   /\b((?:please\s+)?(?:can\s+you\s+)?(?:write|rewrite|improve|update|regenerate|draft|make|create)\s+(?:me\s+)?(?:a\s+|the\s+)?(?:good\s+|better\s+|nicer\s+|premium\s+)?(?:description|desc)|(?:make|improve|rewrite|update)\s+(?:the\s+|my\s+)?description(?:\s+(?:better|good|nicer))?|description\s+(?:please|better)|write\s+(?:me\s+)?(?:a\s+)?(?:good\s+|better\s+)?desc(?:ription)?)\b/gi;
 
 const TITLE_IMPROVE_RE =
-  /\b((?:please\s+)?(?:can\s+you\s+)?(?:improve|rewrite|update|fix|make)\s+(?:me\s+)?(?:a\s+|the\s+|my\s+)?(?:better\s+|clearer\s+|good\s+)?title|(?:make|improve)\s+(?:the\s+|my\s+)?title(?:\s+(?:better|clearer|good))?|better\s+title)\b/gi;
+  /\b((?:please\s+)?(?:can\s+you\s+)?(?:improve|rewrite|update|fix|make|give)\s+(?:me\s+|it\s+)?(?:a\s+|the\s+|my\s+)?(?:better\s+|clearer\s+|good\s+|shorter\s+|more\s+descriptive\s+)?title|(?:make|improve|rewrite|update)\s+(?:the\s+|my\s+)?title(?:\s+(?:better|clearer|good|shorter|more\s+descriptive))?|better\s+title|title\s+it)\b/gi;
 
 const LIST_PUBLISH_RE =
   /\b((?:please\s+)?(?:just\s+)?(?:list|post|publish|create|put)\s+(?:it|this|that)(?:\s+up)?(?:\s+now)?|go\s+live|submit\s+(?:the\s+)?listing|make\s+it\s+live)\b/gi;

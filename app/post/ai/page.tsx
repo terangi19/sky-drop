@@ -23,7 +23,13 @@ import {
   listingTypeHelperDescription,
 } from "../../lib/listing-type-config";
 import { hasActiveListingDraft, mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
-import { readListingDraftFromSkyAi, syncListingDraftToSkyAi, clearListingDraftFromSkyAi } from "../../lib/sky-ai-listing-context";
+import {
+  createListingDraftId,
+  readListingDraftFromSkyAi,
+  syncListingDraftToSkyAi,
+  clearListingDraftFromSkyAi,
+  SKY_AI_LISTING_DRAFT_RESET_EVENT,
+} from "../../lib/sky-ai-listing-context";
 import { finalizeAwhinaListingDescription } from "../../lib/awhina-listing-composer";
 import {
   buildConfirmedListingContext,
@@ -65,6 +71,7 @@ import {
   consumeListingWorkspaceHandoff,
   peekListingWorkspaceHandoff,
   setAwhinaSurface,
+  startFreshListingTask,
   useAwhinaConversation,
 } from "../../lib/awhina-conversation-store";
 import { dispatchVisionBridgeDone } from "../../lib/awhina-vision-client";
@@ -668,10 +675,57 @@ export default function AIPostPage() {
 
   /** Gate sessionStorage sync until hard-refresh hydrate finishes (avoids empty-state wipe). */
   const [draftHydrated, setDraftHydrated] = useState(false);
+  /** Every photo/vision request is scoped to this immutable listing task. */
+  const draftIdRef = useRef(createListingDraftId());
+
+  const resetLocalListingSession = useCallback(() => {
+    draftIdRef.current = createListingDraftId();
+    setFieldProvenance({});
+    setTitle("");
+    setDescription("");
+    setCategory("");
+    setCondition("");
+    setPrice("");
+    setListingType("physical");
+    setLocation("");
+    setVehicleMake("");
+    setVehicleModel("");
+    setVehicleGeneration("");
+    setVehicleYear("");
+    setVehicleOdometer("");
+    setVehicleTransmission("");
+    setVehicleFuelType("");
+    setVehicleBodyType("");
+    setVehicleColour("");
+    setDraftExtras([]);
+    setRentalSubType("equipment");
+    setRentalPropertyType("");
+    setRentalPriceWeekly("");
+    setRentalPriceMonthly("");
+    setRentalDeposit("");
+    setRentalBedrooms("");
+    setRentalBathrooms("");
+    setRentalParkingSpaces("");
+    setRentalFurnishedStatus("");
+    setRentalPetsPolicy("");
+    setRentalAvailableDate("");
+    setRentalMinTenancy("");
+    setRentalFeatures([]);
+    setStockQuantity("");
+    setServiceDuration("");
+    setImagePreviews([]);
+    setImageFiles([]);
+    setExistingImages([]);
+    setExistingThumbnails([]);
+    setVisionCompanionNote("");
+    setPhotoConversationActive(false);
+    visionListing.reset();
+  }, [visionListing]);
 
   useEffect(() => {
     const stored = readListingDraftFromSkyAi();
     if (stored && hasActiveListingDraft(stored)) {
+      draftIdRef.current = stored.draftId || createListingDraftId();
       if (stored.title) setTitle(String(stored.title));
       if (stored.description) setDescription(String(stored.description));
       if (stored.category) setCategory(String(stored.category));
@@ -730,6 +784,12 @@ export default function AIPostPage() {
   }, []);
 
   useEffect(() => {
+    const onReset = () => resetLocalListingSession();
+    window.addEventListener(SKY_AI_LISTING_DRAFT_RESET_EVENT, onReset);
+    return () => window.removeEventListener(SKY_AI_LISTING_DRAFT_RESET_EVENT, onReset);
+  }, [resetLocalListingSession]);
+
+  useEffect(() => {
     if (!draftHydrated) return;
     const snapshot: ListingDraftFormSnapshot = {
       title,
@@ -777,7 +837,10 @@ export default function AIPostPage() {
       extras: draftExtras.length ? draftExtras : undefined,
     };
     // Only confirmed / meaningful values — never untouched visual defaults
-    syncListingDraftToSkyAi(buildConfirmedListingContext(snapshot, fieldProvenance));
+    syncListingDraftToSkyAi({
+      ...buildConfirmedListingContext(snapshot, fieldProvenance),
+      draftId: draftIdRef.current,
+    });
   }, [
     draftHydrated,
     title,
@@ -821,8 +884,13 @@ export default function AIPostPage() {
       /** Default provenance for filled keys (chat = AWHINA; vision identity = IMAGE). */
       defaultProvenance?: ListingFieldProvenance;
       provenanceOverrides?: ListingFieldProvenanceMap;
+      /** Reject late async work belonging to a prior listing task. */
+      expectedDraftId?: string;
     }
   ) => {
+    if (opts?.expectedDraftId && opts.expectedDraftId !== draftIdRef.current) {
+      return { applied: false, changedKeys: [], draft: null };
+    }
     const prior = readListingDraftFromSkyAi();
     const replaceDraft = fill.replaceDraft === true;
     const explicitDescriptionRewrite = fill.forceDescriptionRewrite === true;
@@ -863,13 +931,43 @@ export default function AIPostPage() {
       setStockQuantity("");
       setServiceDuration("");
     }
-    let merged = replaceDraft ? { ...fill } : mergeListingFillWithDraft(prior, fill);
+    let merged = {
+      ...(replaceDraft ? { ...fill } : mergeListingFillWithDraft(prior, fill)),
+      draftId: draftIdRef.current,
+    };
     const isUpdate = !replaceDraft && hasActiveListingDraft(prior);
+    // The persisted draft is the canonical source of truth. Never let an
+    // AI proposal update storage when the editor correctly refused it because
+    // the seller owns that field; otherwise chat can claim a mutation the UI
+    // never received.
+    if (!replaceDraft && prior) {
+      const lockedKeys: (keyof ListingDraftFormSnapshot)[] = [
+        "title", "description", "category", "condition", "price", "listingType",
+        "location", "vehicleMake", "vehicleModel", "vehicleGeneration",
+        "vehicleYear", "vehicleOdometer", "vehicleColour", "vehicleBodyType",
+        "vehicleFuelType", "vehicleTransmission", "rentalPropertyType",
+        "rentalPriceWeekly", "rentalPriceMonthly", "rentalDeposit",
+        "rentalBedrooms", "rentalBathrooms", "rentalParkingSpaces",
+        "rentalFurnishedStatus", "rentalPetsPolicy", "rentalAvailableDate",
+        "rentalMinTenancy", "stockQuantity", "serviceDuration",
+      ];
+      for (const key of lockedKeys) {
+        if (key === "description" && explicitDescriptionRewrite) continue;
+        if (!isUserLockedField(key)) continue;
+        const previous = prior[key as keyof typeof prior];
+        if (typeof previous === "string") {
+          (merged as Record<string, unknown>)[key] = previous;
+        }
+      }
+    }
     // Last client boundary for photo, voice, text, and global-chat handoffs.
     // Form edits are locked USER copy; every other description is rebuilt from
     // canonical draft fields instead of trusting a model-provided prose string.
     if (!isUserLockedField("description") || explicitDescriptionRewrite) {
-      merged = finalizeAwhinaListingDescription(merged);
+      merged = {
+        ...finalizeAwhinaListingDescription(merged),
+        draftId: draftIdRef.current,
+      };
     }
 
     const beforeSnapshot = { title, description, category, condition, price, listingType, location };
@@ -1020,6 +1118,7 @@ export default function AIPostPage() {
       .filter(
         ([key, next]) =>
           key !== "replaceDraft" &&
+          key !== "draftId" &&
           key !== "forceDescriptionRewrite" &&
           typeof next !== "undefined" &&
           (key === "description"
@@ -1099,7 +1198,10 @@ export default function AIPostPage() {
       listingFill: SkyAiListingFill | null;
       identity: string;
       needsIdentityConfirm: boolean;
-    }, opts?: { identityConfirmed?: boolean; operationId?: string }) => {
+    }, opts?: { identityConfirmed?: boolean; operationId?: string; expectedDraftId?: string }) => {
+      if (opts?.expectedDraftId && opts.expectedDraftId !== draftIdRef.current) {
+        return;
+      }
       if (!visionState.listingFill) return;
       const bridge = prepareVisionConversationBridge({
         listingFill: visionState.listingFill,
@@ -1122,6 +1224,7 @@ export default function AIPostPage() {
       applyFill(bridge.listingFill, {
         defaultProvenance: "IMAGE",
         provenanceOverrides,
+        expectedDraftId: opts?.expectedDraftId,
       });
       commitVisionBridgeToConversation(bridge);
 
@@ -1155,6 +1258,7 @@ export default function AIPostPage() {
       opts?: { force?: boolean; message?: string; operationId?: string }
     ) => {
       if (!files.length) return;
+      const requestDraftId = draftIdRef.current;
       if (!AWHINA_VISION_LISTING_UI_ENABLED) {
         console.warn(
           "[awhina-vision] UI flag OFF — photo kept, identify skipped. Set NEXT_PUBLIC_AWHINA_VISION_LISTINGS_ENABLED=true and redeploy."
@@ -1176,9 +1280,10 @@ export default function AIPostPage() {
         files: files.slice(0, 4),
         message: opts?.message ?? visionCompanionNote,
         listingContext: readListingDraftFromSkyAi(),
-        draftKey: user?.uid || "sell",
+        draftKey: `${user?.uid || "sell"}:${requestDraftId}`,
         force: opts?.force,
       });
+      if (requestDraftId !== draftIdRef.current) return;
       if (!result?.listingFill) {
         // Prefer live hook message after analyze settles; fall back to clarify prompt
         const failText =
@@ -1195,7 +1300,12 @@ export default function AIPostPage() {
         dispatchVisionBridgeDone({ ok: false, errorMessage: failText });
         return;
       }
-      bridgeVisionIntoAwhina(result, { operationId: opts?.operationId });
+      // A Start new (or replacement) may happen while vision is in flight.
+      // That result belongs to its original photo task and must be discarded.
+      bridgeVisionIntoAwhina(result, {
+        operationId: opts?.operationId,
+        expectedDraftId: requestDraftId,
+      });
     },
     [bridgeVisionIntoAwhina, user?.uid, visionCompanionNote, visionListing]
   );
@@ -2294,6 +2404,13 @@ export default function AIPostPage() {
                   {progressNextLabel ? ` · next: ${progressNextLabel}` : ""}
                 </p>
               ) : null}
+              <button
+                type="button"
+                onClick={() => startFreshListingTask("Kia ora — what are you selling? I’ll build the listing with you.")}
+                className="mt-3 min-h-[36px] rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--accent-primary)]/45 hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              >
+                Start new listing
+              </button>
             </>
           ) : null}
         </header>
