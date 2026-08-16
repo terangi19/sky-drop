@@ -23,9 +23,13 @@ const CTA_RE =
 const METADATA_RE = /\battr\s*:|\b(?:condition|location|price|title)\s*:/i;
 
 export type DescriptionWriterFacts = {
+  /** Domain/object type choose fact priorities; they never choose canned prose. */
+  domain?: string;
+  objectType?: string;
   listingType: string;
   title: string;
   condition?: string;
+  sealed?: boolean;
   quantity?: number;
   collection?: string;
   items?: string;
@@ -33,6 +37,9 @@ export type DescriptionWriterFacts = {
   /** Named, grounded attributes the model may turn into prose. */
   product?: {
     brand?: string;
+    family?: string;
+    model?: string;
+    generation?: string;
     colour?: string;
     storage?: string;
     variant?: string;
@@ -57,7 +64,7 @@ export type DescriptionWriterFacts = {
 const STRUCTURED_EXTRA_KEY_RE =
   /^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|categoryid|condition_code|conditioncode|vision_confidence|visionconfidence|provenance|field_source|fieldsource)$/i;
 export const MARKETING_FILLER_RE =
-  /\b(?:must[- ]have|perfect(?:\s+(?:for|addition))?|great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout player|legendary (?:figures|status)|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|reliable performance|reliable choice|any .* collection|don'?t miss out|highly sought[- ]after|rare|valuable|iconic|grab a bargain|sure to impress)\b/i;
+  /\b(?:must[- ]have|perfect(?:\s+(?:for|addition))?|great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout(?:\s+(?:vehicle|car|item|product|player))?|known for (?:its )?(?:performance|design)|performance and design|legendary (?:figures|status)|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|reliable performance|reliable choice|any .* collection|don'?t miss out|highly sought[- ]after|rare|valuable|iconic|grab a bargain|sure to impress)\b/i;
 
 export function stripUnsupportedPromotionalSentences(proposed: string): string {
   return splitListingDescriptionSentences(proposed)
@@ -197,6 +204,7 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
       ["year", fill.vehicleYear],
       ["make", fill.vehicleMake],
       ["model", fill.vehicleModel],
+      ["generation", fill.vehicleGeneration],
       ["colour", fill.vehicleColour],
       ["odometer", fill.vehicleOdometer],
       ["transmission", fill.vehicleTransmission],
@@ -235,6 +243,18 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
       }
       if (key === "brand") {
         product.brand = value;
+        continue;
+      }
+      if (key === "productfamily" || key === "product_family" || key === "product") {
+        product.family = value;
+        continue;
+      }
+      if (key === "model") {
+        product.model = value;
+        continue;
+      }
+      if (key === "generation") {
+        product.generation = value;
         continue;
       }
       if (key === "colour" || key === "color") {
@@ -318,9 +338,16 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
   }
 
   return {
+    domain: (fill.extras || [])
+      .map((entry) => String(entry).match(/^domain:\s*(.+)$/i)?.[1]?.trim())
+      .find(Boolean),
+    objectType: (fill.extras || [])
+      .map((entry) => String(entry).match(/^objectType:\s*(.+)$/i)?.[1]?.trim())
+      .find(Boolean),
     listingType: fill.listingType || "physical",
     title,
     condition: fill.condition?.trim() || undefined,
+    sealed,
     quantity,
     collection,
     items,
@@ -483,14 +510,15 @@ Writing rules:
 - Preserve the most specific supplied collection, group, model, or product-family name; do not replace it with a generic category.
 - Treat parentIdentity as a modifier that comes before collection/product: "Parent Collection", never "Collection Parent".
 - Format lists as natural prose: "A, B and C", never "A, B, C".
-- When quantity and multiple related items are supplied, make clear they are being sold together as one set or bundle.
+- Let objectType and relationships determine the shape: a bundle should describe its included items; a sealed product should describe its product line/format; a vehicle should foreground confirmed vehicle facts. Do not reuse one sentence skeleton across domains.
+- When quantity and multiple related items are supplied, make clear they form one set or bundle, but do not default to the words "featuring", "all ... are in", or "sold together as a set".
 - For cards, prioritize set/product, character/player, parallel, numbering, grade, quantity, and condition.
-- For sealed card products (box, pack, tin, display), never invent parallels, players, pack counts, or card attributes. Use only product identity and condition.
+- For sealed card products (box, pack, tin, display), never invent parallels, players, pack counts, or card attributes. A booster product may be described as containing booster packs only when objectType/product format establishes that relationship.
 - For electronics, bikes, clothing, and vehicles, prioritise only confirmed useful details.
 - Never mention price, location, contact actions, "for sale", marketing filler, database labels, or unsupported claims.
 - Include the supplied condition naturally whenever one is present.
 - Condition grammar: "is/are brand new", "is/are new", "is/are in like-new condition", "is/are in good condition", "is/are in good used condition", or "is/are in fair condition". Never write "in brand new".
-- Stop once the supported useful facts are covered. Do not pad sparse listings with phrases such as "must-have", "perfect for collectors", "great addition", "don't miss out", "ideal for enthusiasts", "sure to impress", "rare", "valuable", "iconic", or generic calls to action.
+- Stop once the supported useful facts are covered. Sparse facts deserve short factual copy, not praise. Never use phrases such as "standout", "known for its performance and design", "must-have", "perfect for collectors", "great addition", "don't miss out", "ideal for enthusiasts", "sure to impress", "rare", "valuable", "iconic", or generic calls to action.
 - Never emit raw metadata such as bundle_quantity:3, listing_type:physical, brand:Nike, or any key:value labels.
 - Never add facts, specifications, authenticity, working status, or condition not in JSON.`,
       },

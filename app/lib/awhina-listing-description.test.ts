@@ -214,9 +214,11 @@ describe("grounded AI description writer quality gate", () => {
     };
     const facts = buildDescriptionWriterFacts(fill);
     expect(facts.quantity).toBe(3);
-    expect(finalizeAwhinaListingDescription(fill).description).toBe(
-      "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set."
-    );
+    const description = String(finalizeAwhinaListingDescription(fill).description || "");
+    expect(description).toMatch(/Egyptian God Cards bundle includes/i);
+    expect(description).toMatch(/Winged Dragon of Ra/i);
+    expect(description).toMatch(/good used condition/i);
+    expect(description).not.toMatch(/sold together as a set|featuring/i);
   });
 
   it("uses grammatical condition predicates for singular and plural items", () => {
@@ -245,9 +247,10 @@ describe("grounded AI description writer quality gate", () => {
         "subject:The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor",
       ],
     };
-    const expected =
-      "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are brand new and are being sold together as a set.";
-    expect(finalizeAwhinaListingDescription(fill).description).toBe(expected);
+    const description = String(finalizeAwhinaListingDescription(fill).description || "");
+    expect(description).toMatch(/Yu-Gi-Oh! Egyptian God Cards bundle includes/i);
+    expect(description).toMatch(/cards are brand new/i);
+    expect(description).not.toMatch(/sold together as a set|featuring/i);
     const facts = buildDescriptionWriterFacts(fill);
     expect(facts.parentIdentity).toBe("Yu-Gi-Oh!");
     expect(
@@ -1494,7 +1497,9 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     expect(String(withGen.listingFill?.vehicleModel || "")).toMatch(/^Skyline$/i);
     expect(String(withGen.listingFill?.vehicleGeneration || "")).toMatch(/R34/i);
     expect(String(withGen.listingFill?.title || "")).toMatch(/Nissan\s+Skyline\s+R34/i);
-    expect(String(withGen.listingFill?.description || "").trim()).toBe("");
+    expect(String(withGen.listingFill?.description || "").trim()).toBe(
+      "Nissan Skyline R34."
+    );
     expect(String(withGen.reply || "")).toMatch(/year/i);
 
     const withYear = processCanonicalAwhina("1999", {
@@ -1503,7 +1508,9 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
       listingContext: withGen.listingFill as never,
     });
     expect(withYear.listingFill?.vehicleYear).toBe("1999");
-    expect(String(withYear.listingFill?.description || "").trim()).toBe("");
+    expect(String(withYear.listingFill?.description || "").trim()).toBe(
+      "1999 Nissan Skyline R34."
+    );
     expect(String(withYear.reply || "")).toMatch(/price|asking/i);
 
     const withPrice = processCanonicalAwhina("30000", {
@@ -1512,7 +1519,9 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
       listingContext: withYear.listingFill as never,
     });
     expect(withPrice.listingFill?.price).toBe("30000");
-    expect(String(withPrice.listingFill?.description || "").trim()).toBe("");
+    expect(String(withPrice.listingFill?.description || "").trim()).toBe(
+      "1999 Nissan Skyline R34."
+    );
 
     const rich = processCanonicalAwhina("good condition Auckland", {
       conversationId: id,
@@ -1555,14 +1564,17 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     assertNaturalMarketplaceCopy(desc);
   });
 
-  it("sparse R34 seed: blank buyer desc — no complete-the-listing leak", () => {
+  it("sparse R34 seed: short factual buyer desc — no generic praise or seller leak", () => {
     wipe("veh-skyline-quality");
     const r = processCanonicalAwhina("sell my skyline r34", {
       conversationId: "veh-skyline-quality",
       pathname: "/",
     });
     expect(r.listingFill?.title).toMatch(/Nissan\s+Skyline\s+R34/i);
-    expect(String(r.listingFill?.description || "").trim()).toBe("");
+    expect(String(r.listingFill?.description || "").trim()).toBe("Nissan Skyline R34.");
+    expect(String(r.listingFill?.description || "")).not.toMatch(
+      /standout|performance and design|perfect for|iconic/i
+    );
     expect(String(r.reply || "")).toMatch(/year/i);
     expect(String(r.reply || "")).not.toMatch(SELLER_LEAK);
     expect("").toMatchSnapshot();
@@ -1576,28 +1588,36 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
       pathname: "/post/ai",
     });
     expect(first.listingFill?.title).toMatch(/Nissan\s+Skyline\s+R34/i);
-    expect(String(first.listingFill?.description || "").trim()).toBe("");
+    expect(String(first.listingFill?.description || "").trim()).toBe(
+      "Nissan Skyline R34."
+    );
 
     const withYear = processCanonicalAwhina("1999", {
       conversationId: id,
       pathname: "/post/ai",
       listingContext: first.listingFill as never,
     });
-    expect(String(withYear.listingFill?.description || "").trim()).toBe("");
+    expect(String(withYear.listingFill?.description || "").trim()).toBe(
+      "1999 Nissan Skyline R34."
+    );
 
     const withPrice = processCanonicalAwhina("12000", {
       conversationId: id,
       pathname: "/post/ai",
       listingContext: withYear.listingFill as never,
     });
-    expect(String(withPrice.listingFill?.description || "").trim()).toBe("");
+    expect(String(withPrice.listingFill?.description || "").trim()).toBe(
+      "1999 Nissan Skyline R34."
+    );
 
     const withCond = processCanonicalAwhina("Good condition", {
       conversationId: id,
       pathname: "/post/ai",
       listingContext: withPrice.listingFill as never,
     });
-    expect(String(withCond.listingFill?.description || "").trim()).toBe("");
+    expect(String(withCond.listingFill?.description || "").trim()).toBe(
+      "1999 Nissan Skyline R34. The car is in good used condition."
+    );
 
     const withLoc = processCanonicalAwhina("Auckland", {
       conversationId: id,
@@ -2021,7 +2041,7 @@ describe("authoritative description boundary regressions", () => {
 
     const initial = finalizeAwhinaListingDescription(fill);
     expect(initial.description).toMatch(
-      /Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor\./
+      /Yu-Gi-Oh! Egyptian God Cards bundle includes The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor\./
     );
     expect(initial.description).not.toMatch(/\$100|asking|priced at/i);
     expect(initial.description).not.toMatch(/bundle_quantity|Bundle_quantity|:3\b/i);
@@ -2034,13 +2054,11 @@ describe("authoritative description boundary regressions", () => {
       description: initial.description,
       descriptionSource: "ai",
     });
-    expect(conditioned.description).toMatch(
-      /All three cards are in good used condition and are being sold together as a set\./i
-    );
+    expect(conditioned.description).toMatch(/The three cards are in good used condition\./i);
     expect(conditioned.description).not.toMatch(/\$100|asking|priced at/i);
     expect(conditioned.description).not.toMatch(/bundle_quantity|Bundle_quantity|:3\b/i);
     expect(String(conditioned.description).trim()).toBe(
-      "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set."
+      "This Yu-Gi-Oh! Egyptian God Cards bundle includes The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. The three cards are in good used condition."
     );
   });
 
@@ -2056,12 +2074,12 @@ describe("authoritative description boundary regressions", () => {
       ],
     };
     const description = String(finalizeAwhinaListingDescription(fill).description || "");
-    expect(description).toMatch(/Set of three/i);
+    expect(description).toMatch(/bundle includes/i);
     expect(description).not.toMatch(/bundle_quantity/i);
     expect(description).not.toMatch(/Bundle_quantity/i);
     expect(description).not.toMatch(/:3/);
     expect(description).toBe(
-      "Set of three Yu-Gi-Oh! cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set."
+      "This Yu-Gi-Oh! cards bundle includes The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. The three cards are in good used condition."
     );
   });
 
@@ -2082,7 +2100,7 @@ describe("authoritative description boundary regressions", () => {
 
     const description = String(finalizeAwhinaListingDescription(fill).description || "");
     expect(description).toBe(
-      "This brand-new Riftbound League of Legends Unleashed booster box is being sold as one box rather than as individual packs."
+      "This brand-new Riftbound League of Legends Unleashed booster box is a sealed TCG product containing booster packs."
     );
     expect(description).not.toMatch(/Riftbound Unleashed.*Riftbound Unleashed/i);
     expect(validateDescription(description).ok, description).toBe(true);
@@ -2115,7 +2133,7 @@ describe("authoritative description boundary regressions", () => {
 
     const description = String(finalizeAwhinaListingDescription(fill).description || "");
     expect(description).toBe(
-      "This Riftbound League of Legends Unleashed booster display is being sold as a complete display rather than as individual packs."
+      "This Riftbound League of Legends Unleashed booster display is a sealed TCG product containing booster packs."
     );
     expect(description).not.toMatch(/Riftbound Unleashed.*Riftbound Unleashed/i);
     expect(passesListingDescriptionQualityGate(description)).toBe(true);
@@ -2147,7 +2165,7 @@ describe("authoritative description boundary regressions", () => {
     for (const fill of fills) {
       const description = String(finalizeAwhinaListingDescription(fill).description || "");
       expect(description, fill.title).toMatch(/^This\b/i);
-      expect(description, fill.title).toMatch(/being sold as/i);
+      expect(description, fill.title).toMatch(/sealed TCG product containing booster packs/i);
       expect(description, fill.title).not.toBe(`${fill.title}.`);
       expect(description, fill.title).not.toMatch(/Riftbound Unleashed.*Riftbound Unleashed/i);
       expect(passesListingDescriptionQualityGate(description), description).toBe(true);
@@ -2324,9 +2342,9 @@ describe("authoritative description boundary regressions", () => {
     if (!turn.handled || !turn.listingFill) return;
     expect(turn.listingFill.description).not.toBe(oldDescription);
     expect(turn.listingFill.description).toMatch(
-      /Set of three Yu-Gi-Oh! Egyptian God Cards/i
+      /Yu-Gi-Oh! Egyptian God Cards bundle includes/i
     );
-    expect(turn.listingFill.description).toMatch(/All three cards are in good used condition/i);
+    expect(turn.listingFill.description).toMatch(/The three cards are in good used condition/i);
     expect(turn.listingFill.description).not.toMatch(/\$100|asking|priced at/i);
     expect(turn.reply).toMatch(/updated the description/i);
   });

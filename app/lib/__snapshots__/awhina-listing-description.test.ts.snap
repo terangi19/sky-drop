@@ -16,9 +16,9 @@ exports[`category-aware description snapshots > services snapshot 1`] = `"Lawn M
 
 exports[`category-aware description snapshots > sports snapshot 1`] = `"Mountain Bike in good used condition for sale in Dunedin. Pickup locally."`;
 
-exports[`category-aware description snapshots > vehicles snapshot 1`] = `"2018 BMW 320i for sale in Auckland. Finished in blue with 85,000 km and an automatic transmission. The car is in good used condition. Message if you're interested."`;
+exports[`category-aware description snapshots > vehicles snapshot 1`] = `"2018 BMW 320i in Auckland. Finished in blue with 85,000 km and an automatic transmission. The car is in good used condition. Message if you're interested."`;
 
-exports[`description quality suite — golden reference cases > BMW: ≤1 CTA, grounded, type-aware 1`] = `"2018 BMW 320i for sale in Auckland. Finished in blue with 85,000 km and an automatic transmission. The car is in good used condition. Message if you're interested."`;
+exports[`description quality suite — golden reference cases > BMW: ≤1 CTA, grounded, type-aware 1`] = `"2018 BMW 320i in Auckland. Finished in blue with 85,000 km and an automatic transmission. The car is in good used condition. Message if you're interested."`;
 
 exports[`description quality suite — golden reference cases > PS5: ≤1 CTA, grounded, type-aware 1`] = `"Brand new PlayStation 5 Console for sale in Auckland. Pickup locally."`;
 
@@ -48,4 +48,4 @@ exports[`service listing description snapshots > quote required cleaning snapsho
 
 exports[`service listing description snapshots > tutoring with duration fact snapshot 1`] = `"Maths Tutoring available in Christchurch for $40 per hour. Happy to discuss what you're after and arrange a time that suits. Typical jobs run about 1 hour. Drop me a message when you're ready to chat about the job."`;
 
-exports[`vehicle composer — readiness + no seller coaching in buyer desc > sparse R34 seed: blank buyer desc — no complete-the-listing leak 1`] = `""`;
+exports[`vehicle composer — readiness + no seller coaching in buyer desc > sparse R34 seed: short factual buyer desc — no generic praise or seller leak 1`] = `""`;

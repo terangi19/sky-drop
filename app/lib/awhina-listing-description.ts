@@ -1612,7 +1612,7 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
     const bodyBit = body ? ` ${body.toLowerCase()}` : "";
     parts.push(
       polishParagraph(
-        `${colour ? `${colour} ` : ""}${item}${bodyBit}${facts.location ? ` in ${facts.location}` : " for sale"}.`
+        `${colour ? `${colour} ` : ""}${item}${bodyBit}${facts.location ? ` in ${facts.location}` : ""}.`
       )
     );
     const bits: string[] = [];
@@ -1674,12 +1674,14 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
     if (selected.domain === "trading_card") {
       return writeTradingCard(facts, selected);
     }
-    const sealedClause = sealedProductConfigurationClause(
+    const sealedRelationship = sealedProductRelationship(
       `${facts.item || ""} ${(facts.extras || []).join(" ")} ${noun}`
     );
-    if (sealedClause) {
+    if (sealedRelationship) {
       parts.push(
-        polishParagraph(`This ${attributiveConditionPhrase(noun)} ${sealedClause}.`)
+        polishParagraph(
+          `This ${attributiveConditionPhrase(noun)} is a ${sealedRelationship}.`
+        )
       );
     } else if (facts.location) {
       // Price belongs in the price field — never in buyer prose.
@@ -1728,22 +1730,18 @@ const SEALED_PRODUCT_CONFIGURATION_RE =
   /\b(?:booster\s*(?:box|display|pack)|hobby\s*(?:box|display)|blaster\s*box|mega\s*box|elite\s*trainer\s*box|etb|display\s*box|trading\s*card\s*(?:box|pack|tin)|card\s*tin|sealed\s*(?:box|case|set))\b/i;
 
 /**
- * How a sealed collectible is being sold is a grounded fact the identity alone
- * cannot express, so it carries a real description where the bare noun phrase
- * would only echo the title. Never states pack counts or contents.
+ * A sealed product format carries one safe semantic relationship. This is a
+ * minimal offline fallback only; the grounded writer owns natural wording.
+ * Never states pack counts or other unverified contents.
  */
-function sealedProductConfigurationClause(formatSource: string): string | null {
+function sealedProductRelationship(formatSource: string): string | null {
   const match = formatSource.match(SEALED_PRODUCT_CONFIGURATION_RE)?.[0]?.toLowerCase();
   if (!match) return null;
-  if (/display/.test(match) && !/display\s*box/.test(match)) {
-    return "is being sold as a complete display rather than as individual packs";
+  if (/display|box|pack/.test(match)) {
+    return "sealed TCG product containing booster packs";
   }
-  if (/box|case/.test(match)) {
-    return "is being sold as one box rather than as individual packs";
-  }
-  if (/tin/.test(match)) return "is being sold as a complete tin";
-  if (/pack/.test(match)) return "is being sold as a single pack rather than as a full box";
-  return "is being sold as a complete sealed set";
+  if (/tin/.test(match)) return "sealed tin";
+  return "sealed product set";
 }
 
 /** "brand new X" reads as "brand-new X" once it modifies a sentence subject. */
@@ -1944,12 +1942,14 @@ function writeTradingCard(
   const bundleQuantity = facts.bundleQuantity;
   const subjects = cardFacts.playerName || selected.playerName || null;
   const collection = line || cardFacts.productLine || null;
-  const sealedClause = sealed
-    ? sealedProductConfigurationClause(`${cardFacts.productFormat || ""} ${identity}`)
+  const sealedRelationship = sealed
+    ? sealedProductRelationship(`${cardFacts.productFormat || ""} ${identity}`)
     : null;
-  if (sealedClause) {
+  if (sealedRelationship) {
     parts.push(
-      polishParagraph(`This ${attributiveConditionPhrase(opener)} ${sealedClause}.`)
+      polishParagraph(
+        `This ${attributiveConditionPhrase(opener)} is a ${sealedRelationship}.`
+      )
     );
     const sealedExtras = composeExtrasProse(deduped.weaveExtras);
     if (sealedExtras) parts.push(sealedExtras);
@@ -1975,11 +1975,9 @@ function writeTradingCard(
       ? `${specificCollection} ${/\bcards?\b/i.test(specificCollection) ? "" : "cards"}`
       : "trading cards";
     const naturalSubjects = formatNaturalList(subjects);
-    let bundleSentence = `Set of ${bundleQuantityWord(bundleQuantity)} ${collectionNoun} featuring ${naturalSubjects}.`;
+    let bundleSentence = `This ${collectionNoun} bundle includes ${naturalSubjects}.`;
     if (cond) {
-      bundleSentence += ` All ${bundleQuantityWord(bundleQuantity)} cards ${composeConditionPredicate(cond, true)} and are being sold together as a set.`;
-    } else {
-      bundleSentence += " They are being sold together as a set.";
+      bundleSentence += ` The ${bundleQuantityWord(bundleQuantity)} cards ${composeConditionPredicate(cond, true)}.`;
     }
     parts.push(polishParagraph(bundleSentence));
     // Wear / feature extras only — never re-append structured quantity tags.
@@ -2021,14 +2019,16 @@ function writePhysical(facts: DescriptionFacts): string {
   const d = facts.delivery;
   const struct = hashSeed(seed + ":struct") % 3;
   const parts: string[] = [];
-  // Sparse sealed collectibles often never get a set: fact, so domain stays
-  // general — still write seller configuration prose instead of a bare title.
-  const sealedClause = sealedProductConfigurationClause(
+  // Sparse sealed products can remain in the general domain; retain only their
+  // safe product relationship instead of collapsing to a title sentence.
+  const sealedRelationship = sealedProductRelationship(
     `${facts.item || ""} ${(facts.extras || []).join(" ")} ${noun}`
   );
-  if (sealedClause) {
+  if (sealedRelationship) {
     parts.push(
-      polishParagraph(`This ${attributiveConditionPhrase(noun)} ${sealedClause}.`)
+      polishParagraph(
+        `This ${attributiveConditionPhrase(noun)} is a ${sealedRelationship}.`
+      )
     );
     if (d === "pickup_or_shipping") {
       parts.push(
@@ -2122,10 +2122,10 @@ function writeVehicle(facts: DescriptionFacts): string {
 
   // Prefer confirmed identity in the opener — never "Item in good condition…"
   const opener = pickVariant(seed + ":vopen", [
-    `${name}${bodyBit} for sale${loc ? ` in ${loc}` : ""}.`,
+    `${name}${bodyBit}${loc ? ` in ${loc}` : ""}.`,
     colour
       ? `${name}${bodyBit} in ${colour.toLowerCase()}${loc ? `, ${loc}` : ""}.`
-      : `${name}${bodyBit}${loc ? ` in ${loc}` : " available for sale"}.`,
+      : `${name}${bodyBit}${loc ? ` in ${loc}` : ""}.`,
     `${colour ? `${colour} ` : ""}${name}${bodyBit}${loc ? ` in ${loc}` : ""}.`,
   ]);
 
@@ -2430,10 +2430,19 @@ export function buildListingDescriptionFromFacts(
   fill: SkyAiListingFill,
   opts?: { quality?: ListingDescriptionQuality; force?: boolean }
 ): string {
+  // Sparse vehicles are still allowed a terse factual identity when make,
+  // model and generation are known. Do not replace that with generic praise;
+  // wait for year/mileage/etc. before expanding it into richer prose.
+  const hasSpecificVehicleIdentity = Boolean(
+    fill.vehicleMake?.trim() &&
+      fill.vehicleModel?.trim() &&
+      fill.vehicleGeneration?.trim()
+  );
   if (
     isVehicleListingFill(fill) &&
     !opts?.force &&
-    !getVehicleDraftReadiness(fill).worthGeneratingBuyerCopy
+    !getVehicleDraftReadiness(fill).worthGeneratingBuyerCopy &&
+    !hasSpecificVehicleIdentity
   ) {
     return "";
   }
