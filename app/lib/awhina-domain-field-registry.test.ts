@@ -268,23 +268,45 @@ describe("TCG object type controls the schema", () => {
       category: "Collectibles",
     };
     const graded = {
+      title: "Yu-Gi-Oh! Dark Magician",
+      listingType: "physical" as const,
+      category: "Collectibles",
+      extras: ["objectType:graded_card", "subject:Dark Magician"],
+    };
+    const gradedKnown = {
       title: "Yu-Gi-Oh! Dark Magician PSA 10",
       listingType: "physical" as const,
       category: "Collectibles",
+      extras: ["objectType:graded_card", "subject:Dark Magician"],
     };
     const bundle = {
+      title: "Pokémon card bundle",
+      listingType: "physical" as const,
+      category: "Collectibles",
+      extras: ["objectType:card_bundle"],
+    };
+    const bundleKnownQty = {
       title: "Three-card Pokémon bundle",
       listingType: "physical" as const,
       category: "Collectibles",
+      extras: ["objectType:card_bundle"],
     };
 
     expect(resolveCanonicalListingObject(individual).subtype).toBe("individual_card");
     expect(isFieldRelevant("card_subject", individual)).toBe(true);
+    expect(nextListingSlotQuestion(individual)?.slot).not.toBe("grade");
+
     expect(resolveCanonicalListingObject(graded).subtype).toBe("graded_card");
     expect(isFieldRelevant("grade", graded)).toBe(true);
+    expect(nextListingSlotQuestion(graded)?.slot).toBe("grade");
+
+    expect(nextListingSlotQuestion(gradedKnown)?.slot).toBe("price");
+
     expect(resolveCanonicalListingObject(bundle).subtype).toBe("card_bundle");
     expect(isFieldRelevant("card_subject", bundle)).toBe(false);
-    expect(nextListingSlotQuestion(bundle)?.slot).toBe("price");
+    expect(isFieldRelevant("quantity", bundle)).toBe(true);
+    expect(nextListingSlotQuestion(bundle)?.slot).toBe("quantity");
+    expect(nextListingSlotQuestion(bundleKnownQty)?.slot).toBe("price");
   });
 });
 

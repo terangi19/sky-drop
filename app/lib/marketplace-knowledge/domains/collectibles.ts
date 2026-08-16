@@ -42,7 +42,13 @@ const GRADE_NUM_RE = /\b(?:psa|bgs|cgc|sgc)?\s*(10|9\.5|9|8\.5|8|7\.5|7|6|5|4|3|
 const PSA_COMBO_RE = /\bpsa\s*(10|9\.5|9|8\.5|8)\b/i;
 
 const COLLECTIBLE_DETECT =
-  /\b(psa|bgs|cgc|graded|trading\s*card|card\s*shop|topps|match\s*attax|charizard|pokemon|pokémon|panini|rookie\s*card|slab|pop\s*report)\b/i;
+  /\b(psa|bgs|cgc|graded|trading\s*card|card\s*shop|topps|match\s*attax|charizard|pokemon|pokémon|panini|rookie\s*card|slab|pop\s*report|booster\s*(?:box|pack|display)|elite\s*trainer|etb|hobby\s*box|blaster|riftbound)\b/i;
+
+const SEALED_PRODUCT_RE =
+  /\b(booster\s*(?:box|pack|display)|elite\s*trainer(?:\s*box)?|\betb\b|hobby\s*box|blaster(?:\s*box)?|mega\s*box|starter\s*pack|\btin\b|sealed\s*set|display\s*box)\b/i;
+
+const BUNDLE_PRODUCT_RE =
+  /\b(card\s*bundle|bundle\s+of\s+\d+|\d+\s*-?\s*cards?\b|lot\s+of\s+\d+)\b/i;
 
 function resolveGrade(text: string): CollectibleGrade | undefined {
   const psa = text.match(PSA_COMBO_RE);
@@ -97,14 +103,23 @@ function resolve(input: DomainResolveInput): DomainResolveResult {
   }
 
   const grade = resolveGrade(text);
-  const detect = COLLECTIBLE_DETECT.test(text) || Boolean(setName && (player || grade));
+  const sealedProduct = SEALED_PRODUCT_RE.test(text);
+  const bundleProduct = BUNDLE_PRODUCT_RE.test(text);
+  const productFormat = sealedProduct
+    ? "sealed_product"
+    : bundleProduct
+      ? "card_bundle"
+      : grade
+        ? "graded_card"
+        : "individual_card";
+  const detect = COLLECTIBLE_DETECT.test(text) || Boolean(setName && (player || grade || sealedProduct || bundleProduct));
 
   // Follow-up only grade/player with sticky set
   const followUp =
     prior?.domain === "collectibles" &&
     (Boolean(grade) || Boolean(player) || SET_ALIASES.some((s) => s.pattern.test(text)));
 
-  if (!detect && !followUp && !(setName && player)) {
+  if (!detect && !followUp && !(setName && player) && !sealedProduct && !bundleProduct) {
     return { hit: false, score: 0 };
   }
 
@@ -112,12 +127,20 @@ function resolve(input: DomainResolveInput): DomainResolveResult {
   const unknowns: string[] = [];
   const needsCurrentCheck = ["market value", "population", "parallel", "card number"];
 
+  attributes.push({
+    key: "productFormat",
+    value: productFormat,
+    provenance: "LOCAL_DATA",
+  });
+
   if (setName) {
     attributes.push({ key: "set", value: setName, provenance: sticky.set === setName ? "USER" : "LOCAL_DATA" });
-  } else {
+  } else if (!sealedProduct && !bundleProduct) {
     unknowns.push("set");
   }
-  if (player) {
+  if (sealedProduct || bundleProduct) {
+    // Sealed product / loose lot identity is the product itself — not a card subject.
+  } else if (player) {
     attributes.push({ key: "subject", value: player, provenance: "USER" });
   } else {
     unknowns.push("player_or_subject");
@@ -127,7 +150,7 @@ function resolve(input: DomainResolveInput): DomainResolveResult {
   const yearM = text.match(/\b((?:19|20)\d{2})\b/);
   if (yearM) {
     attributes.push({ key: "year", value: yearM[1], provenance: "USER" });
-  } else {
+  } else if (!sealedProduct && !bundleProduct) {
     unknowns.push("year");
   }
   const parallelM = text.match(
@@ -135,13 +158,13 @@ function resolve(input: DomainResolveInput): DomainResolveResult {
   );
   if (parallelM) {
     attributes.push({ key: "parallel", value: parallelM[1], provenance: "USER" });
-  } else {
+  } else if (!sealedProduct && !bundleProduct) {
     unknowns.push("parallel");
   }
   const numM = text.match(/\b(?:#|no\.?|number)\s*(\d+)\b/i);
   if (numM) {
     attributes.push({ key: "cardNumber", value: numM[1], provenance: "USER" });
-  } else {
+  } else if (!sealedProduct && !bundleProduct) {
     unknowns.push("cardNumber");
   }
 
@@ -152,20 +175,26 @@ function resolve(input: DomainResolveInput): DomainResolveResult {
       provenance: "USER",
       needsCurrentCheck: true,
     });
-  } else if (grade?.company) {
+  } else if (grade?.company && !sealedProduct && !bundleProduct) {
     unknowns.push("grade");
   }
 
-  const displayBits = [grade?.company && grade.grade ? `${grade.company} ${grade.grade}` : undefined, player, setName].filter(
-    Boolean
-  );
+  const displayBits = [
+    grade?.company && grade.grade ? `${grade.company} ${grade.grade}` : undefined,
+    sealedProduct || bundleProduct ? undefined : player,
+    setName,
+  ].filter(Boolean);
 
   const confidence: MarketplaceEntity["confidence"] =
-    (setName && player && grade?.grade) || (player && grade?.grade && setName)
-      ? "high"
-      : setName || player || grade
+    sealedProduct || bundleProduct
+      ? setName
         ? "medium"
-        : "low";
+        : "low"
+      : (setName && player && grade?.grade) || (player && grade?.grade && setName)
+        ? "high"
+        : setName || player || grade
+          ? "medium"
+          : "low";
 
   const entity: MarketplaceEntity = {
     domain: "collectibles",
@@ -173,9 +202,11 @@ function resolve(input: DomainResolveInput): DomainResolveResult {
     family: setName
       ? { id: setName.toLowerCase().replace(/\s+/g, "-"), name: setName }
       : undefined,
-    model: player
-      ? { id: player.toLowerCase().replace(/\s+/g, "-"), name: player }
-      : undefined,
+    model: sealedProduct || bundleProduct
+      ? undefined
+      : player
+        ? { id: player.toLowerCase().replace(/\s+/g, "-"), name: player }
+        : undefined,
     category: {
       id: "collectibles",
       label: "Collectibles",
@@ -198,7 +229,25 @@ function resolve(input: DomainResolveInput): DomainResolveResult {
   };
 
   const clarify: DomainClarifyAsk[] = [];
-  if (!setName) {
+  if (sealedProduct || bundleProduct) {
+    if (!setName) {
+      clarify.push({
+        field: "set",
+        question: sealedProduct
+          ? "Which sealed product line — e.g. Pokémon ETB, Topps Chrome hobby box?"
+          : "Which set or product line is the bundle from?",
+        priority: 1,
+      });
+    } else if (bundleProduct) {
+      clarify.push({
+        field: "quantity",
+        question: "How many cards are in the bundle?",
+        priority: 1,
+      });
+    } else {
+      clarify.push({ field: "price", question: "Asking price?", priority: 1 });
+    }
+  } else if (!setName) {
     clarify.push({
       field: "set",
       question: "Which set — e.g. Topps Chrome, Match Attax, Pokémon Base Set?",
@@ -227,7 +276,7 @@ function resolve(input: DomainResolveInput): DomainResolveResult {
   const score =
     (COLLECTIBLE_DETECT.test(text) ? 0.55 : 0.35) +
     (setName ? 0.2 : 0) +
-    (player ? 0.15 : 0) +
+    (sealedProduct || bundleProduct ? 0.15 : player ? 0.15 : 0) +
     (grade?.grade ? 0.15 : 0);
 
   return { hit: true, entity, clarify, score: Math.min(1, score) };
@@ -236,16 +285,35 @@ function resolve(input: DomainResolveInput): DomainResolveResult {
 function enrichmentPriority(entity: MarketplaceEntity): DomainClarifyAsk[] {
   const asks: DomainClarifyAsk[] = [];
   const has = (k: string) => entity.attributes.some((a) => a.key === k);
+  const format = String(
+    entity.attributes.find((a) => a.key === "productFormat")?.value || ""
+  );
+  const sealedOrBundle =
+    format === "sealed_product" ||
+    format === "card_bundle" ||
+    /booster|etb|hobby|blaster|sealed|bundle/i.test(entity.displayName || "");
+
   if (!has("set")) {
-    asks.push({ field: "set", question: "Which card set?", priority: 1 });
+    asks.push({
+      field: "set",
+      question: sealedOrBundle ? "Which product line or set?" : "Which card set?",
+      priority: 1,
+    });
   }
-  if (!has("subject")) {
+  if (!sealedOrBundle && !has("subject")) {
     asks.push({ field: "subject", question: "Player or character?", priority: 1 });
   }
-  if (!has("grade") && entity.grade?.company) {
+  if (format === "card_bundle" && !has("quantity") && !has("bundle_quantity")) {
+    asks.push({
+      field: "quantity",
+      question: "How many cards are in the bundle?",
+      priority: 2,
+    });
+  }
+  if (!sealedOrBundle && !has("grade") && entity.grade?.company) {
     asks.push({ field: "grade", question: "Grade number?", priority: 2 });
   }
-  if (!has("year")) {
+  if (!sealedOrBundle && !has("year")) {
     asks.push({
       field: "year",
       question: "Card year if you know it? (skip if unsure — I won't guess)",
@@ -253,11 +321,13 @@ function enrichmentPriority(entity: MarketplaceEntity): DomainClarifyAsk[] {
     });
   }
   asks.push({ field: "price", question: "Asking price?", priority: 4 });
-  asks.push({
-    field: "condition_note",
-    question: "Any cert number or notes? (I won't invent pop or value)",
-    priority: 5,
-  });
+  if (!sealedOrBundle) {
+    asks.push({
+      field: "condition_note",
+      question: "Any cert number or notes? (I won't invent pop or value)",
+      priority: 5,
+    });
+  }
   return asks;
 }
 

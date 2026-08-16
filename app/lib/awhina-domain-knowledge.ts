@@ -133,9 +133,9 @@ export function categoryForAwhinaObjectType(
 
 export function normalizeAwhinaObjectType(text: string): AwhinaObjectType {
   const source = String(text || "").toLowerCase();
-  const explicit = source.match(/\bobjecttype\s*:\s*([a-z_ -]+)/i)?.[1]
+  const explicit = source.match(/\bobjecttype\s*:\s*([a-z0-9_]+)/i)?.[1]
     ?.trim()
-    .replace(/[\s-]+/g, "_");
+    .replace(/-/g, "_");
   if (
     explicit &&
     AWHINA_DOMAIN_KNOWLEDGE.some((rule) => rule.objectType === explicit)

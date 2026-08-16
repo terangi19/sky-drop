@@ -36,6 +36,7 @@ export type ListingMissingSlot =
   | "card_set"
   | "card_subject"
   | "grade"
+  | "quantity"
   | "colour"
   | "rental_rate"
   | "service_rate"
@@ -55,7 +56,8 @@ export const SLOT_QUESTIONS: Record<ListingMissingSlot, string> = {
   size: "What size is it?",
   card_set: "Which set / product line is the card from?",
   card_subject: "Which player or character is on the card?",
-  grade: "Is it graded? If so, which company and grade (e.g. PSA 10)?",
+  grade: "Which grader and grade (e.g. PSA 10)?",
+  quantity: "How many cards are in the bundle?",
   colour: "What colour is it?",
   rental_rate: "What's the daily or weekly hire rate?",
   service_rate: "Fixed price, hourly, or quote required?",
@@ -541,6 +543,35 @@ export function parseShortReplyForPendingSlot(
     };
   }
 
+  if (activeSlot === "quantity") {
+    const wordQuantities: Record<string, number> = {
+      one: 1,
+      two: 2,
+      three: 3,
+      four: 4,
+      five: 5,
+      six: 6,
+      seven: 7,
+      eight: 8,
+      nine: 9,
+      ten: 10,
+    };
+    const m = t.match(
+      /^\s*(?:about\s+|around\s+|roughly\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:cards?)?\s*$/i
+    );
+    if (m) {
+      const raw = m[1].toLowerCase();
+      const quantity = /^\d+$/.test(raw) ? Number(raw) : wordQuantities[raw];
+      if (Number.isInteger(quantity) && quantity >= 2 && quantity <= 500) {
+        return {
+          matched: true,
+          filledSlot: "quantity",
+          partial: { extras: [`bundle_quantity:${quantity}`] },
+        };
+      }
+    }
+  }
+
   if (
     (activeSlot === "service_rate" || activeSlot === "rental_rate") &&
     /quote|hourly|fixed|daily|weekly/i.test(t)
@@ -711,8 +742,34 @@ export function isListingSlotComplete(
       return hasExtra(d, "set:");
     case "card_subject":
       return hasExtra(d, "subject:");
-    case "grade":
-      return hasExtra(d, "grade:");
+    case "grade": {
+      const blob = [d.title, ...(d.extras || [])].join(" ");
+      return (
+        hasExtra(d, "grade:") ||
+        /\b(psa|bgs|cgc|sgc|csg)\s*(10|9\.5|9|8\.5|8|7\.5|7|6|5|4|3|2|1)\b/i.test(
+          blob
+        )
+      );
+    }
+    case "quantity": {
+      const extras = d.extras || [];
+      if (
+        extras.some((e) =>
+          /^(bundle_quantity|quantity|qty):/i.test(String(e || ""))
+        )
+      ) {
+        return true;
+      }
+      const blob = [d.title, ...extras].join(" ");
+      return (
+        /\b(\d+|two|three|four|five|six|seven|eight|nine|ten)\s*-?\s*cards?\b/i.test(
+          blob
+        ) ||
+        /\bbundle\s+of\s+(\d+|two|three|four|five|six|seven|eight|nine|ten)\b/i.test(
+          blob
+        )
+      );
+    }
     case "rental_rate":
       return Boolean(d.price || d.rentalPriceDaily || d.rentalPriceWeekly);
     case "service_rate":

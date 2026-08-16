@@ -147,16 +147,46 @@ const VEHICLE_SCHEMA: DomainFactSchema = {
   ],
 };
 
-const TRADING_CARD_SCHEMA: DomainFactSchema = {
+/** Raw / ungraded single cards — subject matters; grade is optional noise. */
+const INDIVIDUAL_CARD_SCHEMA: DomainFactSchema = {
   domain: "TRADING_CARD",
   family: "trading_card",
-  subtype: "trading_card",
+  subtype: "individual_card",
   fields: [
     { key: "title", slot: "title", required: true, highValue: true, askPriority: 100 },
     { key: "cardSubject", slot: "card_subject", required: false, highValue: true, askPriority: 95 },
     { key: "cardSet", slot: "card_set", required: false, highValue: false, askPriority: 10 },
     { key: "grade", slot: "grade", required: false, highValue: false, askPriority: 15, hallucinationRisk: true },
     { key: "condition", slot: "condition", required: false, highValue: true, askPriority: 70 },
+    { key: "price", slot: "price", required: true, highValue: true, askPriority: 90, hallucinationRisk: true },
+    { key: "location", slot: "location", required: false, highValue: true, askPriority: 60 },
+  ],
+};
+
+/** Legacy alias — prefer INDIVIDUAL_CARD_SCHEMA / GRADED_CARD_SCHEMA by objectType. */
+const TRADING_CARD_SCHEMA: DomainFactSchema = {
+  ...INDIVIDUAL_CARD_SCHEMA,
+  subtype: "trading_card",
+};
+
+/** Slabbed cards — grade is high-value once the subject is known. */
+const GRADED_CARD_SCHEMA: DomainFactSchema = {
+  domain: "TRADING_CARD",
+  family: "trading_card",
+  subtype: "graded_card",
+  fields: [
+    { key: "title", slot: "title", required: true, highValue: true, askPriority: 100 },
+    { key: "cardSubject", slot: "card_subject", required: false, highValue: true, askPriority: 95 },
+    { key: "cardSet", slot: "card_set", required: false, highValue: false, askPriority: 10 },
+    {
+      key: "grade",
+      slot: "grade",
+      required: false,
+      highValue: true,
+      askPriority: 92,
+      hallucinationRisk: true,
+    },
+    { key: "condition", slot: "condition", required: false, highValue: false, askPriority: 40 },
     { key: "price", slot: "price", required: true, highValue: true, askPriority: 90, hallucinationRisk: true },
     { key: "location", slot: "location", required: false, highValue: true, askPriority: 60 },
   ],
@@ -180,10 +210,19 @@ const CARD_BUNDLE_SCHEMA: DomainFactSchema = {
   subtype: "card_bundle",
   fields: [
     { key: "title", slot: "title", required: true, highValue: true, askPriority: 100 },
+    { key: "quantity", slot: "quantity", required: false, highValue: true, askPriority: 92 },
     { key: "price", slot: "price", required: true, highValue: true, askPriority: 90, hallucinationRisk: true },
     { key: "condition", slot: "condition", required: false, highValue: true, askPriority: 70 },
     { key: "location", slot: "location", required: false, highValue: true, askPriority: 60 },
   ],
+};
+
+/** Controllers / chargers / generic game peripherals — publish core only (no storage). */
+const PERIPHERAL_SCHEMA: DomainFactSchema = {
+  domain: "GAMING",
+  family: "electronics",
+  subtype: "generic_electronics",
+  fields: PERIPHERAL_FIELDS,
 };
 
 const CLOTHING_SCHEMA: DomainFactSchema = {
@@ -331,7 +370,7 @@ const SPECIALIST_SLOTS_BY_FAMILY: Partial<
     "generation",
     "variant",
   ]),
-  trading_card: new Set(["card_set", "card_subject", "grade"]),
+  trading_card: new Set(["card_set", "card_subject", "grade", "quantity"]),
   clothing: new Set(["size"]),
   service: new Set(["service_rate"]),
   rental: new Set(["rental_rate"]),
@@ -449,9 +488,13 @@ export function resolveElectronicsSubtype(
     return "storage_device";
   }
   if (
-    /\b(ps5|ps4|playstation|xbox|nintendo\s*switch|steam\s*deck|console)\b/.test(blob)
+    /\b(ps5|ps4|playstation|xbox|nintendo\s*switch|steam\s*deck|console)\b/.test(blob) &&
+    !/\b(controller|gamepad|dualsense|dualshock|joy[\s-]?con)\b/.test(blob)
   ) {
     return "console";
+  }
+  if (/\b(controller|gamepad|dualsense|dualshock|joy[\s-]?con)\b/.test(blob)) {
+    return "generic_electronics";
   }
   if (/\b(keyboard|keychron|mech\s*board)\b/.test(blob)) return "keyboard";
   // Explicit mouse / Razer mouse — never infer storage
@@ -646,17 +689,24 @@ export function getDomainFactSchema(
   if (obj.objectType) {
     if (SEALED_TCG_OBJECT_TYPES.has(obj.objectType)) return SEALED_TCG_SCHEMA;
     if (obj.objectType === "card_bundle") return CARD_BUNDLE_SCHEMA;
-    if (
-      obj.objectType === "individual_card" ||
-      obj.objectType === "graded_card"
-    ) {
-      return TRADING_CARD_SCHEMA;
-    }
+    if (obj.objectType === "graded_card") return GRADED_CARD_SCHEMA;
+    if (obj.objectType === "individual_card") return INDIVIDUAL_CARD_SCHEMA;
     if (obj.objectType === "phone") {
       return ELECTRONICS_SUBTYPE_SCHEMAS.smartphone;
     }
     if (obj.objectType === "console") {
       return ELECTRONICS_SUBTYPE_SCHEMAS.console;
+    }
+    if (
+      obj.objectType === "controller" ||
+      obj.objectType === "charger" ||
+      obj.objectType === "game"
+    ) {
+      return {
+        ...PERIPHERAL_SCHEMA,
+        subtype: obj.objectType,
+        domain: obj.factDomain,
+      };
     }
     if (obj.objectType === "gaming_mouse") {
       return ELECTRONICS_SUBTYPE_SCHEMAS.gaming_mouse;
@@ -690,6 +740,8 @@ export function getDomainFactSchema(
         return SEALED_TCG_SCHEMA;
       }
       if (obj.subtype === "card_bundle") return CARD_BUNDLE_SCHEMA;
+      if (obj.subtype === "graded_card") return GRADED_CARD_SCHEMA;
+      if (obj.subtype === "individual_card") return INDIVIDUAL_CARD_SCHEMA;
       return TRADING_CARD_SCHEMA;
     case "clothing":
       return CLOTHING_SCHEMA;
@@ -722,8 +774,31 @@ function hasFact(fill: Partial<SkyAiListingFill>, key: string): boolean {
         (fill.extras || []).some((e) => e.toLowerCase().startsWith("size:")) ||
         /\b(size|uk|us|eu)\s*\d/i.test(fill.title || "")
       );
-    case "grade":
-      return (fill.extras || []).some((e) => e.toLowerCase().startsWith("grade:"));
+    case "grade": {
+      const blob = [fill.title, ...(fill.extras || [])].join(" ");
+      return (
+        (fill.extras || []).some((e) => e.toLowerCase().startsWith("grade:")) ||
+        /\b(psa|bgs|cgc|sgc|csg)\s*(10|9\.5|9|8\.5|8|7\.5|7|6|5|4|3|2|1)\b/i.test(
+          blob
+        )
+      );
+    }
+    case "quantity": {
+      const extras = fill.extras || [];
+      if (
+        extras.some((e) =>
+          /^(bundle_quantity|quantity|qty):/i.test(String(e || ""))
+        )
+      ) {
+        return true;
+      }
+      const blob = [fill.title, ...extras].join(" ");
+      return (
+        /\b(\d+|two|three|four|five|six|seven|eight|nine|ten)\s*-?\s*cards?\b/i.test(
+          blob
+        ) || /\bbundle\s+of\s+(\d+|two|three|four|five|six|seven|eight|nine|ten)\b/i.test(blob)
+      );
+    }
     case "servicePricingType":
       return Boolean(fill.servicePricingType || fill.price);
     case "location":
@@ -796,6 +871,9 @@ export function isFieldRelevant(
         obj.subtype === "graded_card")
     );
   }
+  if (slot === "quantity") {
+    return obj.family === "trading_card" && obj.subtype === "card_bundle";
+  }
   if (
     slot === "year" ||
     slot === "odometer" ||
@@ -848,7 +926,7 @@ export function isDraftSufficientToSkipOptional(
   if (obj.family === "vehicle") {
     return Boolean(fill.vehicleYear?.trim()) && hasLocation;
   }
-  // Individual cards need a subject for identity. Sealed products/bundles do not.
+  // Individual/graded cards need a subject for identity. Sealed products/bundles do not.
   if (obj.family === "trading_card") {
     if (SEALED_TCG_OBJECT_TYPES.has(obj.subtype as AwhinaObjectType) || obj.subtype === "card_bundle") {
       return hasLocation && Boolean(fill.condition?.trim());
@@ -856,6 +934,9 @@ export function isDraftSufficientToSkipOptional(
     const hasSubject = (fill.extras || []).some((e) =>
       e.toLowerCase().startsWith("subject:")
     );
+    if (obj.subtype === "graded_card") {
+      return hasSubject && hasFact(fill, "grade") && hasLocation;
+    }
     return hasSubject && hasLocation;
   }
   // Peripherals / generic: identity + price (+ location preferred) is enough
@@ -864,6 +945,9 @@ export function isDraftSufficientToSkipOptional(
     obj.subtype === "keyboard" ||
     obj.subtype === "headphones" ||
     obj.subtype === "monitor" ||
+    obj.subtype === "controller" ||
+    obj.subtype === "charger" ||
+    obj.subtype === "game" ||
     obj.subtype === "generic_electronics" ||
     obj.family === "physical"
   ) {
