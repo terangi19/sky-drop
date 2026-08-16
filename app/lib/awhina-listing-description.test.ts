@@ -2065,6 +2065,109 @@ describe("authoritative description boundary regressions", () => {
     );
   });
 
+  it("keeps sealed product identity atomic instead of concatenating product-line facts", () => {
+    const fill: SkyAiListingFill = {
+      title: "Riftbound League of Legends Unleashed booster box",
+      listingType: "physical",
+      category: "Collectibles",
+      condition: "New",
+      extras: [
+        "objectType:booster_box",
+        "manufacturer:Riftbound",
+        "set:Riftbound Unleashed",
+        "league:League of Legends",
+        "productFormat:booster box",
+      ],
+    };
+
+    const description = String(finalizeAwhinaListingDescription(fill).description || "");
+    expect(description).toBe(
+      "Brand new Riftbound League of Legends Unleashed booster box."
+    );
+    expect(description).not.toMatch(/Riftbound Unleashed.*Riftbound Unleashed/i);
+    expect(validateDescription(description).ok, description).toBe(true);
+
+    const broken =
+      "Brand new Riftbound League of Legends Unleashed booster box Riftbound Unleashed.";
+    expect(passesListingDescriptionQualityGate(broken)).toBe(false);
+    expect(validateDescription(broken).ok).toBe(false);
+  });
+
+  it("keeps the universal identifier as facts across marketplace domains", () => {
+    const cases: Array<{ name: string; fill: SkyAiListingFill; identity: RegExp }> = [
+      {
+        name: "Topps sealed product",
+        fill: {
+          title: "Topps Premier League 2024 booster box",
+          listingType: "physical",
+          category: "Collectibles",
+          condition: "New",
+          extras: [
+            "objectType:booster_box",
+            "manufacturer:Topps",
+            "set:Topps Premier League",
+            "productFormat:booster box",
+          ],
+        },
+        identity: /Topps Premier League 2024 booster box/i,
+      },
+      {
+        name: "iPhone",
+        fill: {
+          title: "Apple iPhone 15 Pro 256GB",
+          listingType: "physical",
+          category: "Tech",
+          condition: "Used - Good",
+        },
+        identity: /iPhone 15 Pro 256GB/i,
+      },
+      {
+        name: "PS5",
+        fill: {
+          title: "PlayStation 5 Console",
+          listingType: "physical",
+          category: "Gaming",
+          condition: "Used - Good",
+        },
+        identity: /PlayStation 5 Console/i,
+      },
+      {
+        name: "BMW",
+        fill: {
+          title: "2018 BMW 330i",
+          listingType: "vehicle",
+          category: "Cars",
+          condition: "Used - Good",
+          price: "35000",
+          vehicleYear: "2018",
+          vehicleMake: "BMW",
+          vehicleModel: "330i",
+          vehicleOdometer: "65000",
+          vehicleTransmission: "Automatic",
+          location: "Auckland",
+        },
+        identity: /2018 BMW 330i/i,
+      },
+      {
+        name: "Nike shoes",
+        fill: {
+          title: "Nike Air Force 1",
+          listingType: "physical",
+          category: "Fashion",
+          condition: "Used - Good",
+        },
+        identity: /Nike Air Force 1/i,
+      },
+    ];
+
+    for (const c of cases) {
+      const description = String(finalizeAwhinaListingDescription(c.fill).description || "");
+      expect(description, c.name).toMatch(c.identity);
+      expect(description, c.name).not.toMatch(/(?:objectType|manufacturer|productFormat|set):/i);
+      expect(description, c.name).not.toMatch(/Riftbound Unleashed.*Riftbound Unleashed/i);
+    }
+  });
+
   it("never leaks structured metadata keys into public descriptions", () => {
     const fill: SkyAiListingFill = {
       title: "Nike Air Force 1",

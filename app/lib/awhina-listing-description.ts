@@ -1229,6 +1229,39 @@ function hasSemanticWordRepetition(text: string): boolean {
   return false;
 }
 
+/**
+ * Reject a title-shaped identity that is needlessly restated at the end of a
+ * sentence. This catches structured-fact serialization such as
+ * "Riftbound League of Legends Unleashed booster box Riftbound Unleashed."
+ * without relying on a product-name allowlist.
+ */
+function hasRepeatedIdentityTail(text: string): boolean {
+  const ignored = new Set([
+    "a",
+    "an",
+    "and",
+    "are",
+    "brand",
+    "condition",
+    "for",
+    "good",
+    "in",
+    "is",
+    "like",
+    "new",
+    "of",
+    "the",
+    "to",
+    "used",
+  ]);
+  const words = (text.toLowerCase().match(/[a-z0-9]+/g) || []).filter(
+    (word) => word.length > 2 && !ignored.has(word)
+  );
+  if (words.length < 7) return false;
+  const tail = words.slice(-2);
+  return tail.length === 2 && tail.every((word) => words.slice(0, -2).includes(word));
+}
+
 /** Adjacent sentences repeating the same availability/price idea. */
 function hasAdjacentIdeaRepetition(sentences: string[]): boolean {
   for (let i = 1; i < sentences.length; i++) {
@@ -1270,6 +1303,7 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   // not keyword stuffing, when the writer has composed a bundle sentence.
   const isComposedBundle = /^Set of \w+ .+\bfeaturing\b/i.test(t);
   if (hasSemanticWordRepetition(t) && !isComposedBundle) return true;
+  if (hasRepeatedIdentityTail(t)) return true;
   if (/\bOdometer:\s*/i.test(t) && /\bColour:\s*/i.test(t)) return true;
   if (/^Selling .+\.\s*Condition:/i.test(t)) return true;
   if (/^selling my .{1,40}$/i.test(t) && !/\n/.test(t)) return true;
@@ -1328,6 +1362,7 @@ export function passesListingDescriptionQualityGate(
   }
   const isComposedBundle = /^Set of \w+ .+\bfeaturing\b/i.test(t);
   if (hasSemanticWordRepetition(t) && !isComposedBundle) return false;
+  if (hasRepeatedIdentityTail(t)) return false;
   if (t.includes("\n\n")) return false;
   if (countCtas(t) > 1) return false;
   const n = wordCount(t);
@@ -1821,7 +1856,20 @@ function writeTradingCard(
   const line =
     selected.productLine ||
     normalizeTradingCardProductLine(cardFacts.manufacturer, cardFacts.productLine);
-  if (line && !identity.toLowerCase().includes(line.toLowerCase())) {
+  // A sealed product's readable title is its canonical product identity. The
+  // product line remains a structured fact for the writer, but must never be
+  // appended as another title-shaped fragment (e.g. "... Unleashed Riftbound
+  // Unleashed"). Individual cards can use a missing set to complete a
+  // player-only label, provided it contributes words not already in the label.
+  const identityWords = new Set(
+    identity.toLowerCase().match(/[a-z0-9]+/g)?.filter((word) => word.length > 2) || []
+  );
+  const lineWords = line
+    ?.toLowerCase()
+    .match(/[a-z0-9]+/g)
+    ?.filter((word) => word.length > 2) || [];
+  const lineAddsMeaning = lineWords.some((word) => !identityWords.has(word));
+  if (!sealed && line && lineAddsMeaning) {
     identity = repairCardProductLineOrder(`${identity} ${line}`);
   }
 
