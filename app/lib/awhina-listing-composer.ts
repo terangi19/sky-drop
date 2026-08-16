@@ -171,7 +171,9 @@ export function composeListingTitleAndDescription(
   };
 
   const quality = seed.quality ?? "premium_plus";
-  const description = buildListingDescriptionFromFacts(fill, { quality });
+  // Seed composition is public-facing too. It must cross the same ownership
+  // and price-free finalizer boundary as vision, chat, and draft updates.
+  const description = finalizeAwhinaListingDescription(fill, { quality }).description;
   const style = resolveListingDescriptionStyle(fill);
 
   return {

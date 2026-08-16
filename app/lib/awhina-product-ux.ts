@@ -14,6 +14,7 @@ import {
 } from "./awhina-listing-identity";
 import {
   buildListingDescriptionFromFacts,
+  removeStructuredPriceCopy,
   isRoboticListingDescription,
   passesListingDescriptionQualityGate,
   resolveListingDescriptionStyle,
@@ -954,7 +955,9 @@ export function autoImproveListingDraft(fill: SkyAiListingFill): SkyAiListingFil
     if (isVehicleListingFill(out) && !getVehicleDraftReadiness(out).worthGeneratingBuyerCopy) {
       out.description = "";
     } else {
-      out.description = buildListingDescriptionFromFacts(out);
+      // This repair path can run before the route/page finalizer. Keep it
+      // price-free so it cannot revive the legacy "asking $…" prose.
+      out.description = removeStructuredPriceCopy(buildListingDescriptionFromFacts(out));
     }
   } else if (out.description) {
     // Normalize product tokens but preserve paragraph breaks

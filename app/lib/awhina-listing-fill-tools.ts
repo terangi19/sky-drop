@@ -937,13 +937,16 @@ export function processListingFillMessage(
         const wantDesc =
           draftCmds.commands.includes("regenerate_description") ||
           draftCmds.commands.includes("improve_title");
+        const hasDescriptionRelevantFact = extracted.filledSlots.some(
+          (slot) => slot !== "price" && slot !== "location"
+        );
         if (baseDraftEarly.descriptionSource === "user" && baseDraftEarly.description && !wantDesc) {
           merged.description = baseDraftEarly.description;
           merged.descriptionSource = "user";
         } else if (
           wantDesc ||
           extracted.filledSlots.includes("generation") ||
-          extracted.filledSlots.length > 0
+          hasDescriptionRelevantFact
         ) {
           // Explicit write-description OR new facts → recompose from FULL confirmed draft
           const forceDesc = draftCmds.commands.includes("regenerate_description");
@@ -1731,7 +1734,6 @@ export function processListingFillMessage(
   if (isNewSellSeed || !hasDraft) {
     merged = autoImproveListingDraft(merged);
   } else if (
-    partial.price ||
     partial.condition ||
     partial.location ||
     partial.pickupAvailable !== undefined ||
