@@ -394,6 +394,8 @@ const OBJECT_TYPE_POLICIES: Partial<
   bmx: { family: "physical", factDomain: "GENERIC" },
   e_bike: { family: "physical", factDomain: "GENERIC" },
   bike_part: { family: "physical", factDomain: "GENERIC" },
+  power_tool: { family: "physical", factDomain: "GENERIC" },
+  furniture: { family: "physical", factDomain: "GENERIC" },
 };
 
 const SIZED_OBJECT_TYPES = new Set<AwhinaObjectType>([
@@ -496,6 +498,7 @@ export function resolveCanonicalListingObject(
   const objectKey = `${title}|${fill.category || ""}|${fill.listingType || ""}`
     .toLowerCase()
     .replace(/\s+/g, " ");
+  const objectType = normalizeAwhinaObjectType(blob);
 
   const lt = (fill.listingType || "").toLowerCase();
   if (lt === "rental") {
@@ -524,6 +527,7 @@ export function resolveCanonicalListingObject(
     return {
       family: "vehicle",
       subtype: "vehicle",
+      ...(objectType === "vehicle" ? { objectType } : {}),
       factDomain: "VEHICLE",
       brand,
       title,
@@ -532,7 +536,6 @@ export function resolveCanonicalListingObject(
     };
   }
 
-  const objectType = normalizeAwhinaObjectType(blob);
   const objectPolicy = OBJECT_TYPE_POLICIES[objectType];
   if (objectPolicy) {
     return {

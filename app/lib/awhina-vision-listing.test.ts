@@ -27,7 +27,10 @@ import { clearAllListingDraftCacheForTests } from "./awhina-listing-fill-tools";
 import { enrichObservationWithKnowledge } from "./awhina-vision-knowledge";
 import { retrieveKnowledgePack } from "./awhina-knowledge-packs";
 import { composeTradingCardTitle } from "./awhina-public-copy-gate";
-import { resolveCanonicalListingObject } from "./awhina-domain-facts";
+import {
+  isFieldRelevant,
+  resolveCanonicalListingObject,
+} from "./awhina-domain-facts";
 import { nextListingSlotQuestion } from "./awhina-pending-slots";
 
 function field(
@@ -69,6 +72,57 @@ describe("confidence policy", () => {
       mayPopulateFromVision(field("Nike", "MEDIUM", "VISIBLE"), { allowMedium: true })
     ).toBe(true);
   });
+});
+
+describe("one-photo universal identity routing", () => {
+  const cases = [
+    ["BMW car", "vehicles", "vehicle", "Cars", "BMW E92 3 Series Coupe", "storage"],
+    ["iPhone", "phones", "phone", "Tech", "Apple iPhone 15", "card_subject"],
+    ["PS5", "gaming", "console", "Gaming", "Sony PlayStation 5", "storage"],
+    ["DualSense", "gaming", "controller", "Gaming", "Sony DualSense Controller", "storage"],
+    ["Nike shoe", "fashion", "shoes", "Fashion", "Nike running shoe", "card_subject"],
+    ["mountain bike", "bikes", "mountain_bike", "Sports", "Giant mountain bike", "odometer"],
+    ["drill", "tools", "power_tool", "Home", "Makita cordless drill", "storage"],
+    ["chair", "furniture", "furniture", "Home", "Oak dining chair", "card_subject"],
+    ["LEGO set", "collectibles", "lego_sealed_set", "Collectibles", "LEGO sealed set", "grade"],
+    ["sports card", "trading-cards", "individual_card", "Collectibles", "Lionel Messi Topps card", "storage"],
+    ["Yu-Gi-Oh card", "trading-cards", "individual_card", "Collectibles", "Dark Magician Yu-Gi-Oh card", "storage"],
+    ["graded card", "trading-cards", "graded_card", "Collectibles", "Dark Magician PSA 10", "storage"],
+    ["Topps box", "trading-cards", "booster_box", "Collectibles", "Topps Premier League booster box", "card_subject"],
+    ["Riftbound display", "trading-cards", "booster_display", "Collectibles", "Riftbound Unleashed booster display", "card_subject"],
+  ] as const;
+
+  it.each(cases)(
+    "%s keeps confident identity and routes only applicable fields",
+    (_label, domain, objectType, category, identity, rejectedSlot) => {
+      const adapted = adaptVisionObservationToListing(
+        obs({
+          domain,
+          listingType: field(domain === "vehicles" ? "vehicle" : "physical", "HIGH"),
+          objectType: field(objectType, "HIGH", "VISIBLE"),
+          displayIdentity: identity,
+          itemIdentity: field(identity, "HIGH", "READABLE"),
+          brand: field(identity.split(" ")[0], "HIGH", "READABLE"),
+          product: field(identity, "HIGH", "READABLE"),
+          model: field(identity, "HIGH", "READABLE"),
+          cardSubject: /card/.test(objectType) && !/booster/.test(objectType)
+            ? field("Dark Magician", "HIGH", "READABLE")
+            : undefined,
+          overallConfidence: "HIGH",
+        })
+      );
+      const canonical = resolveCanonicalListingObject(adapted.listingFill);
+      expect(adapted.listingFill.category).toBe(category);
+      expect(canonical.objectType).toBe(objectType);
+      expect(adapted.listingFill.title || adapted.displayIdentity).toMatch(
+        new RegExp(identity.split(" ")[0], "i")
+      );
+      expect(isFieldRelevant(rejectedSlot, adapted.listingFill)).toBe(false);
+      expect(nextListingSlotQuestion(adapted.listingFill)?.slot).not.toBe(
+        rejectedSlot
+      );
+    }
+  );
 });
 
 describe("condition — never uncertain → Like New", () => {

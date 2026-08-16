@@ -42,7 +42,11 @@ import {
   isUserLockedProvenance,
   type ListingFieldProvenanceMap,
 } from "./listing-draft-confirmed";
-import { applyAwhinaDomainKnowledge } from "./awhina-domain-knowledge";
+import {
+  applyAwhinaDomainKnowledge,
+  categoryForAwhinaObjectType,
+  normalizeAwhinaObjectType,
+} from "./awhina-domain-knowledge";
 
 export type VisionAdapterResult = {
   facts: StructuredListingFacts;
@@ -124,6 +128,18 @@ export function observationToListingFacts(
   trySet(facts, "colour", obs.colour, omitted, suggestions, {
     allowMediumPopulate: true,
   });
+  if (
+    /vehicle/i.test(obs.domain) &&
+    mayPopulateFromVision(obs.brand, { allowMedium: true })
+  ) {
+    setFact(facts, "vehicleMake", obs.brand.value, "IMAGE", obs.brand.confidence);
+  }
+  if (
+    /vehicle/i.test(obs.domain) &&
+    mayPopulateFromVision(obs.model, { allowMedium: true })
+  ) {
+    setFact(facts, "vehicleModel", obs.model.value, "IMAGE", obs.model.confidence);
+  }
 
   const conditionMapped = mapVisibleConditionToListing(obs.visibleCondition);
   if (conditionMapped) {
@@ -283,6 +299,26 @@ export function adaptVisionObservationToListing(
 
   // Apply structured vision domain facts (cards etc.) into extras — not Attr dumps
   listingFill = applyAwhinaDomainKnowledge(applyVisionDomainFacts(obs, listingFill));
+  // Preserve a high-confidence visual object class as canonical evidence. The
+  // shared ontology—not a domain-specific branch—then selects schema/category.
+  if (mayPopulateFromVision(obs.objectType, { allowMedium: true })) {
+    const objectType = normalizeAwhinaObjectType(
+      `objectType:${obs.objectType.value}`
+    );
+    const category = categoryForAwhinaObjectType(objectType);
+    if (objectType !== "unknown") {
+      listingFill = {
+        ...listingFill,
+        extras: [
+          ...(listingFill.extras || []).filter(
+            (entry) => !/^objectType:/i.test(entry)
+          ),
+          `objectType:${objectType}`,
+        ],
+        ...(category ? { category } : {}),
+      };
+    }
+  }
   const packagedCardProduct =
     isSealedTradingCardProductFormat(obs.productFormat?.value) ||
     isSealedTradingCardProductFormat(

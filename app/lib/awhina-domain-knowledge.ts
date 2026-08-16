@@ -13,7 +13,7 @@ export type AwhinaObjectType =
   | "boxed_hardware" | "vehicle" | "toy_vehicle" | "vehicle_part"
   | "shoes" | "clothing" | "lego_sealed_set" | "lego_loose_set"
   | "minifigure" | "toy" | "mountain_bike" | "road_bike" | "bmx"
-  | "e_bike" | "bike_part" | "unknown";
+  | "e_bike" | "bike_part" | "power_tool" | "furniture" | "unknown";
 
 export type DomainKnowledgeRule = {
   domain: string;
@@ -81,10 +81,67 @@ export const AWHINA_DOMAIN_KNOWLEDGE: readonly DomainKnowledgeRule[] = [
   { domain: "bikes", objectType: "bmx", aliases: ["bmx"], allowedAttributes: ["brand", "model", "size", "condition"], forbiddenAttributes: ["storage", "mileage"], importantListingFacts: ["price", "condition", "size"], sellerOnlyFacts: [], descriptionPriorities: ["brand", "model", "size", "condition"], identityHints: ["bmx"] },
   { domain: "bikes", objectType: "e_bike", aliases: ["e-bike", "ebike", "electric bike"], allowedAttributes: ["brand", "model", "size", "condition"], forbiddenAttributes: ["storage", "mileage"], importantListingFacts: ["price", "condition", "size"], sellerOnlyFacts: [], descriptionPriorities: ["brand", "model", "size", "condition"], identityHints: ["electric bike"] },
   { domain: "bikes", objectType: "bike_part", aliases: ["bike part", "bicycle part"], allowedAttributes: ["brand", "model", "condition"], forbiddenAttributes: ["storage", "mileage"], importantListingFacts: ["price", "condition"], sellerOnlyFacts: [], descriptionPriorities: ["brand", "model", "condition"], identityHints: ["bike part"] },
+  { domain: "tools", objectType: "power_tool", aliases: ["power tool", "drill", "circular saw", "impact driver"], allowedAttributes: ["brand", "model", "condition"], forbiddenAttributes: ["storage", "mileage"], importantListingFacts: ["price", "condition"], sellerOnlyFacts: [], descriptionPriorities: ["brand", "model", "condition"], identityHints: ["tool"] },
+  { domain: "furniture", objectType: "furniture", aliases: ["furniture", "chair", "table", "sofa", "couch", "cabinet"], allowedAttributes: ["material", "style", "condition"], forbiddenAttributes: ["storage", "mileage"], importantListingFacts: ["price", "condition"], sellerOnlyFacts: [], descriptionPriorities: ["material", "style", "condition"], identityHints: ["furniture"] },
 ] as const;
+
+const CATEGORY_BY_OBJECT_TYPE: Partial<Record<AwhinaObjectType, string>> = {
+  individual_card: "Collectibles",
+  graded_card: "Collectibles",
+  booster_pack: "Collectibles",
+  booster_box: "Collectibles",
+  booster_display: "Collectibles",
+  hobby_box: "Collectibles",
+  blaster_box: "Collectibles",
+  mega_box: "Collectibles",
+  starter_pack: "Collectibles",
+  tin: "Collectibles",
+  etb: "Collectibles",
+  sealed_set: "Collectibles",
+  card_bundle: "Collectibles",
+  lego_sealed_set: "Collectibles",
+  lego_loose_set: "Collectibles",
+  minifigure: "Collectibles",
+  toy: "Collectibles",
+  toy_vehicle: "Collectibles",
+  vehicle: "Cars",
+  phone: "Tech",
+  phone_case: "Tech",
+  headphones: "Tech",
+  charger: "Tech",
+  boxed_hardware: "Tech",
+  gaming_mouse: "Gaming",
+  console: "Gaming",
+  controller: "Gaming",
+  game: "Gaming",
+  shoes: "Fashion",
+  clothing: "Fashion",
+  mountain_bike: "Sports",
+  road_bike: "Sports",
+  bmx: "Sports",
+  e_bike: "Sports",
+  bike_part: "Sports",
+  power_tool: "Home",
+  furniture: "Home",
+};
+
+export function categoryForAwhinaObjectType(
+  objectType: AwhinaObjectType
+): string | undefined {
+  return CATEGORY_BY_OBJECT_TYPE[objectType];
+}
 
 export function normalizeAwhinaObjectType(text: string): AwhinaObjectType {
   const source = String(text || "").toLowerCase();
+  const explicit = source.match(/\bobjecttype\s*:\s*([a-z_ -]+)/i)?.[1]
+    ?.trim()
+    .replace(/[\s-]+/g, "_");
+  if (
+    explicit &&
+    AWHINA_DOMAIN_KNOWLEDGE.some((rule) => rule.objectType === explicit)
+  ) {
+    return explicit as AwhinaObjectType;
+  }
   if (/\bphone\s+case\b/.test(source)) return "phone_case";
   const rules = [...AWHINA_DOMAIN_KNOWLEDGE].sort(
     (a, b) =>

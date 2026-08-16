@@ -23,6 +23,8 @@ export type VisionObservedField = {
 
 export type VisionListingObservation = {
   domain: string;
+  /** Canonical object class; only set when supported by visible/readable evidence. */
+  objectType: VisionObservedField;
   listingType: VisionObservedField;
   itemIdentity: VisionObservedField;
   brand: VisionObservedField;
@@ -65,6 +67,7 @@ export const VISION_LISTING_OBSERVATION_SCHEMA = {
   additionalProperties: false,
   required: [
     "domain",
+    "objectType",
     "listingType",
     "itemIdentity",
     "brand",
@@ -101,6 +104,7 @@ export const VISION_LISTING_OBSERVATION_SCHEMA = {
   ],
   properties: {
     domain: { type: "string" },
+    objectType: { $ref: "#/$defs/observedField" },
     listingType: { $ref: "#/$defs/observedField" },
     itemIdentity: { $ref: "#/$defs/observedField" },
     brand: { $ref: "#/$defs/observedField" },
@@ -157,7 +161,7 @@ export const VISION_LISTING_SYSTEM = `You are Awhina's shared multimodal recogni
 
 Analyze ALL product photos together as ONE listing. Deduplicate. Return ONE structured observation.
 
-Domain: gaming | phones | vehicles | fashion | electronics | tools | trading-cards | collectibles | home | unknown
+Domain: gaming | phones | vehicles | fashion | electronics | tools | furniture | bikes | trading-cards | collectibles | home | unknown
 
 Evidence on fields: VISIBLE | READABLE | INFERRED | UNKNOWN
 Fact buckets: visibleFacts, readableFacts, inferredFacts, unknowns
@@ -186,6 +190,9 @@ IDENTITY vs ATTRIBUTES (critical):
 - Phones: model in product/model; storage is NOT identity.
 - Shoes: model/line is identity; size is attribute.
 - Vehicles: make+model is identity; transmission/colour are attributes.
+- Resolve identity as far as visible/readable evidence supports: domain → objectType → manufacturer → product family → model → variant/generation. Keep each supported level; leave uncertain levels empty rather than downgrading the whole identity or guessing.
+- objectType uses a plain stable noun such as vehicle, phone, console, controller, shoes, mountain_bike, power_tool, furniture, individual_card, graded_card, booster_box, booster_display, lego_sealed_set. Only set it when the object class itself is supported by the image.
+- For vehicles, use brand/make in brand, model/family in model or product, and variant/generation only when readable or visually distinctive at HIGH confidence. For tools, furniture, bikes and LEGO, identify the actual object type first, then preserve readable brand/model/set identifiers.
 
 Condition: VISIBLE wear only. Do NOT map uncertain / looks-clean / shiny to New or Like New. New only for sealed/unopened packaging evidence.
 listingType: physical | vehicle | digital | service | rental
@@ -205,6 +212,7 @@ export function emptyObservedField(
 export function emptyVisionObservation(): VisionListingObservation {
   return {
     domain: "unknown",
+    objectType: emptyObservedField(),
     listingType: emptyObservedField(),
     itemIdentity: emptyObservedField(),
     brand: emptyObservedField(),
@@ -277,6 +285,7 @@ export function parseVisionObservation(raw: unknown): VisionListingObservation {
   const visibleFacts = parseStringArray(o.visibleFacts);
   return {
     domain: typeof o.domain === "string" && o.domain.trim() ? o.domain.trim() : "unknown",
+    objectType: parseObservedField(o.objectType),
     listingType: parseObservedField(o.listingType),
     itemIdentity: parseObservedField(o.itemIdentity),
     brand: parseObservedField(o.brand),
