@@ -14,6 +14,7 @@ import {
   validateDescription,
   stripStructuredMetadataLeakage,
   composeConditionPredicate,
+  splitListingDescriptionSentences,
   IMPLY_CLAIMS_RE,
   CTA_PURPOSE_RE,
   SELLER_EDITOR_GUIDANCE_RE,
@@ -253,6 +254,29 @@ describe("grounded AI description writer quality gate", () => {
         facts
       )
     ).toBeNull();
+  });
+
+  it("repairs parent/product order without splitting punctuation-containing names", () => {
+    const fill: SkyAiListingFill = {
+      title:
+        "The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor Yu-Gi-Oh!",
+      listingType: "physical",
+      extras: [
+        "set:Egyptian God Cards",
+        "subject:The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor",
+      ],
+    };
+    const current =
+      "Set of three Egyptian God Cards Yu-Gi-Oh! Featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. They are being sold together as a set.";
+    const expected =
+      "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. They are being sold together as a set.";
+    expect(
+      validateAiListingDescription(current, buildDescriptionWriterFacts(fill))
+    ).toBe(expected);
+    expect(splitListingDescriptionSentences(expected)).toEqual([
+      "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor.",
+      "They are being sold together as a set.",
+    ]);
   });
 
   it("promotes photo-extracted product and card details into grounded writer facts", () => {
@@ -1941,7 +1965,7 @@ describe("authoritative description boundary regressions", () => {
     expect(description).not.toMatch(/Bundle_quantity/i);
     expect(description).not.toMatch(/:3/);
     expect(description).toBe(
-      "Set of three Yu-Gi-Oh! Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set."
+      "Set of three Yu-Gi-Oh! cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set."
     );
   });
 

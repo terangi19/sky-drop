@@ -12,6 +12,7 @@ import {
   SELLER_EDITOR_GUIDANCE_RE,
   cleanDescriptionItemName,
   removeStructuredPriceCopy,
+  splitListingDescriptionSentences,
   stripStructuredMetadataLeakage,
 } from "./awhina-listing-description";
 
@@ -56,8 +57,7 @@ const MARKETING_FILLER_RE =
   /\b(?:great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout player|legendary (?:figures|status)|perfect for|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|any .* collection)\b/i;
 
 function removeUnsupportedMarketingTail(proposed: string): string {
-  return proposed
-    .split(/(?<=[.!?])\s+/)
+  return splitListingDescriptionSentences(proposed)
     .map((sentence) =>
       sentence
         .replace(
@@ -74,6 +74,30 @@ function removeUnsupportedMarketingTail(proposed: string): string {
         )
     )
     .join(" ")
+    .trim();
+}
+
+function orderParentBeforeCollection(
+  proposed: string,
+  facts: DescriptionWriterFacts
+): string {
+  if (!facts.parentIdentity || !facts.collection) return proposed;
+  const parent = escapeWriterRegExp(facts.parentIdentity);
+  const collection = escapeWriterRegExp(facts.collection);
+  return proposed
+    .replace(
+      new RegExp(`\\b${collection}\\s+${parent}(?=\\s|[.,!?]|$)`, "gi"),
+      `${facts.parentIdentity} ${facts.collection}`
+    )
+    .replace(
+      new RegExp(
+        `(${parent}\\s+${collection})\\s+(Featuring|Including)(?=\\s)`,
+        "gi"
+      ),
+      (_match, identity: string, connector: string) =>
+        `${identity} ${connector.toLowerCase()}`
+    )
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -298,7 +322,9 @@ export function validateAiListingDescription(
   facts: DescriptionWriterFacts
 ): string | null {
   const description = stripStructuredMetadataLeakage(
-    removeStructuredPriceCopy(removeUnsupportedMarketingTail(proposed))
+    removeStructuredPriceCopy(
+      removeUnsupportedMarketingTail(orderParentBeforeCollection(proposed, facts))
+    )
   )
     .replace(/\s+/g, " ")
     .trim();
@@ -370,7 +396,7 @@ export function validateAiListingDescription(
   // writer exists to prevent. Require a second meaningful sentence when rich
   // facts are available, unless the first sentence already carries a confirmed
   // product/card detail beyond the title and condition.
-  const sentences = description.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const sentences = splitListingDescriptionSentences(description);
   const hasNamedDetail = Boolean(
     facts.extras.length ||
       Object.keys(facts.product || {}).length ||

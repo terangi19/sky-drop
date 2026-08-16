@@ -640,8 +640,26 @@ function weaveableExtras(fill: SkyAiListingFill): string[] {
     .slice(0, 6);
 }
 
+const BANG_SENTENCE_START_RE =
+  /(?<=!)\s+(?=(?:I|It|Its|They|Their|This|These|Those|The|All|Comes|Includes|Has|Battery|Pickup|Shipping|Delivery|Message|Available)\b)/;
+
+/**
+ * Split buyer prose without treating punctuation inside a proper name (for
+ * example "Brand! Product") as an automatic sentence boundary.
+ */
+export function splitListingDescriptionSentences(text: string): string[] {
+  return text
+    .split(new RegExp(`(?<=[.?])\\s+|${BANG_SENTENCE_START_RE.source}`, "i"))
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
 function capitalizeSentenceStart(text: string): string {
-  return text.replace(/(?:^|[.!?]\s+)([a-z])/g, (m) => m.toUpperCase());
+  return splitListingDescriptionSentences(text)
+    .map((sentence) =>
+      sentence.replace(/^([a-z])/, (letter) => letter.toUpperCase())
+    )
+    .join(" ");
 }
 
 function polishParagraph(text: string): string {
@@ -714,10 +732,7 @@ function collapseRepeatedAvailability(sentences: string[]): string[] {
 }
 
 function splitSentences(text: string): string[] {
-  return text
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return splitListingDescriptionSentences(text);
 }
 
 function trimToWords(text: string, max: number): string {

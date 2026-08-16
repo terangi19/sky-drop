@@ -11,6 +11,7 @@ import {
 import {
   buildListingDescriptionFromFacts,
   removeStructuredPriceCopy,
+  splitListingDescriptionSentences,
   stripStructuredMetadataLeakage,
 } from "./awhina-listing-description";
 import {
@@ -256,8 +257,7 @@ export function finalizeAwhinaListingDescription(
   description = stripStructuredMetadataLeakage(description);
   // Contact actions already exist in the listing UI; never auto-pad public
   // copy with a template CTA.
-  description = description
-    .split(/(?<=[.!?])\s+/)
+  description = splitListingDescriptionSentences(description)
     .filter(
       (sentence) =>
         !/\b(message|get in touch|feel free|send me a message|drop me a message|happy to (sort|arrange|chat|answer)|if you'?re (interested|keen)|come take a look|just message)\b/i.test(
