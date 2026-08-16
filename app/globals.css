@@ -1102,9 +1102,10 @@ select:focus-visible {
   background-color: var(--surface-2) !important;
   border-color: var(--border-subtle) !important;
 }
-:root:not(.light) #manual-listing-form input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
-:root:not(.light) #manual-listing-form textarea,
-:root:not(.light) #manual-listing-form select {
+/* :not(.sell-next-field) lets the next-required-field highlight through. */
+:root:not(.light) #manual-listing-form input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(.sell-next-field),
+:root:not(.light) #manual-listing-form textarea:not(.sell-next-field),
+:root:not(.light) #manual-listing-form select:not(.sell-next-field) {
   background-color: var(--surface-3) !important;
   border-color: var(--border-subtle) !important;
   color: var(--foreground);
@@ -3015,6 +3016,62 @@ select:focus-visible {
 .sell-workspace-chat {
   border-color: var(--border-subtle) !important;
   background: var(--surface-2) !important;
+}
+.sell-workspace-surface {
+  background: var(--surface-1);
+}
+/* Outranks the `#manual-listing-form input` theme rules above. */
+.sell-next-field,
+#manual-listing-form .sell-next-field {
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-color: color-mix(in srgb, var(--accent-primary) 58%, var(--border-subtle)) !important;
+  background-color: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-3)) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 18%, transparent);
+}
+.sell-field-mutated,
+#manual-listing-form .sell-field-mutated {
+  animation: sellFieldMutated 850ms ease-out both;
+}
+@keyframes sellFieldMutated {
+  0% {
+    border-color: var(--accent-primary);
+    background-color: color-mix(in srgb, var(--accent-primary) 14%, var(--surface-3));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+.sell-primary-action {
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 70%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent-primary) 20%, transparent);
+}
+.sell-active-action {
+  border-color: color-mix(in srgb, var(--accent-primary) 35%, var(--border-subtle)) !important;
+  background-color: color-mix(in srgb, var(--accent-primary) 5%, var(--surface-2)) !important;
+}
+.sell-workspace-status {
+  border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-primary) 4%, var(--surface-1));
+}
+.sell-workspace-chat textarea:focus {
+  border-color: color-mix(in srgb, var(--accent-primary) 58%, var(--border-subtle)) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 14%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sell-field-mutated,
+  #manual-listing-form .sell-field-mutated {
+    animation: none;
+    border-color: var(--accent-primary) !important;
+    background-color: color-mix(in srgb, var(--accent-primary) 7%, var(--surface-3)) !important;
+  }
+  .sell-primary-action,
+  .sell-next-field,
+  #manual-listing-form .sell-next-field,
+  .sell-workspace-chat textarea:focus {
+    box-shadow: none;
+  }
 }
 :root.light .sell-workspace-chat,
 :root.light .awhina-listing-workspace-chat {

@@ -24,6 +24,11 @@ type Props = {
   compactEmpty?: boolean;
   /** One compact benefit line under the photo strip (workspace only — don't spam). */
   benefitHint?: string;
+  /**
+   * Photos stop being the next action once a draft exists — the capture CTA
+   * drops to a secondary surface so Review/Publish owns the illumination.
+   */
+  secondaryCta?: boolean;
 };
 
 export default function SellPhotoUpload({
@@ -37,6 +42,7 @@ export default function SellPhotoUpload({
   cameraFirst = false,
   enableDrop = false,
   compactEmpty = false,
+  secondaryCta = false,
 }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -105,9 +111,9 @@ export default function SellPhotoUpload({
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
-            className={`flex flex-col items-center justify-center rounded-2xl border border-dashed text-center transition duration-150 ${
+            className={`flex flex-col items-center justify-center rounded-2xl border text-center transition duration-150 ${
               compactEmpty ? "min-h-0 px-2.5 py-2 sm:px-5 sm:py-6" : "min-h-[14rem] px-5 py-10 sm:min-h-[16rem]"
-            } ${dropClass}`}
+            } ${compactEmpty ? "border-[var(--accent-primary)]/40 bg-[var(--surface-2)]" : "border-dashed"} ${dropClass}`}
           >
             {!compactEmpty ? (
               <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--muted)]">
@@ -144,7 +150,13 @@ export default function SellPhotoUpload({
               <button
                 type="button"
                 onClick={openCamera}
-                className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-[var(--accent-primary)] px-3 py-2.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:px-4"
+                className={`flex min-h-[48px] flex-1 items-center justify-center rounded-xl px-3 py-2.5 text-sm transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:px-4 ${
+                  secondaryCta
+                    ? "border border-[var(--border-strong)] bg-[var(--surface-3)] font-medium text-[var(--foreground)] hover:bg-[var(--surface-hover)]"
+                    : `bg-[var(--accent-primary)] font-semibold text-white hover:bg-[var(--accent-hover)] ${
+                        compactEmpty ? "sell-primary-action" : ""
+                      }`
+                }`}
               >
                 Take Photo
               </button>

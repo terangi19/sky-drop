@@ -21,7 +21,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Session restore can stall when IndexedDB is blocked or slow. Stop blocking
+    // the UI after a short wait; the listener below still applies the real user.
+    const restoreTimeout = window.setTimeout(() => setLoading(false), 3000);
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      window.clearTimeout(restoreTimeout);
       setUser(currentUser);
       setLoading(false);
     });
@@ -33,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
     return () => {
+      window.clearTimeout(restoreTimeout);
       unsubscribe();
       unsubscribeBroadcast();
       resetAuthReadyCache();

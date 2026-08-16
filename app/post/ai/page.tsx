@@ -34,6 +34,7 @@ import { finalizeAwhinaListingDescription } from "../../lib/awhina-listing-compo
 import {
   buildConfirmedListingContext,
   markProvenance,
+  restoreListingDraftProvenance,
   type ListingFieldProvenance,
   type ListingFieldProvenanceMap,
   type ListingDraftFormSnapshot,
@@ -253,6 +254,8 @@ export default function AIPostPage() {
   /** Mobile workspace: conversation is primary; listing is the draft pane */
   const [mobileWorkspaceTab, setMobileWorkspaceTab] = useState<"chat" | "listing">("chat");
   const [liveFieldNotes, setLiveFieldNotes] = useState<string[]>([]);
+  /** Only populated after applyFill both applies and persists the canonical mutation. */
+  const [mutatedFieldKeys, setMutatedFieldKeys] = useState<string[]>([]);
   /** Manual form opens via Edit details — default clean preview when draft exists */
   const [showManualEditor, setShowManualEditor] = useState(false);
   /** Review is intentionally distinct from editing: preview first, then publish. */
@@ -568,6 +571,24 @@ export default function AIPostPage() {
   })();
 
   const detailsRemaining = listingReadiness.missing.length;
+  const normalizedNextSlot = String(progressNextSlot || "").replace(/[_\s-]/g, "").toLowerCase();
+  const nextSlotFieldMap: Record<string, string> = {
+    year: "vehicleYear",
+    odometer: "vehicleOdometer",
+    transmission: "vehicleTransmission",
+    fuel: "vehicleFuelType",
+    colour: "vehicleColour",
+    generation: "vehicleGeneration",
+    rentalrate: "price",
+    servicerate: "price",
+  };
+  const isNextField = (field: string) =>
+    (nextSlotFieldMap[normalizedNextSlot] || normalizedNextSlot) ===
+    field.replace(/[_\s-]/g, "").toLowerCase();
+  const fieldAttentionClass = (field: string) =>
+    `${isNextField(field) ? "sell-next-field" : ""} ${
+      mutatedFieldKeys.includes(field) ? "sell-field-mutated" : ""
+    }`.trim();
 
   const isBuildingListing =
     !editId &&
@@ -680,6 +701,7 @@ export default function AIPostPage() {
 
   const resetLocalListingSession = useCallback(() => {
     draftIdRef.current = createListingDraftId();
+    fieldProvenanceRef.current = {};
     setFieldProvenance({});
     setTitle("");
     setDescription("");
@@ -772,13 +794,15 @@ export default function AIPostPage() {
       if (stored.stockQuantity) setStockQuantity(String(stored.stockQuantity));
       if (stored.serviceDuration) setServiceDuration(String(stored.serviceDuration));
       if (stored.extras?.length) setDraftExtras(stored.extras.map(String));
-      // Preserve USER provenance so hydrate does not look like a fresh Awhina fill
-      const keys = Object.keys(stored).filter(
-        (k) => k !== "extras" && stored[k as keyof typeof stored]
-      ) as (keyof ListingDraftFormSnapshot)[];
-      if (keys.length) {
-        setFieldProvenance((prev) => markProvenance(prev, keys, "USER"));
-      }
+      // Ownership is durable: an AI/vision title must remain rewriteable after
+      // refresh, while explicit seller edits keep their USER lock. Older drafts
+      // have no stamps, so leave them unknown/AI-eligible rather than locking
+      // every stored value as USER.
+      const restoredProvenance = restoreListingDraftProvenance(
+        stored.fieldProvenance
+      );
+      fieldProvenanceRef.current = restoredProvenance;
+      setFieldProvenance(restoredProvenance);
     }
     setDraftHydrated(true);
   }, []);
@@ -840,6 +864,7 @@ export default function AIPostPage() {
     syncListingDraftToSkyAi({
       ...buildConfirmedListingContext(snapshot, fieldProvenance),
       draftId: draftIdRef.current,
+      fieldProvenance,
     });
   }, [
     draftHydrated,
@@ -897,6 +922,7 @@ export default function AIPostPage() {
     // Explicit NEW sell: clear prior draft — do not keep stale price/year/vehicle fields
     if (replaceDraft) {
       clearListingDraftFromSkyAi();
+      fieldProvenanceRef.current = {};
       setFieldProvenance({});
       setTitle("");
       setDescription("");
@@ -1021,6 +1047,7 @@ export default function AIPostPage() {
     maybeMark("rentalMinTenancy", merged.rentalMinTenancy);
     maybeMark("stockQuantity", merged.stockQuantity);
     maybeMark("serviceDuration", merged.serviceDuration);
+    let persistedProvenance = fieldProvenanceRef.current;
     if (filledKeys.length) {
       const defaultProv = opts?.defaultProvenance || "AWHINA";
       // Intelligence merge stamps (USER_CORRECTED etc.) beat default AWHINA/IMAGE
@@ -1042,17 +1069,21 @@ export default function AIPostPage() {
           }
         }
       }
-      setFieldProvenance((prev) => {
-        let next = markProvenance(prev, filledKeys, defaultProv);
-        for (const key of filledKeys) {
-          const o = overrides[key];
-          if (o) next = { ...next, [key]: o };
-        }
-        for (const [k, v] of Object.entries(overrides)) {
-          if (v) next = { ...next, [k as keyof ListingDraftFormSnapshot]: v };
-        }
-        return next;
-      });
+      let next = markProvenance(
+        fieldProvenanceRef.current,
+        filledKeys,
+        defaultProv
+      );
+      for (const key of filledKeys) {
+        const o = overrides[key];
+        if (o) next = { ...next, [key]: o };
+      }
+      for (const [k, v] of Object.entries(overrides)) {
+        if (v) next = { ...next, [k as keyof ListingDraftFormSnapshot]: v };
+      }
+      persistedProvenance = next;
+      fieldProvenanceRef.current = next;
+      setFieldProvenance(next);
     }
 
     /** Manual USER facts stay authoritative — fill may still rewrite unlocked fields (e.g. description). */
@@ -1130,7 +1161,10 @@ export default function AIPostPage() {
       .map(([key]) => key);
     let persisted = false;
     if (ok && changedKeys.length > 0) {
-      syncListingDraftToSkyAi(merged);
+      syncListingDraftToSkyAi({
+        ...merged,
+        fieldProvenance: persistedProvenance,
+      });
       const confirmed = readListingDraftFromSkyAi();
       persisted = changedKeys.every(
         (key) =>
@@ -1152,6 +1186,10 @@ export default function AIPostPage() {
       if (notes.length) {
         setLiveFieldNotes(notes.slice(0, 5).map((n) => `${n} ✓`));
         window.setTimeout(() => setLiveFieldNotes([]), 3200);
+      }
+      if (persisted && changedKeys.length > 0) {
+        setMutatedFieldKeys(changedKeys);
+        window.setTimeout(() => setMutatedFieldKeys([]), 850);
       }
       // Quiet draft update — stay on conversation; listing pane reflects changes live
       setSkyChatOpen(true);
@@ -2478,6 +2516,7 @@ export default function AIPostPage() {
             <SellPhotoUpload
               className="mb-0"
               cameraFirst
+              secondaryCta={hasDraftContent || isReadyToReview}
               enableDrop={AWHINA_VISION_LISTING_UI_ENABLED}
               ctaTitle={
                 photoSubject
@@ -2619,7 +2658,7 @@ export default function AIPostPage() {
           id="manual-listing-form"
           className={`${!editId && !showManualEditor ? "hidden" : "mt-2 block"}`}
         >
-        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-2)] p-4 sm:p-5">
+        <div className="sell-workspace-surface rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-2)] p-4 sm:p-5">
         {!editId && showManualEditor && (
           <div className="mb-5 flex items-center justify-between gap-3">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">Listing details</p>
@@ -2690,7 +2729,7 @@ export default function AIPostPage() {
                 onChange={(e) => handleTitleChange(e.target.value)}
                 aria-label="Listing title"
                 aria-describedby={validationErrors.title ? "title-error" : "title-count"}
-                className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition focus:border-[var(--accent-primary)]/45 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
+                className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition focus:border-[var(--accent-primary)]/45 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${fieldAttentionClass("title")} ${
                   validationErrors.title ? "border-red-500/40 bg-red-500/5" : "border-[var(--border-subtle)] bg-[var(--surface-3)]"
                 }`}
                 placeholder="What are you selling?"
@@ -2711,7 +2750,7 @@ export default function AIPostPage() {
                 <select
                   value={category}
                   onChange={(e) => { setCategory(e.target.value); markField("category"); }}
-                  className="w-full cursor-pointer appearance-none rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-3)] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent-primary)]/45 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  className={`w-full cursor-pointer appearance-none rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-3)] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent-primary)]/45 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${fieldAttentionClass("category")}`}
                 >
                   <option value="" className="bg-[var(--surface-2)] text-[var(--muted)]">Select category</option>
                   {categoriesForListingType(listingType).map((c) => (
@@ -2722,7 +2761,7 @@ export default function AIPostPage() {
               {(listingType === "physical" || listingType === "vehicle") && (
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-[var(--muted)]">Condition</label>
-                  <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Condition">
+                  <div className={`grid grid-cols-2 gap-1.5 rounded-xl ${fieldAttentionClass("condition")}`} role="group" aria-label="Condition">
                     {[
                       ["New", "New"],
                       ["Used - Like New", "Like new"],
@@ -2757,7 +2796,7 @@ export default function AIPostPage() {
                   rows={4}
                   aria-label="Listing description"
                   aria-describedby={validationErrors.description ? "description-error" : "description-count"}
-                  className={`w-full resize-none rounded-xl border px-3.5 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition focus:border-[var(--accent-primary)]/45 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
+                  className={`w-full resize-none rounded-xl border px-3.5 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition focus:border-[var(--accent-primary)]/45 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${fieldAttentionClass("description")} ${
                     validationErrors.description ? "border-red-500/40 bg-red-500/5" : "border-[var(--border-subtle)] bg-[var(--surface-3)]"
                   }`}
                   placeholder="Describe your item…"
@@ -2876,7 +2915,7 @@ export default function AIPostPage() {
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0" className={`w-full rounded-xl pl-8 pr-20 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 hover:bg-white/[0.04] focus:border-sky-500/60 ${validationErrors.price ? 'bg-red-500/10 focus:ring-red-500/20' : 'bg-white/[0.03] focus:ring-sky-500/20'}`} />
+                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0" className={`w-full rounded-xl pl-8 pr-20 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 hover:bg-white/[0.04] focus:border-sky-500/60 ${fieldAttentionClass("price")} ${validationErrors.price ? 'bg-red-500/10 focus:ring-red-500/20' : 'bg-white/[0.03] focus:ring-sky-500/20'}`} />
                   <button
                     type="button"
                     onClick={fetchPriceSuggestion}
@@ -2926,7 +2965,7 @@ export default function AIPostPage() {
             {(listingType === "physical" || listingType === "wanted") && (
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Location</label>
-              <input type="text" value={location} onChange={(e) => handleLocationChange(e.target.value)} placeholder="e.g., Auckland, Wellington, Christchurch" className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 hover:bg-white/[0.04]" />
+              <input type="text" value={location} onChange={(e) => handleLocationChange(e.target.value)} placeholder="e.g., Auckland, Wellington, Christchurch" className={`w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 hover:bg-white/[0.04] ${fieldAttentionClass("location")}`} />
               <p className="text-[10px] text-[var(--muted)]">City or region helps buyers find your item</p>
             </div>
             )}
@@ -3434,11 +3473,16 @@ export default function AIPostPage() {
                   : "flex"
             }`}
           >
-            <div className="mb-2 flex items-center gap-2 px-0.5">
+            <div className="sell-workspace-status mb-2 flex items-center gap-2 rounded-lg border px-2.5 py-2">
               <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--accent-primary)]/15 text-[10px] text-[var(--accent-star)]" aria-hidden>
                 ✦
               </span>
-              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">Āwhina</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--foreground)]">Āwhina</span>
+              <span className="min-w-0 truncate text-[10px] text-[var(--muted)]">
+                {hasDraftContent && awhinaIsAsking && progressNextLabel
+                  ? `Needs ${progressNextLabel}`
+                  : "Build your listing"}
+              </span>
               {awhinaIsAsking ? (
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)]" aria-hidden />
               ) : null}

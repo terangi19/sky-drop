@@ -59,7 +59,7 @@ export default function SellEmptyHero({
           <button
             type="button"
             onClick={onFocusAwhina}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition duration-150 hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            className="sell-active-action inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border bg-[var(--surface-2)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition duration-150 hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--accent-primary)]/15 text-[10px] text-[var(--accent-star)]" aria-hidden>
               ✦

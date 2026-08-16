@@ -109,7 +109,7 @@ export default function SellListingPreviewCard({
             <button
               type="button"
               onClick={onPublish}
-              className="hidden min-h-[44px] items-center justify-center rounded-xl bg-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] lg:inline-flex"
+              className="sell-primary-action hidden min-h-[44px] items-center justify-center rounded-xl bg-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] lg:inline-flex"
             >
               Publish listing
             </button>
@@ -117,7 +117,7 @@ export default function SellListingPreviewCard({
             <button
               type="button"
               onClick={onReview}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              className="sell-primary-action inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white transition duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               Review
             </button>
