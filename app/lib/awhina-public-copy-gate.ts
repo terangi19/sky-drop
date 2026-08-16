@@ -202,8 +202,16 @@ export function repairCardProductLineOrder(raw: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+const SEALED_CARD_PRODUCT_FORMAT_RE =
+  /\b(?:booster\s*box|hobby\s*box|blaster\s*box|mega\s*box|booster\s*pack|multi\s*pack|starter\s*pack|sealed\s*set|\btin\b|\bpack\b|\bbox\b)\b/i;
+
+export function isSealedTradingCardProductFormat(value: string | undefined): boolean {
+  return Boolean(value && SEALED_CARD_PRODUCT_FORMAT_RE.test(value));
+}
+
 /**
  * Compose a trading-card / collectible title from structured facts — never brand alone.
+ * Sealed products use format nouns (booster box, pack, tin) instead of "trading card".
  */
 export function composeTradingCardTitle(facts: {
   playerName?: string;
@@ -216,17 +224,38 @@ export function composeTradingCardTitle(facts: {
   serialNumber?: string;
   grader?: string;
   grade?: string;
+  productFormat?: string;
+  league?: string;
+  season?: string;
+  quantity?: string;
 }): string {
   const parts: string[] = [];
-  if (facts.year) parts.push(facts.year);
+  const sealed = isSealedTradingCardProductFormat(facts.productFormat);
+  if (facts.season) parts.push(facts.season);
+  else if (facts.year) parts.push(facts.year);
   if (facts.playerName) parts.push(repairCardProductLineOrder(facts.playerName));
   else if (facts.team) parts.push(facts.team);
 
   const line = normalizeTradingCardProductLine(facts.manufacturer, facts.productLine);
   if (line && !parts.join(" ").toLowerCase().includes(line.toLowerCase())) {
     parts.push(line);
+  }
+
+  if (
+    facts.league &&
+    !parts.join(" ").toLowerCase().includes(facts.league.toLowerCase())
+  ) {
+    parts.push(facts.league);
+  }
+
+  if (
+    sealed &&
+    facts.productFormat &&
+    !parts.join(" ").toLowerCase().includes(facts.productFormat.toLowerCase())
+  ) {
+    parts.push(facts.productFormat.trim());
   } else if (!parts.length && line) {
-    // Brand/line alone is weak — prefer soft category noun
+    // Brand/line alone is weak for a single card — soft category noun
     parts.push(`${line} trading card`);
   }
 
@@ -236,20 +265,28 @@ export function composeTradingCardTitle(facts: {
     .trim();
   // Don't re-append product-line short names already covered by the atomic set
   if (
+    !sealed &&
     parallelBits &&
     !parts.join(" ").toLowerCase().includes(parallelBits.toLowerCase()) &&
     !(line && line.toLowerCase().includes(parallelBits.toLowerCase()))
   ) {
     parts.push(parallelBits);
   }
-  if (facts.serialNumber) parts.push(`#${facts.serialNumber.replace(/^#/, "")}`);
-  if (facts.grader && facts.grade) {
+  if (!sealed && facts.serialNumber) {
+    parts.push(`#${facts.serialNumber.replace(/^#/, "")}`);
+  }
+  if (!sealed && facts.grader && facts.grade) {
     parts.push(`${facts.grader.toUpperCase()} ${facts.grade}`);
   }
 
   const title = repairCardProductLineOrder(parts.join(" ").replace(/\s+/g, " ").trim());
-  if (!title) return "Trading card";
-  if (LONE_MANUFACTURER_RE.test(title)) return `${title} trading card`;
+  if (!title) return sealed ? "Sealed trading-card product" : "Trading card";
+  if (LONE_MANUFACTURER_RE.test(title)) {
+    if (sealed && facts.productFormat) {
+      return `${title} ${facts.productFormat.trim()}`.slice(0, 120);
+    }
+    return `${title} trading card`;
+  }
   return title.slice(0, 120);
 }
 
@@ -267,6 +304,10 @@ export function extractTradingCardFactsFromExtras(
   serialNumber?: string;
   grader?: string;
   grade?: string;
+  productFormat?: string;
+  league?: string;
+  season?: string;
+  quantity?: string;
 } {
   const out: ReturnType<typeof extractTradingCardFactsFromExtras> = {};
   for (const raw of extras || []) {
@@ -286,6 +327,14 @@ export function extractTradingCardFactsFromExtras(
       out.parallelColour = val;
     } else if (key === "serial" || key === "serialnumber" || key === "serial_number") {
       out.serialNumber = val;
+    } else if (key === "productformat" || key === "product_format" || key === "format") {
+      out.productFormat = val;
+    } else if (key === "league" || key === "franchise") {
+      out.league = val;
+    } else if (key === "season") {
+      out.season = val;
+    } else if (key === "quantity" || key === "qty") {
+      out.quantity = val;
     } else if (key === "grade") {
       const gm = val.match(/^(psa|bgs|cgc|sgc)\s*(.+)$/i);
       if (gm) {

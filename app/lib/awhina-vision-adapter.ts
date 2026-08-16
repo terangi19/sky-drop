@@ -298,6 +298,18 @@ export function adaptVisionObservationToListing(
   if (obs.colour?.value && mayPopulateFromVision(obs.colour, { allowMedium: true })) {
     cardFacts.parallelColour = cardFacts.parallelColour || obs.colour.value;
   }
+  if (obs.productFormat?.value && mayPopulateFromVision(obs.productFormat, { allowMedium: true })) {
+    cardFacts.productFormat = cardFacts.productFormat || obs.productFormat.value;
+  }
+  if (obs.league?.value && mayPopulateFromVision(obs.league, { allowMedium: true })) {
+    cardFacts.league = cardFacts.league || obs.league.value;
+  }
+  if (obs.season?.value && mayPopulateFromVision(obs.season, { allowMedium: true })) {
+    cardFacts.season = cardFacts.season || obs.season.value;
+  }
+  if (obs.quantity?.value && mayPopulateFromVision(obs.quantity, { allowMedium: true })) {
+    cardFacts.quantity = cardFacts.quantity || obs.quantity.value;
+  }
 
   const richerCardTitle = composeTradingCardTitle(cardFacts);
   const rawIdentity =
@@ -326,15 +338,23 @@ export function adaptVisionObservationToListing(
     displayIdentity = obs.displayIdentity.trim();
   }
 
-  // Prefer structured card title over lone manufacturer / soft category
+  // Prefer structured card/product title over lone manufacturer / soft category.
+  // Keep a specific sealed-product displayIdentity when vision already named it.
   if (
-    domain === "TRADING_CARD" &&
     richerCardTitle &&
     assessTitleQuality(richerCardTitle).ok &&
-    (!assessTitleQuality(displayIdentity).ok ||
-      assessTitleQuality(displayIdentity).reason === "lone_manufacturer")
+    (domain === "TRADING_CARD" || packagedCardProduct)
   ) {
-    displayIdentity = richerCardTitle;
+    const currentQuality = assessTitleQuality(displayIdentity);
+    const shouldReplace =
+      !currentQuality.ok ||
+      currentQuality.reason === "lone_manufacturer" ||
+      (!packagedCardProduct &&
+        /trading card$/i.test(displayIdentity) &&
+        !/trading card$/i.test(richerCardTitle));
+    if (shouldReplace) {
+      displayIdentity = richerCardTitle;
+    }
   }
 
   const userTitleLocked =

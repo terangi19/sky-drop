@@ -26,6 +26,7 @@ import {
 import { clearAllListingDraftCacheForTests } from "./awhina-listing-fill-tools";
 import { enrichObservationWithKnowledge } from "./awhina-vision-knowledge";
 import { retrieveKnowledgePack } from "./awhina-knowledge-packs";
+import { composeTradingCardTitle } from "./awhina-public-copy-gate";
 
 function field(
   value: string,
@@ -108,8 +109,22 @@ describe("identity scenarios", () => {
     expect(adapted.listingFill.title).toBe("Topps Premier League Booster Box");
     expect(adapted.listingFill.condition).toBe("New");
     expect(adapted.foundReply).toMatch(/Topps Premier League Booster Box/i);
+    expect(adapted.foundReply).not.toMatch(/player'?s name/i);
     expect(adapted.missingPrompts).not.toContain("identity");
     expect(adapted.listingFill.extras).toContain("productFormat:booster box");
+  });
+
+  it("does not collapse manufacturer-only sealed facts into Topps trading card", () => {
+    expect(
+      composeTradingCardTitle({
+        manufacturer: "Topps",
+        league: "Premier League",
+        productFormat: "booster box",
+      })
+    ).toBe("Topps Premier League booster box");
+    expect(composeTradingCardTitle({ manufacturer: "Topps" })).toBe(
+      "Topps trading card"
+    );
   });
 
   it("PS5 multi-photo → one PlayStation 5 listing", () => {
@@ -128,7 +143,7 @@ describe("identity scenarios", () => {
     expect(adapted.listingFill.listingType).toBe("physical");
     expect(adapted.listingFill.category).toMatch(/Gaming/i);
     expect(adapted.displayIdentity).toMatch(/PlayStation 5/i);
-    expect(adapted.foundReply).toMatch(/Āwhina found it/i);
+    expect(adapted.foundReply).toMatch(/PlayStation 5/i);
   });
 
   it("iPhone / Samsung / Nike / sofa / drill / card / BMW", () => {

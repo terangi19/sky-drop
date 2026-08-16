@@ -2,7 +2,8 @@
  * Generic attribute-vs-identity composition.
  *
  * Brand + grade / size / storage / transmission alone ≠ item identity.
- * Trading cards need subject (player/character); phones need model; cars need make+model.
+ * Trading cards need subject (player/character) unless the photo is a sealed
+ * product format (booster box, pack, tin, etc.); phones need model; cars need make+model.
  * No product-name hardcodes — rules are role-based.
  */
 
@@ -66,6 +67,15 @@ const CARD_CATEGORY_RE =
   /\b(trading\s*card|sports?\s*card|football\s*card|soccer\s*card|basketball\s*card|baseball\s*card|hockey\s*card|pokemon\s*card|tcg|rookie\s*card)\b/i;
 const PRODUCT_LINE_BRANDISH =
   /\b(panini|topps|fleer|upper\s*deck|bowman|donruss|prizm|select|optic|chrome|mosaic|pokemon|yugioh|yu-gi-oh)\b/i;
+const SEALED_CARD_PRODUCT_FORMAT_RE =
+  /\b(?:booster\s*box|hobby\s*box|blaster\s*box|mega\s*box|booster\s*pack|multi\s*pack|starter\s*pack|sealed\s*set|\btin\b|\bpack\b|\bbox\b)\b/i;
+
+function sealedTradingCardFormatFromFill(
+  fill: Partial<SkyAiListingFill>
+): string | undefined {
+  const format = hasExtra(fill, "productFormat:") || hasExtra(fill, "format:");
+  return format && SEALED_CARD_PRODUCT_FORMAT_RE.test(format) ? format : undefined;
+}
 
 /**
  * Tokens that are attributes alone — NOT product model digits (PlayStation 5, iPhone 15).
@@ -256,6 +266,24 @@ function partsFromFill(fill: Partial<SkyAiListingFill>): SemanticIdentityPart[] 
   if (subject) {
     parts.push({ value: subject, role: "core", kind: "subject", confidence: "HIGH" });
   }
+  const productFormat = hasExtra(fill, "productFormat:") || hasExtra(fill, "format:");
+  if (productFormat) {
+    const sealed = SEALED_CARD_PRODUCT_FORMAT_RE.test(productFormat);
+    parts.push({
+      value: productFormat,
+      role: sealed ? "core" : "attribute",
+      kind: "product",
+      confidence: "HIGH",
+    });
+  }
+  const league = hasExtra(fill, "league:") || hasExtra(fill, "franchise:");
+  if (league) {
+    parts.push({ value: league, role: "attribute", kind: "set" });
+  }
+  const season = hasExtra(fill, "season:");
+  if (season) {
+    parts.push({ value: season, role: "attribute", kind: "year" });
+  }
   const set = hasExtra(fill, "set:");
   if (set) {
     parts.push({ value: set, role: "attribute", kind: "set" });
@@ -342,7 +370,11 @@ function hasStrongCore(parts: SemanticIdentityPart[], domain: AwhinaFactDomain):
   if (!cores.length) return false;
 
   if (domain === "TRADING_CARD") {
-    return cores.some((p) => p.kind === "subject" && p.value.length >= 2);
+    if (cores.some((p) => p.kind === "subject" && p.value.length >= 2)) return true;
+    // Sealed pack/box/tin identity does not need a player/character.
+    return cores.some(
+      (p) => p.kind === "product" && SEALED_CARD_PRODUCT_FORMAT_RE.test(p.value)
+    );
   }
   if (domain === "VEHICLE") {
     const hasMake = parts.some(
@@ -504,17 +536,19 @@ export function assessIdentityCompleteness(input: {
     if (malformed) notes.push("malformed_attribute_identity");
 
     if (domain === "TRADING_CARD") {
-      const knownBits = [attrSnippet, cat].filter(Boolean).join(" ");
+      const sealedFormat = sealedTradingCardFormatFromFill(fill);
+      const knownBits = [attrSnippet, sealedFormat || cat].filter(Boolean).join(" ");
       knownSummary = knownBits
         ? `${articleFor(knownBits)} ${knownBits}`.replace(/^an\s+([bcdfghjklmnpqrstvwxyz])/i, "a $1")
         : `a ${cat}`;
-      // Fix article: "a PSA 10…" 
       knownSummary = attrSnippet
-        ? `${articleFor(attrSnippet)} ${attrSnippet} ${cat}`.replace(/\s+/g, " ")
-        : `a ${cat}`;
-      missingCoreHint = "player or character name";
-      missingCoreQuestion =
-        "I can't confidently read the player's name — who is it?";
+        ? `${articleFor(attrSnippet)} ${attrSnippet} ${sealedFormat || cat}`.replace(/\s+/g, " ")
+        : `a ${sealedFormat || cat}`;
+      if (!sealedFormat) {
+        missingCoreHint = "player or character name";
+        missingCoreQuestion =
+          "I can't confidently read the player's name — who is it?";
+      }
     } else if (domain === "PHONE") {
       const brand = parts.find((p) => p.kind === "brand")?.value;
       knownSummary = [attrSnippet, brand, cat].filter(Boolean).join(" ") || cat;
@@ -542,16 +576,28 @@ export function assessIdentityCompleteness(input: {
     }
   }
 
-  // Completeness for cards: subject required
+  // Completeness for cards: subject required unless this is a sealed product.
+  const sealedFormat = sealedTradingCardFormatFromFill(fill);
+  const needsSubject = domainNeedsSubject(domain) && !sealedFormat;
   const isComplete =
     strong &&
-    (!domainNeedsSubject(domain) ||
+    (!needsSubject ||
       parts.some((p) => p.kind === "subject" && p.role === "core"));
 
-  if (domainNeedsSubject(domain) && !isComplete && !missingCoreQuestion) {
+  if (needsSubject && !isComplete && !missingCoreQuestion) {
     missingCoreHint = "player or character name";
     missingCoreQuestion =
       "I can't confidently read the player's name — who is it?";
+  }
+
+  if (strong && sealedFormat && !displayIdentity) {
+    const manufacturer = hasExtra(fill, "manufacturer:") || hasExtra(fill, "brand:");
+    const league = hasExtra(fill, "league:") || hasExtra(fill, "franchise:");
+    const set = hasExtra(fill, "set:");
+    displayIdentity = norm(
+      [manufacturer, set, league, sealedFormat].filter(Boolean).join(" ")
+    );
+    knownSummary = displayIdentity;
   }
 
   return {
