@@ -154,6 +154,48 @@ export type ListingFieldProvenanceMap = Partial<
   Record<keyof ListingDraftFormSnapshot, ListingFieldProvenance>
 >;
 
+const DRAFT_FIELD_KEYS = new Set<string>([
+  ...SEMANTIC_LISTING_FIELDS,
+  "listingType",
+  "paymentType",
+  "rentalSubType",
+  "extras",
+]);
+
+const VALID_PROVENANCE = new Set<ListingFieldProvenance>([
+  "USER",
+  "USER_CONFIRMED",
+  "USER_CORRECTED",
+  "AWHINA",
+  "IMAGE",
+  "EDITED_EXISTING_LISTING",
+  "DEFAULT_UNTOUCHED",
+]);
+
+/**
+ * Restore only known ownership stamps from storage. Legacy drafts have no
+ * stamps, so they intentionally remain AI-eligible rather than being
+ * incorrectly promoted to USER locks during hydrate.
+ */
+export function restoreListingDraftProvenance(
+  value: unknown
+): ListingFieldProvenanceMap {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  const restored: ListingFieldProvenanceMap = {};
+  for (const [key, provenance] of Object.entries(value)) {
+    if (
+      DRAFT_FIELD_KEYS.has(key) &&
+      typeof provenance === "string" &&
+      VALID_PROVENANCE.has(provenance as ListingFieldProvenance)
+    ) {
+      restored[key as keyof ListingDraftFormSnapshot] =
+        provenance as ListingFieldProvenance;
+    }
+  }
+  return restored;
+}
+
 /**
  * Build listingContext for Āwhina: only meaningful confirmed values.
  * Empty / untouched defaults are omitted (unknown).

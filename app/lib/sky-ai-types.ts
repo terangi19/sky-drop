@@ -4,6 +4,22 @@ export type SkyAiListingContext = {
    * with the draft so late photo/AI work can never apply to a replacement task.
    */
   draftId?: string;
+  /**
+   * Durable UI ownership stamps for this draft. Kept alongside the values so a
+   * hard refresh cannot turn Āwhina/vision facts into USER-locked fields.
+   */
+  fieldProvenance?: Partial<
+    Record<
+      string,
+      | "USER"
+      | "USER_CONFIRMED"
+      | "USER_CORRECTED"
+      | "AWHINA"
+      | "IMAGE"
+      | "EDITED_EXISTING_LISTING"
+      | "DEFAULT_UNTOUCHED"
+    >
+  >;
   title?: string;
   description?: string;
   category?: string;
