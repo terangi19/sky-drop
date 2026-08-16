@@ -81,6 +81,8 @@ export function detectActiveDraftCommands(message: string): ActiveDraftCommandRe
   residual = residual
     .replace(/^[,\s.;:\-–—]+|[,\s.;:\-–—]+$/g, "")
     .replace(/\b(?:and|then|also|please)\b/gi, " ")
+    // "list it for sale" → residual "for sale" is sell noise, not a product seed
+    .replace(/^(?:for\s+sale|up|now)$/i, "")
     .replace(/\s+/g, " ")
     .trim();
 

@@ -95,6 +95,7 @@ import {
 import {
   buildStartSellingPendingAction,
   classifyConfirmationReply,
+  isBareConfirmationReply,
   shouldSupersedePendingAction,
   type AwhinaPendingAction,
 } from "../lib/awhina-pending-action";
@@ -697,7 +698,13 @@ export default function SkyAiChatPanel({
           };
           awhinaSessionRef.current = echo as typeof awhinaSessionRef.current;
           setAwhinaSessionEcho(echo as never);
-        } else if (identityPending && pendingAction && (conf === "AFFIRM" || conf === "REJECT")) {
+        } else if (
+          identityPending &&
+          pendingAction &&
+          (conf === "AFFIRM" || conf === "REJECT") &&
+          // "Yes is a booster box" / "nah hobby box" must hit canonical so format facts apply.
+          isBareConfirmationReply(trimmed)
+        ) {
           setPendingImages([]);
           const userMsgIdent: ChatMessage = {
             id: `u-${Date.now()}`,

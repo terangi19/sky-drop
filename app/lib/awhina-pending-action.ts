@@ -115,6 +115,13 @@ export function classifyConfirmationReply(message: string): ConfirmationClass {
   return "NOT_CONFIRMATION";
 }
 
+/** Pure yes/no only — detailed confirmations must hit canonical to apply facts. */
+export function isBareConfirmationReply(message: string): boolean {
+  const m = (message || "").trim();
+  if (!m) return false;
+  return AFFIRM_RE.test(m) || REJECT_RE.test(m);
+}
+
 export function isActivePendingAction(
   action: AwhinaPendingAction | null | undefined
 ): boolean {

@@ -19,12 +19,14 @@ import {
   buildConfirmIdentityPendingAction,
   classifyConfirmationReply,
   clearPendingActionStoreForTests,
+  isBareConfirmationReply,
   pendingActionKey,
   resolvePendingActionTurn,
   setPendingAction,
   shouldSupersedePendingAction,
   visionObjectIdFromIdentity,
 } from "./awhina-pending-action";
+import { detectActiveDraftCommands } from "./awhina-active-draft-commands";
 import { assessObjectContinuity } from "./awhina-object-continuity";
 import type { VisionListingObservation } from "./awhina-vision-observation";
 
@@ -70,6 +72,20 @@ describe("classifyConfirmationReply — affirmatives / negatives", () => {
     for (const m of ["No", "nah", "nope", "wrong", "not right", "nah hobby box"]) {
       expect(classifyConfirmationReply(m), m).toBe("REJECT");
     }
+  });
+
+  it("marks only pure yes/no as bare confirmations", () => {
+    expect(isBareConfirmationReply("Yes")).toBe(true);
+    expect(isBareConfirmationReply("nah")).toBe(true);
+    expect(isBareConfirmationReply("Yes is a booster box")).toBe(false);
+    expect(isBareConfirmationReply("nah hobby box")).toBe(false);
+  });
+
+  it("treats list it for sale as action-only draft command", () => {
+    const detected = detectActiveDraftCommands("list it for sale");
+    expect(detected.commands).toContain("list_publish");
+    expect(detected.isActionOnly).toBe(true);
+    expect(detected.residualMessage).toBe("");
   });
 });
 
