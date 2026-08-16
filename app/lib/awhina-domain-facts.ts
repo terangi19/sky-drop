@@ -76,6 +76,8 @@ export type DomainFactSchema = {
 export type CanonicalListingObject = {
   family: ObjectDomainFamily;
   subtype: string;
+  /** Ontology identity; schemas and relevance derive from this when known. */
+  objectType?: AwhinaObjectType;
   factDomain: AwhinaFactDomain;
   brand?: string;
   title: string;
@@ -193,6 +195,19 @@ const CLOTHING_SCHEMA: DomainFactSchema = {
     { key: "size", slot: "size", required: false, highValue: true, askPriority: 80 },
     { key: "condition", slot: "condition", required: false, highValue: true, askPriority: 70 },
     { key: "price", slot: "price", required: true, highValue: true, askPriority: 90, hallucinationRisk: true },
+    { key: "location", slot: "location", required: false, highValue: true, askPriority: 60 },
+  ],
+};
+
+const SIZED_PHYSICAL_SCHEMA: DomainFactSchema = {
+  domain: "GENERIC",
+  family: "physical",
+  subtype: "sized_physical",
+  fields: [
+    { key: "title", slot: "title", required: true, highValue: true, askPriority: 100 },
+    { key: "size", slot: "size", required: false, highValue: true, askPriority: 80 },
+    { key: "price", slot: "price", required: true, highValue: true, askPriority: 90, hallucinationRisk: true },
+    { key: "condition", slot: "condition", required: false, highValue: true, askPriority: 70 },
     { key: "location", slot: "location", required: false, highValue: true, askPriority: 60 },
   ],
 };
@@ -335,6 +350,61 @@ const SEALED_TCG_OBJECT_TYPES = new Set<AwhinaObjectType>([
   "sealed_set",
 ]);
 
+/**
+ * The single crosswalk from ontology object type to workflow policy.
+ * Unknown objects retain keyword/category fallbacks below; known objects never
+ * fall through into a sibling's schema.
+ */
+const OBJECT_TYPE_POLICIES: Partial<
+  Record<AwhinaObjectType, Pick<CanonicalListingObject, "family" | "factDomain">>
+> = {
+  individual_card: { family: "trading_card", factDomain: "TRADING_CARD" },
+  graded_card: { family: "trading_card", factDomain: "TRADING_CARD" },
+  booster_pack: { family: "trading_card", factDomain: "TRADING_CARD" },
+  booster_box: { family: "trading_card", factDomain: "TRADING_CARD" },
+  booster_display: { family: "trading_card", factDomain: "TRADING_CARD" },
+  hobby_box: { family: "trading_card", factDomain: "TRADING_CARD" },
+  blaster_box: { family: "trading_card", factDomain: "TRADING_CARD" },
+  mega_box: { family: "trading_card", factDomain: "TRADING_CARD" },
+  starter_pack: { family: "trading_card", factDomain: "TRADING_CARD" },
+  tin: { family: "trading_card", factDomain: "TRADING_CARD" },
+  etb: { family: "trading_card", factDomain: "TRADING_CARD" },
+  sealed_set: { family: "trading_card", factDomain: "TRADING_CARD" },
+  card_bundle: { family: "trading_card", factDomain: "TRADING_CARD" },
+  phone: { family: "electronics", factDomain: "PHONE" },
+  phone_case: { family: "physical", factDomain: "GENERIC" },
+  console: { family: "electronics", factDomain: "GAMING" },
+  controller: { family: "electronics", factDomain: "GAMING" },
+  headphones: { family: "electronics", factDomain: "GENERIC" },
+  charger: { family: "physical", factDomain: "GENERIC" },
+  gaming_mouse: { family: "electronics", factDomain: "GAMING" },
+  game: { family: "physical", factDomain: "GAMING" },
+  boxed_hardware: { family: "physical", factDomain: "GENERIC" },
+  vehicle: { family: "vehicle", factDomain: "VEHICLE" },
+  toy_vehicle: { family: "physical", factDomain: "GENERIC" },
+  vehicle_part: { family: "physical", factDomain: "GENERIC" },
+  shoes: { family: "clothing", factDomain: "GENERIC" },
+  clothing: { family: "clothing", factDomain: "GENERIC" },
+  lego_sealed_set: { family: "physical", factDomain: "GENERIC" },
+  lego_loose_set: { family: "physical", factDomain: "GENERIC" },
+  minifigure: { family: "physical", factDomain: "GENERIC" },
+  toy: { family: "physical", factDomain: "GENERIC" },
+  mountain_bike: { family: "physical", factDomain: "GENERIC" },
+  road_bike: { family: "physical", factDomain: "GENERIC" },
+  bmx: { family: "physical", factDomain: "GENERIC" },
+  e_bike: { family: "physical", factDomain: "GENERIC" },
+  bike_part: { family: "physical", factDomain: "GENERIC" },
+};
+
+const SIZED_OBJECT_TYPES = new Set<AwhinaObjectType>([
+  "shoes",
+  "clothing",
+  "mountain_bike",
+  "road_bike",
+  "bmx",
+  "e_bike",
+]);
+
 function fillBlob(fill: Partial<SkyAiListingFill>): string {
   return [fill.title, fill.category, fill.listingType, ...(fill.extras || [])]
     .filter(Boolean)
@@ -463,33 +533,12 @@ export function resolveCanonicalListingObject(
   }
 
   const objectType = normalizeAwhinaObjectType(blob);
-  if (SEALED_TCG_OBJECT_TYPES.has(objectType)) {
+  const objectPolicy = OBJECT_TYPE_POLICIES[objectType];
+  if (objectPolicy) {
     return {
-      family: "trading_card",
+      ...objectPolicy,
       subtype: objectType,
-      factDomain: "TRADING_CARD",
-      brand,
-      title,
-      objectKey,
-      blob,
-    };
-  }
-  if (objectType === "card_bundle") {
-    return {
-      family: "trading_card",
-      subtype: "card_bundle",
-      factDomain: "TRADING_CARD",
-      brand,
-      title,
-      objectKey,
-      blob,
-    };
-  }
-  if (objectType === "individual_card" || objectType === "graded_card") {
-    return {
-      family: "trading_card",
-      subtype: objectType,
-      factDomain: "TRADING_CARD",
+      objectType,
       brand,
       title,
       objectKey,
@@ -506,6 +555,7 @@ export function resolveCanonicalListingObject(
     return {
       family: "trading_card",
       subtype: "individual_card",
+      objectType: "individual_card",
       factDomain: "TRADING_CARD",
       brand,
       title,
@@ -521,6 +571,7 @@ export function resolveCanonicalListingObject(
     return {
       family: "clothing",
       subtype: "clothing",
+      objectType: "clothing",
       factDomain: "GENERIC",
       brand,
       title,
@@ -589,6 +640,39 @@ export function getDomainFactSchema(
   fill: Partial<SkyAiListingFill>
 ): DomainFactSchema {
   const obj = resolveCanonicalListingObject(fill);
+  if (obj.objectType) {
+    if (SEALED_TCG_OBJECT_TYPES.has(obj.objectType)) return SEALED_TCG_SCHEMA;
+    if (obj.objectType === "card_bundle") return CARD_BUNDLE_SCHEMA;
+    if (
+      obj.objectType === "individual_card" ||
+      obj.objectType === "graded_card"
+    ) {
+      return TRADING_CARD_SCHEMA;
+    }
+    if (obj.objectType === "phone") {
+      return ELECTRONICS_SUBTYPE_SCHEMAS.smartphone;
+    }
+    if (obj.objectType === "console") {
+      return ELECTRONICS_SUBTYPE_SCHEMAS.console;
+    }
+    if (obj.objectType === "gaming_mouse") {
+      return ELECTRONICS_SUBTYPE_SCHEMAS.gaming_mouse;
+    }
+    if (obj.objectType === "headphones") {
+      return ELECTRONICS_SUBTYPE_SCHEMAS.headphones;
+    }
+    if (obj.objectType === "shoes" || obj.objectType === "clothing") {
+      return CLOTHING_SCHEMA;
+    }
+    if (SIZED_OBJECT_TYPES.has(obj.objectType)) return SIZED_PHYSICAL_SCHEMA;
+    if (obj.objectType === "vehicle") return VEHICLE_SCHEMA;
+    return {
+      ...GENERIC_SCHEMA,
+      domain: obj.factDomain,
+      family: obj.family,
+      subtype: obj.subtype,
+    };
+  }
   if (obj.family === "electronics") {
     return (
       ELECTRONICS_SUBTYPE_SCHEMAS[obj.subtype as ElectronicsSubtype] ||
@@ -678,6 +762,21 @@ export function isFieldRelevant(
     return slot === "title" || slot === "condition" || slot === "price";
   }
 
+  // Object-type policies win over family-level legacy fallbacks.
+  if (slot === "storage") {
+    return obj.objectType === "phone" ||
+      (obj.family === "electronics" &&
+        (obj.subtype === "smartphone" ||
+          obj.subtype === "tablet" ||
+          obj.subtype === "laptop" ||
+          obj.subtype === "storage_device"));
+  }
+  if (slot === "size") {
+    return obj.objectType
+      ? SIZED_OBJECT_TYPES.has(obj.objectType)
+      : obj.family === "clothing";
+  }
+
   // Cross-family specialist contamination
   for (const [family, slots] of Object.entries(SPECIALIST_SLOTS_BY_FAMILY)) {
     if (slots.has(slot) && obj.family !== family) {
@@ -686,18 +785,6 @@ export function isFieldRelevant(
     }
   }
 
-  // Electronics inheritance: storage only for storage-bearing subtypes
-  if (slot === "storage") {
-    return (
-      obj.family === "electronics" &&
-      (obj.subtype === "smartphone" ||
-        obj.subtype === "tablet" ||
-        obj.subtype === "laptop" ||
-        obj.subtype === "storage_device")
-    );
-  }
-
-  if (slot === "size") return obj.family === "clothing";
   if (slot === "card_set" || slot === "card_subject" || slot === "grade") {
     return (
       obj.family === "trading_card" &&

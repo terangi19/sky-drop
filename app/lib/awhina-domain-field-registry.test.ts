@@ -288,6 +288,67 @@ describe("TCG object type controls the schema", () => {
   });
 });
 
+describe("global object-type schema routing", () => {
+  it.each([
+    {
+      label: "phone",
+      fill: { title: "Apple iPhone 15", listingType: "physical" as const, category: "Tech" },
+      subtype: "phone",
+      relevant: "storage" as const,
+      irrelevant: "card_subject" as const,
+    },
+    {
+      label: "vehicle",
+      fill: { title: "Toyota Corolla", listingType: "physical" as const, category: "Cars" },
+      subtype: "vehicle",
+      relevant: "year" as const,
+      irrelevant: "storage" as const,
+    },
+    {
+      label: "clothing",
+      fill: { title: "Nike Hoodie", listingType: "physical" as const, category: "Fashion" },
+      subtype: "clothing",
+      relevant: "size" as const,
+      irrelevant: "card_subject" as const,
+    },
+    {
+      label: "bike",
+      fill: { title: "Giant Mountain Bike", listingType: "physical" as const, category: "Sports" },
+      subtype: "mountain_bike",
+      relevant: "size" as const,
+      irrelevant: "odometer" as const,
+    },
+    {
+      label: "gaming controller",
+      fill: { title: "Sony DualSense Controller", listingType: "physical" as const, category: "Gaming" },
+      subtype: "controller",
+      relevant: "price" as const,
+      irrelevant: "storage" as const,
+    },
+    {
+      label: "toy collectible",
+      fill: { title: "Star Wars Action Figure", listingType: "physical" as const, category: "Collectibles" },
+      subtype: "toy",
+      relevant: "price" as const,
+      irrelevant: "card_subject" as const,
+    },
+    {
+      label: "sealed toy collectible",
+      fill: { title: "LEGO sealed set", listingType: "physical" as const, category: "Collectibles" },
+      subtype: "lego_sealed_set",
+      relevant: "price" as const,
+      irrelevant: "grade" as const,
+    },
+  ])("$label exposes only its applicable fields", ({ fill, subtype, relevant, irrelevant }) => {
+    const object = resolveCanonicalListingObject(fill);
+    expect(object.subtype).toBe(subtype);
+    expect(isFieldRelevant(relevant, fill)).toBe(true);
+    expect(isFieldRelevant(irrelevant, fill)).toBe(false);
+    expect(computeMissingListingSlots(fill)).not.toContain(irrelevant);
+    expect(nextListingSlotQuestion(fill)?.slot).not.toBe(irrelevant);
+  });
+});
+
 describe("next-best-question + multi-fact skip", () => {
   it("mouse with price + location skips optional interrogation", () => {
     const fill = {
