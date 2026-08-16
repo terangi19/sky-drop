@@ -18,7 +18,10 @@ import {
   SELLER_EDITOR_GUIDANCE_RE,
   type ListingDescriptionQuality,
 } from "./awhina-listing-description";
-import { finalizeAwhinaListingDescription } from "./awhina-listing-composer";
+import {
+  finalizeAwhinaListingDescription,
+  finalizeAwhinaListingDescriptionAsync,
+} from "./awhina-listing-composer";
 import {
   buildDescriptionWriterFacts,
   validateAiListingDescription,
@@ -191,6 +194,71 @@ describe("grounded AI description writer quality gate", () => {
     expect(facts.collection).toMatch(/Egyptian God Cards/i);
     expect(facts.items).toMatch(/Winged Dragon of Ra/i);
     expect(JSON.stringify(facts)).not.toMatch(/bundle_quantity/i);
+  });
+
+  it("promotes photo-extracted product and card details into grounded writer facts", () => {
+    const facts = buildDescriptionWriterFacts({
+      title: "Nicolò Barella Topps Chrome",
+      listingType: "physical",
+      condition: "Used - Good",
+      extras: [
+        "subject:Nicolò Barella",
+        "set:Topps Chrome",
+        "manufacturer:Topps",
+        "serial:14/25",
+        "parallel:Gold Refractor",
+        "grade:PSA 9",
+        "colour:Midnight Black",
+        "storage:256GB",
+      ],
+    });
+    expect(facts.collectible).toMatchObject({
+      manufacturer: "Topps",
+      serialNumber: "14/25",
+      parallel: "Gold Refractor",
+      grade: "PSA 9",
+    });
+    expect(facts.product).toMatchObject({
+      colour: "Midnight Black",
+      storage: "256GB",
+    });
+    expect(facts.extras).toEqual([]);
+  });
+
+  it("rejects generic sales filler and descriptions that omit the stated condition", () => {
+    const facts = buildDescriptionWriterFacts(godCards);
+    expect(
+      validateAiListingDescription(
+        "These Egyptian God Cards are a great addition for any collector. With three available, they are perfect for your deck.",
+        facts
+      )
+    ).toBeNull();
+    expect(
+      validateAiListingDescription(
+        "Set of three Egyptian God Cards featuring Ra, Slifer and Obelisk. They are being sold together.",
+        facts
+      )
+    ).toBeNull();
+  });
+
+  it("never exposes the title + condition + location fallback when AI writing is unavailable", async () => {
+    const previousKey = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    try {
+      const final = await finalizeAwhinaListingDescriptionAsync({
+        title: "Sony DualSense Wireless Controller",
+        listingType: "physical",
+        condition: "Used - Good",
+        location: "Henderson, Auckland",
+        extras: ["Comes with charging cable"],
+      });
+      expect(final.description).toMatch(/DualSense.*good used condition/i);
+      expect(final.description).toMatch(/charging cable/i);
+      expect(final.description).not.toMatch(/Henderson|Auckland|for sale in/i);
+    } finally {
+      if (previousKey) process.env.OPENAI_API_KEY = previousKey;
+      else delete process.env.OPENAI_API_KEY;
+    }
   });
 
   it("finalize keeps validated AI prose instead of collapsing to templates", () => {

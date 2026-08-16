@@ -27,12 +27,71 @@ export type DescriptionWriterFacts = {
   quantity?: number;
   collection?: string;
   items?: string;
+  /** Named, grounded attributes the model may turn into prose. */
+  product?: {
+    brand?: string;
+    colour?: string;
+    storage?: string;
+    variant?: string;
+  };
+  /** Card-specific facts are distinct from generic product attributes. */
+  collectible?: {
+    manufacturer?: string;
+    serialNumber?: string;
+    parallel?: string;
+    parallelColour?: string;
+    grade?: string;
+    grader?: string;
+    year?: string;
+    team?: string;
+  };
   extras: string[];
   vehicle?: Record<string, string>;
 };
 
 const STRUCTURED_EXTRA_KEY_RE =
   /^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|categoryid|condition_code|conditioncode|vision_confidence|visionconfidence|provenance|field_source|fieldsource)$/i;
+const MARKETING_FILLER_RE =
+  /\b(?:great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout player|legendary (?:figures|status)|perfect for|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|any .* collection)\b/i;
+
+function removeUnsupportedMarketingTail(proposed: string): string {
+  return proposed
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) =>
+      sentence
+        .replace(
+          /,?\s*making (?:it|this) (?:a|an)\s+(?:unique|notable|great)\s+collectible(?:\s+for\s+(?:fans?|collectors?)(?:\s+and\s+collectors?)?)?\s*(?:alike)?\.?$/i,
+          "."
+        )
+        .replace(/\s{2,}/g, " ")
+        .trim()
+    )
+    .filter(
+      (sentence) =>
+        !/\b(?:enjoy seamless gaming|step up your sneaker game|experience gaming like never before)\b/i.test(
+          sentence
+        )
+    )
+    .join(" ")
+    .trim();
+}
+
+function describesKnownCondition(description: string, condition: string | undefined): boolean {
+  if (!condition) return true;
+  if (/^used\s*-\s*good$/i.test(condition)) {
+    return /\b(?:good\s+used\s+condition|used\s+(?:item|controller|card|bike|phone|shoes?|car|vehicle).*?\bgood\s+condition|good\s+condition)\b/i.test(
+      description
+    );
+  }
+  if (/^used\s*-\s*like\s+new$/i.test(condition)) {
+    return /\b(?:like[- ]new|used.*?\bnew\s+condition)\b/i.test(description);
+  }
+  if (/^used\s*-\s*fair$/i.test(condition)) {
+    return /\b(?:fair\s+used\s+condition|fair\s+condition)\b/i.test(description);
+  }
+  if (/^new$/i.test(condition)) return /\bbrand new\b/i.test(description);
+  return description.toLowerCase().includes(condition.toLowerCase());
+}
 
 export function buildDescriptionWriterFacts(fill: SkyAiListingFill): DescriptionWriterFacts {
   const vehicle = Object.fromEntries(
@@ -51,6 +110,8 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
   let quantity: number | undefined;
   let collection: string | undefined;
   let items: string | undefined;
+  const product: NonNullable<DescriptionWriterFacts["product"]> = {};
+  const collectible: NonNullable<DescriptionWriterFacts["collectible"]> = {};
   const freeformExtras: string[] = [];
 
   for (const raw of fill.extras || []) {
@@ -73,12 +134,56 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
         items = value;
         continue;
       }
-      if (STRUCTURED_EXTRA_KEY_RE.test(key)) {
-        // Useful internally, never as raw key:value writer input.
+      if (key === "brand") {
+        product.brand = value;
         continue;
       }
-      if (key === "storage" || key === "variant") {
-        freeformExtras.push(value);
+      if (key === "colour" || key === "color") {
+        product.colour = value;
+        continue;
+      }
+      if (key === "storage") {
+        product.storage = value;
+        continue;
+      }
+      if (key === "variant") {
+        product.variant = value;
+        continue;
+      }
+      if (key === "manufacturer") {
+        collectible.manufacturer = value;
+        continue;
+      }
+      if (key === "serial" || key === "serialnumber" || key === "serial_number") {
+        collectible.serialNumber = value;
+        continue;
+      }
+      if (key === "parallel") {
+        collectible.parallel = value;
+        continue;
+      }
+      if (key === "parallelcolour" || key === "parallel_colour") {
+        collectible.parallelColour = value;
+        continue;
+      }
+      if (key === "grade") {
+        collectible.grade = value;
+        continue;
+      }
+      if (key === "grader") {
+        collectible.grader = value;
+        continue;
+      }
+      if (key === "year") {
+        collectible.year = value;
+        continue;
+      }
+      if (key === "team") {
+        collectible.team = value;
+        continue;
+      }
+      if (STRUCTURED_EXTRA_KEY_RE.test(key)) {
+        // Useful internally, never as raw key:value writer input.
         continue;
       }
       continue;
@@ -93,6 +198,8 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
     quantity,
     collection,
     items,
+    product: Object.keys(product).length ? product : undefined,
+    collectible: Object.keys(collectible).length ? collectible : undefined,
     extras: freeformExtras.slice(0, 20),
     vehicle: Object.keys(vehicle).length ? vehicle : undefined,
   };
@@ -115,7 +222,7 @@ export function validateAiListingDescription(
   facts: DescriptionWriterFacts
 ): string | null {
   const description = stripStructuredMetadataLeakage(
-    removeStructuredPriceCopy(proposed)
+    removeStructuredPriceCopy(removeUnsupportedMarketingTail(proposed))
   )
     .replace(/\s+/g, " ")
     .trim();
@@ -123,6 +230,7 @@ export function validateAiListingDescription(
     description.length < 24 ||
     description.length > 900 ||
     CTA_RE.test(description) ||
+    MARKETING_FILLER_RE.test(description) ||
     METADATA_RE.test(description) ||
     BANNED_TEMPLATE_RE.test(description) ||
     SELLER_EDITOR_GUIDANCE_RE.test(description) ||
@@ -133,6 +241,7 @@ export function validateAiListingDescription(
   ) {
     return null;
   }
+  if (!describesKnownCondition(description, facts.condition)) return null;
 
   // Location and price are UI data for ordinary sale listings, not writing
   // material. Service/rental rates are intentionally handled elsewhere.
@@ -145,9 +254,19 @@ export function validateAiListingDescription(
 
   // A title with a condition/location tail is exactly the field-stitching this
   // writer exists to prevent. Require a second meaningful sentence when rich
-  // facts are available.
+  // facts are available, unless the first sentence already carries a confirmed
+  // product/card detail beyond the title and condition.
   const sentences = description.split(/(?<=[.!?])\s+/).filter(Boolean);
-  if (hasMeaningfulFacts(facts) && sentences.length < 2) return null;
+  const hasNamedDetail = Boolean(
+    facts.extras.length ||
+      Object.keys(facts.product || {}).length ||
+      Object.keys(facts.collectible || {}).length ||
+      facts.quantity ||
+      facts.collection ||
+      facts.items ||
+      facts.vehicle
+  );
+  if (hasMeaningfulFacts(facts) && sentences.length < 2 && !hasNamedDetail) return null;
   const titleWords = facts.title
     .toLowerCase()
     .split(/[^a-z0-9]+/)
@@ -197,6 +316,8 @@ Writing rules:
 - For cards, prioritize set/product, character/player, parallel, numbering, grade, quantity, and condition.
 - For electronics, bikes, clothing, and vehicles, prioritise only confirmed useful details.
 - Never mention price, location, contact actions, "for sale", marketing filler, database labels, or unsupported claims.
+- Include the supplied condition naturally whenever one is present.
+- Do not use generic selling language such as "great addition", "perfect opportunity", "enhance your", "showcase", "ideal for", "perfect for", "legendary", or "vibrant design".
 - Never emit raw metadata such as bundle_quantity:3, listing_type:physical, brand:Nike, or any key:value labels.
 - Never add facts, specifications, authenticity, working status, or condition not in JSON.`,
       },

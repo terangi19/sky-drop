@@ -273,6 +273,36 @@ export function finalizeAwhinaListingDescription(
   };
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * The asynchronous writer normally replaces this draft. If it is unavailable
+ * or rejects unsafe prose, do not expose the legacy "title + condition +
+ * location" fallback for ordinary goods.
+ */
+function removePhysicalFallbackLocation(
+  description: string,
+  fill: SkyAiListingFill
+): string {
+  if (fill.listingType && fill.listingType !== "physical") return description;
+  const location = (fill.location || fill.pickupArea || "").trim();
+  if (!location) return description;
+  return description
+    .replace(
+      new RegExp(`\\s+(?:for sale\\s+)?in\\s+${escapeRegExp(location)}(?=[.,!?]|$)`, "gi"),
+      ""
+    )
+    .replace(
+      new RegExp(`\\s+(?:shipping from|can ship from)\\s+${escapeRegExp(location)}`, "gi"),
+      " Shipping"
+    )
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([.,!?])/g, "$1")
+    .trim();
+}
+
 /**
  * Async public-copy path: templates first, then one grounded writing call.
  * Fail-open to the deterministic finalizer if the writer is unavailable.
@@ -287,13 +317,21 @@ export async function finalizeAwhinaListingDescriptionAsync(
     const description = await writeAwhinaListingDescription(finalized, {
       force: opts?.force,
     });
-    if (!description) return finalized;
+    if (!description) {
+      return {
+        ...finalized,
+        description: removePhysicalFallbackLocation(finalized.description || "", fill),
+      };
+    }
     return {
       ...finalized,
       description,
       descriptionSource: "ai",
     };
   } catch {
-    return finalized;
+    return {
+      ...finalized,
+      description: removePhysicalFallbackLocation(finalized.description || "", fill),
+    };
   }
 }
