@@ -423,7 +423,7 @@ describe("grounded AI description writer quality gate", () => {
     }
   });
 
-  it("rejects generic copy that drops supported collection or product details", () => {
+  it("requires identity facts but permits optional enrichment to stay out of prose", () => {
     const cardFacts = buildDescriptionWriterFacts(godCards);
     expect(
       validateAiListingDescription(
@@ -443,7 +443,7 @@ describe("grounded AI description writer quality gate", () => {
         "Sony DualSense Wireless Controller in good used condition. Includes the confirmed product details.",
         controllerFacts
       )
-    ).toBeNull();
+    ).toMatch(/good used condition/);
     expect(
       validateAiListingDescription(
         "Sony DualSense Wireless Controller in the Midnight Black Limited Edition variant. The controller is in good used condition.",
@@ -1625,7 +1625,7 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
       listingContext: withCond.listingFill as never,
     });
     const d4 = String(withLoc.listingFill?.description || "");
-    expect(d4).toMatch(/Auckland/i);
+    expect(d4).not.toMatch(/Auckland/i);
     expect(d4).not.toMatch(/\$12,?000|\$12000|asking|priced at/i);
     expect(d4).toMatch(/good used condition|good condition/i);
     expect(d4).not.toMatch(SELLER_LEAK);

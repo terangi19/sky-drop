@@ -16,8 +16,10 @@ import {
 } from "./awhina-listing-description";
 import {
   buildDescriptionWriterFacts,
+  runAwhinaListingDescriptionWriter,
   validateAiListingDescription,
-  writeAwhinaListingDescription,
+  type DescriptionWriterAttempt,
+  type DescriptionWriterRunOptions,
 } from "./awhina-description-writer";
 import { composeListingIdentity } from "./awhina-listing-identity";
 import {
@@ -303,35 +305,91 @@ function removePhysicalFallbackLocation(
     .trim();
 }
 
+function hasAcceptableOfflineFallback(
+  description: string,
+  fill: SkyAiListingFill
+): boolean {
+  const text = description.trim();
+  if (!text || /\b(?:standout|performance and design|perfect for|ideal for|must-have|great addition|don'?t miss out)\b/i.test(text)) {
+    return false;
+  }
+  if (/\b(?:for sale in|located in|asking\s+\$|priced at\s+\$)\b/i.test(text)) {
+    return false;
+  }
+  const normalized = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/\b(?:brand[- ]new|like[- ]new|good used condition|good condition|fair condition)\b/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  // A title or title+condition is never a useful offline public description.
+  return normalized(text) !== normalized(fill.title || "");
+}
+
+function logAsyncDescriptionOutcome(
+  attempt: DescriptionWriterAttempt,
+  fallbackSelected: boolean,
+  finalDescription: string | undefined
+): void {
+  if (process.env.NODE_ENV !== "development") return;
+  console.info("[awhina:description-finalizer]", {
+    ...attempt,
+    fallback_selected: fallbackSelected,
+    final_description: finalDescription || "",
+  });
+}
+
 /**
  * Async public-copy path: templates first, then one grounded writing call.
  * Fail-open to the deterministic finalizer if the writer is unavailable.
  */
 export async function finalizeAwhinaListingDescriptionAsync(
   fill: SkyAiListingFill,
-  opts?: { quality?: ListingDescriptionQuality; force?: boolean }
-): Promise<SkyAiListingFill> {
-  const finalized = finalizeAwhinaListingDescription(fill, opts);
-  if (finalized.descriptionSource === "user" && !opts?.force) return finalized;
-  try {
-    const description = await writeAwhinaListingDescription(finalized, {
-      force: opts?.force,
-    });
-    if (!description) {
-      return {
-        ...finalized,
-        description: removePhysicalFallbackLocation(finalized.description || "", fill),
-      };
-    }
-    return {
-      ...finalized,
-      description,
-      descriptionSource: "ai",
-    };
-  } catch {
-    return {
-      ...finalized,
-      description: removePhysicalFallbackLocation(finalized.description || "", fill),
-    };
+  opts?: {
+    quality?: ListingDescriptionQuality;
+    force?: boolean;
+    /** Test/server seam for exercising the entire writer/validator boundary. */
+    writer?: DescriptionWriterRunOptions["generateRawOutput"];
   }
+): Promise<SkyAiListingFill> {
+  // Preserve seller-owned and already-valid AI prose before attempting a
+  // rewrite. The writer is authoritative for fresh AI copy; templates are
+  // evaluated only if that attempt cannot produce valid public prose.
+  if (fill.descriptionSource === "user" && fill.description?.trim() && !opts?.force) {
+    return finalizeAwhinaListingDescription(fill, opts);
+  }
+
+  const previousValid = fill.description?.trim()
+    ? validateAiListingDescription(fill.description, buildDescriptionWriterFacts(fill))
+    : null;
+  const attempt = await runAwhinaListingDescriptionWriter(fill, {
+    force: opts?.force,
+    generateRawOutput: opts?.writer,
+  });
+  if (attempt.description) {
+    const result = { ...fill, description: attempt.description, descriptionSource: "ai" as const };
+    logAsyncDescriptionOutcome(attempt, false, result.description);
+    return result;
+  }
+
+  if (previousValid) {
+    const result = { ...fill, description: previousValid, descriptionSource: "ai" as const };
+    logAsyncDescriptionOutcome(attempt, false, result.description);
+    return result;
+  }
+
+  const deterministic = finalizeAwhinaListingDescription(fill, opts);
+  const fallback = removePhysicalFallbackLocation(deterministic.description || "", fill);
+  if (hasAcceptableOfflineFallback(fallback, fill)) {
+    const result = { ...deterministic, description: fallback, descriptionSource: "ai" as const };
+    logAsyncDescriptionOutcome(attempt, true, result.description);
+    return result;
+  }
+
+  // A bad fallback is worse than no copy: keep the draft factually clean and
+  // make the writer failure visible in development diagnostics.
+  const result = { ...deterministic, description: "", descriptionSource: "ai" as const };
+  logAsyncDescriptionOutcome(attempt, true, result.description);
+  return result;
 }

@@ -66,6 +66,40 @@ const STRUCTURED_EXTRA_KEY_RE =
 export const MARKETING_FILLER_RE =
   /\b(?:must[- ]have|perfect(?:\s+(?:for|addition))?|great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout(?:\s+(?:vehicle|car|item|product|player))?|known for (?:its )?(?:performance|design)|performance and design|legendary (?:figures|status)|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|reliable performance|reliable choice|any .* collection|don'?t miss out|highly sought[- ]after|rare|valuable|iconic|grab a bargain|sure to impress)\b/i;
 
+export type DescriptionValidationFailureReason =
+  | "too_short"
+  | "too_long"
+  | "marketing_filler"
+  | "metadata_leak"
+  | "seller_guidance"
+  | "unsupported_claim"
+  | "invalid_condition_grammar"
+  | "condition_missing"
+  | "collection_missing"
+  | "required_identity_missing"
+  | "title_equivalent"
+  | "price_or_location_leak";
+
+export type DescriptionValidationResult =
+  | { ok: true; description: string; requiredFacts: string[]; optionalFacts: string[] }
+  | {
+      ok: false;
+      reason: DescriptionValidationFailureReason;
+      description: string;
+      requiredFacts: string[];
+      optionalFacts: string[];
+    };
+
+export type DescriptionWriterAttempt = {
+  writer_called: boolean;
+  writer_input: DescriptionWriterFacts;
+  writer_raw_output?: string;
+  writer_validation_result: "accepted" | "rejected" | "not_run";
+  writer_validation_failure_reason?: DescriptionValidationFailureReason | "missing_api_key" | "no_output" | "invalid_json" | "writer_exception" | "user_owned" | "insufficient_facts";
+  writer_exception?: string;
+  description?: string;
+};
+
 export function stripUnsupportedPromotionalSentences(proposed: string): string {
   return splitListingDescriptionSentences(proposed)
     .map((sentence) =>
@@ -371,10 +405,61 @@ function hasMeaningfulFacts(facts: DescriptionWriterFacts): boolean {
   );
 }
 
-export function validateAiListingDescription(
+/**
+ * Public-copy fact policy:
+ * - Required: identity that stops the item becoming generic; collection/item
+ *   names for a supplied bundle; stated condition.
+ * - Optional: colour, storage, secondary variants and most other enrichment.
+ *   Those facts ground the writer but need not be repeated verbatim.
+ */
+function descriptionFactPolicy(facts: DescriptionWriterFacts): {
+  requiredFacts: string[];
+  optionalFacts: string[];
+} {
+  const requiredFacts = [facts.title];
+  const optionalFacts: string[] = [];
+  if (facts.collection) requiredFacts.push(facts.collection);
+  if (facts.items) requiredFacts.push(...splitListedItems(facts.items));
+  if (facts.product?.brand && !mentionsSupportedValue(facts.title, facts.product.brand)) {
+    requiredFacts.push(facts.product.brand);
+  }
+  if (facts.product?.family && !mentionsSupportedValue(facts.title, facts.product.family)) {
+    requiredFacts.push(facts.product.family);
+  }
+  if (facts.product?.model && !mentionsSupportedValue(facts.title, facts.product.model)) {
+    requiredFacts.push(facts.product.model);
+  }
+  if (facts.vehicle) {
+    for (const key of ["make", "model", "generation"] as const) {
+      const value = facts.vehicle[key];
+      if (value && !mentionsSupportedValue(facts.title, value)) requiredFacts.push(value);
+    }
+    for (const key of ["year", "odometer", "transmission", "colour", "fuel", "body"] as const) {
+      const value = facts.vehicle[key];
+      if (value) optionalFacts.push(value);
+    }
+  }
+  optionalFacts.push(
+    ...Object.values(facts.product || {}).filter(
+      (value): value is string => Boolean(value?.trim())
+    ),
+    ...Object.values(facts.collectible || {}).filter(
+      (value): value is string => Boolean(value?.trim())
+    )
+  );
+  return {
+    requiredFacts: [...new Set(requiredFacts.filter(Boolean))],
+    optionalFacts: [...new Set(optionalFacts.filter(Boolean))].filter(
+      (value) => !requiredFacts.includes(value)
+    ),
+  };
+}
+
+export function validateAiListingDescriptionResult(
   proposed: string,
   facts: DescriptionWriterFacts
-): string | null {
+): DescriptionValidationResult {
+  const proposedContainsMarketingFiller = MARKETING_FILLER_RE.test(proposed);
   const description = stripStructuredMetadataLeakage(
     removeStructuredPriceCopy(
       stripUnsupportedPromotionalSentences(orderParentBeforeCollection(proposed, facts))
@@ -382,48 +467,58 @@ export function validateAiListingDescription(
   )
     .replace(/\s+/g, " ")
     .trim();
+  const { requiredFacts, optionalFacts } = descriptionFactPolicy(facts);
+  const fail = (reason: DescriptionValidationFailureReason): DescriptionValidationResult => ({
+    ok: false,
+    reason,
+    description,
+    requiredFacts,
+    optionalFacts,
+  });
+
+  // A removable promotional tail should not discard otherwise grounded prose.
+  // When stripping leaves no substantive copy, expose marketing as the cause.
   if (
-    description.length < 24 ||
-    description.length > 900 ||
-    CTA_RE.test(description) ||
     MARKETING_FILLER_RE.test(description) ||
-    METADATA_RE.test(description) ||
-    BANNED_TEMPLATE_RE.test(description) ||
-    SELLER_EDITOR_GUIDANCE_RE.test(description) ||
-    IMPLY_CLAIMS_RE.test(description) ||
-    /\b(?:is|are)\s+in\s+(?:brand new|new)\b/i.test(description) ||
-    /\b(?:bundle[_\s-]?quantity|listing[_\s-]?type|condition[_\s-]?code|field[_\s-]?source)\s*:/i.test(
-      description
-    )
+    (proposedContainsMarketingFiller && description.length < 24)
   ) {
-    return null;
+    return fail("marketing_filler");
   }
-  if (!describesKnownCondition(description, facts.condition)) return null;
-  if (
-    facts.collection &&
-    !description.toLowerCase().includes(facts.collection.toLowerCase())
-  ) {
-    return null;
+  if (METADATA_RE.test(description) || /\b(?:bundle[_\s-]?quantity|listing[_\s-]?type|condition[_\s-]?code|field[_\s-]?source)\s*:/i.test(description)) {
+    return fail("metadata_leak");
+  }
+  if (CTA_RE.test(description) || SELLER_EDITOR_GUIDANCE_RE.test(description)) {
+    return fail("seller_guidance");
+  }
+  if (BANNED_TEMPLATE_RE.test(description) || IMPLY_CLAIMS_RE.test(description)) {
+    return fail("unsupported_claim");
+  }
+  if (description.length < 24) return fail("too_short");
+  if (description.length > 900) return fail("too_long");
+  if (/\b(?:is|are)\s+in\s+(?:brand new|new)\b/i.test(description)) {
+    return fail("invalid_condition_grammar");
+  }
+  if (!describesKnownCondition(description, facts.condition)) {
+    return fail("condition_missing");
+  }
+  if (facts.collection && !mentionsSupportedValue(description, facts.collection)) {
+    return fail("collection_missing");
   }
   if (facts.parentIdentity && facts.collection) {
     const prose = description.toLowerCase();
     const parentIndex = prose.indexOf(facts.parentIdentity.toLowerCase());
     const collectionIndex = prose.indexOf(facts.collection.toLowerCase());
     if (parentIndex < 0 || collectionIndex < 0 || parentIndex > collectionIndex) {
-      return null;
+      return fail("required_identity_missing");
     }
   }
-  const supportedNamedValues = [
-    ...Object.values(facts.product || {}),
-    ...Object.values(facts.collectible || {}),
-    ...Object.values(facts.vehicle || {}),
-  ].filter((value): value is string => Boolean(value?.trim()));
-  if (
-    supportedNamedValues.some(
-      (value) => !mentionsSupportedValue(description, value)
-    )
-  ) {
-    return null;
+  // Optional enrichment grounds the writer but never forces word-for-word
+  // serialization. Only identity absent from the title is mandatory.
+  const requiredBeyondTitle = requiredFacts.filter(
+    (value) => !mentionsSupportedValue(facts.title, value)
+  );
+  if (requiredBeyondTitle.some((value) => !mentionsSupportedValue(description, value))) {
+    return fail("required_identity_missing");
   }
   if (facts.quantity && facts.items) {
     const listedItems = splitListedItems(facts.items);
@@ -433,7 +528,7 @@ export function validateAiListingDescription(
       ) ||
       !/\b(?:set|bundle|sold together|together as)\b/i.test(description)
     ) {
-      return null;
+      return fail("required_identity_missing");
     }
   }
 
@@ -443,7 +538,7 @@ export function validateAiListingDescription(
     facts.listingType === "physical" &&
     /\b(?:for sale in|located in|asking\s+\$|priced at\s+\$)\b/i.test(description)
   ) {
-    return null;
+    return fail("price_or_location_leak");
   }
 
   // A title with a condition/location tail is exactly the field-stitching this
@@ -460,7 +555,9 @@ export function validateAiListingDescription(
       facts.items ||
       facts.vehicle
   );
-  if (hasMeaningfulFacts(facts) && sentences.length < 2 && !hasNamedDetail) return null;
+  if (hasMeaningfulFacts(facts) && sentences.length < 2 && !hasNamedDetail) {
+    return fail("title_equivalent");
+  }
   const titleWords = facts.title
     .toLowerCase()
     .split(/[^a-z0-9]+/)
@@ -474,33 +571,86 @@ export function validateAiListingDescription(
   // Reject `TITLE. CONDITION.` and close variants: it adds no buyer meaning.
   if (
     titleWords.length > 0 &&
+    sentences.length < 2 &&
     proseWords.length < 5 &&
     titleWords.some((word) => description.toLowerCase().includes(word))
   ) {
-    return null;
+    return fail("title_equivalent");
   }
-  return description;
+  return { ok: true, description, requiredFacts, optionalFacts };
 }
 
-export async function writeAwhinaListingDescription(
-  fill: SkyAiListingFill,
-  opts?: { force?: boolean }
-): Promise<string | null> {
-  if (fill.descriptionSource === "user" && !opts?.force) return null;
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  const facts = buildDescriptionWriterFacts(fill);
-  if (!apiKey || !facts.title || !hasMeaningfulFacts(facts)) return null;
+/** Compatibility wrapper for existing callers. */
+export function validateAiListingDescription(
+  proposed: string,
+  facts: DescriptionWriterFacts
+): string | null {
+  const result = validateAiListingDescriptionResult(proposed, facts);
+  return result.ok ? result.description : null;
+}
 
-  const client = new OpenAI({ apiKey });
-  const completion = await client.chat.completions.create({
-    model: MODEL,
-    temperature: 0.35,
-    max_tokens: 260,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content: `Write concise buyer-facing marketplace copy from ONLY the supplied JSON facts.
+export type DescriptionWriterRunOptions = {
+  force?: boolean;
+  /** Test/server seam: produces the raw JSON text returned by the writer. */
+  generateRawOutput?: (facts: DescriptionWriterFacts) => Promise<string | null>;
+};
+
+function logWriterAttempt(attempt: DescriptionWriterAttempt): void {
+  if (process.env.NODE_ENV !== "development") return;
+  console.info("[awhina:description-writer]", attempt);
+}
+
+export async function runAwhinaListingDescriptionWriter(
+  fill: SkyAiListingFill,
+  opts?: DescriptionWriterRunOptions
+): Promise<DescriptionWriterAttempt> {
+  const facts = buildDescriptionWriterFacts(fill);
+  if (fill.descriptionSource === "user" && !opts?.force) {
+    const attempt: DescriptionWriterAttempt = {
+      writer_called: false,
+      writer_input: facts,
+      writer_validation_result: "not_run",
+      writer_validation_failure_reason: "user_owned",
+    };
+    logWriterAttempt(attempt);
+    return attempt;
+  }
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!facts.title || !hasMeaningfulFacts(facts)) {
+    const attempt: DescriptionWriterAttempt = {
+      writer_called: false,
+      writer_input: facts,
+      writer_validation_result: "not_run",
+      writer_validation_failure_reason: "insufficient_facts",
+    };
+    logWriterAttempt(attempt);
+    return attempt;
+  }
+  if (!apiKey && !opts?.generateRawOutput) {
+    const attempt: DescriptionWriterAttempt = {
+      writer_called: false,
+      writer_input: facts,
+      writer_validation_result: "not_run",
+      writer_validation_failure_reason: "missing_api_key",
+    };
+    logWriterAttempt(attempt);
+    return attempt;
+  }
+
+  try {
+    const raw = opts?.generateRawOutput
+      ? await opts.generateRawOutput(facts)
+      : await (async () => {
+          const client = new OpenAI({ apiKey: apiKey! });
+          const completion = await client.chat.completions.create({
+            model: MODEL,
+            temperature: 0.35,
+            max_tokens: 260,
+            response_format: { type: "json_object" },
+            messages: [
+              {
+                role: "system",
+                content: `Write concise buyer-facing marketplace copy from ONLY the supplied JSON facts.
 Return JSON exactly as {"description":"..."}.
 
 Writing rules:
@@ -521,18 +671,70 @@ Writing rules:
 - Stop once the supported useful facts are covered. Sparse facts deserve short factual copy, not praise. Never use phrases such as "standout", "known for its performance and design", "must-have", "perfect for collectors", "great addition", "don't miss out", "ideal for enthusiasts", "sure to impress", "rare", "valuable", "iconic", or generic calls to action.
 - Never emit raw metadata such as bundle_quantity:3, listing_type:physical, brand:Nike, or any key:value labels.
 - Never add facts, specifications, authenticity, working status, or condition not in JSON.`,
-      },
-      { role: "user", content: JSON.stringify(facts) },
-    ],
-  });
-  const raw = completion.choices[0]?.message?.content;
-  if (!raw) return null;
-  try {
+              },
+              { role: "user", content: JSON.stringify(facts) },
+            ],
+          });
+          return completion.choices[0]?.message?.content || null;
+        })();
+    if (!raw) {
+      const attempt: DescriptionWriterAttempt = {
+        writer_called: true,
+        writer_input: facts,
+        writer_validation_result: "not_run",
+        writer_validation_failure_reason: "no_output",
+      };
+      logWriterAttempt(attempt);
+      return attempt;
+    }
     const parsed = JSON.parse(raw) as { description?: unknown };
-    return typeof parsed.description === "string"
-      ? validateAiListingDescription(parsed.description, facts)
-      : null;
-  } catch {
-    return null;
+    if (typeof parsed.description !== "string") {
+      const attempt: DescriptionWriterAttempt = {
+        writer_called: true,
+        writer_input: facts,
+        writer_raw_output: raw,
+        writer_validation_result: "rejected",
+        writer_validation_failure_reason: "invalid_json",
+      };
+      logWriterAttempt(attempt);
+      return attempt;
+    }
+    const validation = validateAiListingDescriptionResult(parsed.description, facts);
+    const attempt: DescriptionWriterAttempt = validation.ok
+      ? {
+          writer_called: true,
+          writer_input: facts,
+          writer_raw_output: raw,
+          writer_validation_result: "accepted",
+          description: validation.description,
+        }
+      : {
+          writer_called: true,
+          writer_input: facts,
+          writer_raw_output: raw,
+          writer_validation_result: "rejected",
+          writer_validation_failure_reason: validation.reason,
+        };
+    logWriterAttempt(attempt);
+    return attempt;
+  } catch (error) {
+    const attempt: DescriptionWriterAttempt = {
+      writer_called: true,
+      writer_input: facts,
+      writer_validation_result: "rejected",
+      writer_validation_failure_reason: "writer_exception",
+      writer_exception: error instanceof Error ? error.message : String(error),
+    };
+    logWriterAttempt(attempt);
+    return attempt;
   }
+}
+
+/** Compatibility wrapper for existing direct callers. */
+export async function writeAwhinaListingDescription(
+  fill: SkyAiListingFill,
+  opts?: DescriptionWriterRunOptions
+): Promise<string | null> {
+  const attempt = await runAwhinaListingDescriptionWriter(fill, opts);
+  return attempt.description || null;
 }
