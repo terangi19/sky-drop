@@ -40,6 +40,7 @@ import { finalizePageAwareResponse } from "../../lib/sky-ai-page-intent";
 import { validateListingFillFields } from "../../lib/awhina-listing-fill-tools";
 import { sanitizeProfileFillProposal } from "../../lib/awhina-profile-tools";
 import { finalizeAwhinaListingDescription } from "../../lib/awhina-listing-composer";
+import { writeAwhinaListingDescription } from "../../lib/awhina-description-writer";
 import type { SkyAiProfileContext } from "../../lib/sky-ai-profile-context";
 import { runVisionCapability } from "../../lib/awhina-vision-capability";
 import { runFreeformCapability } from "../../lib/awhina-freeform-capability";
@@ -61,6 +62,44 @@ import { fetchListingFactsForCompare } from "../../lib/awhina-listing-compare.se
 function listingFillConfirmReply(fill: SkyAiListingFill | undefined): string {
   if (!fill) return "";
   return buildPostListingNextActions(fill, { hasPhotos: false });
+}
+
+function shouldWriteDescription(
+  fill: SkyAiListingFill,
+  prior: SkyAiListingContext | null,
+  message: string
+): boolean {
+  if (fill.descriptionSource === "user") return false;
+  if (/\b(?:rewrite|regenerate|improve|update|make).{0,30}\b(?:description|desc)\b/i.test(message)) {
+    return true;
+  }
+  if (!prior) return true;
+  return (
+    fill.title !== prior.title ||
+    fill.condition !== prior.condition ||
+    JSON.stringify(fill.extras || []) !== JSON.stringify(prior.extras || []) ||
+    fill.vehicleMake !== prior.vehicleMake ||
+    fill.vehicleModel !== prior.vehicleModel ||
+    fill.vehicleOdometer !== prior.vehicleOdometer ||
+    fill.vehicleTransmission !== prior.vehicleTransmission
+  );
+}
+
+async function enhanceAiOwnedDescription(
+  fill: SkyAiListingFill | undefined,
+  prior: SkyAiListingContext | null,
+  message: string
+): Promise<SkyAiListingFill | undefined> {
+  if (!fill || !shouldWriteDescription(fill, prior, message)) return fill;
+  try {
+    const description = await writeAwhinaListingDescription(fill, {
+      force: /\b(?:rewrite|regenerate|improve|update|make).{0,30}\b(?:description|desc)\b/i.test(message),
+    });
+    return description ? { ...fill, description, descriptionSource: "ai" } : fill;
+  } catch {
+    // Description polish must never prevent a safe canonical listing update.
+    return fill;
+  }
 }
 
 const NAVIGATE_PATTERNS =
@@ -506,6 +545,11 @@ export async function POST(req: NextRequest) {
       const validated = validateListingFillFields(listingFill);
       listingFill = validated.ok ? validated.fill : undefined;
     }
+    listingFill = await enhanceAiOwnedDescription(
+      listingFill,
+      contextualListingContext,
+      message || "photo upload"
+    );
     const reply = stripBold(
       vision.reply || listingFillConfirmReply(listingFill) || "Add photos, then hit **Publish**."
     );
@@ -691,6 +735,11 @@ export async function POST(req: NextRequest) {
             message,
             contextualListingContext,
             validated.fill
+          );
+          listingFill = await enhanceAiOwnedDescription(
+            listingFill,
+            contextualListingContext,
+            message
           );
         } else {
           reply = validated.error;
@@ -884,6 +933,11 @@ export async function POST(req: NextRequest) {
     const validated = validateListingFillFields(listingFill);
     listingFill = validated.ok ? validated.fill : undefined;
   }
+  listingFill = await enhanceAiOwnedDescription(
+    listingFill,
+    contextualListingContext,
+    message
+  );
   let profileFill = llm.profileFill;
   if (profileFill) {
     const sanitized = sanitizeProfileFillProposal(profileFill);

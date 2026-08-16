@@ -123,7 +123,7 @@ const METADATA_SERIALIZATION_RE =
   /(?:^|\.\s+)Set\s+[A-Z][^.]{0,60}\.|Attr\s*:|^(?:Topps|Panini|Upper Deck)\.\s*$/im;
 
 
-const BANNED_TEMPLATE_RE =
+export const BANNED_TEMPLATE_RE =
   /\bI'm selling this\b|\bThis item\b|\bMessage me with any questions\b|\bFeel free to get in touch if you'd like more information\b|\bIt's based in\b|\b— based in\b|\bLocated in\b|\bCan do pickup\b|\bAvailable around\b|\bPriced at\b/i;
 
 const IMPLEMENTATION_LEAK_RE =

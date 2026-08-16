@@ -18,6 +18,10 @@ import {
   type ListingDescriptionQuality,
 } from "./awhina-listing-description";
 import { finalizeAwhinaListingDescription } from "./awhina-listing-composer";
+import {
+  buildDescriptionWriterFacts,
+  validateAiListingDescription,
+} from "./awhina-description-writer";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import { processCanonicalAwhina } from "./awhina-canonical";
 import { clearSearchSession, searchSessionKey } from "./awhina-search-memory";
@@ -127,6 +131,56 @@ describe("resolveListingDescriptionStyle", () => {
       "clothing"
     );
     expect(resolveListingDescriptionStyle({ category: "Sports", title: "Bike" })).toBe("sports");
+  });
+});
+
+describe("grounded AI description writer quality gate", () => {
+  const godCards: SkyAiListingFill = {
+    title:
+      "The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor Yu-Gi-Oh!",
+    listingType: "physical",
+    condition: "Used - Good",
+    location: "Auckland",
+    extras: [
+      "set:Egyptian God Cards",
+      "subject:The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor",
+      "bundle_quantity:3",
+    ],
+  };
+
+  it("supplies canonical facts rather than price or location to the writer", () => {
+    const facts = buildDescriptionWriterFacts(godCards);
+    expect(facts.title).toContain("Winged Dragon of Ra");
+    expect(facts.condition).toBe("Used - Good");
+    expect(facts.extras).toContain("bundle_quantity:3");
+    expect(JSON.stringify(facts)).not.toContain("Auckland");
+  });
+
+  it("rejects the exact title + condition + location failure", () => {
+    expect(
+      validateAiListingDescription(
+        "The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor Yu-Gi-Oh! In good used condition for sale in Auckland.",
+        buildDescriptionWriterFacts(godCards)
+      )
+    ).toBeNull();
+  });
+
+  it("rejects a title plus condition even when split into sentences", () => {
+    expect(
+      validateAiListingDescription(
+        "The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor Yu-Gi-Oh! In good used condition.",
+        buildDescriptionWriterFacts(godCards)
+      )
+    ).toBeNull();
+  });
+
+  it("accepts relationship-aware bundled-card prose", () => {
+    expect(
+      validateAiListingDescription(
+        "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set.",
+        buildDescriptionWriterFacts(godCards)
+      )
+    ).toMatch(/Set of three/);
   });
 });
 
