@@ -1517,7 +1517,14 @@ export function processCanonicalAwhina(
 
   // On the sell workspace, a terse listing command always means continue the
   // current draft. Never send it through generic capability ambiguity.
-  if (pathname.startsWith("/post/ai") && hasListDraftEarly && hasListingSellIntent(trimmed)) {
+  if (
+    pathname.startsWith("/post/ai") &&
+    hasListDraftEarly &&
+    hasListingSellIntent(trimmed) &&
+    // A data-rich answer such as "1999 Nissan... 145,000 km..." resembles a
+    // fresh listing seed. When details are pending, it is an answer first.
+    !getActiveListingSlot(taskSession?.pendingClarification)
+  ) {
     const fill = reconstructListingDraftBase({
       listingContext: context.listingContext,
       sessionKey: listKeyEarly,
@@ -1551,6 +1558,10 @@ export function processCanonicalAwhina(
   const searchLang = hasSearchIntentLanguage(trimmed);
   const explicitSell =
     hasExplicitSellSwitch(trimmed) && !isListPublishActionMessage(trimmed);
+  // The client historically prefixes data-rich sell-page messages with this
+  // transport envelope. It is not a user task switch and must not steal an
+  // already-open pending detail collection.
+  const syntheticListingEnvelope = /^\[listing creation request\]/i.test(trimmed);
   const stickyShopping = taskSession?.task === "shopping" && !explicitSell && !onSellPage;
 
   // Explicit NEW INTENT wins — cancel open clarification before applying it
@@ -1584,8 +1595,10 @@ export function processCanonicalAwhina(
       isClarificationOpen(pendingListing) &&
       pendingListing?.kind === "listing_slots" &&
       trimmed.length > 0 &&
-      trimmed.length <= 160 &&
-      !explicitSell &&
+      // A seller may answer one compact batch with a full condition/history
+      // paragraph. The API already caps requests at 4,000 characters.
+      trimmed.length <= 4000 &&
+      (!explicitSell || syntheticListingEnvelope) &&
       !searchLang &&
       draftCmdsEarly.commands.length === 0
     ) {
