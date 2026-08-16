@@ -45,8 +45,10 @@ import {
 } from "../../lib/awhina-listing-composer";
 import type { SkyAiProfileContext } from "../../lib/sky-ai-profile-context";
 import { runVisionCapability } from "../../lib/awhina-vision-capability";
-import { runFreeformCapability } from "../../lib/awhina-freeform-capability";
+import { runVisionListing } from "../../lib/awhina-vision-listing";
+import { isAwhinaVisionListingEnabledServer } from "../../lib/awhina-vision-listing-flags";
 import { confidenceLevelToScore } from "../../lib/awhina-confidence-levels";
+import { runFreeformCapability } from "../../lib/awhina-freeform-capability";
 import {
   buildPostListingNextActions,
   isCompareRequest,
@@ -531,8 +533,88 @@ export async function POST(req: NextRequest) {
   const contextualListingContext =
     pathname.startsWith("/post/ai") || !isNewTaskSwitch ? listingContext : null;
 
-  // ── Vision capability (images → structured extraction → draft proposal) ──
+  // ── Vision: ONE shared multimodal identifier (not the legacy flat extractor) ──
   if (images.length > 0) {
+    if (isAwhinaVisionListingEnabledServer()) {
+      const vision = await runVisionListing({
+        images,
+        message,
+        listingContext: contextualListingContext,
+        draftKey: uid || "sky-ai",
+        pathname,
+        force: true,
+      });
+      let listingFill = vision.listingFill
+        ? finalizeListingFill(
+            message || "photo upload",
+            contextualListingContext,
+            vision.listingFill
+          )
+        : undefined;
+      if (listingFill) {
+        const validated = validateListingFillFields(listingFill);
+        listingFill = validated.ok ? validated.fill : undefined;
+      }
+      listingFill = await enhanceAiOwnedDescription(
+        listingFill,
+        contextualListingContext,
+        message || "photo upload"
+      );
+      const reply = stripBold(
+        vision.reply ||
+          listingFillConfirmReply(listingFill) ||
+          "Add photos, then hit **Publish**."
+      );
+      if (uid && conversationId) {
+        await safePersist(() =>
+          appendSkyAiExchange(conversationId, uid, message || "[image]", reply, undefined)
+        );
+      }
+      recordAwhinaQuality(
+        req,
+        message || "[image]",
+        pathname,
+        reply,
+        vision.ok ? "ai" : "rules",
+        listingFill,
+        uid
+      );
+      const payload = {
+        reply,
+        listingFill,
+        displayIdentity: vision.displayIdentity,
+        needsIdentityConfirm: vision.needsIdentityConfirm,
+        canonicalIdentity: vision.adapted?.canonicalIdentity,
+        observation: vision.observation,
+        source: vision.degraded ? ("rules" as const) : ("ai" as const),
+        conversationId: conversationId || undefined,
+        awhina: {
+          intent: "vision",
+          tool: "runVisionListing",
+          confidence: confidenceLevelToScore(
+            vision.observation?.overallConfidence || "MEDIUM"
+          ),
+          confidenceLevel: vision.observation?.overallConfidence,
+          routing: "awhina_vision_shared_pipeline",
+          avoidedAi: false,
+          usedLocalExecution: false,
+          degraded: vision.degraded,
+          latencyMs: vision.latencyMs,
+          promptTokens: vision.promptTokens,
+          completionTokens: vision.completionTokens,
+          continuity: vision.adapted?.continuity,
+        },
+        ...(vision.errorCode ? { code: vision.errorCode } : {}),
+      };
+      return respondPayload(
+        stream,
+        payload,
+        vision.errorCode === "missing_openai_key" ? 503 : 200,
+        { progress: progressStatesForRoute("vision"), chunkReply: true }
+      );
+    }
+
+    // Legacy fallback only when shared vision listing flag is off.
     const vision = await runVisionCapability({
       images,
       message,

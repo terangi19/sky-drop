@@ -106,14 +106,8 @@ export async function POST(req: NextRequest) {
         displayIdentity: result.displayIdentity,
         needsIdentityConfirm: result.needsIdentityConfirm,
         missingPrompts: result.missingPrompts,
-        observation: result.observation
-          ? {
-              overallConfidence: result.observation.overallConfidence,
-              displayIdentity: result.observation.displayIdentity,
-              uncertainties: result.observation.uncertainties,
-              visibleCondition: result.observation.visibleCondition,
-            }
-          : undefined,
+        observation: result.observation,
+        canonicalIdentity: result.adapted?.canonicalIdentity,
         suggestions: result.adapted?.suggestions,
         domain: result.domain,
         awhina: {

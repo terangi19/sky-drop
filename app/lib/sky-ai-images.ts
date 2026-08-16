@@ -27,7 +27,8 @@ export const SKY_AI_MAX_IMAGES_PER_MESSAGE = 4;
 
 export async function compressImageFile(
   file: File,
-  maxSide = 1280
+  maxSide = 1280,
+  quality = 0.85
 ): Promise<{ dataUrl: string; file: File }> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
@@ -45,7 +46,7 @@ export async function compressImageFile(
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("Could not compress image"))),
       "image/jpeg",
-      0.85
+      quality
     );
   });
 
@@ -63,7 +64,8 @@ export async function compressImageFile(
 
 export async function prepareSkyAiImages(
   files: File[],
-  maxSide = 1280
+  maxSide = 1280,
+  quality = 0.85
 ): Promise<{ dataUrls: string[]; names: string[]; files: File[] } | { error: string }> {
   const slice = files.slice(0, SKY_AI_MAX_IMAGES_PER_MESSAGE);
   const dataUrls: string[] = [];
@@ -78,7 +80,7 @@ export async function prepareSkyAiImages(
     if (!nsfw.safe) {
       return { error: `"${file.name}" flagged: ${nsfw.reason || "not allowed"}.` };
     }
-    const { dataUrl, file: compressed } = await compressImageFile(file, maxSide);
+    const { dataUrl, file: compressed } = await compressImageFile(file, maxSide, quality);
     if (dataUrl.length > 6_000_000) {
       return { error: `"${file.name}" is too large after compression.` };
     }

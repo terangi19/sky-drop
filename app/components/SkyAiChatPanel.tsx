@@ -68,6 +68,7 @@ import {
   prepareSkyAiImages,
   SKY_AI_MAX_IMAGES_PER_MESSAGE,
 } from "../lib/sky-ai-images";
+import { prepareVisionListingImages } from "../lib/awhina-vision-preprocess.client";
 import { getFreshIdToken } from "../lib/api-auth";
 import { getClientCsrfToken } from "../lib/csrf-client";
 import { resolveVoiceCommand } from "../lib/awhina-voice-command";
@@ -548,7 +549,13 @@ export default function SkyAiChatPanel({
       if (room <= 0) return;
 
       setImageBusy(true);
-      const prepared = await prepareSkyAiImages(files.slice(0, room));
+      // On /post/ai, encode once at vision quality from the ORIGINAL File.
+      // UI thumbs use the resulting data URLs; do not pre-crush at 1280 first.
+      const onSellPage = pathname.startsWith("/post/ai");
+      const prepared =
+        onSellPage && AWHINA_VISION_LISTING_UI_ENABLED
+          ? await prepareVisionListingImages(files.slice(0, room))
+          : await prepareSkyAiImages(files.slice(0, room));
       setImageBusy(false);
 
       if ("error" in prepared) {
@@ -564,7 +571,7 @@ export default function SkyAiChatPanel({
         })),
       ]);
     },
-    [pendingImages.length, setPendingImages]
+    [pendingImages.length, pathname]
   );
 
   const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1426,10 +1433,15 @@ export default function SkyAiChatPanel({
       const batches = await Promise.all(
         Array.from(
           { length: Math.ceil(Math.min(files.length, 8) / SKY_AI_MAX_IMAGES_PER_MESSAGE) },
-          (_, i) =>
-            prepareSkyAiImages(
-              files.slice(i * SKY_AI_MAX_IMAGES_PER_MESSAGE, (i + 1) * SKY_AI_MAX_IMAGES_PER_MESSAGE)
-            )
+          (_, i) => {
+            const slice = files.slice(
+              i * SKY_AI_MAX_IMAGES_PER_MESSAGE,
+              (i + 1) * SKY_AI_MAX_IMAGES_PER_MESSAGE
+            );
+            return pathname.startsWith("/post/ai") && AWHINA_VISION_LISTING_UI_ENABLED
+              ? prepareVisionListingImages(slice)
+              : prepareSkyAiImages(slice);
+          }
         )
       );
       const failed = batches.find((batch) => "error" in batch);
@@ -1451,7 +1463,7 @@ export default function SkyAiChatPanel({
     };
     window.addEventListener(SKY_AI_CONVERSATION_PHOTOS_EVENT, onWorkspacePhotos);
     return () => window.removeEventListener(SKY_AI_CONVERSATION_PHOTOS_EVENT, onWorkspacePhotos);
-  }, [respond]);
+  }, [respond, pathname]);
 
   useEffect(() => {
     const onFill = (e: Event) => {
@@ -1806,7 +1818,10 @@ export default function SkyAiChatPanel({
       <input ref={fileInputRefInternal} type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
         const files = Array.from(e.target.files || []);
         if (!files.length || !listingPreviewFill) return;
-        const prepared = await prepareSkyAiImages(files.slice(0, 8));
+        const prepared =
+          pathname.startsWith("/post/ai") && AWHINA_VISION_LISTING_UI_ENABLED
+            ? await prepareVisionListingImages(files.slice(0, 8))
+            : await prepareSkyAiImages(files.slice(0, 8));
         if ("error" in prepared) return;
         if (prepared.dataUrls.length) {
           dispatchListingImages(prepared.dataUrls, prepared.names);

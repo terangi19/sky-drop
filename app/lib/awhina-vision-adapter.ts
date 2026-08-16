@@ -47,6 +47,13 @@ import {
   categoryForAwhinaObjectType,
   normalizeAwhinaObjectType,
 } from "./awhina-domain-knowledge";
+import {
+  canonicalIdentityToExtras,
+  categoryFromCanonicalIdentity,
+  composeCanonicalVisualIdentity,
+  conversationPolicyFromIdentity,
+  type CanonicalVisualIdentity,
+} from "./awhina-canonical-visual-identity";
 
 export type VisionAdapterResult = {
   facts: StructuredListingFacts;
@@ -63,6 +70,8 @@ export type VisionAdapterResult = {
   continuity?: ObjectContinuityVerdict;
   /** When NEW_OBJECT — client should wipe item-scoped prior draft */
   replaceDraft?: boolean;
+  /** ONE authoritative visual identity for all downstream systems. */
+  canonicalIdentity: CanonicalVisualIdentity;
 };
 
 function trySet(
@@ -297,11 +306,28 @@ export function adaptVisionObservationToListing(
   const validated = validateListingFillFields(listingFill);
   if (validated.ok) listingFill = validated.fill;
 
-  // Apply structured vision domain facts (cards etc.) into extras — not Attr dumps
+  // ONE canonical visual identity — object type, hierarchy, confidence.
+  const canonicalIdentity = composeCanonicalVisualIdentity(obs);
+  const categoryFromIdentity = categoryFromCanonicalIdentity(canonicalIdentity);
+
+  // Apply structured vision domain facts into extras — not Attr dumps.
+  // Canonical identity extras are authoritative for objectType/brand/model/…
   listingFill = applyAwhinaDomainKnowledge(applyVisionDomainFacts(obs, listingFill));
-  // Preserve a high-confidence visual object class as canonical evidence. The
-  // shared ontology—not a domain-specific branch—then selects schema/category.
-  if (mayPopulateFromVision(obs.objectType, { allowMedium: true })) {
+  listingFill = {
+    ...listingFill,
+    extras: canonicalIdentityToExtras(canonicalIdentity, listingFill.extras || []),
+    ...(categoryFromIdentity &&
+    (!listingFill.category || listingFill.category === "Other")
+      ? { category: categoryFromIdentity }
+      : categoryFromIdentity
+        ? { category: categoryFromIdentity }
+        : {}),
+  };
+  // Fallback: preserve objectType even when composition returned unknown parts.
+  if (
+    canonicalIdentity.objectType === "unknown" &&
+    mayPopulateFromVision(obs.objectType, { allowMedium: true })
+  ) {
     const objectType = normalizeAwhinaObjectType(
       `objectType:${obs.objectType.value}`
     );
@@ -363,13 +389,16 @@ export function adaptVisionObservationToListing(
 
   const identity = assessIdentityCompleteness({
     fill: listingFill,
-    claimedIdentity: rawIdentity,
+    claimedIdentity: rawIdentity || canonicalIdentity.displayName,
     domain,
   });
 
-  let displayIdentity = identity.isComplete
-    ? identity.displayIdentity
-    : identity.knownSummary.replace(/^an?\s+/i, "") || "this item";
+  // Prefer the hierarchical canonical display name over soft category summaries.
+  let displayIdentity =
+    canonicalIdentity.displayName ||
+    (identity.isComplete
+      ? identity.displayIdentity
+      : identity.knownSummary.replace(/^an?\s+/i, "") || "this item");
 
   // A sealed product's readable package identity is authoritative. Do not let
   // card-title composition re-order it into "Premier League Booster Box Topps".
@@ -477,9 +506,15 @@ export function adaptVisionObservationToListing(
   listingFill = gated.fill;
   if (isNewObject) listingFill.replaceDraft = true;
 
+  const policy = conversationPolicyFromIdentity({
+    ...canonicalIdentity,
+    displayName: displayIdentity,
+  });
+  // Do NOT force confirm solely because overallConfidence is MEDIUM when the
+  // hierarchical identity is already complete — ask only the uncertain part.
   const needsIdentityConfirm =
+    policy.mode !== "proceed" ||
     !identity.isComplete ||
-    obs.overallConfidence !== "HIGH" ||
     suggestions.some((s) => s.field === "itemIdentity" || s.field === "title") ||
     (domain === "TRADING_CARD" &&
       !packagedCardProduct &&
@@ -504,7 +539,7 @@ export function adaptVisionObservationToListing(
   const foundReply = needsIdentityConfirm
     ? missingCore
       ? `Looks like ${identity.knownSummary || displayIdentity}, but ${missingCore}`
-      : `Looks like a **${displayIdentity}**. Is that right?`
+      : policy.prompt || `Looks like a **${displayIdentity}**. Is that right?`
     : `Looks like a **${displayIdentity}**.`;
 
   return {
@@ -518,6 +553,10 @@ export function adaptVisionObservationToListing(
     foundReply,
     continuity: continuity.verdict,
     replaceDraft: isNewObject || listingFill.replaceDraft === true,
+    canonicalIdentity: {
+      ...canonicalIdentity,
+      displayName: displayIdentity,
+    },
   };
 }
 
@@ -538,7 +577,12 @@ function applyVisionDomainFacts(
 
   if (obs.cardSet) push("set:", obs.cardSet);
   if (obs.brand) push("manufacturer:", obs.brand);
+  if (obs.brand) push("brand:", obs.brand);
+  if (obs.product) push("productFamily:", obs.product);
+  if (obs.model) push("model:", obs.model);
+  if (obs.variant) push("variant:", obs.variant);
   if (obs.league) push("league:", obs.league);
+  if (obs.league) push("franchise:", obs.league);
   if (obs.season) push("season:", obs.season);
   if (obs.productFormat) push("productFormat:", obs.productFormat);
   if (obs.quantity) push("quantity:", obs.quantity);
