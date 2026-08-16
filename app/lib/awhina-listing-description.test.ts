@@ -13,6 +13,7 @@ import {
   cleanRentalItemName,
   validateDescription,
   stripStructuredMetadataLeakage,
+  composeConditionPredicate,
   IMPLY_CLAIMS_RE,
   CTA_PURPOSE_RE,
   SELLER_EDITOR_GUIDANCE_RE,
@@ -213,6 +214,45 @@ describe("grounded AI description writer quality gate", () => {
     expect(finalizeAwhinaListingDescription(fill).description).toBe(
       "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set."
     );
+  });
+
+  it("uses grammatical condition predicates for singular and plural items", () => {
+    const cases = [
+      ["brand new", "is brand new", "are brand new"],
+      ["new", "is new", "are new"],
+      ["like new", "is in like-new condition", "are in like-new condition"],
+      ["good", "is in good condition", "are in good condition"],
+      ["good used", "is in good used condition", "are in good used condition"],
+      ["fair", "is in fair condition", "are in fair condition"],
+    ] as const;
+    for (const [condition, singular, plural] of cases) {
+      expect(composeConditionPredicate(condition, false)).toBe(singular);
+      expect(composeConditionPredicate(condition, true)).toBe(plural);
+    }
+  });
+
+  it("keeps parent identity before collection and never writes in brand new", () => {
+    const fill: SkyAiListingFill = {
+      title:
+        "The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor Yu-Gi-Oh!",
+      listingType: "physical",
+      condition: "New",
+      extras: [
+        "set:Egyptian God Cards",
+        "subject:The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor",
+      ],
+    };
+    const expected =
+      "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are brand new and are being sold together as a set.";
+    expect(finalizeAwhinaListingDescription(fill).description).toBe(expected);
+    const facts = buildDescriptionWriterFacts(fill);
+    expect(facts.parentIdentity).toBe("Yu-Gi-Oh!");
+    expect(
+      validateAiListingDescription(
+        "Set of three Egyptian God Cards Yu-Gi-Oh! featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in brand new and are being sold together as a set.",
+        facts
+      )
+    ).toBeNull();
   });
 
   it("promotes photo-extracted product and card details into grounded writer facts", () => {

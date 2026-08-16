@@ -27,6 +27,7 @@ export type DescriptionWriterFacts = {
   quantity?: number;
   collection?: string;
   items?: string;
+  parentIdentity?: string;
   /** Named, grounded attributes the model may turn into prose. */
   product?: {
     brand?: string;
@@ -118,6 +119,36 @@ function splitListedItems(items: string | undefined): string[] {
 function inferListedItemCount(items: string | undefined): number | undefined {
   const parts = splitListedItems(items);
   return parts.length > 1 && parts.length <= 20 ? parts.length : undefined;
+}
+
+function escapeWriterRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function inferParentIdentity(
+  title: string,
+  items: string | undefined,
+  collection: string | undefined
+): string | undefined {
+  if (!items) return undefined;
+  let remainder = cleanDescriptionItemName(title);
+  for (const item of splitListedItems(items)) {
+    remainder = remainder.replace(new RegExp(escapeWriterRegExp(item), "gi"), " ");
+  }
+  if (collection) {
+    remainder = remainder.replace(
+      new RegExp(escapeWriterRegExp(collection), "gi"),
+      " "
+    );
+  }
+  remainder = remainder
+    .replace(/[,:;|–—]+/g, " ")
+    .replace(/(?:^|\s)(?:and|&)(?=\s|$)/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return remainder && !/^(?:set|bundle|collection|trading\s+)?cards?$/i.test(remainder)
+    ? remainder
+    : undefined;
 }
 
 function mentionsSupportedValue(description: string, value: string): boolean {
@@ -232,14 +263,17 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
   }
 
   quantity ??= inferListedItemCount(items);
+  const title = cleanDescriptionItemName(fill.title || "");
+  const parentIdentity = inferParentIdentity(title, items, collection);
 
   return {
     listingType: fill.listingType || "physical",
-    title: cleanDescriptionItemName(fill.title || ""),
+    title,
     condition: fill.condition?.trim() || undefined,
     quantity,
     collection,
     items,
+    parentIdentity,
     product: Object.keys(product).length ? product : undefined,
     collectible: Object.keys(collectible).length ? collectible : undefined,
     extras: freeformExtras.slice(0, 20),
@@ -277,6 +311,7 @@ export function validateAiListingDescription(
     BANNED_TEMPLATE_RE.test(description) ||
     SELLER_EDITOR_GUIDANCE_RE.test(description) ||
     IMPLY_CLAIMS_RE.test(description) ||
+    /\b(?:is|are)\s+in\s+(?:brand new|new)\b/i.test(description) ||
     /\b(?:bundle[_\s-]?quantity|listing[_\s-]?type|condition[_\s-]?code|field[_\s-]?source)\s*:/i.test(
       description
     )
@@ -289,6 +324,14 @@ export function validateAiListingDescription(
     !description.toLowerCase().includes(facts.collection.toLowerCase())
   ) {
     return null;
+  }
+  if (facts.parentIdentity && facts.collection) {
+    const prose = description.toLowerCase();
+    const parentIndex = prose.indexOf(facts.parentIdentity.toLowerCase());
+    const collectionIndex = prose.indexOf(facts.collection.toLowerCase());
+    if (parentIndex < 0 || collectionIndex < 0 || parentIndex > collectionIndex) {
+      return null;
+    }
   }
   const supportedNamedValues = [
     ...Object.values(facts.product || {}),
@@ -385,12 +428,14 @@ Writing rules:
 - Compose relationships; never serialize title, condition, price, or location.
 - For related/bundled items, explain the relationship naturally when facts support it.
 - Preserve the most specific supplied collection, group, model, or product-family name; do not replace it with a generic category.
+- Treat parentIdentity as a modifier that comes before collection/product: "Parent Collection", never "Collection Parent".
 - Format lists as natural prose: "A, B and C", never "A, B, C".
 - When quantity and multiple related items are supplied, make clear they are being sold together as one set or bundle.
 - For cards, prioritize set/product, character/player, parallel, numbering, grade, quantity, and condition.
 - For electronics, bikes, clothing, and vehicles, prioritise only confirmed useful details.
 - Never mention price, location, contact actions, "for sale", marketing filler, database labels, or unsupported claims.
 - Include the supplied condition naturally whenever one is present.
+- Condition grammar: "is/are brand new", "is/are new", "is/are in like-new condition", "is/are in good condition", "is/are in good used condition", or "is/are in fair condition". Never write "in brand new".
 - Do not use generic selling language such as "great addition", "perfect opportunity", "enhance your", "showcase", "ideal for", "perfect for", "legendary", or "vibrant design".
 - Never emit raw metadata such as bundle_quantity:3, listing_type:physical, brand:Nike, or any key:value labels.
 - Never add facts, specifications, authenticity, working status, or condition not in JSON.`,

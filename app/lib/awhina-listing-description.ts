@@ -220,6 +220,34 @@ function conditionShort(condition: string | undefined): string | null {
   return c.toLowerCase();
 }
 
+/** Build a grammatically valid condition predicate for singular/plural prose. */
+export function composeConditionPredicate(
+  conditionPhrase: string,
+  plural = false
+): string {
+  const verb = plural ? "are" : "is";
+  const normalized = conditionPhrase
+    .trim()
+    .replace(/^in\s+/i, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  if (normalized === "brand new") return `${verb} brand new`;
+  if (normalized === "new") return `${verb} new`;
+  if (/^like[- ]new(?:\s+condition)?$/.test(normalized)) {
+    return `${verb} in like-new condition`;
+  }
+  if (normalized === "good") return `${verb} in good condition`;
+  if (/^good used(?:\s+condition)?$/.test(normalized)) {
+    return `${verb} in good used condition`;
+  }
+  if (normalized === "fair") return `${verb} in fair condition`;
+  if (/^fair used(?:\s+condition)?$/.test(normalized)) {
+    return `${verb} in fair used condition`;
+  }
+  if (/\bcondition$/.test(normalized)) return `${verb} in ${normalized}`;
+  return `${verb} ${normalized}`;
+}
+
 /**
  * Identity-only label for writers — never raw freeform defect tails.
  * Keeps storage/colour tokens that belong in the product name.
@@ -1820,7 +1848,7 @@ function writeTradingCard(
     const naturalSubjects = formatNaturalList(subjects);
     let bundleSentence = `Set of ${bundleQuantityWord(bundleQuantity)} ${collectionNoun} featuring ${naturalSubjects}.`;
     if (cond) {
-      bundleSentence += ` All ${bundleQuantityWord(bundleQuantity)} cards are in ${cond} and are being sold together as a set.`;
+      bundleSentence += ` All ${bundleQuantityWord(bundleQuantity)} cards ${composeConditionPredicate(cond, true)} and are being sold together as a set.`;
     } else {
       bundleSentence += " They are being sold together as a set.";
     }
@@ -1962,9 +1990,9 @@ function writeVehicle(facts: DescriptionFacts): string {
     parts.push(extrasProse);
   }
 
-  if (facts.conditionPhrase && facts.conditionPhrase !== "brand new") {
+  if (facts.conditionPhrase) {
     parts.push(
-      polishParagraph(`The car is in ${facts.conditionPhrase}.`)
+      polishParagraph(`The car ${composeConditionPredicate(facts.conditionPhrase)}.`)
     );
   }
 
