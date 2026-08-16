@@ -98,6 +98,8 @@ export type DescriptionFacts = {
     availableFrom: string | null;
   } | null;
   extras: string[];
+  /** Internal only — never serialized as key:value in public prose. */
+  bundleQuantity: number | null;
   quality: ListingDescriptionQuality;
   seed: string;
   factRichness: "sparse" | "normal" | "rich";
@@ -585,6 +587,12 @@ function weaveableExtras(fill: SkyAiListingFill): string[] {
     .filter((e) => !/^attr:/i.test(e))
     .filter((e) => !/^text:/i.test(e))
     .filter((e) => !/^accessory:/i.test(e))
+    .filter(
+      (e) =>
+        !/^(bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|condition_code|vision_confidence|provenance|field_source):/i.test(
+          e
+        )
+    )
     .filter((e) => !/^(brand|new|like|console|the|and|for|with)$/i.test(e))
     // Keep structured storage tags as readable facts for identity (title already has them)
     .filter((e) => !/^storage:/i.test(e))
@@ -925,20 +933,15 @@ export function extractDescriptionFacts(
   const delivery = deliveryMode(fill);
   // Confirmed extras + freeform clauses already present on title (input mapping only)
   const woven = weaveableExtras(fill);
-  // Bundle count is canonical object structure, not buyer-visible metadata. Keep
-  // it available to the card writer while all other raw tags remain excluded.
-  const bundleFacts = (fill.extras || []).filter((extra) =>
-    /^bundle_quantity:\s*\d+$/i.test(String(extra || ""))
-  );
+  // bundle_quantity stays on the canonical draft. For prose we only keep a
+  // numeric internal field — never re-inject "bundle_quantity:3" into extras
+  // where composeExtrasProse could append it after natural "Set of three…".
+  const bundleQuantity = bundleQuantityFromExtras(fill.extras || []);
   const lifted = liftFreeformFactsFromConfirmedText(title, ...(fill.extras || []));
   const extras = [
     ...woven,
-    ...bundleFacts,
     ...lifted.filter(
-      (f) =>
-        ![...woven, ...bundleFacts].some(
-          (e) => e.toLowerCase() === f.toLowerCase()
-        )
+      (f) => !woven.some((e) => e.toLowerCase() === f.toLowerCase())
     ),
   ].slice(0, 8);
 
@@ -1053,6 +1056,7 @@ export function extractDescriptionFacts(
     serviceDuration,
     rental,
     extras,
+    bundleQuantity,
     quality,
     seed: listingSeed(fill),
     factRichness,
@@ -1716,7 +1720,7 @@ function writeTradingCard(
 
   const parts: string[] = [];
   const loc = facts.location;
-  const bundleQuantity = bundleQuantityFromExtras(facts.extras);
+  const bundleQuantity = facts.bundleQuantity;
   const subjects = cardFacts.playerName || selected.playerName || null;
   const collection = line || cardFacts.productLine || null;
 
@@ -1732,6 +1736,7 @@ function writeTradingCard(
       bundleSentence += ` All ${bundleQuantityWord(bundleQuantity)} cards are in ${cond}.`;
     }
     parts.push(polishParagraph(bundleSentence));
+    // Wear / feature extras only — never re-append structured quantity tags.
     const extrasProse = composeExtrasProse(deduped.weaveExtras);
     if (extrasProse) parts.push(extrasProse);
     return parts.join(" ");

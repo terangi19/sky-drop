@@ -1738,11 +1738,17 @@ describe("authoritative description boundary regressions", () => {
       ],
     };
 
+    const facts = extractDescriptionFacts(fill);
+    expect(facts.bundleQuantity).toBe(3);
+    expect(facts.extras.join(" ")).not.toMatch(/bundle_quantity/i);
+    expect(fill.extras).toContain("bundle_quantity:3");
+
     const initial = finalizeAwhinaListingDescription(fill);
     expect(initial.description).toMatch(
       /Set of three Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor\./
     );
     expect(initial.description).not.toMatch(/\$100|asking|priced at/i);
+    expect(initial.description).not.toMatch(/bundle_quantity|Bundle_quantity|:3\b/i);
     const initialValidation = validateDescription(initial.description);
     expect(initialValidation.ok, initialValidation.reason).toBe(true);
 
@@ -1754,9 +1760,30 @@ describe("authoritative description boundary regressions", () => {
     });
     expect(conditioned.description).toMatch(/All three cards are in good used condition\./i);
     expect(conditioned.description).not.toMatch(/\$100|asking|priced at/i);
-    expect(conditioned.description).not.toMatch(/bundle_quantity|Bundle_quantity/i);
+    expect(conditioned.description).not.toMatch(/bundle_quantity|Bundle_quantity|:3\b/i);
     expect(String(conditioned.description).trim()).toBe(
       "Set of three Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition."
+    );
+  });
+
+  it("never appends raw structured quantity after natural set prose", () => {
+    const fill: SkyAiListingFill = {
+      title: "Yu-Gi-Oh! Cards",
+      listingType: "physical",
+      condition: "Used - Good",
+      extras: [
+        "subject:The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor",
+        "set:Yu-Gi-Oh!",
+        "bundle_quantity:3",
+      ],
+    };
+    const description = String(finalizeAwhinaListingDescription(fill).description || "");
+    expect(description).toMatch(/Set of three/i);
+    expect(description).not.toMatch(/bundle_quantity/i);
+    expect(description).not.toMatch(/Bundle_quantity/i);
+    expect(description).not.toMatch(/:3/);
+    expect(description).toBe(
+      "Set of three Yu-Gi-Oh! Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor. All three cards are in good used condition."
     );
   });
 
