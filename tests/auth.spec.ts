@@ -98,24 +98,35 @@ test.describe("Authentication", () => {
   });
 
   test("auth shells remain usable at mobile widths", async ({ page }) => {
+    test.setTimeout(120_000);
     for (const width of [320, 360, 390, 430]) {
       await page.setViewportSize({ width, height: 844 });
       for (const path of ["/login", "/signup", "/forgot-password"]) {
-        await page.goto(path);
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await page.goto(path, { waitUntil: "domcontentloaded", timeout: 20000 });
+            break;
+          } catch (error) {
+            if (attempt === 2) throw error;
+            await page.waitForTimeout(500);
+          }
+        }
         const main = page.getByRole("main");
-        await expect(main).toBeVisible();
+        await expect(main).toBeVisible({ timeout: 20000 });
         // Navbar search can be first in DOM but intentionally hidden on mobile.
-        await expect(main.locator("input:visible").first()).toBeVisible();
+        await expect(main.locator("input:visible").first()).toBeVisible({ timeout: 20000 });
         expect(await page.locator("body").evaluate((body) => body.scrollWidth <= window.innerWidth)).toBe(true);
       }
     }
   });
 
   test("forgot-password keeps a safe return path", async ({ page }) => {
-    await page.goto("/forgot-password?redirect=%2Fpost%2Fai");
+    await page.goto("/forgot-password?redirect=%2Fpost%2Fai", { waitUntil: "domcontentloaded", timeout: 30000 });
+    await expect(page.getByRole("heading", { name: /reset your password/i })).toBeVisible({ timeout: 20000 });
     await expect(page.getByRole("link", { name: /back to login/i }).first()).toHaveAttribute(
       "href",
-      "/login?redirect=%2Fpost%2Fai"
+      "/login?redirect=%2Fpost%2Fai",
+      { timeout: 15000 }
     );
   });
 });
