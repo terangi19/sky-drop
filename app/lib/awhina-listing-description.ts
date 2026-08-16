@@ -1906,6 +1906,23 @@ function writeTradingCard(
   const bundleQuantity = facts.bundleQuantity;
   const subjects = cardFacts.playerName || selected.playerName || null;
   const collection = line || cardFacts.productLine || null;
+  const sealedSellerIdentity = opener.replace(/^brand new\s+/i, "brand-new ");
+
+  // A sealed display/box is a product configuration, not merely a title. Use
+  // that grounded relationship to produce seller-style copy even when no pack
+  // count or other specifications are known. This is the restrained offline
+  // fallback when the grounded async writer is unavailable or rejects its
+  // output; it never invents contents.
+  if (sealed && /\b(?:booster\s*)?display\b/i.test(cardFacts.productFormat || identity)) {
+    return polishParagraph(
+      `This ${sealedSellerIdentity} is being sold as a complete display rather than as individual packs.`
+    );
+  }
+  if (sealed && /\b(?:booster|hobby|blaster|mega)\s*box\b/i.test(cardFacts.productFormat || identity)) {
+    return polishParagraph(
+      `This ${sealedSellerIdentity} is being sold as one box rather than as individual packs.`
+    );
+  }
 
   // A multi-card listing needs to say that it is a single set, not serialize
   // the card names into a title-shaped sentence. This works for any collection

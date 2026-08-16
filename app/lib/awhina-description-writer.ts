@@ -36,6 +36,8 @@ export type DescriptionWriterFacts = {
     colour?: string;
     storage?: string;
     variant?: string;
+    format?: string;
+    franchise?: string;
   };
   /** Card-specific facts are distinct from generic product attributes. */
   collectible?: {
@@ -257,6 +259,11 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
       }
       if (key === "productformat" || key === "product_format" || key === "format") {
         productFormat = value;
+        product.format = value;
+        continue;
+      }
+      if (key === "league" || key === "franchise") {
+        product.franchise = value;
         continue;
       }
       if (key === "parallel") {

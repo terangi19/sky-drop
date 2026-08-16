@@ -2082,7 +2082,7 @@ describe("authoritative description boundary regressions", () => {
 
     const description = String(finalizeAwhinaListingDescription(fill).description || "");
     expect(description).toBe(
-      "Brand new Riftbound League of Legends Unleashed booster box."
+      "This brand-new Riftbound League of Legends Unleashed booster box is being sold as one box rather than as individual packs."
     );
     expect(description).not.toMatch(/Riftbound Unleashed.*Riftbound Unleashed/i);
     expect(validateDescription(description).ok, description).toBe(true);
@@ -2091,6 +2091,35 @@ describe("authoritative description boundary regressions", () => {
       "Brand new Riftbound League of Legends Unleashed booster box Riftbound Unleashed.";
     expect(passesListingDescriptionQualityGate(broken)).toBe(false);
     expect(validateDescription(broken).ok).toBe(false);
+  });
+
+  it("writes premium grounded prose for a sparse Riftbound booster display", () => {
+    const fill: SkyAiListingFill = {
+      title: "Riftbound League of Legends Unleashed booster display",
+      listingType: "physical",
+      category: "Collectibles",
+      extras: [
+        "objectType:booster_display",
+        "manufacturer:Riftbound",
+        "set:Riftbound Unleashed",
+        "league:League of Legends",
+        "productFormat:booster display",
+      ],
+    };
+
+    const writerFacts = buildDescriptionWriterFacts(fill);
+    expect(writerFacts.product).toMatchObject({
+      format: "booster display",
+      franchise: "League of Legends",
+    });
+
+    const description = String(finalizeAwhinaListingDescription(fill).description || "");
+    expect(description).toBe(
+      "This Riftbound League of Legends Unleashed booster display is being sold as a complete display rather than as individual packs."
+    );
+    expect(description).not.toMatch(/Riftbound Unleashed.*Riftbound Unleashed/i);
+    expect(passesListingDescriptionQualityGate(description)).toBe(true);
+    expect(validateDescription(description).ok, description).toBe(true);
   });
 
   it("keeps the universal identifier as facts across marketplace domains", () => {
