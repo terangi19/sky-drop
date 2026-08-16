@@ -54,6 +54,34 @@ const IMAGE_PROVENANCE_KEYS: (keyof ListingDraftFormSnapshot)[] = [
   "rentalPropertyType",
 ];
 
+function naturalVisionIdentityLead(
+  identity: string,
+  fill: SkyAiListingFill
+): string {
+  const subject = (fill.extras || [])
+    .map((extra) => String(extra).match(/^subject:\s*(.+)$/i)?.[1]?.trim())
+    .find(Boolean);
+  const set = (fill.extras || [])
+    .map((extra) => String(extra).match(/^(?:set|product_line|productline):\s*(.+)$/i)?.[1]?.trim())
+    .find(Boolean);
+  const subjectCount = subject
+    ? subject
+        .split(/\s*(?:,|&|\band\b)\s*/i)
+        .map((part) => part.trim())
+        .filter(Boolean).length
+    : 0;
+
+  // Use structured facts where a photo contains a set. This is general card
+  // composition, not a special case for any named franchise or character.
+  if (subject && subjectCount > 1) {
+    const collection = set
+      ? `${set}${/\bcards?\b/i.test(set) ? "" : " cards"}`
+      : "trading cards";
+    return `Looks like a set of ${collection} — ${subject}.`;
+  }
+  return `Looks like **${identity.replace(/[.!]+$/g, "")}**.`;
+}
+
 export type VisionConversationBridgeInput = {
   listingFill: SkyAiListingFill;
   displayIdentity: string;
@@ -263,13 +291,13 @@ export function prepareVisionConversationBridge(
   if (needsConfirm) {
     const assistantMessage =
       fused?.assistantMessage ||
-      `Looks like a **${identity}**. Is that right?`;
+      `${naturalVisionIdentityLead(identity, fill)} Is that right?`;
     // Response → state contract: confirmation prose MUST set structured pendingAction
     const pendingAction: AwhinaPendingAction = {
       ...buildConfirmIdentityPendingAction({
         identity,
         listingFill: fill,
-        prompt: `Looks like a ${identity}. Is that right?`,
+        prompt: `${naturalVisionIdentityLead(identity, fill)} Is that right?`,
       }),
       id: `pa_ident_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
       status: "active",
@@ -303,7 +331,7 @@ export function prepareVisionConversationBridge(
   const assistantMessage =
     fused?.assistantMessage ||
     buildReadinessFollowUpReply(draftAfter, {
-      lead: `Looks like a **${identity}**.`,
+      lead: naturalVisionIdentityLead(identity, fill),
     });
 
   return {

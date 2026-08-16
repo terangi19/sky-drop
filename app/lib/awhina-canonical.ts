@@ -115,10 +115,10 @@ import {
   maybeOneProactiveSuggestion,
   buildPremiumSearchSummary,
   buildPremiumListingTitle,
-  buildListingDescriptionFromFacts,
   isVehicleListingFill,
   type ListingFacts,
 } from "./awhina-product-ux";
+import { finalizeAwhinaListingDescription } from "./awhina-listing-composer";
 import {
   buildAwhinaDecision,
   collectIgnoredStaleContext,
@@ -400,8 +400,9 @@ function applyPendingSlotFill(opts: {
         vehicleYear: merged.vehicleYear,
       });
     }
-    merged.description = buildListingDescriptionFromFacts(merged);
-    merged.descriptionSource = "ai";
+    const finalized = finalizeAwhinaListingDescription(merged);
+    merged.description = finalized.description;
+    merged.descriptionSource = finalized.descriptionSource;
   }
 
   const validated = validateListingFillFields(merged);

@@ -39,7 +39,6 @@ import type { AwhinaToolCall } from "./awhina-types";
 import { validateToolCall } from "./awhina-tool-registry";
 import {
   suggestListingImprovements,
-  buildListingDescriptionFromFacts,
   autoImproveListingDraft,
   buildCompleteDraftReply,
   buildIncompleteDraftReply,
@@ -965,7 +964,9 @@ export function processListingFillMessage(
               vehicleYear: merged.vehicleYear,
             });
           }
-          const desc = buildListingDescriptionFromFacts(merged, { force: forceDesc });
+          const desc = finalizeAwhinaListingDescription(merged, {
+            force: forceDesc,
+          }).description;
           if (desc) {
             merged.description = desc;
             merged.descriptionSource = "ai";
@@ -1007,6 +1008,23 @@ export function processListingFillMessage(
           (validated.fill.title || "").replace(/\s+/g, " ").trim() !==
           (baseDraftEarly.title || "").replace(/\s+/g, " ").trim();
         const noteBits = [...extracted.notes];
+        if (extracted.filledSlots.includes("price") && validated.fill.price) {
+          const price = Number(String(validated.fill.price).replace(/[^\d.]/g, ""));
+          const bundle = (validated.fill.extras || [])
+            .map((extra) => String(extra).match(/^bundle_quantity:\s*(\d+)$/i)?.[1])
+            .find(Boolean);
+          const priceLabel = Number.isFinite(price)
+            ? `$${Math.round(price).toLocaleString("en-NZ")}`
+            : validated.fill.price;
+          noteBits.unshift(
+            bundle ? `${priceLabel} for all ${bundle}` : priceLabel
+          );
+          // The acknowledgement now carries the bundle fact, so do not echo
+          // its implementation-facing note separately.
+          for (let i = noteBits.length - 1; i >= 0; i--) {
+            if (/^bundle of \d+$/i.test(noteBits[i])) noteBits.splice(i, 1);
+          }
+        }
         if (
           draftCmds.commands.includes("regenerate_description") &&
           descriptionChanged
@@ -1092,8 +1110,9 @@ export function processListingFillMessage(
                 vehicleYear: merged.vehicleYear,
               });
             }
-            merged.description = buildListingDescriptionFromFacts(merged);
-            merged.descriptionSource = "ai";
+            const finalized = finalizeAwhinaListingDescription(merged);
+            merged.description = finalized.description;
+            merged.descriptionSource = finalized.descriptionSource;
           }
           const validated = validateListingFillFields(merged);
           if (!validated.ok) {
@@ -1583,7 +1602,7 @@ export function processListingFillMessage(
         (partial.vehicleMake || partial.vehicleModel) &&
         partial.descriptionSource !== "user"
       ) {
-        const desc = buildListingDescriptionFromFacts(partial);
+        const desc = finalizeAwhinaListingDescription(partial).description;
         if (desc) {
           partial.description = desc;
           partial.descriptionSource = "ai";
@@ -1740,11 +1759,17 @@ export function processListingFillMessage(
           vehicleYear: merged.vehicleYear,
         });
       }
-      merged.description = buildListingDescriptionFromFacts(merged);
-      merged.descriptionSource = "ai";
+      {
+        const finalized = finalizeAwhinaListingDescription(merged);
+        merged.description = finalized.description;
+        merged.descriptionSource = finalized.descriptionSource;
+      }
     } else {
-      merged.description = buildListingDescriptionFromFacts(merged);
-      merged.descriptionSource = "ai";
+      {
+        const finalized = finalizeAwhinaListingDescription(merged);
+        merged.description = finalized.description;
+        merged.descriptionSource = finalized.descriptionSource;
+      }
     }
   }
   if (merged.title) merged.title = normalizeProductName(merged.title).slice(0, 120);

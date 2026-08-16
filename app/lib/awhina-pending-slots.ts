@@ -814,6 +814,39 @@ export function extractCompoundListingFacts(
   const base = opts?.baseDraft || {};
   const domain = detectSellDomain(base.title || base.listingType ? base : { listingType: "physical", title: residual });
 
+  // "100 for all three" is a price answer plus a fact about the object being
+  // sold. Preserve that bundle context without mistaking it for stock count.
+  // The description composer can use this canonical fact, but price remains a
+  // separate field and condition is still the next question.
+  if (domain === "card") {
+    const wordQuantities: Record<string, number> = {
+      one: 1,
+      two: 2,
+      three: 3,
+      four: 4,
+      five: 5,
+      six: 6,
+      seven: 7,
+      eight: 8,
+      nine: 9,
+      ten: 10,
+    };
+    const bundleMatch = residual.match(
+      /\b(?:for\s+)?all\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i
+    );
+    if (bundleMatch) {
+      const raw = bundleMatch[1].toLowerCase();
+      const quantity = /^\d+$/.test(raw) ? Number(raw) : wordQuantities[raw];
+      if (Number.isInteger(quantity) && quantity > 1 && quantity <= 100) {
+        partial.extras = mergeExtras(partial.extras || base.extras, [
+          `bundle_quantity:${quantity}`,
+        ]);
+        notes.push(`bundle of ${quantity}`);
+        residual = residual.replace(bundleMatch[0], " ").replace(/\s+/g, " ").trim();
+      }
+    }
+  }
+
   // Vehicle generation + variant (USER-stated only)
   if (domain === "vehicle" || isVehicleListingFill(base as SkyAiListingFill) || GEN_TOKEN_RE.test(residual)) {
     const genMatch = residual.match(GEN_TOKEN_RE);

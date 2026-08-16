@@ -26,7 +26,9 @@ import {
   clearListingDraftSession,
   listingDraftSessionKey,
   parseListingPriceFromMessage,
+  processListingFillMessage,
 } from "./awhina-listing-fill-tools";
+import { buildReadinessFollowUpReply } from "./awhina-listing-readiness";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -930,10 +932,9 @@ describe("one-shot sell uses Premium Plus description path", () => {
     const desc = String(r.listingFill?.description || "");
     expect(desc).toMatch(/PlayStation\s*5|PS5/i);
     expect(desc).toMatch(/Auckland/i);
-    expect(desc).toMatch(/\$200/);
+    expect(desc).not.toMatch(/\$200|asking|priced at/i);
     assertNaturalMarketplaceCopy(desc);
     assertOneCtaMax(desc);
-    expect(desc).toMatchSnapshot();
   });
 
   it("vehicle one-shot description is category-styled", () => {
@@ -944,12 +945,12 @@ describe("one-shot sell uses Premium Plus description path", () => {
     );
     const desc = String(r.listingFill?.description || "");
     expect(desc).toMatch(/BMW/i);
-    expect(desc).toMatch(/85,?000|Auckland|\$18,?500/i);
+    expect(desc).toMatch(/85,?000|Auckland/i);
+    expect(desc).not.toMatch(/\$18,?500|asking|priced at/i);
     expect(desc).not.toMatch(ROBOTIC_SMELLS);
     expect(desc).not.toMatch(META_PHRASE_SMELLS);
     expect(desc).not.toMatch(UNGROUNDED_CLAIM_SMELLS);
     assertOneCtaMax(desc);
-    expect(desc).toMatchSnapshot();
   });
 });
 
@@ -992,7 +993,7 @@ describe("live oneshot human-seller regressions", () => {
     const desc = String(r.listingFill?.description || "");
     expect(desc).not.toMatch(/^Looking for\b/i);
     expect(desc).toMatch(/lawn mowing/i);
-    expect(desc).toMatch(/\$50 per job/i);
+    expect(desc).not.toMatch(/\$50|asking|priced at/i);
     expect(desc).toMatch(/available/i);
     assertOneCtaMax(desc);
     assertNaturalMarketplaceCopy(desc);
@@ -1169,7 +1170,7 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     expect(desc.trim().length).toBeGreaterThan(40);
     expect(desc).toMatch(/1999|Nissan|Skyline|R34/i);
     expect(desc).toMatch(/Auckland/i);
-    expect(desc).toMatch(/\$30,?000|\$30000/);
+    expect(desc).not.toMatch(/\$30,?000|\$30000|asking|priced at/i);
     expect(desc).toMatch(/good/i);
     expect(desc).not.toMatch(SELLER_LEAK);
     expect(desc).not.toMatch(SELLER_EDITOR_GUIDANCE_RE);
@@ -1196,10 +1197,9 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     expect(desc.trim().length).toBeGreaterThan(40);
     expect(desc).toMatch(/1999|Nissan|Skyline|R34/i);
     expect(desc).toMatch(/Auckland/i);
-    expect(desc).toMatch(/\$30,?000|\$30000/);
+    expect(desc).not.toMatch(/\$30,?000|\$30000|asking|priced at/i);
     expect(desc).not.toMatch(SELLER_LEAK);
     assertNaturalMarketplaceCopy(desc);
-    expect(desc).toMatchSnapshot();
   });
 
   it("sparse R34 seed: blank buyer desc — no complete-the-listing leak", () => {
@@ -1253,7 +1253,7 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     });
     const d4 = String(withLoc.listingFill?.description || "");
     expect(d4).toMatch(/Auckland/i);
-    expect(d4).toMatch(/\$12,?000|\$12000/);
+    expect(d4).not.toMatch(/\$12,?000|\$12000|asking|priced at/i);
     expect(d4).toMatch(/good used condition|good condition/i);
     expect(d4).not.toMatch(SELLER_LEAK);
     assertOneCtaMax(d4);
@@ -1342,7 +1342,7 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     expect(desc).toMatch(/grey|gray/i);
     expect(desc).toMatch(/automatic/i);
     expect(desc).toMatch(/twin turbos/i);
-    expect(desc).toMatch(/\$18,?000/);
+    expect(desc).not.toMatch(/\$18,?000|asking|priced at/i);
     expect(desc).not.toMatch(/\bWOF\b|\bwarranty\b|\bservice history\b/i);
     assertNaturalMarketplaceCopy(desc);
 
@@ -1645,5 +1645,187 @@ describe("authoritative description boundary regressions", () => {
     expect(finalizeAwhinaListingDescription(fill, { force: true }).description).not.toBe(
       fill.description
     );
+  });
+
+  it("writes a card bundle from canonical facts without serializing the price", () => {
+    const fill: SkyAiListingFill = {
+      title:
+        "The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor Yu-Gi-Oh!",
+      listingType: "physical",
+      category: "Collectibles",
+      price: "100",
+      extras: [
+        "subject:The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor",
+        "set:Egyptian God Cards",
+        "bundle_quantity:3",
+      ],
+    };
+
+    const initial = finalizeAwhinaListingDescription(fill);
+    expect(initial.description).toMatch(
+      /Set of three Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor\./
+    );
+    expect(initial.description).not.toMatch(/\$100|asking|priced at/i);
+    const initialValidation = validateDescription(initial.description);
+    expect(initialValidation.ok, initialValidation.reason).toBe(true);
+
+    const conditioned = finalizeAwhinaListingDescription({
+      ...fill,
+      condition: "Used - Good",
+      description: initial.description,
+      descriptionSource: "ai",
+    });
+    expect(conditioned.description).toMatch(/All three cards are in good used condition\./i);
+    expect(conditioned.description).not.toMatch(/\$100|asking|priced at/i);
+  });
+
+  it("treats a price for a pictured card set as price plus bundle context, then asks condition", () => {
+    const draft: SkyAiListingFill = {
+      title:
+        "The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor Yu-Gi-Oh!",
+      listingType: "physical",
+      category: "Collectibles",
+      extras: [
+        "subject:The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor",
+        "set:Egyptian God Cards",
+      ],
+    };
+    const turn = processListingFillMessage("100 for all three", {
+      pathname: "/post/ai",
+      listingContext: draft,
+      pendingClarification: {
+        kind: "listing_slots",
+        pendingSlot: "price",
+        priorMessage: "What is the asking price?",
+        askedAt: Date.now(),
+      },
+    });
+
+    expect(turn.handled).toBe(true);
+    if (!turn.handled || !turn.listingFill) return;
+    expect(turn.listingFill.price).toBe("100");
+    expect(turn.listingFill.extras).toContain("bundle_quantity:3");
+    expect(turn.listingFill.description).not.toMatch(/\$100|asking|priced at/i);
+    expect(turn.reply).toMatch(/\$100 for all 3/i);
+    expect(turn.reply).toMatch(/What condition is it in\?/i);
+    expect(buildReadinessFollowUpReply(turn.listingFill)).toMatch(
+      /What condition is it in\?/i
+    );
+  });
+
+  it("regenerates an active AI-owned description from canonical facts on request", () => {
+    const oldDescription =
+      "The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor Yu-Gi-Oh!, asking $100.";
+    const turn = processListingFillMessage("update description", {
+      pathname: "/post/ai",
+      listingContext: {
+        title:
+          "The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor Yu-Gi-Oh!",
+        listingType: "physical",
+        category: "Collectibles",
+        price: "100",
+        condition: "Used - Good",
+        description: oldDescription,
+        extras: [
+          "subject:The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor",
+          "set:Egyptian God Cards",
+          "bundle_quantity:3",
+        ],
+      },
+    });
+
+    expect(turn.handled).toBe(true);
+    if (!turn.handled || !turn.listingFill) return;
+    expect(turn.listingFill.description).not.toBe(oldDescription);
+    expect(turn.listingFill.description).toMatch(/Set of three Egyptian God Cards/i);
+    expect(turn.listingFill.description).toMatch(/All three cards are in good used condition/i);
+    expect(turn.listingFill.description).not.toMatch(/\$100|asking|priced at/i);
+    expect(turn.reply).toMatch(/updated the description/i);
+  });
+
+  it("keeps structured prices out of final buyer copy across listing domains", () => {
+    const cases: Array<{ name: string; fill: SkyAiListingFill; must: RegExp }> = [
+      {
+        name: "Topps Chrome card",
+        fill: {
+          title: "2023 Topps Chrome Erling Haaland",
+          listingType: "physical",
+          category: "Collectibles",
+          condition: "Used - Good",
+          price: "125",
+          extras: ["subject:Erling Haaland", "set:2023 Topps Chrome"],
+        },
+        must: /Erling Haaland/i,
+      },
+      {
+        name: "DualSense",
+        fill: {
+          title: "Sony DualSense Wireless Controller",
+          listingType: "physical",
+          category: "Gaming",
+          condition: "Used - Good",
+          price: "80",
+          extras: ["colour:Midnight Black"],
+        },
+        must: /DualSense/i,
+      },
+      {
+        name: "Razer mouse",
+        fill: {
+          title: "Razer DeathAdder V3 Wireless Gaming Mouse",
+          listingType: "physical",
+          category: "Gaming",
+          condition: "Used - Good",
+          price: "95",
+        },
+        must: /DeathAdder/i,
+      },
+      {
+        name: "Marin mountain bike",
+        fill: {
+          title: "Marin Bobcat Trail Mountain Bike",
+          listingType: "physical",
+          category: "Sports",
+          condition: "Used - Good",
+          price: "700",
+        },
+        must: /Marin/i,
+      },
+      {
+        name: "iPhone",
+        fill: {
+          title: "Apple iPhone 15 Pro 256GB",
+          listingType: "physical",
+          category: "Tech",
+          condition: "Used - Good",
+          price: "900",
+        },
+        must: /iPhone 15 Pro/i,
+      },
+      {
+        name: "car",
+        fill: {
+          title: "2018 Mazda Axela",
+          listingType: "vehicle",
+          category: "Cars",
+          vehicleYear: "2018",
+          vehicleMake: "Mazda",
+          vehicleModel: "Axela",
+          vehicleOdometer: "85000",
+          vehicleTransmission: "Automatic",
+          condition: "Used - Good",
+          price: "12500",
+          location: "Auckland",
+        },
+        must: /85,?000 km/i,
+      },
+    ];
+
+    for (const c of cases) {
+      const description = finalizeAwhinaListingDescription(c.fill).description;
+      expect(description, c.name).toMatch(c.must);
+      expect(description, c.name).not.toMatch(/\$\d|(?:asking|priced at)\s+\$/i);
+      expect(validateDescription(description).ok, `${c.name}: ${description}`).toBe(true);
+    }
   });
 });

@@ -8,7 +8,10 @@ import {
   resolveListingDescriptionStyle,
   type ListingDescriptionQuality,
 } from "./awhina-product-ux";
-import { buildListingDescriptionFromFacts } from "./awhina-listing-description";
+import {
+  buildListingDescriptionFromFacts,
+  removeStructuredPriceCopy,
+} from "./awhina-listing-description";
 import { composeListingIdentity } from "./awhina-listing-identity";
 import {
   inferPhysicalCategoryFromText,
@@ -215,6 +218,7 @@ export function finalizeAwhinaListingDescription(
     ...opts,
     force: opts?.force || Boolean(fill.description?.trim()),
   });
+  description = removeStructuredPriceCopy(description);
   // Contact actions already exist in the listing UI; never auto-pad public
   // copy with a template CTA.
   description = description

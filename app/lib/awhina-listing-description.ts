@@ -906,11 +906,20 @@ export function extractDescriptionFacts(
   const delivery = deliveryMode(fill);
   // Confirmed extras + freeform clauses already present on title (input mapping only)
   const woven = weaveableExtras(fill);
+  // Bundle count is canonical object structure, not buyer-visible metadata. Keep
+  // it available to the card writer while all other raw tags remain excluded.
+  const bundleFacts = (fill.extras || []).filter((extra) =>
+    /^bundle_quantity:\s*\d+$/i.test(String(extra || ""))
+  );
   const lifted = liftFreeformFactsFromConfirmedText(title, ...(fill.extras || []));
   const extras = [
     ...woven,
+    ...bundleFacts,
     ...lifted.filter(
-      (f) => !woven.some((e) => e.toLowerCase() === f.toLowerCase())
+      (f) =>
+        ![...woven, ...bundleFacts].some(
+          (e) => e.toLowerCase() === f.toLowerCase()
+        )
     ),
   ].slice(0, 8);
 
@@ -1180,7 +1189,11 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   if (SERVICE_INVENTION_RE.test(t)) return true;
   if (SERVICE_TEMPLATE_SMELL_RE.test(t)) return true;
   if (AWKWARD_PHYSICAL_STITCH_RE.test(t)) return true;
-  if (hasSemanticWordRepetition(t)) return true;
+  // Named subjects in one collection can legitimately share a word (for
+  // example two card names containing "Dragon"). The repeated word is identity,
+  // not keyword stuffing, when the writer has composed a bundle sentence.
+  const isComposedBundle = /^Set of \w+ .+\bfeaturing\b/i.test(t);
+  if (hasSemanticWordRepetition(t) && !isComposedBundle) return true;
   if (/\bOdometer:\s*/i.test(t) && /\bColour:\s*/i.test(t)) return true;
   if (/^Selling .+\.\s*Condition:/i.test(t)) return true;
   if (/^selling my .{1,40}$/i.test(t) && !/\n/.test(t)) return true;
@@ -1237,7 +1250,8 @@ export function passesListingDescriptionQualityGate(
   ) {
     return false;
   }
-  if (hasSemanticWordRepetition(t)) return false;
+  const isComposedBundle = /^Set of \w+ .+\bfeaturing\b/i.test(t);
+  if (hasSemanticWordRepetition(t) && !isComposedBundle) return false;
   if (t.includes("\n\n")) return false;
   if (countCtas(t) > 1) return false;
   const n = wordCount(t);
@@ -1264,7 +1278,7 @@ export function validateDescription(
   const t = text.trim();
   if (/Attr\s*:/i.test(t)) return { ok: false, reason: "attr_leak" };
   if (FIELD_LABEL_RE.test(t)) return { ok: false, reason: "field_label" };
-  if (/\bSet\s+[A-Z]/i.test(t) && /\bSet\s+\S+/i.test(t)) {
+  if (/\bSet\s*:\s*\S+/i.test(t)) {
     return { ok: false, reason: "set_field_label" };
   }
   if (METADATA_SERIALIZATION_RE.test(t)) return { ok: false, reason: "metadata_serialization" };
@@ -1594,6 +1608,31 @@ function physicalNounPhrase(facts: DescriptionFacts): string {
   return `${item} in ${cond}`;
 }
 
+function bundleQuantityFromExtras(extras: string[]): number | null {
+  const value = extras
+    .map((extra) => String(extra || "").match(/^bundle_quantity:\s*(\d+)$/i)?.[1])
+    .find(Boolean);
+  const quantity = value ? Number(value) : NaN;
+  return Number.isInteger(quantity) && quantity > 1 ? quantity : null;
+}
+
+function bundleQuantityWord(quantity: number): string {
+  const words = [
+    "",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+  ];
+  return words[quantity] || String(quantity);
+}
+
 function writeTradingCard(
   facts: DescriptionFacts,
   selected: SelectedDescriptionFacts
@@ -1665,6 +1704,26 @@ function writeTradingCard(
   const parts: string[] = [];
   const loc = facts.location;
   const money = facts.money;
+  const bundleQuantity = bundleQuantityFromExtras(facts.extras);
+  const subjects = cardFacts.playerName || selected.playerName || null;
+  const collection = line || cardFacts.productLine || null;
+
+  // A multi-card listing needs to say that it is a single set, not serialize
+  // the card names into a title-shaped sentence. This works for any collection
+  // whose vision/user facts provide a subject list and bundle quantity.
+  if (bundleQuantity && subjects) {
+    const collectionNoun = collection
+      ? `${collection} ${/\bcards?\b/i.test(collection) ? "" : "cards"}`
+      : "trading cards";
+    let bundleSentence = `Set of ${bundleQuantityWord(bundleQuantity)} ${collectionNoun} featuring ${subjects}.`;
+    if (cond) {
+      bundleSentence += ` All ${bundleQuantityWord(bundleQuantity)} cards are in ${cond}.`;
+    }
+    parts.push(polishParagraph(bundleSentence));
+    const extrasProse = composeExtrasProse(deduped.weaveExtras);
+    if (extrasProse) parts.push(extrasProse);
+    return parts.join(" ");
+  }
   if (loc && money) {
     parts.push(
       polishParagraph(`${capFirst(opener)} for sale in ${loc}, asking ${money}.`)
@@ -2062,6 +2121,34 @@ export function applyDescriptionContradictionGuard(
   );
   out = out.replace(/\b(\d+)\s*(gb|tb)\b/gi, (_, n, u) => `${n}${String(u).toUpperCase()}`);
   return polishParagraph(out);
+}
+
+/**
+ * The price is structured listing data, not seller prose. Writers can use a
+ * price internally to reason about a listing, but no generated public
+ * description may echo it. Keeping this as the last writer-stage guard also
+ * protects older type writers and future fallback paths from reintroducing
+ * "asking $…" boilerplate.
+ */
+export function removeStructuredPriceCopy(text: string): string {
+  const withoutPrice = text
+      .replace(
+        /(?:,?\s*(?:I'm\s+)?(?:asking|priced at|for|at)\s+\$[\d,]+(?:\.\d{1,2})?(?:\s+per\s+(?:hour|day|week|month|job))?)/gi,
+        ""
+      )
+      .replace(
+        /(?:^|(?<=[.!?])\s+)(?:I'm\s+)?asking\s+\$[\d,]+(?:\.\d{1,2})?\.\s*/gi,
+        " "
+      )
+      .replace(
+        /(?:^|(?<=[.!?])\s+)(?:budget|price)\s+(?:around|of)\s+\$[\d,]+(?:\.\d{1,2})?\.\s*/gi,
+        " "
+      )
+      .replace(/\s+([.,!?])/g, "$1")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  if (!withoutPrice || /^[.!?]+$/.test(withoutPrice)) return "";
+  return finalGrammarCleanup(withoutPrice);
 }
 
 export function buildListingDescriptionFromFacts(

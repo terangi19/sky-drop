@@ -130,6 +130,19 @@ function buildMutationAcknowledgement(mutation: ListingMutationResult): string {
   return `Updated your listing draft: ${changed.join(", ")}.`;
 }
 
+/**
+ * The canonical listing tool has already selected the next seller question.
+ * Keep that reply after the browser proves persistence instead of replacing it
+ * with a field-name receipt such as "description, price".
+ */
+function buildPersistedListingReply(
+  mutation: ListingMutationResult,
+  serverReply: string | undefined
+): string {
+  const reply = stripSkyAiMachineTags(serverReply || "").trim();
+  return reply.length > 0 ? reply : buildMutationAcknowledgement(mutation);
+}
+
 const SKY_AI_CONVERSATION_PHOTOS_EVENT = "sky-ai-conversation-photos";
 
 type SkyAiConversationPhotosDetail = {
@@ -1098,7 +1111,7 @@ export default function SkyAiChatPanel({
                       const mutation = onFill?.(merged);
                       navigateTo = undefined;
                       const cleanReply = mutation?.applied
-                        ? buildMutationAcknowledgement(mutation)
+                        ? buildPersistedListingReply(mutation, evt.reply)
                         : "I couldn't update the listing draft yet, so I haven't changed anything.";
                       updateAssistant(assistantId, {
                         text: cleanReply,
@@ -1186,7 +1199,7 @@ export default function SkyAiChatPanel({
               const mutation = onFill?.(merged);
               navigateTo = undefined;
               const cleanReply = mutation?.applied
-                ? buildMutationAcknowledgement(mutation)
+                ? buildPersistedListingReply(mutation, data.reply)
                 : "I couldn't update the listing draft yet, so I haven't changed anything.";
               updateAssistant(assistantId, {
                 text: cleanReply,
