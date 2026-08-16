@@ -28,6 +28,8 @@ import {
 import { isAwhinaVisionListingEnabledServer } from "./awhina-vision-listing-flags";
 import { mergeVisionWithSellerText } from "./awhina-vision-compound";
 import { enrichObservationWithKnowledge } from "./awhina-vision-knowledge";
+import { finalizeAwhinaListingDescriptionAsync } from "./awhina-listing-composer";
+import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import {
   logAwhinaTiming,
   markAwhinaTiming,
@@ -101,6 +103,13 @@ function extractOutputText(response: {
   return chunks.join("\n").trim();
 }
 
+async function withGroundedListingDescription(
+  fill: SkyAiListingFill | undefined
+): Promise<SkyAiListingFill | undefined> {
+  if (!fill) return fill;
+  return finalizeAwhinaListingDescriptionAsync(fill);
+}
+
 /**
  * Run camera-first vision recognition → adapter → existing listing fill schema.
  * ONE multimodal AI call; title/desc/category compose is local/deterministic.
@@ -167,6 +176,8 @@ export async function runVisionListing(
         aiCalls: 0,
         fingerprint: fp.slice(0, 24),
       });
+      const listingFill = await withGroundedListingDescription(adapted.listingFill);
+      if (listingFill) adapted = { ...adapted, listingFill };
       return {
         ok: true,
         enabled: true,
@@ -314,6 +325,8 @@ export async function runVisionListing(
 
     const promptTokens = response.usage?.input_tokens;
     const completionTokens = response.usage?.output_tokens;
+    const listingFill = await withGroundedListingDescription(adapted.listingFill);
+    if (listingFill) adapted = { ...adapted, listingFill };
 
     setVisionCache(cacheKey, {
       observation,

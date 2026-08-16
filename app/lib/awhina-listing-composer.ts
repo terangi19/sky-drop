@@ -12,6 +12,11 @@ import {
   buildListingDescriptionFromFacts,
   removeStructuredPriceCopy,
 } from "./awhina-listing-description";
+import {
+  buildDescriptionWriterFacts,
+  validateAiListingDescription,
+  writeAwhinaListingDescription,
+} from "./awhina-description-writer";
 import { composeListingIdentity } from "./awhina-listing-identity";
 import {
   inferPhysicalCategoryFromText,
@@ -202,9 +207,9 @@ export function recomposeListingDescription(
 /**
  * The sole finalizer for Āwhina-owned buyer copy.
  *
- * Model, vision, and text parsers may propose a `description`, but that value is
- * never public copy by itself. Compose again from the merged canonical facts so
- * every surface gets the same semantic dedupe and public-copy quality gate.
+ * Raw vision/model proposals are not trusted. Validated grounded-writer prose
+ * is kept so client re-finalize cannot collapse premium copy back into
+ * title+condition templates. Templates remain the offline/fallback path.
  * A seller-authored description remains untouched unless an explicit rewrite
  * has set `force`.
  */
@@ -214,6 +219,32 @@ export function finalizeAwhinaListingDescription(
 ): SkyAiListingFill {
   if (fill.descriptionSource === "user" && fill.description?.trim() && !opts?.force) {
     return { ...fill, description: fill.description.trim() };
+  }
+
+  if (!opts?.force && fill.description?.trim()) {
+    const facts = buildDescriptionWriterFacts(fill);
+    const kept = validateAiListingDescription(fill.description, facts);
+    const conditionPhrase = fill.condition?.trim()
+      ? fill.condition.replace(/^Used\s*-\s*/i, "").toLowerCase()
+      : "";
+    const reflectsCondition =
+      !conditionPhrase ||
+      new RegExp(
+        conditionPhrase
+          .split(/\s+/)
+          .filter((word) => word.length > 2)
+          .join("|") || "condition",
+        "i"
+      ).test(kept || "");
+    // Only keep writer prose when it still matches current description-relevant
+    // facts. A price-free set description must not block a later condition weave.
+    if (kept && reflectsCondition) {
+      return {
+        ...fill,
+        description: kept,
+        descriptionSource: "ai",
+      };
+    }
   }
 
   let description = recomposeListingDescription(fill, {
@@ -238,4 +269,29 @@ export function finalizeAwhinaListingDescription(
     description,
     descriptionSource: "ai",
   };
+}
+
+/**
+ * Async public-copy path: templates first, then one grounded writing call.
+ * Fail-open to the deterministic finalizer if the writer is unavailable.
+ */
+export async function finalizeAwhinaListingDescriptionAsync(
+  fill: SkyAiListingFill,
+  opts?: { quality?: ListingDescriptionQuality; force?: boolean }
+): Promise<SkyAiListingFill> {
+  const finalized = finalizeAwhinaListingDescription(fill, opts);
+  if (finalized.descriptionSource === "user" && !opts?.force) return finalized;
+  try {
+    const description = await writeAwhinaListingDescription(finalized, {
+      force: opts?.force,
+    });
+    if (!description) return finalized;
+    return {
+      ...finalized,
+      description,
+      descriptionSource: "ai",
+    };
+  } catch {
+    return finalized;
+  }
 }

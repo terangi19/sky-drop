@@ -182,6 +182,18 @@ describe("grounded AI description writer quality gate", () => {
       )
     ).toMatch(/Set of three/);
   });
+
+  it("finalize keeps validated AI prose instead of collapsing to templates", () => {
+    const good =
+      "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set.";
+    const final = finalizeAwhinaListingDescription({
+      ...godCards,
+      description: good,
+      descriptionSource: "ai",
+    });
+    expect(final.description).toBe(good);
+    expect(final.description).not.toMatch(/for sale in Auckland/i);
+  });
 });
 
 describe("facts extraction separates writing from raw text", () => {

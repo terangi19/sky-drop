@@ -117,6 +117,30 @@ describe("prepareVisionConversationBridge", () => {
     expect(bridge.provenanceOverrides.description).toBeUndefined();
   });
 
+  it("keeps validated grounded-writer prose across the bridge", () => {
+    const good =
+      "Set of three Yu-Gi-Oh! Egyptian God Cards featuring The Winged Dragon of Ra, Slifer the Sky Dragon and Obelisk the Tormentor. All three cards are in good used condition and are being sold together as a set.";
+    const bridge = prepareVisionConversationBridge({
+      listingFill: {
+        title:
+          "The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor Yu-Gi-Oh!",
+        listingType: "physical",
+        condition: "Used - Good",
+        description: good,
+        descriptionSource: "ai",
+        extras: [
+          "set:Egyptian God Cards",
+          "subject:The Winged Dragon of Ra, Slifer the Sky Dragon, Obelisk the Tormentor",
+          "bundle_quantity:3",
+        ],
+      },
+      displayIdentity: "Egyptian God Cards",
+      needsIdentityConfirm: false,
+    });
+    expect(bridge.listingFill.description).toBe(good);
+    expect(bridge.listingFill.description).not.toMatch(/for sale in/i);
+  });
+
   it("companion price in fill → USER provenance override", () => {
     const bridge = prepareVisionConversationBridge({
       listingFill: {

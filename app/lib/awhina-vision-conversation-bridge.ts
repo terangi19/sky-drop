@@ -16,6 +16,10 @@ import {
 } from "./listing-draft-confirmed";
 import { finalizeAwhinaListingDescription } from "./awhina-listing-composer";
 import {
+  buildDescriptionWriterFacts,
+  validateAiListingDescription,
+} from "./awhina-description-writer";
+import {
   buildListingSlotPending,
   nextListingSlotQuestion,
 } from "./awhina-pending-slots";
@@ -176,11 +180,24 @@ export function prepareVisionConversationBridge(
     input.identityConfirmed !== true &&
     (fused ? !identityAssessment.isComplete : input.needsIdentityConfirm === true);
 
-  // Vision = FACTS only — never ship raw vision prose as the buyer description
+  // Vision = FACTS only — never ship raw vision prose as the buyer description.
+  // Validated grounded-writer copy is not raw vision and must survive this bridge.
   const fill: SkyAiListingFill = {
     ...(fused?.listingFill || input.listingFill),
   };
-  delete fill.description;
+  const validatedAiDescription =
+    fill.descriptionSource === "ai" && fill.description?.trim()
+      ? validateAiListingDescription(
+          fill.description,
+          buildDescriptionWriterFacts(fill)
+        )
+      : null;
+  if (validatedAiDescription) {
+    fill.description = validatedAiDescription;
+    fill.descriptionSource = "ai";
+  } else {
+    delete fill.description;
+  }
   // Incomplete fused identity → never claim attribute stacks as buyer description
   if (fused && !identityAssessment.isComplete) {
     delete fill.description;
@@ -257,6 +274,10 @@ export function prepareVisionConversationBridge(
     const finalizerInput = { ...draftForCompose, ...fill };
     if (isFreshObject && !input.listingFill.price) delete finalizerInput.price;
     if (isFreshObject && !input.listingFill.condition) delete finalizerInput.condition;
+    if (validatedAiDescription && fill.description) {
+      finalizerInput.description = fill.description;
+      finalizerInput.descriptionSource = "ai";
+    }
     Object.assign(
       fill,
       finalizeAwhinaListingDescription(finalizerInput, {

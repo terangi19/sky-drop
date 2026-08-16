@@ -281,7 +281,7 @@ export function selectDescriptionFacts(
     .filter(Boolean)
     .filter(
       (e) =>
-        !/^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team):/i.test(
+        !/^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity):/i.test(
           e
         )
     );
