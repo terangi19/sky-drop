@@ -12,7 +12,11 @@ import { processCanonicalAwhina } from "../../lib/awhina-canonical";
 import { finalizeAwhinaListingDescription } from "../../lib/awhina-listing-composer";
 import type { SkyAiListingFill } from "../../lib/sky-ai-listing-fill";
 import type { SkyAiListingContext } from "../../lib/sky-ai-types";
-import type { ClientTaskScopeContext } from "../../lib/awhina-task-scope";
+import {
+  buildOpenListingSlotClarification,
+  isClarificationOpen,
+  type ClientTaskScopeContext,
+} from "../../lib/awhina-task-scope";
 import type { ClientSearchContext } from "../../lib/awhina-search-memory";
 import type { AwhinaPendingAction } from "../../lib/awhina-pending-action";
 
@@ -37,12 +41,12 @@ async function checkRateLimit(req: NextRequest) {
   return { uid, email, allowed: limit.allowed };
 }
 
-function parseCanonicalSession(body: Record<string, unknown>) {
+function parseCanonicalSession(body: Record<string, unknown>, message: string) {
   const raw =
     body.awhinaSession && typeof body.awhinaSession === "object"
       ? (body.awhinaSession as Record<string, unknown>)
       : null;
-  const task =
+  let task =
     raw?.task && typeof raw.task === "object"
       ? (raw.task as ClientTaskScopeContext)
       : null;
@@ -54,6 +58,53 @@ function parseCanonicalSession(body: Record<string, unknown>) {
     raw?.pendingAction && typeof raw.pendingAction === "object"
       ? (raw.pendingAction as AwhinaPendingAction)
       : null;
+  const pendingSlot =
+    typeof raw?.pendingSlot === "string" && raw.pendingSlot.trim()
+      ? raw.pendingSlot.trim()
+      : null;
+
+  // Backward/compact client contract: if only the top-level pendingSlot survived,
+  // rebuild the open listing clarification before canonical processing. This is
+  // the same durability bridge used by /api/sky-ai.
+  if (pendingSlot) {
+    const open = isClarificationOpen(task?.pendingClarification);
+    const hasSlot =
+      open &&
+      (task?.pendingClarification?.pendingSlot ||
+        task?.pendingClarification?.knownEntities?.activeSlot);
+    if (!hasSlot) {
+      task = {
+        task: task?.task || "selling",
+        pendingItem: task?.pendingItem,
+        compareCandidates: task?.compareCandidates,
+        entityLockKey: task?.entityLockKey,
+        entityLocked: task?.entityLocked,
+        updatedAt: task?.updatedAt || Date.now(),
+        pendingClarification: buildOpenListingSlotClarification({
+          priorMessage: message.slice(0, 160),
+          missingSlots: [pendingSlot],
+          activeSlot: pendingSlot,
+        }),
+      };
+    } else if (
+      open &&
+      task?.pendingClarification &&
+      !task.pendingClarification.pendingSlot
+    ) {
+      task = {
+        ...task,
+        pendingClarification: {
+          ...task.pendingClarification,
+          pendingSlot,
+          knownEntities: {
+            ...task.pendingClarification.knownEntities,
+            activeSlot: pendingSlot,
+          },
+        },
+      };
+    }
+  }
+
   return { task, search, pendingAction };
 }
 
@@ -66,6 +117,9 @@ function listingFactsChanged(
     after.title !== before.title ||
     after.condition !== before.condition ||
     after.location !== before.location ||
+    after.vehicleMake !== before.vehicleMake ||
+    after.vehicleModel !== before.vehicleModel ||
+    after.vehicleGeneration !== before.vehicleGeneration ||
     after.vehicleYear !== before.vehicleYear ||
     after.vehicleOdometer !== before.vehicleOdometer ||
     after.vehicleColour !== before.vehicleColour ||
@@ -105,7 +159,7 @@ export async function POST(req: NextRequest) {
       typeof body.anonSessionId === "string" && body.anonSessionId.trim()
         ? body.anonSessionId.trim().slice(0, 80)
         : undefined;
-    const awhinaSession = parseCanonicalSession(body);
+    const awhinaSession = parseCanonicalSession(body, message);
 
     if (!message || message.length > 2000) {
       return NextResponse.json(
