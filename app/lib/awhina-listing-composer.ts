@@ -41,6 +41,7 @@ import {
   groupedSellerEvidenceFromExtras,
   sellerEvidenceItemCount,
 } from "./awhina-seller-evidence";
+import { hasCategoryIncompatibleDescription } from "./awhina-category-copy-guard";
 
 export type ListingComposeSeed = {
   item: string;
@@ -123,6 +124,10 @@ function isGenericPublicCopy(description: string | undefined | null): boolean {
   return Boolean(description?.trim() && GENERIC_PUBLIC_COPY_RE.test(description));
 }
 
+function isRejectedPublicCopy(description: string | undefined | null, fill: SkyAiListingFill): boolean {
+  return isGenericPublicCopy(description) || hasCategoryIncompatibleDescription(description, fill);
+}
+
 export function composeListingTitleAndDescription(seed: ListingComposeSeed): ComposedListingCopy {
   const item = seed.item.trim();
   const service = seed.listingType === "service" || detectService(item);
@@ -158,20 +163,21 @@ export function recomposeListingDescription(fill: SkyAiListingFill, opts?: { qua
 export function finalizeAwhinaListingDescription(fill: SkyAiListingFill, opts?: { quality?: ListingDescriptionQuality; force?: boolean }): SkyAiListingFill {
   fill = normalizeAwhinaListingTitle(fill);
   if (fill.descriptionSource === "user" && fill.description?.trim() && !opts?.force) return { ...fill, description: fill.description.trim() };
-  if (!opts?.force && fill.description?.trim() && !isGenericPublicCopy(fill.description)) {
+  if (!opts?.force && fill.description?.trim() && !isRejectedPublicCopy(fill.description, fill)) {
     const facts = buildDescriptionWriterFacts(fill);
     const kept = validateAiListingDescription(fill.description, facts);
     const conditionPhrase = fill.condition?.trim() ? fill.condition.replace(/^Used\s*-\s*/i, "").toLowerCase() : "";
     const reflectsCondition = !conditionPhrase || new RegExp(conditionPhrase.split(/\s+/).filter((word) => word.length > 2).join("|") || "condition", "i").test(kept || "");
-    if (kept && reflectsCondition && !isGenericPublicCopy(kept)) return { ...fill, description: kept, descriptionSource: "ai" };
+    if (kept && reflectsCondition && !isRejectedPublicCopy(kept, fill)) return { ...fill, description: kept, descriptionSource: "ai" };
   }
   let description = recomposeListingDescription(fill, { ...opts, force: opts?.force || Boolean(fill.description?.trim()) });
   description = removeStructuredPriceCopy(description);
   description = stripStructuredMetadataLeakage(description);
   description = splitListingDescriptionSentences(description)
     .filter((sentence) => !/\b(message|get in touch|feel free|send me a message|drop me a message|happy to (sort|arrange|chat|answer)|if you'?re (interested|keen)|come take a look|just message)\b/i.test(sentence))
-    .filter((sentence) => !isGenericPublicCopy(sentence))
+    .filter((sentence) => !isRejectedPublicCopy(sentence, fill))
     .join(" ").trim();
+  if (isRejectedPublicCopy(description, fill)) description = "";
   return { ...fill, description, descriptionSource: "ai" };
 }
 
@@ -190,7 +196,7 @@ function removePhysicalFallbackLocation(description: string, fill: SkyAiListingF
 
 function hasAcceptableOfflineFallback(description: string, fill: SkyAiListingFill): boolean {
   const text = description.trim();
-  if (!text || isGenericPublicCopy(text)) return false;
+  if (!text || isRejectedPublicCopy(text, fill)) return false;
   if (/\b(?:asking\s+\$|priced at\s+\$)\b/i.test(text)) return false;
   if (/\bfor sale in\b/i.test(text) && fill.listingType === "physical") return false;
   if (/\blocated in\b/i.test(text) && !(fill.location || fill.pickupArea || "").trim()) return false;
@@ -209,16 +215,16 @@ export async function finalizeAwhinaListingDescriptionAsync(
 ): Promise<SkyAiListingFill> {
   fill = normalizeAwhinaListingTitle(fill);
   if (fill.descriptionSource === "user" && fill.description?.trim() && !opts?.force) return finalizeAwhinaListingDescription(fill, opts);
-  const previousValid = fill.description?.trim() && !isGenericPublicCopy(fill.description)
+  const previousValid = fill.description?.trim() && !isRejectedPublicCopy(fill.description, fill)
     ? validateAiListingDescription(fill.description, buildDescriptionWriterFacts(fill))
     : null;
   const attempt = await runAwhinaListingDescriptionWriter(fill, { force: opts?.force, generateRawOutput: opts?.writer });
-  if (attempt.description && !isGenericPublicCopy(attempt.description)) {
+  if (attempt.description && !isRejectedPublicCopy(attempt.description, fill)) {
     const result = { ...fill, description: attempt.description, descriptionSource: "ai" as const };
     logAsyncDescriptionOutcome(attempt, false, result.description);
     return result;
   }
-  if (previousValid && !isGenericPublicCopy(previousValid)) {
+  if (previousValid && !isRejectedPublicCopy(previousValid, fill)) {
     const result = { ...fill, description: previousValid, descriptionSource: "ai" as const };
     logAsyncDescriptionOutcome(attempt, false, result.description);
     return result;
