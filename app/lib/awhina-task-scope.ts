@@ -366,6 +366,21 @@ export function cancelOpenClarification(
   const prior = getTaskScope(key);
   if (!prior) return null;
   const pending = prior.pendingClarification;
+
+  // A sell-looking reply while we are already collecting listing details is not
+  // a new task. Rich answers often contain price/km/vehicle signals that also
+  // match sell intent. Preserve the active slot so the canonical pipeline can
+  // harvest every fact before deciding what is still missing.
+  if (
+    isClarificationOpen(pending) &&
+    pending.kind === "listing_slots" &&
+    prior.task === "selling" &&
+    (opts?.toTask || prior.task) === "selling" &&
+    opts?.reason === "sell"
+  ) {
+    return prior;
+  }
+
   if (isClarificationOpen(pending)) {
     const discarded = Object.keys(pending.knownEntities || {}).concat(
       pending.item ? ["item"] : []
