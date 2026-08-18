@@ -60,15 +60,12 @@ export function looksLikeCardSetAnswer(message: string): boolean {
   const t = stripItsPrefix(message.trim());
   if (!t || t.length > 60) return false;
   if (CARD_SET_LIKE.test(t)) return true;
-  // Year + brand fragments
   if (/\b(?:19|20)\d{2}\b/.test(t) && /topps|panini|bowman|pokemon|yugioh/i.test(t)) {
     return true;
   }
-  // Explicit set phrasing
   if (/\b(set|product\s*line|series|collection)\b/i.test(message) && t.length >= 2) {
     return true;
   }
-  // Reject person-like / identity phrases
   if (PERSON_NAME_LIKE.test(t) && !CARD_SET_LIKE.test(t)) return false;
   if (/^(it'?s|its)\s+/i.test(message.trim())) return false;
   return false;
@@ -113,7 +110,6 @@ function factsToPartial(
       case "cardSubject":
       case "itemIdentity": {
         partial.extras = mergeExtras(partial.extras, [`subject:${f.value}`]);
-        // Promote identity into title when correcting subject
         if (!partial.title || interpretation.isCorrection) {
           partial.title = f.value;
         }
@@ -130,6 +126,59 @@ function factsToPartial(
     }
   }
   return { partial, filledSlots: [...new Set(filledSlots)] };
+}
+
+/**
+ * Safety-net parser for the common batched vehicle answer. The shared compound
+ * extractor remains authoritative; this only fills obvious vehicle basics it
+ * somehow failed to harvest from the same natural-language turn.
+ */
+function ensureExplicitVehicleBasics(
+  message: string,
+  baseDraft: Partial<SkyAiListingFill>,
+  partial: SkyAiListingFill,
+  filledSlots: ListingMissingSlot[]
+): void {
+  const vehicleContext =
+    baseDraft.listingType === "vehicle" ||
+    Boolean(baseDraft.vehicleMake || baseDraft.vehicleModel || baseDraft.vehicleGeneration) ||
+    /\b(?:car|vehicle|skyline|supra|bmw|nissan|toyota|mazda|honda|ford|subaru)\b/i.test(
+      `${baseDraft.title || ""} ${message}`
+    );
+  if (!vehicleContext) return;
+
+  const add = (slot: ListingMissingSlot) => {
+    if (!filledSlots.includes(slot)) filledSlots.push(slot);
+  };
+
+  if (!partial.vehicleYear) {
+    const m = message.match(/\b((?:19|20)\d{2})\b/);
+    if (m) {
+      partial.vehicleYear = m[1];
+      add("year");
+    }
+  }
+
+  if (!partial.vehicleOdometer) {
+    const m = message.match(
+      /\b([\d,]{3,7})\s*(?:km|kms|kilometers|kilometres)\b/i
+    );
+    if (m) {
+      const n = Number(m[1].replace(/,/g, ""));
+      if (Number.isFinite(n) && n >= 100 && n < 2_000_000) {
+        partial.vehicleOdometer = String(Math.round(n));
+        add("odometer");
+      }
+    }
+  }
+
+  if (!partial.vehicleTransmission) {
+    const m = message.match(/\b(manual|automatic|auto)\b/i);
+    if (m) {
+      partial.vehicleTransmission = /^auto/i.test(m[1]) ? "Automatic" : "Manual";
+      add("transmission");
+    }
+  }
 }
 
 /**
@@ -183,10 +232,16 @@ export function validatePendingSlotAnswer(opts: {
     baseDraft,
   });
 
-  // ── card_set trap fix ──────────────────────────────────────────────
+  // Never let a rich batched vehicle answer degrade to just price/condition.
+  ensureExplicitVehicleBasics(
+    t,
+    baseDraft,
+    fromCompound.partial,
+    fromCompound.filledSlots
+  );
+
   if (activeSlot === "card_set") {
     if (slotResult.matched && !looksLikeCardSetAnswer(t)) {
-      // Parser would have trapped identity as set — reject that consume
       const applied: SkyAiListingFill = {
         ...fromCompound.partial,
         ...fromSemantic.partial,
@@ -243,7 +298,6 @@ export function validatePendingSlotAnswer(opts: {
     }
   }
 
-  // card_subject: accept person-like; reject pure set names as subject when correction of set pending
   if (activeSlot === "card_subject" && slotResult.matched) {
     if (!looksLikeCardSubjectAnswer(t) && looksLikeCardSetAnswer(t)) {
       return {
@@ -262,7 +316,6 @@ export function validatePendingSlotAnswer(opts: {
   }
 
   if (slotResult.rejectedCorruption) {
-    // Still apply off-slot facts if any
     if (fromSemantic.filledSlots.length || fromCompound.filledSlots.length) {
       return {
         satisfaction: "off_slot",
@@ -300,13 +353,11 @@ export function validatePendingSlotAnswer(opts: {
   }
 
   if (slotResult.matched) {
-    // Slot + compound win over semantic for the active field (e.g. 190k odo ≠ price)
     let partial: SkyAiListingFill = {
       ...fromSemantic.partial,
       ...fromCompound.partial,
       ...slotResult.partial,
     };
-    // If odometer filled this turn, never let a semantic price steal the k-token
     if (
       (slotResult.filledSlot === "odometer" ||
         fromCompound.filledSlots.includes("odometer") ||
@@ -327,11 +378,9 @@ export function validatePendingSlotAnswer(opts: {
         fromSemantic.partial.extras
       );
     }
-    // Semantic identity wins over mistaken set: capture
     if (interpretation.facts.some((f) => f.key === "cardSubject")) {
       const subj = interpretation.facts.find((f) => f.key === "cardSubject")!.value;
       partial.extras = mergeExtras(partial.extras, [`subject:${subj}`]);
-      // Drop erroneous set: from slot if it was identity text
       if (activeSlot === "card_set" && slotResult.partial.extras) {
         partial.extras = (partial.extras || []).filter(
           (e) => !e.toLowerCase().startsWith("set:") || looksLikeCardSetAnswer(e.slice(4))
@@ -359,7 +408,6 @@ export function validatePendingSlotAnswer(opts: {
     };
   }
 
-  // Unmatched slot parser — apply compound + semantic facts (hint not trap)
   if (fromCompound.filledSlots.length || fromSemantic.filledSlots.length) {
     return {
       satisfaction: "off_slot",
