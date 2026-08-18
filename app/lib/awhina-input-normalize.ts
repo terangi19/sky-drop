@@ -105,6 +105,35 @@ function collapseWhitespace(s: string): string {
 }
 
 /**
+ * `/post/ai` historically prepended a client-only LISTING CREATION REQUEST
+ * directive before sending the seller message to the same `/api/sky-ai` route.
+ * That made the listing workspace behave like a second brain even though both
+ * surfaces share the canonical conversation store.
+ *
+ * Strip only that exact legacy transport wrapper. The seller's original text is
+ * then interpreted by the same canonical pipeline as the global chat bubble.
+ */
+function stripLegacySellSurfaceDirective(raw: string): string {
+  const leadingTrimmed = raw.trimStart();
+  const marker = "[LISTING CREATION REQUEST]";
+  if (!leadingTrimmed.startsWith(marker)) return raw;
+
+  const afterMarker = leadingTrimmed.slice(marker.length);
+  const boundary = afterMarker.search(/\r?\n\s*\r?\n/);
+  if (boundary < 0) return raw;
+
+  const directive = afterMarker.slice(0, boundary);
+  if (
+    !/the user is on the sell page/i.test(directive) ||
+    !/listing_fill/i.test(directive)
+  ) {
+    return raw;
+  }
+
+  return afterMarker.slice(boundary).trimStart();
+}
+
+/**
  * sell-my-skyline / list-my-iphone → sell my skyline
  * Keep hyphens inside product names when not command-shaped.
  */
@@ -139,7 +168,8 @@ function repairVehicleChassisSpacing(s: string): string {
 
 export function normalizeAwhinaInput(raw: string): NormalizedAwhinaInput {
   const rawStr = typeof raw === "string" ? raw : "";
-  let n = collapseWhitespace(rawStr);
+  let n = stripLegacySellSurfaceDirective(rawStr);
+  n = collapseWhitespace(n);
   if (!n) return { raw: rawStr, normalized: "" };
 
   n = expandCommandHyphens(n);
