@@ -527,7 +527,17 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
   });
 
   const priorDraftType = String(input.listingContext?.listingType || "").toLowerCase();
+  const continuingListingClarification = Boolean(
+    activeTask === "selling" &&
+      priorTask === "selling" &&
+      input.session?.pendingClarification?.kind === "listing_slots" &&
+      (input.session.pendingClarification.status || "open") === "open"
+  );
+  // While Āwhina is collecting details for the current listing, a more accurate
+  // type classification (e.g. physical → vehicle after year/km arrive) is a
+  // refinement of the SAME draft, not a new listing/domain switch.
   const domainShiftSell =
+    !continuingListingClarification &&
     activeTask === "selling" &&
     priorTask === "selling" &&
     !isListPublishActionMessage(trimmed) &&
