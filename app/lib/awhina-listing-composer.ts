@@ -118,7 +118,7 @@ function normalizeAwhinaListingTitle(fill: SkyAiListingFill): SkyAiListingFill {
 }
 
 /** Generic AI filler is never acceptable public copy. Keep this at the final boundary so stale/model/template prose cannot re-enter later. */
-const GENERIC_PUBLIC_COPY_RE = /\b(?:standout(?:\s+(?:vehicle|car|item|product))?|known for (?:its )?(?:performance|design)|performance and design|classic era|represents a|notable example|example of .{0,45}engineering|engineering from that era|era of .{0,45}performance|great choice|perfect for|ideal for|must-have|great addition|don'?t miss out)\b/i;
+const GENERIC_PUBLIC_COPY_RE = /\b(?:standout(?:\s+(?:vehicle|car|item|product))?|known for (?:its )?(?:performance|design)|performance and design|classic era|represents a|notable (?:example|model)|example of .{0,45}engineering|engineering from that era|era of .{0,45}performance|great choice|solid choice|perfect for|ideal for|must-have|great addition|don'?t miss out|enthusiasts?(?:\s+and\s+collectors?)?|collectors? alike|enthusiasts? and collectors? alike|from .{0,30}(?:lineup|range))\b/i;
 
 function isGenericPublicCopy(description: string | undefined | null): boolean {
   return Boolean(description?.trim() && GENERIC_PUBLIC_COPY_RE.test(description));
