@@ -109,11 +109,10 @@ function collapseWhitespace(s: string): string {
  * directive before sending the seller message to the same `/api/sky-ai` route.
  * The directive itself made the workspace behave like a second brain.
  *
- * Remove the client-only instructions, but keep the lightweight marker. The
- * canonical server uses that marker as page intent, so a first-turn message like
- * "1999 Nissan Skyline..." is treated as listing data immediately instead of
- * needing the seller to send the same details twice. Pending-slot code also
- * recognises this marker as a transport envelope rather than a task switch.
+ * Remove the client-only instructions, but preserve explicit sell-workspace
+ * intent. On `/post/ai`, the page itself is the seller's intent: a first-turn
+ * data-rich message must be processed as a fresh listing immediately, without
+ * requiring the seller to first say "sell/list this" and then repeat details.
  */
 function stripLegacySellSurfaceDirective(raw: string): string {
   const leadingTrimmed = raw.trimStart();
@@ -133,7 +132,10 @@ function stripLegacySellSurfaceDirective(raw: string): string {
   }
 
   const sellerText = afterMarker.slice(boundary).trimStart();
-  return `${marker}\n${sellerText}`;
+  // "create a listing" is intentional transport context, not seller-authored
+  // content. It makes canonical sell/new-draft gates fire on the first turn while
+  // leaving the seller's actual item facts untouched for extraction.
+  return `${marker} create a listing\n${sellerText}`;
 }
 
 /**
