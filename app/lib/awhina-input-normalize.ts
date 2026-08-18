@@ -107,11 +107,13 @@ function collapseWhitespace(s: string): string {
 /**
  * `/post/ai` historically prepended a client-only LISTING CREATION REQUEST
  * directive before sending the seller message to the same `/api/sky-ai` route.
- * That made the listing workspace behave like a second brain even though both
- * surfaces share the canonical conversation store.
+ * The directive itself made the workspace behave like a second brain.
  *
- * Strip only that exact legacy transport wrapper. The seller's original text is
- * then interpreted by the same canonical pipeline as the global chat bubble.
+ * Remove the client-only instructions, but keep the lightweight marker. The
+ * canonical server uses that marker as page intent, so a first-turn message like
+ * "1999 Nissan Skyline..." is treated as listing data immediately instead of
+ * needing the seller to send the same details twice. Pending-slot code also
+ * recognises this marker as a transport envelope rather than a task switch.
  */
 function stripLegacySellSurfaceDirective(raw: string): string {
   const leadingTrimmed = raw.trimStart();
@@ -130,7 +132,8 @@ function stripLegacySellSurfaceDirective(raw: string): string {
     return raw;
   }
 
-  return afterMarker.slice(boundary).trimStart();
+  const sellerText = afterMarker.slice(boundary).trimStart();
+  return `${marker}\n${sellerText}`;
 }
 
 /**
