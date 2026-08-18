@@ -32,7 +32,7 @@
     "@stripe/stripe-js": "^9.6.0",
     "@tensorflow/tfjs": "^4.22.0",
     "@types/dompurify": "^3.0.5",
-    "@upstash/ratelimit": "^4.22.0",
+    "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "canvas-confetti": "^1.9.4",
     "dompurify": "^3.4.11",
