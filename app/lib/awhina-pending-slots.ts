@@ -1337,7 +1337,9 @@ export function extractCompoundListingFacts(
       : null) ||
     // Compound / missing-price: bare "200" / "900" (not year-like alone)
     (priceNeeded
-      ? residual.match(/\b([\d,]+(?:\.\d{1,2})?)\b(?!\s*(?:gb|tb|k\b|km|miles?|mi)\b)/i)
+      ? residual.match(
+          /\b([\d,]+(?:\.\d{1,2})?)\b(?!%|\s*(?:%|percent|battery|gb|tb|k\b|km|miles?|mi)\b)/i
+        )
       : null);
   if (priceMatch) {
     let n = Number(String(priceMatch[1]).replace(/,/g, ""));

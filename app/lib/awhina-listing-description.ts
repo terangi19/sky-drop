@@ -464,6 +464,7 @@ function reconcileConditionPhrase(
       blob
     );
   if (!hasWear) return phrase;
+  if (/\b(?:factory[- ]sealed|still sealed)\b/i.test(blob)) return phrase;
   if (/brand new|like-new/i.test(phrase)) return "good used condition";
   return phrase;
 }
@@ -489,7 +490,10 @@ function composeExtrasProse(extras: string[], location?: string | null): string 
     )
     .map((e) =>
       e
-        .replace(/^storage:/i, "")
+        .replace(/^storage:\s*/i, "")
+        .replace(/^(\d+\s*(?:gb|tb))\b/i, (value) =>
+          /\bstorage\b/i.test(value) ? value : `${value} storage`
+        )
         .replace(/^size:/i, "Size ")
         .replace(/^variant:/i, "")
         .replace(/^visual:\s*/i, "")
@@ -677,6 +681,7 @@ function weaveableExtras(fill: SkyAiListingFill): string[] {
       (e) =>
         e.split(/\s+/).length >= 2 ||
         isSellerEvidenceExtra(e) ||
+        /^(storage|size):/i.test(e) ||
         /servic|tyre|tire|receipt|paperwork|wof|rego|mod|include|controller|charger|box|manual|warranty|battery|scratches?|scuffs?|dents?|screen|turbo|intake|intercooler|downpipe|subject:|set:|serial:|parallel|grade:|manufacturer:/i.test(
           e
         )

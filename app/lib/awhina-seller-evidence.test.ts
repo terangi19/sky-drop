@@ -300,13 +300,24 @@ describe("rich seller evidence preservation", () => {
         JSON.stringify({ description: descriptionFromWriterFacts(writerFacts) }),
     });
     const copy = String(written.description || "");
+    const fallback = String(
+      (
+        await finalizeAwhinaListingDescriptionAsync(fill, {
+          writer: async () => null,
+        })
+      ).description || ""
+    );
     for (const pattern of description) {
       expect(copy, copy).toMatch(pattern);
+      expect(fallback, fallback).toMatch(pattern);
     }
     expect(copy).not.toMatch(MARKETING_FILLER_RE);
     expect(copy).not.toMatch(/classic era|known for its performance/i);
     if (name === "mountain bike") {
       expect(copy).not.toMatch(/brand new/i);
+    }
+    if (name === "iPhone") {
+      expect(extracted.partial.price).toBeFalsy();
     }
   });
 });
