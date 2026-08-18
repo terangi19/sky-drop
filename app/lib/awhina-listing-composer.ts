@@ -21,7 +21,10 @@ import {
   type DescriptionWriterAttempt,
   type DescriptionWriterRunOptions,
 } from "./awhina-description-writer";
-import { composeListingIdentity } from "./awhina-listing-identity";
+import {
+  composeListingIdentity,
+  guardAdjacentIdentityDuplication,
+} from "./awhina-listing-identity";
 import {
   inferPhysicalCategoryFromText,
   type SkyAiListingFill,
@@ -112,6 +115,36 @@ function inferServiceCategory(item: string): string {
 }
 
 /**
+ * Final public-title guard for vehicle identities.
+ * Canonicalises common chassis/variant casing and removes accidental adjacent
+ * duplicates introduced when a structured variant is appended after title-case.
+ */
+function normalizeAwhinaListingTitle(fill: SkyAiListingFill): SkyAiListingFill {
+  const raw = fill.title?.trim();
+  if (!raw) return fill;
+  const vehicleLike =
+    fill.listingType === "vehicle" ||
+    Boolean(fill.vehicleMake || fill.vehicleModel || fill.vehicleGeneration) ||
+    /\b(?:r\s*3[2-4]|gt[\s-]?[tr])\b/i.test(raw);
+  if (!vehicleLike) return fill;
+
+  let title = raw
+    .replace(/\bgt[\s-]?t\b/gi, "GTT")
+    .replace(/\bgt[\s-]?r\b/gi, "GT-R")
+    .replace(/\br\s*([3][2-4])\b/gi, "R$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  title = guardAdjacentIdentityDuplication(title)
+    .replace(/\bgt[\s-]?t\b/gi, "GTT")
+    .replace(/\bgt[\s-]?r\b/gi, "GT-R")
+    .replace(/\br\s*([3][2-4])\b/gi, "R$1")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return title === raw ? fill : { ...fill, title: title.slice(0, 120) };
+}
+
+/**
  * Compose premium title + Premium Plus description from known seed facts only.
  */
 export function composeListingTitleAndDescription(
@@ -183,14 +216,15 @@ export function composeListingTitleAndDescription(
     serviceDuration: seed.serviceDuration,
   };
 
+  const normalizedFill = normalizeAwhinaListingTitle(fill);
   const quality = seed.quality ?? "premium_plus";
   // Seed composition is public-facing too. It must cross the same ownership
   // and price-free finalizer boundary as vision, chat, and draft updates.
-  const description = finalizeAwhinaListingDescription(fill, { quality }).description;
-  const style = resolveListingDescriptionStyle(fill);
+  const description = finalizeAwhinaListingDescription(normalizedFill, { quality }).description;
+  const style = resolveListingDescriptionStyle(normalizedFill);
 
   return {
-    title,
+    title: normalizedFill.title || title,
     description,
     category,
     listingType,
@@ -225,6 +259,7 @@ export function finalizeAwhinaListingDescription(
   fill: SkyAiListingFill,
   opts?: { quality?: ListingDescriptionQuality; force?: boolean }
 ): SkyAiListingFill {
+  fill = normalizeAwhinaListingTitle(fill);
   if (fill.descriptionSource === "user" && fill.description?.trim() && !opts?.force) {
     return { ...fill, description: fill.description.trim() };
   }
@@ -366,6 +401,7 @@ export async function finalizeAwhinaListingDescriptionAsync(
     writer?: DescriptionWriterRunOptions["generateRawOutput"];
   }
 ): Promise<SkyAiListingFill> {
+  fill = normalizeAwhinaListingTitle(fill);
   // Preserve seller-owned and already-valid AI prose before attempting a
   // rewrite. The writer is authoritative for fresh AI copy; templates are
   // evaluated only if that attempt cannot produce valid public prose.
