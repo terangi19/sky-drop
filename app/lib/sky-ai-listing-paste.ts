@@ -37,7 +37,15 @@ export function isListingDetailMessage(message: string): boolean {
     return true;
   }
 
+  // Only use the structured-paste shortcut for an actual multi-line paste.
+  // A natural one-line seller message such as
+  // "1999 Nissan Skyline R34 GTT, manual, 145,000 km ... $38,000 NZD"
+  // must go through the canonical listing parser so title, price, condition and
+  // vehicle facts are harvested together on turn one. Previously this broad
+  // length/price heuristic intercepted that sentence, produced a partial draft
+  // (often just Vehicle/Cars/location), and made the seller repeat it.
   if (
+    /\r?\n/.test(trimmed) &&
     trimmed.length >= 120 &&
     (/\$\s*\d+|\d+\s*nzd\b/i.test(trimmed) || /\b\d+\s*per\s+week\b/i.test(trimmed)) &&
     /\b(selling|included|condition|pickup|shipping|bundle|console|description|item|works|bedroom|bathroom|property\s+type|rental|furnished|bond|parking)\b/i.test(
