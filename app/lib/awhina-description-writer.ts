@@ -20,7 +20,7 @@ import { isSealedTradingCardProductFormat } from "./awhina-public-copy-gate";
 const MODEL = process.env.OPENAI_DESCRIPTION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini";
 const CTA_RE =
   /\b(message|get in touch|feel free|send me a message|happy to|don't miss|great opportunity)\b/i;
-const METADATA_RE = /\battr\s*:|\b(?:condition|location|price|title)\s*:/i;
+const METADATA_RE = /\battr\s*:|\b(?:condition|location|price|title|seller_notes?)\s*:/i;
 
 export type DescriptionWriterFacts = {
   /** Domain/object type choose fact priorities; they never choose canned prose. */
@@ -34,6 +34,8 @@ export type DescriptionWriterFacts = {
   collection?: string;
   items?: string;
   parentIdentity?: string;
+  /** High-authority seller-provided facts preserved from conversational answers. */
+  sellerNotes?: string[];
   /** Named, grounded attributes the model may turn into prose. */
   product?: {
     brand?: string;
@@ -64,7 +66,7 @@ export type DescriptionWriterFacts = {
 const STRUCTURED_EXTRA_KEY_RE =
   /^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|categoryid|condition_code|conditioncode|vision_confidence|visionconfidence|provenance|field_source|fieldsource)$/i;
 export const MARKETING_FILLER_RE =
-  /\b(?:must[- ]have|perfect(?:\s+(?:for|addition))?|great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout(?:\s+(?:vehicle|car|item|product|player))?|known for (?:its )?(?:performance|design)|performance and design|legendary (?:figures|status)|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|reliable performance|reliable choice|any .* collection|don'?t miss out|highly sought[- ]after|rare|valuable|iconic|grab a bargain|sure to impress)\b/i;
+  /\b(?:must[- ]have|perfect(?:\s+(?:for|addition))?|great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout(?:\s+(?:vehicle|car|item|product|player))?|known for (?:its )?(?:performance|design)|performance and design|legendary (?:figures|status)|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|reliable performance|reliable choice|any .* collection|don'?t miss out|highly sought[- ]after|rare|valuable|iconic|grab a bargain|sure to impress|classic era of .* performance)\b/i;
 
 export type DescriptionValidationFailureReason =
   | "too_short"
@@ -113,10 +115,7 @@ export function stripUnsupportedPromotionalSentences(proposed: string): string {
         .replace(/\s{2,}/g, " ")
         .trim()
     )
-    .filter(
-      (sentence) =>
-        !MARKETING_FILLER_RE.test(sentence)
-    )
+    .filter((sentence) => !MARKETING_FILLER_RE.test(sentence))
     .join(" ")
     .trim();
 }
@@ -134,12 +133,8 @@ function orderParentBeforeCollection(
       `${facts.parentIdentity} ${facts.collection}`
     )
     .replace(
-      new RegExp(
-        `(${parent}\\s+${collection})\\s+(Featuring|Including)(?=\\s)`,
-        "gi"
-      ),
-      (_match, identity: string, connector: string) =>
-        `${identity} ${connector.toLowerCase()}`
+      new RegExp(`(${parent}\\s+${collection})\\s+(Featuring|Including)(?=\\s)`, "gi"),
+      (_match, identity: string, connector: string) => `${identity} ${connector.toLowerCase()}`
     )
     .replace(/\s+/g, " ")
     .trim();
@@ -204,10 +199,7 @@ function inferParentIdentity(
     remainder = remainder.replace(new RegExp(escapeWriterRegExp(item), "gi"), " ");
   }
   if (collection) {
-    remainder = remainder.replace(
-      new RegExp(escapeWriterRegExp(collection), "gi"),
-      " "
-    );
+    remainder = remainder.replace(new RegExp(escapeWriterRegExp(collection), "gi"), " ");
   }
   remainder = remainder
     .replace(/[,:;|–—]+/g, " ")
@@ -232,6 +224,17 @@ function mentionsSupportedValue(description: string, value: string): boolean {
   return tokens.length > 0 && tokens.every((token) => haystack.includes(token));
 }
 
+function cleanSellerNote(value: string): string | undefined {
+  const cleaned = value
+    .replace(/\b(?:asking|priced at)\s*\$\s*[\d,]+(?:\.\d{1,2})?\s*k?\b/gi, " ")
+    .replace(/\blocated\s+in\s+(?=[.,;]|$)/gi, " ")
+    .replace(/\s+([.,;])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[,;:\s-]+|[,;:\s-]+$/g, "")
+    .trim();
+  return cleaned.length >= 3 ? cleaned.slice(0, 1800) : undefined;
+}
+
 export function buildDescriptionWriterFacts(fill: SkyAiListingFill): DescriptionWriterFacts {
   const vehicle = Object.fromEntries(
     [
@@ -254,6 +257,7 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
   const product: NonNullable<DescriptionWriterFacts["product"]> = {};
   const collectible: NonNullable<DescriptionWriterFacts["collectible"]> = {};
   const freeformExtras: string[] = [];
+  const sellerNotes: string[] = [];
 
   for (const raw of fill.extras || []) {
     const extra = String(raw || "").trim();
@@ -262,6 +266,11 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
     if (match) {
       const key = match[1].toLowerCase();
       const value = match[2].trim();
+      if (key === "seller_notes" || key === "seller_note") {
+        const cleaned = cleanSellerNote(value);
+        if (cleaned) sellerNotes.push(cleaned);
+        continue;
+      }
       if (key === "bundle_quantity" || key === "bundlequantity" || key === "quantity") {
         const n = Number(value);
         if (Number.isInteger(n) && n > 1) quantity = n;
@@ -386,6 +395,7 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
     collection,
     items,
     parentIdentity,
+    sellerNotes: sellerNotes.length ? [...new Set(sellerNotes)].slice(0, 8) : undefined,
     product: Object.keys(product).length ? product : undefined,
     collectible: Object.keys(collectible).length ? collectible : undefined,
     extras: freeformExtras.slice(0, 20),
@@ -399,6 +409,7 @@ function hasMeaningfulFacts(facts: DescriptionWriterFacts): boolean {
       facts.quantity ||
       facts.collection ||
       facts.items ||
+      facts.sellerNotes?.length ||
       facts.extras.length ||
       facts.vehicle ||
       facts.title.split(/\s+/).length >= 3
@@ -409,8 +420,8 @@ function hasMeaningfulFacts(facts: DescriptionWriterFacts): boolean {
  * Public-copy fact policy:
  * - Required: identity that stops the item becoming generic; collection/item
  *   names for a supplied bundle; stated condition.
- * - Optional: colour, storage, secondary variants and most other enrichment.
- *   Those facts ground the writer but need not be repeated verbatim.
+ * - Optional: seller notes and other enrichment. Those facts ground the writer
+ *   but need not be repeated verbatim.
  */
 function descriptionFactPolicy(facts: DescriptionWriterFacts): {
   requiredFacts: string[];
@@ -440,6 +451,7 @@ function descriptionFactPolicy(facts: DescriptionWriterFacts): {
     }
   }
   optionalFacts.push(
+    ...(facts.sellerNotes || []),
     ...Object.values(facts.product || {}).filter(
       (value): value is string => Boolean(value?.trim())
     ),
@@ -476,15 +488,18 @@ export function validateAiListingDescriptionResult(
     optionalFacts,
   });
 
-  // A removable promotional tail should not discard otherwise grounded prose.
-  // When stripping leaves no substantive copy, expose marketing as the cause.
   if (
     MARKETING_FILLER_RE.test(description) ||
     (proposedContainsMarketingFiller && description.length < 24)
   ) {
     return fail("marketing_filler");
   }
-  if (METADATA_RE.test(description) || /\b(?:bundle[_\s-]?quantity|listing[_\s-]?type|condition[_\s-]?code|field[_\s-]?source)\s*:/i.test(description)) {
+  if (
+    METADATA_RE.test(description) ||
+    /\b(?:bundle[_\s-]?quantity|listing[_\s-]?type|condition[_\s-]?code|field[_\s-]?source|seller[_\s-]?notes?)\s*:/i.test(
+      description
+    )
+  ) {
     return fail("metadata_leak");
   }
   if (CTA_RE.test(description) || SELLER_EDITOR_GUIDANCE_RE.test(description)) {
@@ -494,7 +509,7 @@ export function validateAiListingDescriptionResult(
     return fail("unsupported_claim");
   }
   if (description.length < 24) return fail("too_short");
-  if (description.length > 900) return fail("too_long");
+  if (description.length > 1100) return fail("too_long");
   if (/\b(?:is|are)\s+in\s+(?:brand new|new)\b/i.test(description)) {
     return fail("invalid_condition_grammar");
   }
@@ -512,8 +527,6 @@ export function validateAiListingDescriptionResult(
       return fail("required_identity_missing");
     }
   }
-  // Optional enrichment grounds the writer but never forces word-for-word
-  // serialization. Only identity absent from the title is mandatory.
   const requiredBeyondTitle = requiredFacts.filter(
     (value) => !mentionsSupportedValue(facts.title, value)
   );
@@ -523,17 +536,13 @@ export function validateAiListingDescriptionResult(
   if (facts.quantity && facts.items) {
     const listedItems = splitListedItems(facts.items);
     if (
-      listedItems.some(
-        (item) => !description.toLowerCase().includes(item.toLowerCase())
-      ) ||
+      listedItems.some((item) => !description.toLowerCase().includes(item.toLowerCase())) ||
       !/\b(?:set|bundle|sold together|together as)\b/i.test(description)
     ) {
       return fail("required_identity_missing");
     }
   }
 
-  // Location and price are UI data for ordinary sale listings, not writing
-  // material. Service/rental rates are intentionally handled elsewhere.
   if (
     facts.listingType === "physical" &&
     /\b(?:for sale in|located in|asking\s+\$|priced at\s+\$)\b/i.test(description)
@@ -541,13 +550,10 @@ export function validateAiListingDescriptionResult(
     return fail("price_or_location_leak");
   }
 
-  // A title with a condition/location tail is exactly the field-stitching this
-  // writer exists to prevent. Require a second meaningful sentence when rich
-  // facts are available, unless the first sentence already carries a confirmed
-  // product/card detail beyond the title and condition.
   const sentences = splitListingDescriptionSentences(description);
   const hasNamedDetail = Boolean(
-    facts.extras.length ||
+    facts.sellerNotes?.length ||
+      facts.extras.length ||
       Object.keys(facts.product || {}).length ||
       Object.keys(facts.collectible || {}).length ||
       facts.quantity ||
@@ -568,7 +574,6 @@ export function validateAiListingDescriptionResult(
     .replace(/\b(?:in\s+)?(?:brand new|like-new|good used condition|fair used condition)\b/gi, " ")
     .split(/[^a-z0-9]+/)
     .filter((word) => word.length > 2);
-  // Reject `TITLE. CONDITION.` and close variants: it adds no buyer meaning.
   if (
     titleWords.length > 0 &&
     sentences.length < 2 &&
@@ -644,8 +649,8 @@ export async function runAwhinaListingDescriptionWriter(
           const client = new OpenAI({ apiKey: apiKey! });
           const completion = await client.chat.completions.create({
             model: MODEL,
-            temperature: 0.35,
-            max_tokens: 260,
+            temperature: 0.25,
+            max_tokens: 420,
             response_format: { type: "json_object" },
             messages: [
               {
@@ -654,8 +659,10 @@ export async function runAwhinaListingDescriptionWriter(
 Return JSON exactly as {"description":"..."}.
 
 Writing rules:
-- Use 1–4 useful sentences based on fact richness.
-- Compose relationships; never serialize title, condition, price, or location.
+- Use 1–6 useful sentences based on fact richness. Rich seller evidence should produce richer copy; sparse facts should stay short.
+- sellerNotes are explicit seller-provided facts and have HIGH authority. Preserve as much useful buyer-relevant substance from them as possible, paraphrasing naturally instead of copying labels.
+- Prefer concrete seller facts (modifications, maintenance, accessories, wear, faults, included items, condition details) over generic product praise.
+- Compose relationships; never serialize raw metadata keys or labels.
 - For related/bundled items, explain the relationship naturally when facts support it.
 - Preserve the most specific supplied collection, group, model, or product-family name; do not replace it with a generic category.
 - Treat parentIdentity as a modifier that comes before collection/product: "Parent Collection", never "Collection Parent".
@@ -664,12 +671,12 @@ Writing rules:
 - When quantity and multiple related items are supplied, make clear they form one set or bundle, but do not default to the words "featuring", "all ... are in", or "sold together as a set".
 - For cards, prioritize set/product, character/player, parallel, numbering, grade, quantity, and condition.
 - For sealed card products (box, pack, tin, display), never invent parallels, players, pack counts, or card attributes. A booster product may be described as containing booster packs only when objectType/product format establishes that relationship.
-- For electronics, bikes, clothing, and vehicles, prioritise only confirmed useful details.
-- Never mention price, location, contact actions, "for sale", marketing filler, database labels, or unsupported claims.
+- For electronics, bikes, clothing, vehicles, furniture and tools, prioritise only confirmed useful details.
+- Never mention price, generic location filler, contact actions, "for sale", marketing filler, database labels, or unsupported claims.
 - Include the supplied condition naturally whenever one is present.
 - Condition grammar: "is/are brand new", "is/are new", "is/are in like-new condition", "is/are in good condition", "is/are in good used condition", or "is/are in fair condition". Never write "in brand new".
-- Stop once the supported useful facts are covered. Sparse facts deserve short factual copy, not praise. Never use phrases such as "standout", "known for its performance and design", "must-have", "perfect for collectors", "great addition", "don't miss out", "ideal for enthusiasts", "sure to impress", "rare", "valuable", "iconic", or generic calls to action.
-- Never emit raw metadata such as bundle_quantity:3, listing_type:physical, brand:Nike, or any key:value labels.
+- Stop once the supported useful facts are covered. Never use phrases such as "standout", "known for its performance and design", "represents a classic era of performance", "must-have", "perfect for collectors", "great addition", "don't miss out", "ideal for enthusiasts", "sure to impress", "rare", "valuable", "iconic", or generic calls to action.
+- Never emit raw metadata such as seller_notes:, bundle_quantity:3, listing_type:physical, brand:Nike, or any key:value labels.
 - Never add facts, specifications, authenticity, working status, or condition not in JSON.`,
               },
               { role: "user", content: JSON.stringify(facts) },
