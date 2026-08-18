@@ -5,6 +5,7 @@
 
 import {
   buildPremiumListingTitle,
+  normalizeProductName,
   resolveListingDescriptionStyle,
   type ListingDescriptionQuality,
 } from "./awhina-product-ux";
@@ -107,25 +108,79 @@ function inferServiceCategory(item: string): string {
   return SERVICE_LISTING_CATEGORY_LIST.includes("Other Services") ? "Other Services" : "Trades & Repairs";
 }
 
+/**
+ * A listing title is product identity, never the user's command sentence.
+ * Keep this generic so "sell my PS5", "I want to list a couch", etc. all
+ * converge on the actual item name before public copy reaches the form.
+ */
+function stripListingCommandPrefix(raw: string): string {
+  return raw
+    .replace(
+      /^\s*(?:please\s+)?(?:i\s+(?:want|wanna|would\s+like)\s+to\s+)?(?:sell|list|post|advertise)(?:ing)?\s+(?:my\s+|a\s+|an\s+|the\s+)?/i,
+      ""
+    )
+    .replace(/^\s*i\s+am\s+selling\s+(?:my\s+|a\s+|an\s+|the\s+)?/i, "")
+    .replace(/^\s*i'?m\s+selling\s+(?:my\s+|a\s+|an\s+|the\s+)?/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normalizeAwhinaListingTitle(fill: SkyAiListingFill): SkyAiListingFill {
-  const raw = fill.title?.trim();
-  if (!raw) return fill;
-  const vehicleLike = fill.listingType === "vehicle" || Boolean(fill.vehicleMake || fill.vehicleModel || fill.vehicleGeneration) || /\b(?:r\s*3[2-4]|gt[\s-]?[tr])\b/i.test(raw);
-  if (!vehicleLike) return fill;
-  let title = raw.replace(/\bgt[\s-]?t\b/gi, "GTT").replace(/\bgt[\s-]?r\b/gi, "GT-R").replace(/\br\s*([3][2-4])\b/gi, "R$1").replace(/\s+/g, " ").trim();
-  title = guardAdjacentIdentityDuplication(title).replace(/\bgt[\s-]?t\b/gi, "GTT").replace(/\bgt[\s-]?r\b/gi, "GT-R").replace(/\br\s*([3][2-4])\b/gi, "R$1").replace(/\s+/g, " ").trim();
-  return title === raw ? fill : { ...fill, title: title.slice(0, 120) };
+  const original = fill.title?.trim();
+  if (!original) return fill;
+
+  const stripped = stripListingCommandPrefix(original);
+  let raw = normalizeProductName(stripped || original)
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const vehicleLike =
+    fill.listingType === "vehicle" ||
+    Boolean(fill.vehicleMake || fill.vehicleModel || fill.vehicleGeneration) ||
+    /\b(?:r\s*3[2-4]|gt[\s-]?[tr])\b/i.test(raw);
+
+  let title = raw;
+  if (vehicleLike) {
+    title = title
+      .replace(/\bgt[\s-]?t\b/gi, "GTT")
+      .replace(/\bgt[\s-]?r\b/gi, "GT-R")
+      .replace(/\br\s*([3][2-4])\b/gi, "R$1")
+      .replace(/\s+/g, " ")
+      .trim();
+    title = guardAdjacentIdentityDuplication(title)
+      .replace(/\bgt[\s-]?t\b/gi, "GTT")
+      .replace(/\bgt[\s-]?r\b/gi, "GT-R")
+      .replace(/\br\s*([3][2-4])\b/gi, "R$1")
+      .replace(/\s+/g, " ")
+      .trim();
+  } else {
+    title = guardAdjacentIdentityDuplication(title);
+  }
+
+  return title === original ? fill : { ...fill, title: title.slice(0, 120) };
 }
 
 /** Generic AI filler is never acceptable public copy. Keep this at the final boundary so stale/model/template prose cannot re-enter later. */
 const GENERIC_PUBLIC_COPY_RE = /\b(?:standout(?:\s+(?:vehicle|car|item|product))?|known for (?:its )?(?:performance|design)|performance and design|classic era|represents a|notable (?:example|model)|example of .{0,45}engineering|engineering from that era|era of .{0,45}performance|great choice|solid choice|perfect for|ideal for|must-have|great addition|don'?t miss out|enthusiasts?(?:\s+and\s+collectors?)?|collectors? alike|enthusiasts? and collectors? alike|from .{0,30}(?:lineup|range))\b/i;
+
+/**
+ * Missing information must stay missing. Never turn absence of a fact into a
+ * buyer-facing claim such as "not sealed" or padding like "details were not
+ * provided". Āwhina should ask the seller for those facts instead.
+ */
+const UNSUPPORTED_ABSENCE_COPY_RE = /\b(?:not\s+sealed|not\s+unopened|previously\s+opened\s+or\s+used|indicat(?:e|es|ing)\s+it\s+has\s+been\s+previously\s+opened|details?\s+(?:are|were|was)\s+not\s+provided|information\s+(?:is|was)\s+not\s+provided|no\s+(?:further\s+)?details?\s+(?:are|were)\s+provided|unknown\s+whether|condition\s+is\s+unknown|accessories\s+(?:are|were)\s+not\s+specified)\b/i;
 
 function isGenericPublicCopy(description: string | undefined | null): boolean {
   return Boolean(description?.trim() && GENERIC_PUBLIC_COPY_RE.test(description));
 }
 
 function isRejectedPublicCopy(description: string | undefined | null, fill: SkyAiListingFill): boolean {
-  return isGenericPublicCopy(description) || hasCategoryIncompatibleDescription(description, fill);
+  return Boolean(
+    description?.trim() &&
+      (isGenericPublicCopy(description) ||
+        UNSUPPORTED_ABSENCE_COPY_RE.test(description) ||
+        hasCategoryIncompatibleDescription(description, fill))
+  );
 }
 
 export function composeListingTitleAndDescription(seed: ListingComposeSeed): ComposedListingCopy {
