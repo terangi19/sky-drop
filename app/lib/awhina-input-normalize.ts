@@ -109,10 +109,11 @@ function collapseWhitespace(s: string): string {
  * directive before sending the seller message to the same `/api/sky-ai` route.
  * The directive itself made the workspace behave like a second brain.
  *
- * Remove the client-only instructions, but preserve explicit sell-workspace
- * intent. On `/post/ai`, the page itself is the seller's intent: a first-turn
- * data-rich message must be processed as a fresh listing immediately, without
- * requiring the seller to first say "sell/list this" and then repeat details.
+ * Remove the transport instructions entirely and convert only that verified
+ * sell-workspace envelope into ordinary natural sell intent. This means a first
+ * turn containing full item details follows the exact same listing-seed path as
+ * a user saying "selling my ..." in the global Āwhina bubble, while the seller's
+ * actual details remain intact for extraction.
  */
 function stripLegacySellSurfaceDirective(raw: string): string {
   const leadingTrimmed = raw.trimStart();
@@ -132,10 +133,7 @@ function stripLegacySellSurfaceDirective(raw: string): string {
   }
 
   const sellerText = afterMarker.slice(boundary).trimStart();
-  // "create a listing" is intentional transport context, not seller-authored
-  // content. It makes canonical sell/new-draft gates fire on the first turn while
-  // leaving the seller's actual item facts untouched for extraction.
-  return `${marker} create a listing\n${sellerText}`;
+  return sellerText ? `selling my ${sellerText}` : raw;
 }
 
 /**
