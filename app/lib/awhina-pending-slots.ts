@@ -22,6 +22,11 @@ import {
   selectNextBestListingSlot,
 } from "./awhina-domain-facts";
 import { selectDomainKnowledgeQuestions } from "./awhina-domain-knowledge";
+import {
+  extraKeyIsMultiValue,
+  harvestSellerEvidence,
+  sellerEvidenceToExtras,
+} from "./awhina-seller-evidence";
 
 export type ListingMissingSlot =
   | "price"
@@ -754,13 +759,36 @@ export function mergeExtras(
 ): string[] | undefined {
   if (!incoming?.length) return existing;
   const out = [...(existing || [])];
-  for (const e of incoming) {
-    const prefix = e.split(":")[0] + ":";
-    const idx = out.findIndex((x) => x.toLowerCase().startsWith(prefix.toLowerCase()));
-    if (idx >= 0) out[idx] = e;
-    else out.push(e);
+  for (const raw of incoming) {
+    const extra = String(raw || "").trim();
+    if (!extra) continue;
+    const colon = extra.indexOf(":");
+    if (colon <= 0) {
+      if (!out.some((item) => item.toLowerCase() === extra.toLowerCase())) out.push(extra);
+      continue;
+    }
+    const key = extra.slice(0, colon);
+    if (extraKeyIsMultiValue(key)) {
+      const value = extra.slice(colon + 1).trim().toLowerCase();
+      const exists = out.some((item) => {
+        const itemColon = item.indexOf(":");
+        if (itemColon <= 0) return item.toLowerCase() === extra.toLowerCase();
+        return (
+          extraKeyIsMultiValue(item.slice(0, itemColon)) &&
+          item.slice(0, itemColon).toLowerCase().replace(/_/g, "") ===
+            key.toLowerCase().replace(/_/g, "") &&
+          item.slice(itemColon + 1).trim().toLowerCase() === value
+        );
+      });
+      if (!exists) out.push(extra);
+      continue;
+    }
+    const prefix = extra.slice(0, colon + 1);
+    const idx = out.findIndex((item) => item.toLowerCase().startsWith(prefix.toLowerCase()));
+    if (idx >= 0) out[idx] = extra;
+    else out.push(extra);
   }
-  return out.slice(0, 24);
+  return out.slice(0, 48);
 }
 
 export type CompoundFactExtract = {
@@ -1116,15 +1144,19 @@ export function extractCompoundListingFacts(
   }
 
   // Condition — including bare "new" / "used" in compound replies ("200 new auckland")
+  const residualForCondition = residual.replace(
+    /\bnew\s+(?:chain|tyres?|tires?|brakes?|batter(?:y|ies)|filters?|oil|wheels?|exhaust|pads?|intake|clutch)\b/gi,
+    " "
+  );
   const conditionHit =
     /\bbrand\s*new\b|\blike\s*new\b|\b(new|used|good|fair|mint|excellent)\s+condition\b|\bcondition\s*(?:is\s*)?(new|used|good|fair|mint)/i.test(
-      residual
+      residualForCondition
     ) ||
-    /\b(brand\s*new|like\s*new|excellent|mint)\b/i.test(residual) ||
-    (/\b(new|used|good|fair|mint|excellent|sealed|unopened)\b/i.test(residual) &&
-      !/\bnew\s+zealand\b/i.test(residual));
+    /\b(brand\s*new|like\s*new|excellent|mint)\b/i.test(residualForCondition) ||
+    (/\b(new|used|good|fair|mint|excellent|sealed|unopened)\b/i.test(residualForCondition) &&
+      !/\bnew\s+zealand\b/i.test(residualForCondition));
   if (conditionHit) {
-    const raw = residual.toLowerCase();
+    const raw = residualForCondition.toLowerCase();
     let condition = "Used - Good";
     if (
       /brand\s*new|sealed|unopened|(?:^|[^\w])new(?:\s+condition)?\b/.test(raw) &&
@@ -1162,7 +1194,7 @@ export function extractCompoundListingFacts(
 
   // Colour (vehicles / explicit colour words in compound replies)
   const colourMatch = residual.match(
-    /\b(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy)\b/i
+    /\b((?:gunmetal|midnight|pearl|matte|metallic|navy|dark|light|forest|racing)\s+)?(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy)\b/i
   );
   if (
     colourMatch &&
@@ -1170,8 +1202,19 @@ export function extractCompoundListingFacts(
       domain === "vehicle" ||
       missingFromBase.includes("colour"))
   ) {
-    const c = colourMatch[1];
-    partial.vehicleColour = c.charAt(0).toUpperCase() + c.slice(1).toLowerCase();
+    const phrase = [colourMatch[1], colourMatch[2]]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    partial.vehicleColour = phrase
+      .split(/\s+/)
+      .map((word, index) =>
+        index === 0
+          ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+          : word.toLowerCase()
+      )
+      .join(" ");
     filledSlots.push("colour");
     notes.push(`colour ${partial.vehicleColour}`);
     residual = residual.replace(colourMatch[0], " ").replace(/\s+/g, " ").trim();
@@ -1380,24 +1423,24 @@ export function extractCompoundListingFacts(
       .trim();
   }
 
-  // Preserve seller-supplied modifications, faults, and maintenance as factual
-  // listing notes. They are intentionally freeform rather than a vehicle-only
-  // schema field, so one batched response can carry several useful details.
-  const sellerDetailMatch = residual.match(
-    /\b(?:mostly stock|aftermarket|modified|modifications?|exhaust|wheels?|upgrades?|faults?|issues?|maintenance|serviced?|service history)\b[\s\S]*/i
-  );
-  if (sellerDetailMatch) {
-    const detail = sellerDetailMatch[0]
-      .replace(/^[,;:\s-]+|[,;:\s-]+$/g, "")
+  // Preserve useful seller statements that do not have dedicated schema fields.
+  const sellerItems = harvestSellerEvidence(message, {
+    title: partial.title || base.title,
+    colour: partial.vehicleColour || base.vehicleColour,
+    location: partial.location || base.location,
+    condition: partial.condition || base.condition,
+  });
+  if (sellerItems.length) {
+    const extras = sellerEvidenceToExtras(sellerItems);
+    partial.extras = mergeExtras(partial.extras || base.extras, extras);
+    notes.push(...sellerItems.map((item) => item.text));
+    residual = residual
+      .replace(
+        /\b(?:mostly stock|aftermarket|modified|modifications?|exhaust|wheels?|upgrades?|faults?|issues?|maintenance|serviced?|service history|coilovers?|intake|wof|rego|registration|stone chips?|interior is tidy)[\s\S]*/i,
+        " "
+      )
       .replace(/\s+/g, " ")
       .trim();
-    if (detail.length >= 3) {
-      partial.extras = mergeExtras(partial.extras || base.extras, [
-        `seller_notes:${detail}`,
-      ]);
-      notes.push(detail);
-      residual = residual.replace(sellerDetailMatch[0], " ").replace(/\s+/g, " ").trim();
-    }
   }
 
   // If active slot was generation and we filled it — good.

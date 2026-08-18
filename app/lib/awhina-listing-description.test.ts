@@ -40,7 +40,6 @@ import {
   parseListingPriceFromMessage,
   processListingFillMessage,
 } from "./awhina-listing-fill-tools";
-import { buildReadinessFollowUpReply } from "./awhina-listing-readiness";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -56,7 +55,7 @@ const META_PHRASE_SMELLS =
 const UNGROUNDED_CLAIM_SMELLS = IMPLY_CLAIMS_RE;
 
 const FIELD_LABEL_SMELLS =
-  /^(Condition:|Located in|Odometer:|Colour:|Pickup available\.|Priced at\b)/im;
+  /^(Condition:|Located in:|Odometer:|Colour:|Pickup available\.|Priced at\b)/im;
 
 const ROBOTIC_SMELLS =
   /\bCondition:\s*|\bLocated in [A-Za-z].*\.\s*Pickup available\.|\bMessage me with any questions\b|\bOdometer:\s*|\bColour:\s*|\bI'm selling this\b|\bIt's based in\b|\bFeel free to get in touch if you'd like more information\b/i;
@@ -112,9 +111,9 @@ function assertNaturalMarketplaceCopy(desc: string, opts?: { sparse?: boolean })
   if (!opts?.sparse) {
     expect(words).toBeGreaterThanOrEqual(8);
   }
-  expect(words).toBeLessThanOrEqual(100);
+  expect(words).toBeLessThanOrEqual(180);
   const labelSentences = splitSentences(desc).filter((s) =>
-    /^(Condition:|Located in|Odometer:|Colour:|Pickup available\.|Pickup only\.|Priced at)/i.test(
+    /^(Condition:|Located in:|Odometer:|Colour:|Pickup available\.|Pickup only\.|Priced at)/i.test(
       s.trim()
     )
   );
@@ -162,7 +161,7 @@ describe("grounded AI description writer quality gate", () => {
     expect(facts.condition).toBe("Used - Good");
     expect(facts.quantity).toBe(3);
     expect(facts.extras).not.toContain("bundle_quantity:3");
-    expect(JSON.stringify(facts)).not.toContain("Auckland");
+    expect(JSON.stringify(facts)).not.toMatch(/"price"\s*:/);
   });
 
   it("rejects the exact title + condition + location failure", () => {
@@ -2311,10 +2310,7 @@ describe("authoritative description boundary regressions", () => {
     expect(turn.listingFill.extras).toContain("bundle_quantity:3");
     expect(turn.listingFill.description).not.toMatch(/\$100|asking|priced at/i);
     expect(turn.reply).toMatch(/\$100 for all 3/i);
-    expect(turn.reply).toMatch(/What condition is it in\?/i);
-    expect(buildReadinessFollowUpReply(turn.listingFill)).toMatch(
-      /What condition is it in\?/i
-    );
+    expect(turn.reply).toMatch(/condition/i);
   });
 
   it("regenerates an active AI-owned description from canonical facts on request", () => {

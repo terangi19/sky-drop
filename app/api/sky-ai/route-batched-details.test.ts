@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "./route";
 
-const EXACT_R34_ANSWER =
-  "1999 Nissan Skyline R34, 145,000 km, manual, good used condition, asking $38,000. Aftermarket exhaust, wheels, coilovers and intake. Recently serviced with fresh oil and filters. Interior is tidy for its age. Paint has a few minor marks and stone chips. No known mechanical faults, starts and drives well. WOF and rego current. Located in Auckland.";
+export const EXACT_R34_ANSWER =
+  "1999 Nissan Skyline R34, 145,000 km, manual, good used condition, asking $38,000. Gunmetal grey, located in Auckland. Aftermarket exhaust, intake, coilovers and 18-inch wheels. Recently serviced with fresh engine oil and filters. Interior is tidy, paint has a few minor stone chips and age-related marks. No known mechanical faults and it starts and drives well. WOF and rego are current.";
 
 function request(body: Record<string, unknown>) {
   return new NextRequest("http://localhost/api/sky-ai", {
@@ -11,6 +11,10 @@ function request(body: Record<string, unknown>) {
     headers: { "content-type": "application/json", "x-forwarded-for": `batch-${Date.now()}-${Math.random()}` },
     body: JSON.stringify({ pathname: "/post/ai", stream: false, ...body }),
   });
+}
+
+function extrasText(fill: Record<string, unknown> | undefined): string {
+  return Array.isArray(fill?.extras) ? fill.extras.join(" ") : String(fill?.extras || "");
 }
 
 describe("POST /api/sky-ai batched seller details", () => {
@@ -37,12 +41,31 @@ describe("POST /api/sky-ai batched seller details", () => {
     expect(second.listingFill.condition).toBe("Used - Good");
     expect(second.listingFill.price).toBe("38000");
     expect(second.listingFill.location).toBe("Auckland");
-    expect(second.listingFill.extras.join(" ")).toMatch(
-      /aftermarket exhaust.*wheels.*coilovers.*intake/i
-    );
+    expect(String(second.listingFill.vehicleColour || "")).toMatch(/grey|gray/i);
+    const extras = extrasText(second.listingFill);
+    expect(extras).toMatch(/exhaust/i);
+    expect(extras).toMatch(/intake/i);
+    expect(extras).toMatch(/coilover/i);
+    expect(extras).toMatch(/18-?inch wheels/i);
+    expect(extras).toMatch(/servic|oil|filter/i);
+    expect(extras).toMatch(/tidy|stone chip|age-related/i);
+    expect(extras).toMatch(/no known mechanical faults/i);
+    expect(extras).toMatch(/starts and drives/i);
+    expect(extras).toMatch(/wof/i);
+    expect(extras).toMatch(/registration current|rego/i);
     expect(second.reply).not.toMatch(
       /year.*mileage.*transmission.*condition.*asking price/i
     );
+    const description = String(second.listingFill?.description || "");
+    expect(description).toMatch(/exhaust/i);
+    expect(description).toMatch(/coilover|intake|wheels/i);
+    expect(description).toMatch(/servic|oil|filter/i);
+    expect(description).toMatch(/tidy|stone chip|age-related|marks/i);
+    expect(description).toMatch(/fault|drives well/i);
+    expect(description).toMatch(/wof|registration|rego/i);
+    expect(description).toMatch(/auckland/i);
+    expect(description).not.toMatch(/classic era of nissan performance/i);
+    expect(description).not.toMatch(/\$38,?000|asking/i);
   });
 
   it.each([
@@ -84,7 +107,7 @@ describe("POST /api/sky-ai batched seller details", () => {
       assert: (fill: Record<string, unknown>, reply: string) => {
         expect(fill.condition).toBe("Used - Good");
         expect(fill.price).toBe("650");
-        expect(String(fill.extras || "")).toMatch(/seller_notes:serviced|seller_notes:maintenance/i);
+        expect(extrasText(fill)).toMatch(/maintenance:|serviced/i);
         expect(reply).not.toMatch(/condition.*asking price/i);
       },
     },

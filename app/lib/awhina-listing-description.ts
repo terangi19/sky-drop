@@ -23,6 +23,12 @@ import {
   repairCardProductLineOrder,
   normalizeTradingCardProductLine,
 } from "./awhina-public-copy-gate";
+import {
+  composeSellerEvidenceProse,
+  groupedSellerEvidenceFromExtras,
+  isSellerEvidenceExtra,
+  sellerEvidenceItemCount,
+} from "./awhina-seller-evidence";
 
 export type ListingDescriptionQuality = "standard" | "premium" | "premium_plus";
 
@@ -143,7 +149,7 @@ export function stripStructuredMetadataLeakage(text: string): string {
 
 
 export const BANNED_TEMPLATE_RE =
-  /\bI'm selling this\b|\bThis item\b|\bMessage me with any questions\b|\bFeel free to get in touch if you'd like more information\b|\bIt's based in\b|\b— based in\b|\bLocated in\b|\bCan do pickup\b|\bAvailable around\b|\bPriced at\b/i;
+  /\bI'm selling this\b|\bThis item\b|\bMessage me with any questions\b|\bFeel free to get in touch if you'd like more information\b|\bIt's based in\b|\b— based in\b|\bCan do pickup\b|\bAvailable around\b|\bPriced at\b/i;
 
 const IMPLEMENTATION_LEAK_RE =
   /\bno guesswork\b|\bbased on (the )?(available|provided|supplied) (details|information)\b|\busing only supplied\b|\bfrom the information provided\b|\bbased on what we know\b|\bverified facts only\b|\bI haven'?t assumed\b|\bI didn'?t invent\b|\bStraightforward listing with the details we have\b|\bdetails we have\b|\bfacts we know\b|\bknown details\b|\bwhat is known\b|\bhere is what we know\b|\bonly the facts\b|\bAI\b|\bgenerated\b|\bassumed\b/i;
@@ -174,7 +180,7 @@ const PRICE_PURPOSE_RE =
   /\b(asking|priced at|per (hour|job|day|week|month)|\$\d|\bbond\b|\/week|\/day|\/month)\b/i;
 
 const UNSUPPORTED_CLAIM_RE =
-  /\b(warranty|receipt|authenticity|genuine|factory sealed|unopened|serviced recently|full service history|WOF|rego current|insured|years of experience|guaranteed|fully equipped)\b/i;
+  /\b(warranty|receipt|authenticity|genuine|insured|years of experience|guaranteed|fully equipped)\b/i;
 
 /* ─── Tiny helpers ──────────────────────────────────────────────────────── */
 
@@ -463,12 +469,18 @@ function reconcileConditionPhrase(
 }
 
 /** Turn confirmed extras into buyer prose — never raw slot / field-label concatenation. */
-function composeExtrasProse(extras: string[]): string | null {
+function composeExtrasProse(extras: string[], location?: string | null): string | null {
+  const grouped = groupedSellerEvidenceFromExtras(extras);
+  if (sellerEvidenceItemCount(grouped) >= 1 && location?.trim()) {
+    grouped.location = location.trim();
+  }
+  const evidenceProse = composeSellerEvidenceProse(grouped);
   // Identity / catalog / internal structured tags are composed elsewhere —
   // never "Set X.", "Bundle_quantity:3.", or lone "Topps."
   const bits = extras
     .map((e) => String(e || "").trim())
     .filter(Boolean)
+    .filter((e) => !isSellerEvidenceExtra(e))
     .filter(
       (e) =>
         !/^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|categoryid|condition_code|conditioncode|vision_confidence|visionconfidence|provenance|field_source|fieldsource):/i.test(
@@ -478,6 +490,7 @@ function composeExtrasProse(extras: string[]): string | null {
     .map((e) =>
       e
         .replace(/^storage:/i, "")
+        .replace(/^size:/i, "Size ")
         .replace(/^variant:/i, "")
         .replace(/^visual:\s*/i, "")
         .replace(/^attr:\s*/i, "")
@@ -499,9 +512,19 @@ function composeExtrasProse(extras: string[]): string | null {
     .filter((e) => !/^(attr|attribute|visionfact|candidate|confidence)\b/i.test(e))
     // Reject field-label residue that slipped through
     .filter((e) => !/^set\s+/i.test(e))
-    .filter((e) => !/^(topps|panini|upper\s*deck|fleer|bowman|donruss)$/i.test(e));
+    .filter((e) => !/^(topps|panini|upper\s*deck|fleer|bowman|donruss)$/i.test(e))
+    .filter((e) => {
+      if (!evidenceProse) return true;
+      const haystack = evidenceProse.toLowerCase();
+      const extra = e.toLowerCase();
+      if (haystack.includes(extra)) return false;
+      const words = extra.split(/\s+/).filter((word) => word.length > 3);
+      if (!words.length) return true;
+      const overlap = words.filter((word) => haystack.includes(word)).length;
+      return overlap < Math.ceil(words.length * 0.6);
+    });
 
-  if (!bits.length) return null;
+  if (!bits.length && !evidenceProse) return null;
 
   const wear: string[] = [];
   const positives: string[] = [];
@@ -560,7 +583,9 @@ function composeExtrasProse(extras: string[]): string | null {
     }
     sentences.push(polishParagraph(o.endsWith(".") ? o : `${o}.`));
   }
-  return sentences.join(" ") || null;
+  const rest = sentences.join(" ").trim();
+  const combined = [evidenceProse, rest].filter(Boolean).join(" ").trim();
+  return combined || null;
 }
 
 function deliveryMode(fill: SkyAiListingFill): DeliveryMode {
@@ -630,8 +655,18 @@ function weaveableExtras(fill: SkyAiListingFill): string[] {
         )
     )
     .filter((e) => !/^(brand|new|like|console|the|and|for|with)$/i.test(e))
-    // Keep structured storage tags as readable facts for identity (title already has them)
-    .filter((e) => !/^storage:/i.test(e))
+    // Keep structured storage/size tags when they are not already in the title
+    .filter((e) => {
+      if (/^storage:/i.test(e)) {
+        const value = e.replace(/^storage:/i, "").trim();
+        return value.length > 0 && !new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(fill.title || "");
+      }
+      if (/^size:/i.test(e)) {
+        const value = e.replace(/^size:/i, "").trim();
+        return value.length > 0 && !new RegExp(`\\bsize\\s*${value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(fill.title || "");
+      }
+      return true;
+    })
     .filter(
       (e) =>
         !/^(player\s*image|orange\s*background|shiny\s*surface)$/i.test(
@@ -641,11 +676,12 @@ function weaveableExtras(fill: SkyAiListingFill): string[] {
     .filter(
       (e) =>
         e.split(/\s+/).length >= 2 ||
+        isSellerEvidenceExtra(e) ||
         /servic|tyre|tire|receipt|paperwork|wof|rego|mod|include|controller|charger|box|manual|warranty|battery|scratches?|scuffs?|dents?|screen|turbo|intake|intercooler|downpipe|subject:|set:|serial:|parallel|grade:|manufacturer:/i.test(
           e
         )
     )
-    .slice(0, 6);
+    .slice(0, 24);
 }
 
 const BANG_SENTENCE_START_RE =
@@ -996,7 +1032,13 @@ export function extractDescriptionFacts(
     ...lifted.filter(
       (f) => !woven.some((e) => e.toLowerCase() === f.toLowerCase())
     ),
-  ].slice(0, 8);
+  ];
+  const sellerExtras = (fill.extras || []).filter(isSellerEvidenceExtra);
+  for (const extra of sellerExtras) {
+    if (!extras.some((item) => item.toLowerCase() === extra.toLowerCase())) {
+      extras.push(extra);
+    }
+  }
 
   let priceMode: PriceMode = money ? "asking" : null;
   let serviceDuration: string | null = null;
@@ -1134,7 +1176,7 @@ function classifySentence(s: string): SentencePurpose {
   if (CTA_PURPOSE_RE.test(t)) return "cta";
   if (PICKUP_PURPOSE_RE.test(t) || SHIP_PURPOSE_RE.test(t)) return "logistics";
   if (PRICE_PURPOSE_RE.test(t) && wordCount(t) <= 12) return "price";
-  if (FIELD_LABEL_RE.test(t) || /^(Condition is|Priced at|Located in)\b/i.test(t)) return "meta";
+  if (FIELD_LABEL_RE.test(t) || /^(Condition is|Priced at)\b/i.test(t)) return "meta";
   return "other";
 }
 
@@ -1205,7 +1247,8 @@ function stripBadSentences(sentences: string[]): string[] {
     if (IMPLY_CLAIMS_RE.test(s) || SERVICE_INVENTION_RE.test(s)) return false;
     if (SERVICE_TEMPLATE_SMELL_RE.test(s)) return false;
     // Drop robotic field sentences
-    if (/^(Condition is|Priced at|Located in|Odometer is|Colour is)\b/i.test(s)) return false;
+    if (/^(Condition is|Priced at|Odometer is|Colour is)\b/i.test(s)) return false;
+    if (/^Located in\s*:/i.test(s)) return false;
     return true;
   });
 }
@@ -1539,8 +1582,11 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
     }
   }
 
-  // Cap sentence count: prefer 2–4, allow 5 when extras/vehicle facts need room
-  const maxSentences = 5;
+  // Cap sentence count with room for rich seller evidence
+  const sellerCount = sellerEvidenceItemCount(
+    groupedSellerEvidenceFromExtras(facts.extras, facts.location || undefined)
+  );
+  const maxSentences = sellerCount >= 6 ? 10 : sellerCount >= 3 ? 7 : 5;
   if (sentences.length > maxSentences) {
     const cta = sentences.find((s) => classifySentence(s) === "cta");
     const body = sentences.filter((s) => classifySentence(s) !== "cta").slice(0, maxSentences - 1);
@@ -1560,11 +1606,20 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
   if (!facts.extras.some((e) => /battery/i.test(e))) {
     text = text.replace(/\s*[^.]*\bbattery health[^.]*\./gi, " ").trim();
   }
+  if (!facts.extras.some((e) => /\bwof\b|rego|registration/i.test(e))) {
+    text = text.replace(/\s*[^.]*\b(?:WOF|rego)\b[^.]*\./gi, " ").trim();
+  }
+  if (!facts.extras.some((e) => /sealed|unopened/i.test(e))) {
+    text = text.replace(/\s*[^.]*\bfactory sealed\b[^.]*\./gi, " ").trim();
+  }
+  if (!facts.extras.some((e) => /servic/i.test(e))) {
+    text = text.replace(/\s*[^.]*\brecently serviced\b[^.]*\./gi, " ").trim();
+  }
 
   text = finalGrammarCleanup(text);
 
   const sparse = facts.factRichness === "sparse";
-  const maxWords = 90;
+  const maxWords = sellerCount >= 6 ? 170 : sellerCount >= 3 ? 120 : 90;
   text = trimToWords(text, maxWords);
 
   if (!passesListingDescriptionQualityGate(text, { sparse }) || isRoboticListingDescription(text)) {
@@ -1623,11 +1678,8 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
     }
     if (facts.conditionPhrase) bits.push(facts.conditionPhrase);
     if (bits.length) parts.push(capFirst(`${bits.join(", ")}.`));
-    for (const extra of facts.extras) {
-      if (/\b(modif|upgraded|turbo|intercooler|downpipe|intake)\b/i.test(extra)) {
-        parts.push(polishParagraph(extra.endsWith(".") ? extra : `${extra}.`));
-      }
-    }
+    const extrasProse = composeExtrasProse(facts.extras);
+    if (extrasProse) parts.push(extrasProse);
   } else if (facts.kind === "service") {
     const priceBit =
       facts.priceMode === "hourly" && facts.money
@@ -2115,7 +2167,15 @@ function writeVehicle(facts: DescriptionFacts): string {
   const v = facts.vehicle;
   const name = facts.item;
   const colour = v?.colour;
-  const loc = facts.location;
+  const evidence = groupedSellerEvidenceFromExtras(facts.extras);
+  const hasGroundedSellerDetail =
+    evidence.modifications.length +
+      evidence.maintenance.length +
+      evidence.conditionDetails.length +
+      evidence.mechanical.length +
+      evidence.compliance.length >=
+    1;
+  const loc = hasGroundedSellerDetail ? null : facts.location;
   const seed = facts.seed;
   const body = v?.body?.trim() || null;
   const bodyBit = body ? ` ${body.toLowerCase()}` : "";
@@ -2155,7 +2215,10 @@ function writeVehicle(facts: DescriptionFacts): string {
   }
 
   // Freeform mods / extras — preserve seller wording, do not invent
-  const extrasProse = composeExtrasProse(facts.extras);
+  const extrasProse = composeExtrasProse(
+    facts.extras,
+    hasGroundedSellerDetail ? facts.location : undefined
+  );
   if (extrasProse) {
     parts.push(extrasProse);
   }
@@ -2241,7 +2304,7 @@ function writeService(facts: DescriptionFacts): string {
   if (facts.serviceDuration) {
     parts.push(`Typical jobs run about ${facts.serviceDuration}.`);
   }
-  const extrasProse = composeExtrasProse(facts.extras);
+  const extrasProse = composeExtrasProse(facts.extras, facts.location);
   if (extrasProse) parts.push(extrasProse);
 
   return parts.join(" ");
@@ -2304,7 +2367,7 @@ function writeRental(facts: DescriptionFacts): string {
   }
   if (rates.length) bits.push(rates.join(", "));
   if (r?.availableFrom) bits.push(`available from ${r.availableFrom}`);
-  const extrasProse = composeExtrasProse(facts.extras);
+  const extrasProse = composeExtrasProse(facts.extras, facts.location);
 
   if (bits.length) parts.push(capFirst(`${bits.join(", ")}.`));
   if (extrasProse) parts.push(extrasProse);

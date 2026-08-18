@@ -34,6 +34,10 @@ import {
 } from "./sky-ai-find-routing";
 import { extractServiceOfferingTitle, hasServiceOfferingIntent } from "./sky-ai-intent";
 import { SERVICE_LISTING_CATEGORY_LIST } from "./listing-type-config";
+import {
+  groupedSellerEvidenceFromExtras,
+  sellerEvidenceItemCount,
+} from "./awhina-seller-evidence";
 
 export type ListingComposeSeed = {
   item: string;
@@ -289,6 +293,9 @@ function removePhysicalFallbackLocation(
   fill: SkyAiListingFill
 ): string {
   if (fill.listingType && fill.listingType !== "physical") return description;
+  if (sellerEvidenceItemCount(groupedSellerEvidenceFromExtras(fill.extras, fill.location)) >= 2) {
+    return description;
+  }
   const location = (fill.location || fill.pickupArea || "").trim();
   if (!location) return description;
   return description
@@ -310,10 +317,16 @@ function hasAcceptableOfflineFallback(
   fill: SkyAiListingFill
 ): boolean {
   const text = description.trim();
-  if (!text || /\b(?:standout|performance and design|perfect for|ideal for|must-have|great addition|don'?t miss out)\b/i.test(text)) {
+  if (!text || /\b(?:standout|performance and design|perfect for|ideal for|must-have|great addition|don'?t miss out|classic era|represents a)\b/i.test(text)) {
     return false;
   }
-  if (/\b(?:for sale in|located in|asking\s+\$|priced at\s+\$)\b/i.test(text)) {
+  if (/\b(?:asking\s+\$|priced at\s+\$)\b/i.test(text)) {
+    return false;
+  }
+  if (/\bfor sale in\b/i.test(text) && fill.listingType === "physical") {
+    return false;
+  }
+  if (/\blocated in\b/i.test(text) && !(fill.location || fill.pickupArea || "").trim()) {
     return false;
   }
   const normalized = (value: string) =>

@@ -165,7 +165,7 @@ describe("general grounded description writer — diversity regressions", () => 
   it.each(FIXTURES)("$name passes its structured facts to the writer", ({ fill, expectedFacts }) => {
     const facts = buildDescriptionWriterFacts(fill);
     expect(facts).toMatchObject(expectedFacts);
-    expect(JSON.stringify(facts)).not.toMatch(/location|price/i);
+    expect(JSON.stringify(facts)).not.toMatch(/"price"\s*:/);
   });
 
   it.each(FIXTURES)("$name produces factual domain-specific fallback copy", ({ name, fill, unique }) => {
@@ -205,10 +205,25 @@ describe("general grounded description writer — diversity regressions", () => 
 
   it("rejects generic vehicle praise even when identity facts are complete", () => {
     const skyline = FIXTURES.find((fixture) => fixture.name === "Nissan Skyline R34")!;
+    const facts = buildDescriptionWriterFacts({
+      ...skyline.fill,
+      extras: [
+        ...(skyline.fill.extras || []),
+        "modification:aftermarket exhaust",
+        "maintenance:recently serviced",
+        "mechanical:no known mechanical faults",
+      ],
+    });
     expect(
       validateAiListingDescription(
         "This Nissan Skyline is a standout vehicle known for its performance and design.",
-        buildDescriptionWriterFacts(skyline.fill)
+        facts
+      )
+    ).toBeNull();
+    expect(
+      validateAiListingDescription(
+        "This Nissan Skyline R34 is in good used condition. It represents a classic era of Nissan performance.",
+        facts
       )
     ).toBeNull();
   });

@@ -28,7 +28,8 @@ const CASES: DetailCase[] = [
       expect(p.vehicleTransmission).toBe("Manual");
       expect(p.condition).toBe("Used - Good");
       expect(p.price).toBe("38000");
-      expect(p.extras).toContain("seller_notes:mostly stock except exhaust and wheels");
+      expect(p.extras?.join(" ") || "").toMatch(/exhaust/i);
+      expect(p.extras?.join(" ") || "").toMatch(/wheels/i);
     },
   },
   {
@@ -61,7 +62,7 @@ const CASES: DetailCase[] = [
     known: { title: "Trek Marlin Mountain Bike", listingType: "physical", extras: ["domain:cycling", "objectType:mountain_bike"] },
     response: "Medium, good condition, recent maintenance, $650",
     expectQuestion: /condition.*asking price/i,
-    assert: (p) => expect(p.extras).toContain("seller_notes:maintenance"),
+    assert: (p) => expect(p.extras?.join(" ") || "").toMatch(/maintenance|serviced/i),
   },
   {
     name: "Nike shoes",

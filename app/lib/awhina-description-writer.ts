@@ -16,6 +16,12 @@ import {
   stripStructuredMetadataLeakage,
 } from "./awhina-listing-description";
 import { isSealedTradingCardProductFormat } from "./awhina-public-copy-gate";
+import {
+  compactSellerEvidence,
+  groupedSellerEvidenceFromExtras,
+  sellerEvidenceItemCount,
+  type GroupedSellerEvidence,
+} from "./awhina-seller-evidence";
 
 const MODEL = process.env.OPENAI_DESCRIPTION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini";
 const CTA_RE =
@@ -47,6 +53,7 @@ export type DescriptionWriterFacts = {
     variant?: string;
     format?: string;
     franchise?: string;
+    size?: string;
   };
   /** Card-specific facts are distinct from generic product attributes. */
   collectible?: {
@@ -61,12 +68,15 @@ export type DescriptionWriterFacts = {
   };
   extras: string[];
   vehicle?: Record<string, string>;
+  location?: string;
+  /** High-authority seller statements that do not have dedicated schema fields. */
+  sellerEvidence?: Record<string, unknown>;
 };
 
 const STRUCTURED_EXTRA_KEY_RE =
   /^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|categoryid|condition_code|conditioncode|vision_confidence|visionconfidence|provenance|field_source|fieldsource)$/i;
 export const MARKETING_FILLER_RE =
-  /\b(?:must[- ]have|perfect(?:\s+(?:for|addition))?|great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout(?:\s+(?:vehicle|car|item|product|player))?|known for (?:its )?(?:performance|design)|performance and design|legendary (?:figures|status)|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|reliable performance|reliable choice|any .* collection|don'?t miss out|highly sought[- ]after|rare|valuable|iconic|grab a bargain|sure to impress|classic era of .* performance)\b/i;
+  /\b(?:must[- ]have|perfect(?:\s+(?:for|addition))?|great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout(?:\s+(?:vehicle|car|item|product|player))?|known for (?:its )?(?:performance|design)|performance and design|legendary (?:figures|status)|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|reliable performance|reliable choice|any .* collection|don'?t miss out|highly sought[- ]after|rare|valuable|iconic|grab a bargain|sure to impress|classic era|represents a|era of .{0,40}performance|great choice)\b/i;
 
 export type DescriptionValidationFailureReason =
   | "too_short"
@@ -308,6 +318,10 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
         product.storage = value;
         continue;
       }
+      if (key === "size") {
+        product.size = value;
+        continue;
+      }
       if (key === "variant") {
         product.variant = value;
         continue;
@@ -357,6 +371,16 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
         // Useful internally, never as raw key:value writer input.
         continue;
       }
+      if (
+        /^(modification|maintenance|conditiondetail|condition_detail|mechanical|compliance|included|note|seller_notes)$/i.test(
+          key
+        )
+      ) {
+        continue;
+      }
+      if (value.split(/\s+/).length >= 2) {
+        freeformExtras.push(value);
+      }
       continue;
     }
     freeformExtras.push(extra);
@@ -380,6 +404,11 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
     delete product.colour;
   }
 
+  const location = (fill.location || fill.pickupArea || "").trim() || undefined;
+  const sellerEvidence = compactSellerEvidence(
+    groupedSellerEvidenceFromExtras(fill.extras, location)
+  );
+
   return {
     domain: (fill.extras || [])
       .map((entry) => String(entry).match(/^domain:\s*(.+)$/i)?.[1]?.trim())
@@ -400,7 +429,26 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
     collectible: Object.keys(collectible).length ? collectible : undefined,
     extras: freeformExtras.slice(0, 20),
     vehicle: Object.keys(vehicle).length ? vehicle : undefined,
+    location,
+    sellerEvidence: Object.keys(sellerEvidence).length ? sellerEvidence : undefined,
   };
+}
+
+function sellerEvidenceCount(facts: DescriptionWriterFacts): number {
+  const grouped: GroupedSellerEvidence = {
+    modifications: (facts.sellerEvidence?.modifications as string[]) || [],
+    maintenance: (facts.sellerEvidence?.maintenance as string[]) || [],
+    conditionDetails: (facts.sellerEvidence?.conditionDetails as string[]) || [],
+    mechanical: (facts.sellerEvidence?.mechanical as string[]) || [],
+    compliance: (facts.sellerEvidence?.compliance as string[]) || [],
+    included: (facts.sellerEvidence?.included as string[]) || [],
+    notes: (facts.sellerEvidence?.notes as string[]) || [],
+    location:
+      typeof facts.sellerEvidence?.location === "string"
+        ? facts.sellerEvidence.location
+        : facts.location,
+  };
+  return sellerEvidenceItemCount(grouped);
 }
 
 function hasMeaningfulFacts(facts: DescriptionWriterFacts): boolean {
@@ -412,6 +460,7 @@ function hasMeaningfulFacts(facts: DescriptionWriterFacts): boolean {
       facts.sellerNotes?.length ||
       facts.extras.length ||
       facts.vehicle ||
+      facts.sellerEvidence ||
       facts.title.split(/\s+/).length >= 3
   );
 }
@@ -480,6 +529,7 @@ export function validateAiListingDescriptionResult(
     .replace(/\s+/g, " ")
     .trim();
   const { requiredFacts, optionalFacts } = descriptionFactPolicy(facts);
+  const evidenceCount = sellerEvidenceCount(facts);
   const fail = (reason: DescriptionValidationFailureReason): DescriptionValidationResult => ({
     ok: false,
     reason,
@@ -488,9 +538,12 @@ export function validateAiListingDescriptionResult(
     optionalFacts,
   });
 
+  // A removable promotional tail should not discard otherwise grounded prose.
+  // When stripping leaves no substantive copy, expose marketing as the cause.
+  // When the seller supplied rich evidence, filler is never an acceptable substitute.
   if (
     MARKETING_FILLER_RE.test(description) ||
-    (proposedContainsMarketingFiller && description.length < 24)
+    (proposedContainsMarketingFiller && (description.length < 24 || evidenceCount >= 3))
   ) {
     return fail("marketing_filler");
   }
@@ -509,7 +562,9 @@ export function validateAiListingDescriptionResult(
     return fail("unsupported_claim");
   }
   if (description.length < 24) return fail("too_short");
-  if (description.length > 1100) return fail("too_long");
+  const wordCount = description.split(/\s+/).filter(Boolean).length;
+  if (evidenceCount >= 5 && wordCount < 40) return fail("too_short");
+  if (description.length > 1400) return fail("too_long");
   if (/\b(?:is|are)\s+in\s+(?:brand new|new)\b/i.test(description)) {
     return fail("invalid_condition_grammar");
   }
@@ -543,9 +598,17 @@ export function validateAiListingDescriptionResult(
     }
   }
 
+  // Asking price never belongs in public copy. Seller-supplied location may.
+  if (/\b(?:asking\s+\$|priced at\s+\$)\b/i.test(description)) {
+    return fail("price_or_location_leak");
+  }
+  if (/\bfor sale in\b/i.test(description) && facts.listingType === "physical") {
+    return fail("price_or_location_leak");
+  }
   if (
-    facts.listingType === "physical" &&
-    /\b(?:for sale in|located in|asking\s+\$|priced at\s+\$)\b/i.test(description)
+    /\blocated in\b/i.test(description) &&
+    !facts.location &&
+    typeof facts.sellerEvidence?.location !== "string"
   ) {
     return fail("price_or_location_leak");
   }
@@ -650,19 +713,30 @@ export async function runAwhinaListingDescriptionWriter(
           const completion = await client.chat.completions.create({
             model: MODEL,
             temperature: 0.25,
-            max_tokens: 420,
+            max_tokens: sellerEvidenceCount(facts) >= 5 ? 520 : sellerEvidenceCount(facts) >= 3 ? 420 : 320,
             response_format: { type: "json_object" },
             messages: [
               {
                 role: "system",
-                content: `Write concise buyer-facing marketplace copy from ONLY the supplied JSON facts.
+                content: `Write buyer-facing marketplace copy from ONLY the supplied JSON facts.
 Return JSON exactly as {"description":"..."}.
 
+Evidence priority:
+1. sellerEvidence (explicit seller statements — highest authority)
+2. canonical structured facts (vehicle, product, condition, collectible)
+3. confidently observed extras
+4. grounded domain knowledge
+Never let generic marketing prose outrank seller evidence.
+
 Writing rules:
-- Use 1–6 useful sentences based on fact richness. Rich seller evidence should produce richer copy; sparse facts should stay short.
-- sellerNotes are explicit seller-provided facts and have HIGH authority. Preserve as much useful buyer-relevant substance from them as possible, paraphrasing naturally instead of copying labels.
+- Spend the word budget on real supplied facts. Sparse facts: 1–3 short sentences. Rich sellerEvidence or sellerNotes: write a fuller factual description (typically 4–8 sentences) covering identity, condition details, modifications, maintenance, mechanical disclosure, compliance, included items, and location when present.
+- sellerNotes and sellerEvidence are explicit seller-provided facts and have HIGH authority. Preserve as much useful buyer-relevant substance as possible, paraphrasing naturally instead of copying labels.
 - Prefer concrete seller facts (modifications, maintenance, accessories, wear, faults, included items, condition details) over generic product praise.
 - Compose relationships; never serialize raw metadata keys or labels.
+- Compose facts naturally. Preserve meaning, not exact seller wording.
+- Never invent praise, era commentary, or enthusiast filler to pad sparse copy.
+- Never mention asking price, contact actions, "for sale", database labels, or unsupported claims.
+- When sellerEvidence.location or location is supplied, you may include it once as a closing fact. Never invent a location.
 - For related/bundled items, explain the relationship naturally when facts support it.
 - Preserve the most specific supplied collection, group, model, or product-family name; do not replace it with a generic category.
 - Treat parentIdentity as a modifier that comes before collection/product: "Parent Collection", never "Collection Parent".
@@ -672,11 +746,10 @@ Writing rules:
 - For cards, prioritize set/product, character/player, parallel, numbering, grade, quantity, and condition.
 - For sealed card products (box, pack, tin, display), never invent parallels, players, pack counts, or card attributes. A booster product may be described as containing booster packs only when objectType/product format establishes that relationship.
 - For electronics, bikes, clothing, vehicles, furniture and tools, prioritise only confirmed useful details.
-- Never mention price, generic location filler, contact actions, "for sale", marketing filler, database labels, or unsupported claims.
 - Include the supplied condition naturally whenever one is present.
 - Condition grammar: "is/are brand new", "is/are new", "is/are in like-new condition", "is/are in good condition", "is/are in good used condition", or "is/are in fair condition". Never write "in brand new".
-- Stop once the supported useful facts are covered. Never use phrases such as "standout", "known for its performance and design", "represents a classic era of performance", "must-have", "perfect for collectors", "great addition", "don't miss out", "ideal for enthusiasts", "sure to impress", "rare", "valuable", "iconic", or generic calls to action.
-- Never emit raw metadata such as seller_notes:, bundle_quantity:3, listing_type:physical, brand:Nike, or any key:value labels.
+- Banned phrases: "classic era", "represents a", "standout", "known for its performance and design", "must-have", "perfect for", "great choice", "ideal for enthusiasts", "great addition", "don't miss out", "sure to impress", "rare", "valuable", "iconic", or generic calls to action.
+- Never emit raw metadata such as seller_notes:, bundle_quantity:3, listing_type:physical, brand:Nike, modification:exhaust, or any key:value labels.
 - Never add facts, specifications, authenticity, working status, or condition not in JSON.`,
               },
               { role: "user", content: JSON.stringify(facts) },
