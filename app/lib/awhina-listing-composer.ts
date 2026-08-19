@@ -161,7 +161,7 @@ function normalizeAwhinaListingTitle(fill: SkyAiListingFill): SkyAiListingFill {
 }
 
 /** Generic AI filler is never acceptable public copy. Keep this at the final boundary so stale/model/template prose cannot re-enter later. */
-const GENERIC_PUBLIC_COPY_RE = /\b(?:standout(?:\s+(?:vehicle|car|item|product))?|known for (?:its )?(?:performance|design)|performance and design|classic era|represents a|notable (?:example|model)|example of .{0,45}engineering|engineering from that era|era of .{0,45}performance|great choice|solid choice|perfect for|ideal for|must-have|great addition|don'?t miss out|enthusiasts?(?:\s+and\s+collectors?)?|collectors? alike|enthusiasts? and collectors? alike|from .{0,30}(?:lineup|range))\b/i;
+const GENERIC_PUBLIC_COPY_RE = /\b(?:standout(?:\s+(?:vehicle|car|item|product))?|known for (?:its )?(?:performance|design)|performance and design|classic era|represents a|notable (?:example|model)|example of .{0,45}engineering|engineering from that era|era of .{0,45}performance|great choice|solid choice|perfect for|ideal for|must-have|great addition|don'?t miss out|enthusiasts?(?:\s+and\s+collectors?)?|collectors? alike|enthusiasts? and collectors? alike|from .{0,30}(?:lineup|range)|the seller confirms?|seller confirms?|seller states?|according to the seller|ensur(?:e|es|ing) (?:a )?(?:reliable|smooth|great|better) (?:gaming )?experience|provid(?:e|es|ing) peace of mind|making (?:it|this) (?:a )?(?:reliable|great|solid) choice)\b/i;
 
 /**
  * Missing information must stay missing. Never turn absence of a fact into a
