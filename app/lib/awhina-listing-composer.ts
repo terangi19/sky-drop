@@ -161,14 +161,14 @@ function normalizeAwhinaListingTitle(fill: SkyAiListingFill): SkyAiListingFill {
 }
 
 /** Generic AI filler is never acceptable public copy. Keep this at the final boundary so stale/model/template prose cannot re-enter later. */
-const GENERIC_PUBLIC_COPY_RE = /\b(?:standout(?:\s+(?:vehicle|car|item|product))?|known for (?:its )?(?:performance|design)|performance and design|classic era|represents a|notable (?:example|model)|example of .{0,45}engineering|engineering from that era|era of .{0,45}performance|great choice|solid choice|perfect for|ideal for|must-have|great addition|don'?t miss out|enthusiasts?(?:\s+and\s+collectors?)?|collectors? alike|enthusiasts? and collectors? alike|from .{0,30}(?:lineup|range)|the seller confirms?|seller confirms?|seller states?|according to the seller|ensur(?:e|es|ing) (?:a )?(?:reliable|smooth|great|better) (?:gaming )?experience|provid(?:e|es|ing) peace of mind|making (?:it|this) (?:a )?(?:reliable|great|solid) choice)\b/i;
+const GENERIC_PUBLIC_COPY_RE = /\b(?:standout(?:\s+(?:vehicle|car|item|product))?|known for (?:its )?(?:performance|design)|performance and design|classic era|represents a|notable (?:example|model)|example of .{0,45}engineering|engineering from that era|era of .{0,45}performance|great choice|solid choice|perfect for|ideal for|must-have|great addition|don'?t miss out|enthusiasts?(?:\s+and\s+collectors?)?|collectors? alike|enthusiasts? and collectors? alike|from .{0,30}(?:lineup|range)|the seller confirms?|seller confirms?|seller states?|according to the seller|ensur(?:e|es|ing) (?:a )?(?:reliable|smooth|great|better) (?:gaming )?experience|provid(?:e|es|ing) peace of mind|making (?:it|this) (?:a )?(?:reliable|great|solid) choice|latest features?|performance enhancements?|advanced capabilities?|versatile (?:smartphone|device|item|product)|designed for a range of uses|from photography to gaming|enjoy (?:the )?(?:advanced|latest)|offers? (?:the )?latest)\b/i;
 
 /**
  * Missing information must stay missing. Never turn absence of a fact into a
  * buyer-facing claim such as "not sealed" or padding like "details were not
  * provided". Āwhina should ask the seller for those facts instead.
  */
-const UNSUPPORTED_ABSENCE_COPY_RE = /\b(?:not\s+sealed|not\s+unopened|previously\s+opened\s+or\s+used|indicat(?:e|es|ing)\s+it\s+has\s+been\s+previously\s+opened|details?\s+(?:are|were|was)\s+not\s+provided|information\s+(?:is|was)\s+not\s+provided|no\s+(?:further\s+)?details?\s+(?:are|were)\s+provided|unknown\s+whether|condition\s+is\s+unknown|accessories\s+(?:are|were)\s+not\s+specified)\b/i;
+const UNSUPPORTED_ABSENCE_COPY_RE = /\b(?:not\s+sealed|non[-\s]?sealed|not\s+unopened|previously\s+opened\s+or\s+used|indicat(?:e|es|ing)\s+it\s+has\s+been\s+previously\s+opened|details?\s+(?:are|were|was)\s+not\s+provided|information\s+(?:is|was)\s+not\s+provided|no\s+(?:further\s+)?details?\s+(?:are|were)\s+provided|unknown\s+whether|condition\s+is\s+unknown|accessories\s+(?:are|were)\s+not\s+specified)\b/i;
 
 function isGenericPublicCopy(description: string | undefined | null): boolean {
   return Boolean(description?.trim() && GENERIC_PUBLIC_COPY_RE.test(description));
@@ -181,6 +181,28 @@ function isRejectedPublicCopy(description: string | undefined | null, fill: SkyA
         UNSUPPORTED_ABSENCE_COPY_RE.test(description) ||
         hasCategoryIncompatibleDescription(description, fill))
   );
+}
+
+function shouldDeferSparseAiDescription(fill: SkyAiListingFill): boolean {
+  if (fill.descriptionSource === "user") return false;
+  const evidence = groupedSellerEvidenceFromExtras(fill.extras, undefined);
+  const evidenceCount = sellerEvidenceItemCount(evidence);
+  const structuredExtras = (fill.extras || []).filter((extra) =>
+    /^(?:storage|colour|color|size|grade|set|subject|variant|parallel|serial|product|brand|model|generation):/i.test(extra)
+  ).length;
+  const vehicleDetailCount = [
+    fill.vehicleYear,
+    fill.vehicleColour,
+    fill.vehicleOdometer,
+    fill.vehicleTransmission,
+    fill.vehicleFuelType,
+    fill.vehicleBodyType,
+  ].filter((value) => Boolean(String(value || "").trim())).length;
+
+  // Identity alone is not enough reason to fabricate prose. Wait until the
+  // seller has given at least one real descriptive fact such as condition,
+  // a product attribute, vehicle detail, or seller evidence.
+  return !fill.condition?.trim() && evidenceCount === 0 && structuredExtras === 0 && vehicleDetailCount === 0;
 }
 
 export function composeListingTitleAndDescription(seed: ListingComposeSeed): ComposedListingCopy {
@@ -218,6 +240,9 @@ export function recomposeListingDescription(fill: SkyAiListingFill, opts?: { qua
 export function finalizeAwhinaListingDescription(fill: SkyAiListingFill, opts?: { quality?: ListingDescriptionQuality; force?: boolean }): SkyAiListingFill {
   fill = normalizeAwhinaListingTitle(fill);
   if (fill.descriptionSource === "user" && fill.description?.trim() && !opts?.force) return { ...fill, description: fill.description.trim() };
+  if (shouldDeferSparseAiDescription(fill) && !opts?.force) {
+    return { ...fill, description: "", descriptionSource: "ai" };
+  }
   if (!opts?.force && fill.description?.trim() && !isRejectedPublicCopy(fill.description, fill)) {
     const facts = buildDescriptionWriterFacts(fill);
     const kept = validateAiListingDescription(fill.description, facts);
@@ -270,6 +295,9 @@ export async function finalizeAwhinaListingDescriptionAsync(
 ): Promise<SkyAiListingFill> {
   fill = normalizeAwhinaListingTitle(fill);
   if (fill.descriptionSource === "user" && fill.description?.trim() && !opts?.force) return finalizeAwhinaListingDescription(fill, opts);
+  if (shouldDeferSparseAiDescription(fill) && !opts?.force) {
+    return { ...fill, description: "", descriptionSource: "ai" as const };
+  }
   const previousValid = fill.description?.trim() && !isRejectedPublicCopy(fill.description, fill)
     ? validateAiListingDescription(fill.description, buildDescriptionWriterFacts(fill))
     : null;
