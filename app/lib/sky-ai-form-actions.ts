@@ -1,4 +1,8 @@
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
+import {
+  harvestSellerEvidence,
+  sellerEvidenceToExtras,
+} from "./awhina-seller-evidence";
 
 const NZ_REGIONS = [
   "Northland",
@@ -227,6 +231,113 @@ export function mergeFormActionsIntoFill(
   return applyDeliveryDefaultsFromLocation(merged);
 }
 
+function mergeListingExtras(existing: string[] | undefined, incoming: string[]): string[] | undefined {
+  if (!incoming.length) return existing;
+  const out = [...(existing || [])];
+  for (const raw of incoming) {
+    const extra = raw.trim();
+    if (!extra) continue;
+    const colon = extra.indexOf(":");
+    const key = colon > 0 ? extra.slice(0, colon).toLowerCase().replace(/_/g, "") : "";
+    const value = colon > 0 ? extra.slice(colon + 1).trim() : extra;
+    const multi = new Set(["modification", "maintenance", "conditiondetail", "mechanical", "compliance", "included", "note"]);
+    if (key && !multi.has(key)) {
+      const idx = out.findIndex((item) => item.toLowerCase().replace(/_/g, "").startsWith(`${key}:`));
+      if (idx >= 0) out[idx] = extra;
+      else out.push(extra);
+      continue;
+    }
+    if (!out.some((item) => item.toLowerCase() === extra.toLowerCase())) out.push(extra);
+  }
+  return out.slice(0, 48);
+}
+
+function parseExplicitCondition(message: string): SkyAiListingFill["condition"] | undefined {
+  const text = message.toLowerCase().replace(/[–—]/g, "-");
+  // Specific phrases MUST win over the bare word "new".
+  if (/\blike[-\s]?new(?:\s+condition)?\b|\bmint(?:\s+condition)?\b|\bexcellent(?:\s+condition)?\b/.test(text)) {
+    return "Used - Like New";
+  }
+  if (/\bbrand[-\s]?new(?:\s+condition)?\b|\bfactory[-\s]?sealed\b|\bunopened\b/.test(text)) {
+    return "New";
+  }
+  if (/\bfair(?:\s+used)?(?:\s+condition)?\b/.test(text)) return "Used - Fair";
+  if (/\bgood(?:\s+used)?(?:\s+condition)?\b|\bused\s+condition\b/.test(text)) return "Used - Good";
+  if (/\bnew\s+condition\b/.test(text)) return "New";
+  return undefined;
+}
+
+function parseGenericProductColour(message: string): string | undefined {
+  const parts = message
+    .split(/[,.;]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const colourWord = /\b(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy|titanium|graphite|starlight|cream|natural)\b/i;
+  for (const part of parts) {
+    if (!colourWord.test(part)) continue;
+    if (/\b(condition|fault|damage|repair|battery|box|cable|controller|price|asking|located)\b/i.test(part)) continue;
+    if (/\$|\d+\s?(?:gb|tb|km|%)/i.test(part)) continue;
+    const words = part.split(/\s+/).filter(Boolean);
+    if (words.length >= 1 && words.length <= 4) {
+      return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
+    }
+  }
+  return undefined;
+}
+
+function supplementalSellerExtras(message: string, fill: SkyAiListingFill): string[] {
+  const extras: string[] = [];
+  const storage = message.match(/\b(\d+)\s?(gb|tb)\b/i);
+  if (storage) extras.push(`storage:${storage[1]}${storage[2].toUpperCase()}`);
+
+  const colour = parseGenericProductColour(message);
+  if (colour && !fill.vehicleColour) extras.push(`colour:${colour}`);
+
+  const battery = message.match(/\bbattery(?:\s+health)?\s*(?:is|at|:)?\s*(\d{1,3})\s*%/i) ||
+    message.match(/\b(\d{1,3})\s*%\s*battery(?:\s+health)?\b/i);
+  if (battery) extras.push(`mechanical:${battery[1]}% battery health`);
+
+  const included = message.match(/\bcomes\s+with\s+([^.!?]+)/i);
+  if (included?.[1]) extras.push(`included:Comes with ${included[1].trim()}`);
+
+  const protectedUse = message.match(/\b(?:always|only)\s+used\s+with\s+([^.!?]+)/i);
+  if (protectedUse?.[1]) extras.push(`note:Always used with ${protectedUse[1].trim()}`);
+
+  const noDamage = message.match(/\bno\s+([^.!?]*(?:cracks?|damage|faults?|repairs?|issues?)[^.!?]*)/i);
+  if (noDamage?.[1]) extras.push(`conditionDetail:No ${noDamage[1].trim()}`);
+
+  return extras;
+}
+
+function enrichSellerFactsFromMessage(message: string, fill: SkyAiListingFill): SkyAiListingFill {
+  const out: SkyAiListingFill = { ...fill };
+  const explicitCondition = parseExplicitCondition(message);
+  if (explicitCondition) out.condition = explicitCondition;
+
+  const harvested = harvestSellerEvidence(message, {
+    title: out.title,
+    colour: out.vehicleColour,
+    location: out.location || out.pickupArea,
+    condition: out.condition,
+  });
+  const harvestedExtras = sellerEvidenceToExtras(harvested);
+  const supplemental = supplementalSellerExtras(message, out);
+  out.extras = mergeListingExtras(out.extras, [...harvestedExtras, ...supplemental]);
+
+  // Any genuinely new seller facts make the old AI description stale. The
+  // async writer will rebuild it from the enriched canonical evidence.
+  if (
+    out.descriptionSource !== "user" &&
+    [...harvestedExtras, ...supplemental].some((extra) =>
+      !(fill.extras || []).some((existing) => existing.toLowerCase() === extra.toLowerCase())
+    )
+  ) {
+    out.description = "";
+    out.descriptionSource = "ai";
+  }
+  return out;
+}
+
 /** Merge rule-parsed actions + AI JSON actions + optional existing fill */
 export function enhanceListingFillFromMessage(
   message: string,
@@ -238,7 +349,8 @@ export function enhanceListingFillFromMessage(
   const combined = applyDeliveryDefaultsFromLocation(
     mergeFormActionsIntoFill(mergeFormActionsIntoFill(fill, fromJson), fromRules)
   );
-  return hasListingFillOrFormActions(combined) ? combined : fill;
+  const enriched = enrichSellerFactsFromMessage(message, combined);
+  return hasListingFillOrFormActions(enriched) ? enriched : fill;
 }
 
 export function hasListingFillOrFormActions(fill: SkyAiListingFill | null | undefined): boolean {
