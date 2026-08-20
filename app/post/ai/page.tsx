@@ -267,6 +267,14 @@ export default function AIPostPage() {
   const [liveFieldNotes, setLiveFieldNotes] = useState<string[]>([]);
   /** Only populated after applyFill both applies and persists the canonical mutation. */
   const [mutatedFieldKeys, setMutatedFieldKeys] = useState<string[]>([]);
+  /** Last LISTING_FILL applied — keeps storage in sync until React form state catches up. */
+  const pendingFillRef = useRef<SkyAiListingFill | null>(null);
+  /** Echo of last applied seller facts — drives glance UI before controlled inputs catch up. */
+  const [fillEcho, setFillEcho] = useState<{
+    price?: string;
+    condition?: string;
+    location?: string;
+  } | null>(null);
   /** Manual form opens via Edit details — default clean preview when draft exists */
   const [showManualEditor, setShowManualEditor] = useState(false);
   /** Review is intentionally distinct from editing: preview first, then publish. */
@@ -380,12 +388,42 @@ export default function AIPostPage() {
     rentalPriceMonthly,
   ]);
 
-  /** Prefer live pendingSlot so progress never disagrees with the conversation. */
-  const progressNextSlot =
+  /** Prefer live pendingSlot so progress never disagrees with the conversation.
+   *  Skip slots the form (or just-applied fill echo) already satisfies — otherwise
+   *  glance keeps saying "Next: Price" after $1250 already landed. */
+  const glancePrice =
+    normalizeFormPrice(price) ||
+    normalizeFormPrice(fillEcho?.price) ||
+    normalizeFormPrice(pendingFillRef.current?.price);
+  const glanceCondition =
+    normalizeFormCondition(condition) ||
+    normalizeFormCondition(fillEcho?.condition) ||
+    normalizeFormCondition(pendingFillRef.current?.condition);
+  const glanceLocation = String(
+    location || pickupArea || fillEcho?.location || pendingFillRef.current?.location || ""
+  ).trim();
+
+  const formSatisfiesSlot = (slot: string | null | undefined): boolean => {
+    const key = String(slot || "")
+      .toLowerCase()
+      .replace(/[_\s-]+/g, "");
+    if (!key) return false;
+    if (key === "price" || key === "askingprice") return Boolean(glancePrice);
+    if (key === "condition") return Boolean(glanceCondition);
+    if (key === "location" || key === "pickup" || key === "area") return Boolean(glanceLocation);
+    if (key === "photos" || key === "photo" || key === "images") return imagePreviews.length > 0;
+    if (key === "delivery" || key === "shipping") return pickupAvailable || shippingAvailable;
+    return false;
+  };
+
+  const rawProgressNextSlot =
     awhinaConversation.pendingSlot ||
     awhinaConversation.awhinaSession?.pendingSlot ||
     listingReadiness.missing[0] ||
     null;
+  const progressNextSlot = formSatisfiesSlot(rawProgressNextSlot)
+    ? listingReadiness.missing.find((slot) => !formSatisfiesSlot(slot)) || null
+    : rawProgressNextSlot;
   const progressNextLabel = progressNextSlot
     ? formatListingSlotLabel(String(progressNextSlot))
     : null;
@@ -409,18 +447,17 @@ export default function AIPostPage() {
     const deliveryKnown = pickupAvailable || shippingAvailable;
     return [
       { key: "photos", label: "Photos", state: stateFor("photos", imagePreviews.length > 0) },
-      { key: "price", label: "Price", state: stateFor("price", Boolean(price)) },
-      { key: "condition", label: "Condition", state: stateFor("condition", Boolean(condition)) },
-      { key: "location", label: "Location", state: stateFor("location", Boolean(location || pickupArea)) },
+      { key: "price", label: "Price", state: stateFor("price", Boolean(glancePrice)) },
+      { key: "condition", label: "Condition", state: stateFor("condition", Boolean(glanceCondition)) },
+      { key: "location", label: "Location", state: stateFor("location", Boolean(glanceLocation)) },
       { key: "delivery", label: "Delivery", state: stateFor("delivery", deliveryKnown) },
     ];
   }, [
-    condition,
+    glanceCondition,
+    glanceLocation,
+    glancePrice,
     imagePreviews.length,
-    location,
-    pickupArea,
     pickupAvailable,
-    price,
     progressNextSlot,
     shippingAvailable,
   ]);
@@ -572,14 +609,15 @@ export default function AIPostPage() {
     "";
 
   const marketplacePrice = (() => {
-    const hasPrice = String(price || "").trim() !== "";
+    const displayPrice = glancePrice || String(price || "").trim();
+    const hasPrice = displayPrice !== "";
     const isQuoteService =
       listingType === "service" &&
-      normalizeServicePricingType(servicePricingType, price) === "request_quote";
+      normalizeServicePricingType(servicePricingType, displayPrice || price) === "request_quote";
     if (!hasPrice && !isQuoteService) return "";
     return formatListingPriceDisplay({
       type: listingType,
-      price,
+      price: displayPrice || price,
       servicePricingType,
       rentalSubType,
       rentalPriceWeekly,
@@ -591,26 +629,28 @@ export default function AIPostPage() {
 
   const marketplaceMeta = (() => {
     const parts = [];
+    const displayCondition = glanceCondition || condition;
+    const displayLocation = glanceLocation || location || pickupArea;
     if (isVehicleListing) {
       if (vehicleOdometer) {
         const n = Number(vehicleOdometer);
         parts.push(`${Number.isFinite(n) ? n.toLocaleString() : vehicleOdometer} km`);
       }
       if (vehicleTransmission) parts.push(vehicleTransmission);
-      if (condition) parts.push(condition.replace(/^Used - /, ""));
-      if (location || pickupArea) parts.push(location || pickupArea);
+      if (displayCondition) parts.push(displayCondition.replace(/^Used - /, ""));
+      if (displayLocation) parts.push(displayLocation);
     } else if (listingType === "service") {
       if (category) parts.push(category);
       if (serviceDuration) parts.push(serviceDuration);
-      if (location || pickupArea) parts.push(location || pickupArea);
+      if (displayLocation) parts.push(displayLocation);
     } else if (listingType === "rental") {
       if (rentalSubType) parts.push(rentalSubType === "vehicle" ? "Vehicle hire" : "Equipment hire");
-      if (condition) parts.push(condition.replace(/^Used - /, ""));
-      if (location || pickupArea) parts.push(location || pickupArea);
+      if (displayCondition) parts.push(displayCondition.replace(/^Used - /, ""));
+      if (displayLocation) parts.push(displayLocation);
     } else {
-      if (condition) parts.push(condition.replace(/^Used - /, ""));
+      if (displayCondition) parts.push(displayCondition.replace(/^Used - /, ""));
       if (category) parts.push(category);
-      if (location || pickupArea) parts.push(location || pickupArea);
+      if (displayLocation) parts.push(displayLocation);
     }
     return parts.filter(Boolean).join(" · ");
   })();
@@ -743,8 +783,6 @@ export default function AIPostPage() {
   const [draftHydrated, setDraftHydrated] = useState(false);
   /** Every photo/vision request is scoped to this immutable listing task. */
   const draftIdRef = useRef(createListingDraftId());
-  /** Last LISTING_FILL applied — keeps storage in sync until React form state catches up. */
-  const pendingFillRef = useRef<SkyAiListingFill | null>(null);
   /** Live form mirror for applyFill — avoids stale closures blocking price/condition. */
   const formSnapshotRef = useRef({
     title: "",
@@ -812,6 +850,7 @@ export default function AIPostPage() {
   const resetLocalListingSession = useCallback(() => {
     draftIdRef.current = createListingDraftId();
     pendingFillRef.current = null;
+    setFillEcho(null);
     fieldProvenanceRef.current = {};
     setFieldProvenance({});
     setTitle("");
@@ -1094,6 +1133,7 @@ export default function AIPostPage() {
     if (replaceDraft) {
       clearListingDraftFromSkyAi();
       pendingFillRef.current = null;
+      setFillEcho(null);
       fieldProvenanceRef.current = {};
       setFieldProvenance({});
       setTitle("");
@@ -1420,6 +1460,16 @@ export default function AIPostPage() {
     // allowed to acknowledge a mutation. React state settles asynchronously,
     // so the storage draft is the synchronous, refresh-safe confirmation.
     pendingFillRef.current = merged;
+    const echoPrice = normalizeFormPrice(merged.price);
+    const echoCondition = normalizeFormCondition(merged.condition);
+    const echoLocation = String(merged.location || "").trim();
+    if (echoPrice || echoCondition || echoLocation) {
+      setFillEcho({
+        ...(echoPrice ? { price: echoPrice } : {}),
+        ...(echoCondition ? { condition: echoCondition } : {}),
+        ...(echoLocation ? { location: echoLocation } : {}),
+      });
+    }
     const normalizeDescription = (value: unknown) =>
       typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
     const changedKeys = Object.entries(merged)
@@ -1466,6 +1516,10 @@ export default function AIPostPage() {
       if (persisted && changedKeys.length > 0) {
         setMutatedFieldKeys(changedKeys);
         window.setTimeout(() => setMutatedFieldKeys([]), 850);
+      }
+      // Show listing glance so price/condition are visible without hunting Edit details.
+      if (echoPrice || echoCondition) {
+        setMobileWorkspaceTab("listing");
       }
       // Quiet draft update — stay on conversation; listing pane reflects changes live
       setSkyChatOpen(true);
