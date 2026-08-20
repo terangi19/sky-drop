@@ -53,6 +53,9 @@ function assertNoFiller(desc: string) {
   expect(desc).not.toMatch(/perfect for|latest features|advanced capabilities|reliable performance/i);
   expect(desc).not.toMatch(/details?\s+(?:are|were|was)\s+not\s+provided/i);
   expect(desc).not.toMatch(/great choice|solid choice|must-have|don'?t miss/i);
+  expect(desc).not.toMatch(
+    /LISTING CREATION REQUEST|LISTING_FILL|Sell page|Parse everything|respond ONLY|Generate a complete listing|general chat advice/i
+  );
 }
 
 function assertNotReadyWhileMissing(reply: string, fill: SkyAiListingFill) {

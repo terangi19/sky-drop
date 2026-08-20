@@ -7,6 +7,12 @@
  * metadata dumps in public copy.
  */
 
+import {
+  containsInternalOrchestration,
+  extractSellerAuthoredText,
+  sanitizePublicListingCopy,
+} from "./awhina-orchestration-boundary";
+
 export const SELLER_EVIDENCE_KINDS = [
   "modification",
   "maintenance",
@@ -307,16 +313,20 @@ export function harvestSellerEvidence(
   message: string,
   ctx: SellerEvidenceHarvestContext = {}
 ): SellerEvidenceItem[] {
-  const source = String(message || "").replace(/\s+/g, " ").trim();
-  if (!source) return [];
+  // Never harvest orchestration / prompt wrappers as seller evidence.
+  const source = extractSellerAuthoredText(message).replace(/\s+/g, " ").trim();
+  if (!source || containsInternalOrchestration(source)) return [];
   const sentences = source
     .split(/(?<=[.!?])\s+/)
     .map(cleanFragment)
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((sentence) => !containsInternalOrchestration(sentence));
   const items: SellerEvidenceItem[] = [];
   for (const sentence of sentences.length ? sentences : [source]) {
     for (const item of harvestSentence(sentence, ctx)) {
-      pushUnique(items, item);
+      const cleaned = sanitizePublicListingCopy(item.text);
+      if (!cleaned) continue;
+      pushUnique(items, { kind: item.kind, text: cleaned });
     }
   }
   return items;
@@ -335,8 +345,8 @@ export function sellerEvidenceFromExtras(extras: string[] | undefined): SellerEv
     const match = extra.match(/^([a-z][a-z0-9_]*)\s*:\s*(.+)$/i);
     if (!match) continue;
     const key = match[1].toLowerCase().replace(/_/g, "");
-    const value = match[2].trim();
-    if (!value) continue;
+    const value = sanitizePublicListingCopy(match[2].trim());
+    if (!value || containsInternalOrchestration(value)) continue;
     if (key === "sellernotes") {
       for (const sentence of value.split(/(?<=[.!?])\s+/)) {
         const text = cleanFragment(sentence);

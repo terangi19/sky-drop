@@ -44,6 +44,10 @@ import {
 } from "./awhina-seller-evidence";
 import { hasCategoryIncompatibleDescription } from "./awhina-category-copy-guard";
 import { isSealedTradingCardProductFormat } from "./awhina-public-copy-gate";
+import {
+  containsInternalOrchestration,
+  sanitizePublicListingCopy,
+} from "./awhina-orchestration-boundary";
 
 export type ListingComposeSeed = {
   item: string;
@@ -180,6 +184,7 @@ function isRejectedPublicCopy(description: string | undefined | null, fill: SkyA
     description?.trim() &&
       (isGenericPublicCopy(description) ||
         UNSUPPORTED_ABSENCE_COPY_RE.test(description) ||
+        containsInternalOrchestration(description) ||
         hasCategoryIncompatibleDescription(description, fill))
   );
 }
@@ -288,6 +293,8 @@ export function finalizeAwhinaListingDescription(fill: SkyAiListingFill, opts?: 
     .filter((sentence) => !isRejectedPublicCopy(sentence, fill))
     .join(" ").trim();
   if (isRejectedPublicCopy(description, fill)) description = "";
+  description = sanitizePublicListingCopy(description);
+  if (containsInternalOrchestration(description)) description = "";
   return { ...fill, description, descriptionSource: "ai" };
 }
 

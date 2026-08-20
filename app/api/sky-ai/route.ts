@@ -28,6 +28,7 @@ import { trySkyAiTaskReply } from "../../lib/sky-ai-task-replies";
 import { logAwhinaQualityIfNeeded } from "../../lib/sky-ai-quality-log";
 import { processCanonicalAwhina } from "../../lib/awhina-canonical";
 import { recordAwhinaObs } from "../../lib/awhina-observability";
+import { extractSellerAuthoredText } from "../../lib/awhina-orchestration-boundary";
 import {
   buildOpenListingSlotClarification,
   isClarificationOpen,
@@ -478,7 +479,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const message = typeof body.message === "string" ? body.message.trim() : "";
+    const inboundMessage = typeof body.message === "string" ? body.message.trim() : "";
+    // Architectural boundary: only seller-authored text enters the sell pipeline.
+    // Client-era LISTING CREATION REQUEST wrappers (and residual control phrases)
+    // are stripped before intent, extraction, evidence, and enhance.
+    const message = extractSellerAuthoredText(inboundMessage) || inboundMessage;
     const pathname = typeof body.pathname === "string" ? body.pathname : "/";
     const stream = body.stream === true;
     let conversationId =

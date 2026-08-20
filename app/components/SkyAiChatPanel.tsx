@@ -938,27 +938,11 @@ export default function SkyAiChatPanel({
 
       let navigateTo: string | undefined;
       let newConversationId = conversationId;
+      // Send only the seller's message. Sell-page intent is carried by pathname
+      // + server canonical detection — never wrap user text in orchestration
+      // / LISTING_FILL prompt wrappers (those leaked into public descriptions).
       let finalMessage = trimmed ||
         "I uploaded product photo(s). Analyze them and fill my Quick Post listing with LISTING_FILL.";
-
-      if (isSellPage) {
-        const hasPendingListingDetails =
-          awhinaSessionRef.current?.task?.task === "selling" &&
-          awhinaSessionRef.current?.task?.pendingClarification?.kind === "listing_slots";
-        const hasListingFields = /(?:^|\n)(title|price|description|location|condition|category|make|model|year|odometer|colour|color|transmission|fuel|mileage|km|kms)\s*:/i.test(finalMessage);
-        const hasListingType = /(?:rental|vehicle|service|digital|item|physical)\s+listing|for\s+(sale|rent)|wanted|auction/i.test(finalMessage);
-        const hasMultipleFields = (finalMessage.match(/(?:^|\n)\s*\w+\s*:/g) || []).length >= 2;
-        const hasVehicle = /\b(toyota|honda|mazda|ford|holden|nissan|subaru|mitsubishi|hyundai|kia|bmw|mercedes|audi|volkswagen|vw|hilux|corolla|camry|rav4|cx-5|axela|swift|ranger|commodore)\b/i.test(finalMessage);
-        const hasPrice = /\$[\d,]+/.test(finalMessage);
-        const hasSellingIntent = /\b(i('m| am| want to)?\s*(sell|selling|list|listing|post|create|advertise)|for sale|selling my|want to sell)\b/i.test(finalMessage);
-        const hasItem = /\b(ps5|playstation|xbox|iphone|samsung|laptop|macbook|tv|couch|sofa|fridge|bike|guitar|camera|lawn|mow|clean|handyman|tutor|design|website|template|ebook|apartment|flat|room)\b/i.test(finalMessage);
-        const hasOdometer = /\b\d{2,3}[\s,]?\d{3}\s*km\b/i.test(finalMessage);
-        const yearAtStart = /^\d{4}\s+[A-Za-z]/.test(finalMessage);
-
-        if (!hasPendingListingDetails && (hasListingFields || hasListingType || hasMultipleFields || hasVehicle || (hasPrice && (hasSellingIntent || hasItem)) || hasOdometer || yearAtStart || hasSellingIntent)) {
-          finalMessage = `[LISTING CREATION REQUEST]\nThe user is on the Sell page. Parse everything below as listing data and respond ONLY with LISTING_FILL JSON. Generate a complete listing (title, description, all relevant fields). Do not give general chat advice.\n\n${finalMessage}`;
-        }
-      }
 
       try {
         const token = await getFreshIdToken();

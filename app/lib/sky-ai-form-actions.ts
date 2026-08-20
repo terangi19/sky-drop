@@ -4,6 +4,7 @@ import {
   sellerEvidenceToExtras,
 } from "./awhina-seller-evidence";
 import { parseListingCondition } from "./awhina-listing-condition";
+import { extractSellerAuthoredText } from "./awhina-orchestration-boundary";
 
 const NZ_REGIONS = [
   "Northland",
@@ -298,17 +299,19 @@ function supplementalSellerExtras(message: string, fill: SkyAiListingFill): stri
 
 function enrichSellerFactsFromMessage(message: string, fill: SkyAiListingFill): SkyAiListingFill {
   const out: SkyAiListingFill = { ...fill };
-  const explicitCondition = parseExplicitCondition(message);
+  // Only seller-authored text may feed condition / evidence / supplemental extras.
+  const sellerText = extractSellerAuthoredText(message);
+  const explicitCondition = parseExplicitCondition(sellerText);
   if (explicitCondition) out.condition = explicitCondition;
 
-  const harvested = harvestSellerEvidence(message, {
+  const harvested = harvestSellerEvidence(sellerText, {
     title: out.title,
     colour: out.vehicleColour,
     location: out.location || out.pickupArea,
     condition: out.condition,
   });
   const harvestedExtras = sellerEvidenceToExtras(harvested);
-  const supplemental = supplementalSellerExtras(message, out);
+  const supplemental = supplementalSellerExtras(sellerText, out);
   out.extras = mergeListingExtras(out.extras, [...harvestedExtras, ...supplemental]);
 
   // Any genuinely new seller facts make the old AI description stale. The

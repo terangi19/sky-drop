@@ -22,6 +22,7 @@ import {
   sellerEvidenceItemCount,
   type GroupedSellerEvidence,
 } from "./awhina-seller-evidence";
+import { containsInternalOrchestration } from "./awhina-orchestration-boundary";
 
 const MODEL = process.env.OPENAI_DESCRIPTION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini";
 const CTA_RE =
@@ -91,7 +92,8 @@ export type DescriptionValidationFailureReason =
   | "required_identity_missing"
   | "title_equivalent"
   | "price_or_location_leak"
-  | "insufficient_seller_evidence";
+  | "insufficient_seller_evidence"
+  | "orchestration_leak";
 
 export type DescriptionValidationResult =
   | { ok: true; description: string; requiredFacts: string[]; optionalFacts: string[] }
@@ -611,6 +613,9 @@ export function validateAiListingDescriptionResult(
     optionalFacts,
   });
 
+  if (containsInternalOrchestration(description) || containsInternalOrchestration(proposed)) {
+    return fail("orchestration_leak");
+  }
   // A removable promotional tail should not discard otherwise grounded prose.
   // When stripping leaves no substantive copy, expose marketing as the cause.
   // When the seller supplied rich evidence, filler is never an acceptable substitute.

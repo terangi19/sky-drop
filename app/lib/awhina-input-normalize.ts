@@ -8,6 +8,11 @@
  * marketplace command / product / vehicle repairs.
  */
 
+import {
+  extractSellerAuthoredText,
+  stripInternalOrchestrationFragments,
+} from "./awhina-orchestration-boundary";
+
 export type NormalizedAwhinaInput = {
   raw: string;
   normalized: string;
@@ -106,34 +111,23 @@ function collapseWhitespace(s: string): string {
 
 /**
  * `/post/ai` historically prepended a client-only LISTING CREATION REQUEST
- * directive before sending the seller message to the same `/api/sky-ai` route.
- * The directive itself made the workspace behave like a second brain.
- *
- * Remove the transport instructions entirely and convert only that verified
- * sell-workspace envelope into ordinary natural sell intent. This means a first
- * turn containing full item details follows the exact same listing-seed path as
- * a user saying "selling my ..." in the global Āwhina bubble, while the seller's
- * actual details remain intact for extraction.
+ * directive before sending the seller message. Strip that envelope and keep
+ * only seller-authored text. Follow-ups stay as-is (no forced "selling my"
+ * rewrite) so compound fact extraction sees the original details.
  */
 function stripLegacySellSurfaceDirective(raw: string): string {
-  const leadingTrimmed = raw.trimStart();
-  const marker = "[LISTING CREATION REQUEST]";
-  if (!leadingTrimmed.startsWith(marker)) return raw;
-
-  const afterMarker = leadingTrimmed.slice(marker.length);
-  const boundary = afterMarker.search(/\r?\n\s*\r?\n/);
-  if (boundary < 0) return raw;
-
-  const directive = afterMarker.slice(0, boundary);
+  const sellerText = extractSellerAuthoredText(raw);
+  if (!sellerText) return stripInternalOrchestrationFragments(raw);
+  // First-turn envelopes that were only the directive + item identity still
+  // need sell intent when the seller text itself has no sell verb.
+  const hadEnvelope = /\[\s*listing\s+creation\s+request\s*\]/i.test(raw);
   if (
-    !/the user is on the sell page/i.test(directive) ||
-    !/listing_fill/i.test(directive)
+    hadEnvelope &&
+    !/\b(?:sell|selling|list|listing|offer|offering)\b/i.test(sellerText)
   ) {
-    return raw;
+    return `selling my ${sellerText}`;
   }
-
-  const sellerText = afterMarker.slice(boundary).trimStart();
-  return sellerText ? `selling my ${sellerText}` : raw;
+  return sellerText;
 }
 
 /**

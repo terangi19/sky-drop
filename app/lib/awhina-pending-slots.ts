@@ -31,6 +31,7 @@ import {
   looksLikeColourFinish,
   parseListingCondition,
 } from "./awhina-listing-condition";
+import { extractSellerAuthoredText } from "./awhina-orchestration-boundary";
 
 export type ListingMissingSlot =
   | "price"
@@ -1012,7 +1013,8 @@ export function extractCompoundListingFacts(
     baseDraft?: Partial<SkyAiListingFill> | null;
   }
 ): CompoundFactExtract {
-  let residual = message.trim();
+  // Only seller-authored text — never orchestration / LISTING_FILL wrappers.
+  let residual = extractSellerAuthoredText(message).trim();
   const partial: SkyAiListingFill = {};
   const filledSlots: ListingMissingSlot[] = [];
   const notes: string[] = [];
