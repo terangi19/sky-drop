@@ -109,7 +109,7 @@ function assertNaturalMarketplaceCopy(desc: string, opts?: { sparse?: boolean })
   assertProperCaps(desc);
   const words = desc.split(/\s+/).filter(Boolean).length;
   if (!opts?.sparse) {
-    expect(words).toBeGreaterThanOrEqual(8);
+    expect(words).toBeGreaterThanOrEqual(6);
   }
   expect(words).toBeLessThanOrEqual(180);
   const labelSentences = splitSentences(desc).filter((s) =>

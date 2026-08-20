@@ -75,6 +75,10 @@ describe("rich seller evidence survives into public copy", () => {
     expect(description).toMatch(/crack|fault|repair/i);
     expect(description).toMatch(/auckland/i);
     expect(description).not.toMatch(/for sale in/i);
+    expect((description.match(/no cracks/gi) || []).length).toBe(1);
+    expect(description).not.toMatch(/battery health and No cracks/i);
+    expect(description).not.toMatch(/Pickup locally[\s\S]*Located in/i);
+    expect(description).not.toMatch(/256GB storage\.\s*Natural/i);
     expect(description).not.toMatch(/good used condition/i);
     expect(description).not.toMatch(MARKETING_FILLER_RE);
     expect(validateAiListingDescription(description, facts)).toBeTruthy();

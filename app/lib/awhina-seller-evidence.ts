@@ -395,6 +395,42 @@ export function groupSellerEvidence(
     else add(grouped.notes, item.text);
   }
   if (location?.trim()) grouped.location = location.trim();
+  return foldOverlappingEvidence(grouped);
+}
+
+function isDefectDenial(text: string): boolean {
+  return /\bno(?:\s+known)?\s+(?:cracks?|faults?|repairs?|damage|issues?)\b/i.test(text);
+}
+
+function collapseOverlappingPhrases(list: string[]): string[] {
+  const out: string[] = [];
+  for (const item of list) {
+    const n = normalize(item);
+    const idx = out.findIndex((existing) => {
+      const e = normalize(existing);
+      return e === n || e.includes(n) || n.includes(e);
+    });
+    if (idx < 0) {
+      out.push(item);
+      continue;
+    }
+    if (item.length > out[idx].length) out[idx] = item;
+  }
+  return out;
+}
+
+function foldOverlappingEvidence(grouped: GroupedSellerEvidence): GroupedSellerEvidence {
+  grouped.mechanical = collapseOverlappingPhrases(grouped.mechanical);
+  grouped.conditionDetails = collapseOverlappingPhrases(grouped.conditionDetails);
+  grouped.included = collapseOverlappingPhrases(grouped.included);
+  grouped.notes = collapseOverlappingPhrases(grouped.notes);
+  const mechanicalDenials = grouped.mechanical.filter(isDefectDenial);
+  grouped.conditionDetails = grouped.conditionDetails.filter((detail) => {
+    if (!isDefectDenial(detail)) return true;
+    if (!mechanicalDenials.length) grouped.mechanical.push(detail);
+    return false;
+  });
+  grouped.mechanical = collapseOverlappingPhrases(grouped.mechanical);
   return grouped;
 }
 
@@ -418,11 +454,30 @@ export function sellerEvidenceItemCount(grouped: GroupedSellerEvidence): number 
   );
 }
 
+function lowerLead(text: string): string {
+  if (!text || /^[A-Z]{2,}/.test(text) || /^\d/.test(text)) return text;
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
 function joinAnd(items: string[]): string {
   const cleaned = items.map((item) => item.replace(/\.+$/, "").trim()).filter(Boolean);
   if (cleaned.length <= 1) return cleaned[0] || "";
-  if (cleaned.length === 2) return `${cleaned[0]} and ${cleaned[1]}`;
-  return `${cleaned.slice(0, -1).join(", ")} and ${cleaned[cleaned.length - 1]}`;
+  const tail = cleaned.slice(1).map(lowerLead);
+  if (cleaned.length === 2) return `${cleaned[0]} and ${tail[0]}`;
+  return `${[cleaned[0], ...tail.slice(0, -1)].join(", ")} and ${tail[tail.length - 1]}`;
+}
+
+function composeMechanicalProse(items: string[]): string {
+  const cleaned = collapseOverlappingPhrases(
+    items.map((item) => item.replace(/\.+$/, "").trim()).filter(Boolean)
+  );
+  const battery = cleaned.find((item) => /\d{1,3}\s*%|\bbattery health\b/i.test(item));
+  const denial = cleaned.find(isDefectDenial);
+  const rest = cleaned.filter((item) => item !== battery && item !== denial);
+  if (battery && denial) {
+    return ensureSentence(`${battery.replace(/\.+$/, "")}, with ${lowerLead(denial)}`);
+  }
+  return ensureSentence(joinAnd(rest.length ? [battery, denial, ...rest].filter(Boolean) as string[] : cleaned));
 }
 
 function ensureSentence(text: string): string {
@@ -441,7 +496,7 @@ export function composeSellerEvidenceProse(grouped: GroupedSellerEvidence): stri
   }
   for (const item of grouped.maintenance) sentences.push(ensureSentence(item));
   for (const item of grouped.conditionDetails) sentences.push(ensureSentence(item));
-  if (grouped.mechanical.length) sentences.push(ensureSentence(joinAnd(grouped.mechanical)));
+  if (grouped.mechanical.length) sentences.push(composeMechanicalProse(grouped.mechanical));
   if (grouped.compliance.length) {
     const blob = grouped.compliance.join(" ").toLowerCase();
     if (/\bwof\b/.test(blob) && /\b(rego|registration)\b/.test(blob)) {

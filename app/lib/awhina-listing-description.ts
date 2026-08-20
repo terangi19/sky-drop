@@ -29,7 +29,7 @@ import {
   isSellerEvidenceExtra,
   sellerEvidenceItemCount,
 } from "./awhina-seller-evidence";
-import { hasAffirmativeWear } from "./awhina-listing-condition";
+import { hasAffirmativeWear, looksLikeColourFinish } from "./awhina-listing-condition";
 
 export type ListingDescriptionQuality = "standard" | "premium" | "premium_plus";
 
@@ -524,6 +524,8 @@ function composeExtrasProse(extras: string[], location?: string | null): string 
     // Reject field-label residue that slipped through
     .filter((e) => !/^set\s+/i.test(e))
     .filter((e) => !/^(topps|panini|upper\s*deck|fleer|bowman|donruss)$/i.test(e))
+    .filter((e) => !/^\d+\s*(?:gb|tb)(?:\s+storage)?$/i.test(e))
+    .filter((e) => !looksLikeColourFinish(e))
     .filter((e) => {
       if (!evidenceProse) return true;
       const haystack = evidenceProse.toLowerCase();
@@ -1241,9 +1243,23 @@ function semanticDedupe(sentences: string[]): string[] {
   for (const s of sentences) {
     const key = semanticKey(s);
     if (seen.has(key)) continue;
-    // Also block near-exact duplicates
-    const norm = s.toLowerCase().replace(/\s+/g, " ").trim();
-    if (out.some((o) => o.toLowerCase().replace(/\s+/g, " ").trim() === norm)) continue;
+    const norm = s.toLowerCase().replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
+    if (out.some((o) => o.toLowerCase().replace(/\s+/g, " ").trim() === s.toLowerCase().replace(/\s+/g, " ").trim())) {
+      continue;
+    }
+    const overlapIdx = out.findIndex((existing) => {
+      const other = existing.toLowerCase().replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
+      if (norm.length < 12 || other.length < 12) return false;
+      return other.includes(norm) || norm.includes(other);
+    });
+    if (overlapIdx >= 0) {
+      if (norm.length > out[overlapIdx].length) {
+        seen.delete(semanticKey(out[overlapIdx]));
+        out[overlapIdx] = s;
+        seen.add(key);
+      }
+      continue;
+    }
     seen.add(key);
     out.push(s);
   }
@@ -1782,15 +1798,32 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
 
 /* ─── Step 2: type-specific writers ─────────────────────────────────────── */
 
-/** Weave condition into the noun phrase once — never as a trailing field stub. */
+function labeledExtra(extras: string[] | undefined, key: string): string | null {
+  const re = new RegExp(`^${key}\\s*:\\s*(.+)$`, "i");
+  for (const extra of extras || []) {
+    const match = String(extra || "").trim().match(re);
+    if (match?.[1]?.trim()) return match[1].trim();
+  }
+  return null;
+}
+
+/** Weave condition, storage, and colour into the noun phrase once. */
 function physicalNounPhrase(facts: DescriptionFacts): string {
   const item = cleanDescriptionItemName(facts.item) || facts.item;
+  const storage = labeledExtra(facts.extras, "storage");
+  const colour =
+    labeledExtra(facts.extras, "colour") ||
+    labeledExtra(facts.extras, "color") ||
+    facts.vehicle?.colour ||
+    null;
+  let core = item;
+  if (storage) core = `${item} ${storage}`;
+  if (colour) core = `${core} in ${colour}`;
   const cond = facts.conditionPhrase;
-  if (!cond) return item;
-  // Never lead with like-new / brand-new when wear extras contradict
-  if (/brand new/i.test(cond)) return `brand new ${item}`;
-  if (/like-new/i.test(cond)) return `like-new ${item}`;
-  return `${item} in ${cond}`;
+  if (!cond) return core;
+  if (/brand new/i.test(cond)) return `brand new ${core}`;
+  if (/like-new/i.test(cond)) return `like-new ${core}`;
+  return `${core} in ${cond}`;
 }
 
 /**
@@ -2087,7 +2120,6 @@ function writePhysical(facts: DescriptionFacts): string {
   const noun = physicalNounPhrase(facts);
   const loc = facts.location;
   const d = facts.delivery;
-  const struct = hashSeed(seed + ":struct") % 3;
   const parts: string[] = [];
   // Sparse sealed products can remain in the general domain; retain only their
   // safe product relationship instead of collapsing to a title sentence.
@@ -2118,32 +2150,24 @@ function writePhysical(facts: DescriptionFacts): string {
       );
     } else if (d === "pickup" || d === "pickup_only") {
       parts.push(
-        pickVariant(seed + ":pu", [
-          "Local pickup is available.",
-          "Pickup available locally.",
-        ])
+        loc
+          ? `Pickup in ${loc}.`
+          : pickVariant(seed + ":pu", [
+              "Local pickup is available.",
+              "Pickup available locally.",
+            ])
       );
     }
     const weaveOnly = selectDescriptionFacts(
       { title: facts.item, extras: facts.extras, listingType: "physical" },
       facts.extras
     ).weaveExtras;
-    const extrasProse = composeExtrasProse(weaveOnly, loc);
+    const extrasProse = composeExtrasProse(weaveOnly);
     if (extrasProse) parts.push(extrasProse);
     return appendLocatedIn(parts.join(" "), loc);
   }
   // Structured price is never buyer-facing prose for ordinary physical goods.
-  let opener: string;
-  if (loc) {
-    opener =
-      struct === 0
-        ? `${capFirst(noun)}.`
-        : `${capFirst(noun)} in ${loc}.`;
-  } else {
-    opener = `${capFirst(noun)}.`;
-  }
-  parts.push(polishParagraph(opener));
-  // Delivery only when it adds a real option — never "Available in X, asking Y"
+  parts.push(polishParagraph(`${capFirst(noun)}.`));
   if (d === "pickup_or_shipping") {
     parts.push(
       pickVariant(seed + ":ps", [
@@ -2161,17 +2185,10 @@ function writePhysical(facts: DescriptionFacts): string {
         : "Shipping can be arranged."
     );
   } else if (d === "pickup" || d === "pickup_only") {
-    // Logistics fact — avoid CTA_PURPOSE_RE phrasing ("happy to arrange…")
-    parts.push(
-      pickVariant(seed + ":pu", [
-        "Local pickup is available.",
-        "Pickup available locally.",
-      ])
-    );
+    parts.push(loc ? `Pickup in ${loc}.` : "Local pickup.");
   }
 
-  // Weave seller evidence and remaining extras — not identity dumps.
-  const extrasProse = composeExtrasProse(facts.extras, loc && struct !== 0 ? undefined : loc);
+  const extrasProse = composeExtrasProse(facts.extras);
   if (extrasProse) parts.push(extrasProse);
 
   return appendLocatedIn(parts.join(" "), loc);

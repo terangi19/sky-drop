@@ -293,9 +293,6 @@ function supplementalSellerExtras(message: string, fill: SkyAiListingFill): stri
   const protectedUse = message.match(/\b(?:always|only)\s+used\s+with\s+([^.!?]+)/i);
   if (protectedUse?.[1]) extras.push(`note:Always used with ${protectedUse[1].trim()}`);
 
-  const noDamage = message.match(/\bno\s+([^.!?]*(?:cracks?|damage|faults?|repairs?|issues?)[^.!?]*)/i);
-  if (noDamage?.[1]) extras.push(`conditionDetail:No ${noDamage[1].trim()}`);
-
   return extras;
 }
 
