@@ -74,7 +74,14 @@ function mergeExtras(existing: string[] | undefined, incoming: string[] | undefi
   const b = normalizeExtras(incoming);
   if (!a.length && !b.length) return undefined;
   if (!b.length) return a.length ? a : undefined;
-  return [...new Set(b)];
+  if (!a.length) return b;
+  // Preserve prior extras the incoming patch omitted (one canonical extras list).
+  const seen = new Set(b.map((item) => item.toLowerCase()));
+  const merged = [...b];
+  for (const item of a) {
+    if (!seen.has(item.toLowerCase())) merged.push(item);
+  }
+  return merged;
 }
 
 /** Merge AI LISTING_FILL onto the active draft — one source of truth, never drop prior fields */

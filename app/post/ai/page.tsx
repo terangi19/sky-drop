@@ -41,6 +41,13 @@ import {
   type ListingDraftFormSnapshot,
 } from "../../lib/listing-draft-confirmed";
 import {
+  formCaughtUpWithFill,
+  promoteColourFromExtras,
+  reconcileListingDraftForSync,
+  resolveLockedMergeValue,
+  shouldApplyFillToField,
+} from "../../lib/awhina-form-sync";
+import {
   applySkyAiListingFill,
   consumePendingListingFill,
   SKY_AI_LISTING_FILL_EVENT,
@@ -732,9 +739,12 @@ export default function AIPostPage() {
   const [draftHydrated, setDraftHydrated] = useState(false);
   /** Every photo/vision request is scoped to this immutable listing task. */
   const draftIdRef = useRef(createListingDraftId());
+  /** Last LISTING_FILL applied — keeps storage in sync until React form state catches up. */
+  const pendingFillRef = useRef<SkyAiListingFill | null>(null);
 
   const resetLocalListingSession = useCallback(() => {
     draftIdRef.current = createListingDraftId();
+    pendingFillRef.current = null;
     fieldProvenanceRef.current = {};
     setFieldProvenance({});
     setTitle("");
@@ -887,6 +897,10 @@ export default function AIPostPage() {
             vehicleFuelType,
             vehicleTransmission,
           }
+        : listingType === "physical"
+          ? {
+              vehicleColour,
+            }
         : listingType === "rental" && rentalSubType === "vehicle"
           ? {
               vehicleMake,
@@ -911,12 +925,27 @@ export default function AIPostPage() {
       serviceDuration,
       extras: draftExtras.length ? draftExtras : undefined,
     };
-    // Only confirmed / meaningful values — never untouched visual defaults
-    syncListingDraftToSkyAi({
-      ...buildConfirmedListingContext(snapshot, fieldProvenance),
-      draftId: draftIdRef.current,
+    // Only confirmed / meaningful values — never untouched visual defaults.
+    // Reconcile with pending fill so a just-applied price/condition cannot be
+    // wiped by a continuous sync that still sees empty React state.
+    const formConfirmed = buildConfirmedListingContext(snapshot, fieldProvenance);
+    const reconciled = reconcileListingDraftForSync({
+      formConfirmed,
+      prior: readListingDraftFromSkyAi(),
+      pendingFill: pendingFillRef.current,
       fieldProvenance,
+      draftId: draftIdRef.current,
     });
+    syncListingDraftToSkyAi(reconciled);
+    if (
+      pendingFillRef.current &&
+      formCaughtUpWithFill(
+        { title, description, category, condition, price, location },
+        pendingFillRef.current
+      )
+    ) {
+      pendingFillRef.current = null;
+    }
   }, [
     draftHydrated,
     title,
@@ -973,6 +1002,7 @@ export default function AIPostPage() {
     // Explicit NEW sell: clear prior draft — do not keep stale price/year/vehicle fields
     if (replaceDraft) {
       clearListingDraftFromSkyAi();
+      pendingFillRef.current = null;
       fieldProvenanceRef.current = {};
       setFieldProvenance({});
       setTitle("");
@@ -1009,14 +1039,19 @@ export default function AIPostPage() {
       setServiceDuration("");
     }
     let merged = {
-      ...(replaceDraft ? { ...fill } : mergeListingFillWithDraft(prior, fill)),
+      ...(replaceDraft
+        ? { ...fill }
+        : mergeListingFillWithDraft(prior, fill)),
       draftId: draftIdRef.current,
     };
-    const isUpdate = !replaceDraft && hasActiveListingDraft(prior);
+    merged = {
+      ...promoteColourFromExtras(merged),
+      draftId: draftIdRef.current,
+    };
     // The persisted draft is the canonical source of truth. Never let an
     // AI proposal update storage when the editor correctly refused it because
     // the seller owns that field; otherwise chat can claim a mutation the UI
-    // never received.
+    // never received. Empty USER locks do not count as owned values.
     if (!replaceDraft && prior) {
       const lockedKeys: (keyof ListingDraftFormSnapshot)[] = [
         "title", "description", "category", "condition", "price", "listingType",
@@ -1032,9 +1067,12 @@ export default function AIPostPage() {
         if (key === "description" && explicitDescriptionRewrite) continue;
         if (!isUserLockedField(key)) continue;
         const previous = prior[key as keyof typeof prior];
-        if (typeof previous === "string") {
-          (merged as Record<string, unknown>)[key] = previous;
-        }
+        const incoming = merged[key as keyof typeof merged];
+        (merged as Record<string, unknown>)[key] = resolveLockedMergeValue(
+          previous,
+          incoming,
+          true
+        );
       }
     }
     // Last client boundary for photo, voice, text, and global-chat handoffs.
@@ -1137,14 +1175,53 @@ export default function AIPostPage() {
       setFieldProvenance(next);
     }
 
-    /** Manual USER facts stay authoritative — fill may still rewrite unlocked fields (e.g. description). */
+    /** Manual USER facts stay authoritative — empty locks do not block Āwhina. */
+    const currentFormValue = (key: keyof ListingDraftFormSnapshot): string => {
+      const map: Partial<Record<keyof ListingDraftFormSnapshot, string>> = {
+        title,
+        description,
+        category,
+        condition,
+        price,
+        listingType,
+        location,
+        vehicleMake,
+        vehicleModel,
+        vehicleGeneration,
+        vehicleYear,
+        vehicleOdometer,
+        vehicleColour,
+        vehicleBodyType,
+        vehicleFuelType,
+        vehicleTransmission,
+        rentalPropertyType,
+        rentalPriceWeekly,
+        rentalPriceMonthly,
+        rentalDeposit,
+        rentalBedrooms,
+        rentalBathrooms,
+        rentalParkingSpaces,
+        rentalFurnishedStatus,
+        rentalPetsPolicy,
+        rentalAvailableDate,
+        rentalMinTenancy,
+        stockQuantity,
+        serviceDuration,
+      };
+      return String(map[key] || "");
+    };
     const guardSet =
       <T,>(key: keyof ListingDraftFormSnapshot, setter: (v: T) => void) =>
       (v: T) => {
         if (
-          !replaceDraft &&
-          isUserLockedField(key) &&
-          !(key === "description" && explicitDescriptionRewrite)
+          !shouldApplyFillToField({
+            replaceDraft,
+            userLocked: isUserLockedField(key),
+            currentValue: currentFormValue(key),
+            incomingValue: v,
+            allowDescriptionRewrite: explicitDescriptionRewrite,
+            fieldKey: key,
+          })
         ) {
           return;
         }
@@ -1194,6 +1271,7 @@ export default function AIPostPage() {
     // Persist and read back the exact canonical proposal before callers are
     // allowed to acknowledge a mutation. React state settles asynchronously,
     // so the storage draft is the synchronous, refresh-safe confirmation.
+    pendingFillRef.current = merged;
     const normalizeDescription = (value: unknown) =>
       typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
     const changedKeys = Object.entries(merged)
@@ -1276,7 +1354,7 @@ export default function AIPostPage() {
       changedKeys,
       draft: persisted ? readListingDraftFromSkyAi() : null,
     };
-  }, [imagePreviews.length, title, description, category, condition, price, listingType, location, autoPublish, choosePaymentType, isUserLockedField]);
+  }, [imagePreviews.length, title, description, category, condition, price, listingType, location, vehicleMake, vehicleModel, vehicleGeneration, vehicleYear, vehicleOdometer, vehicleColour, vehicleBodyType, vehicleFuelType, vehicleTransmission, rentalPropertyType, rentalPriceWeekly, rentalPriceMonthly, rentalDeposit, rentalBedrooms, rentalBathrooms, rentalParkingSpaces, rentalFurnishedStatus, rentalPetsPolicy, rentalAvailableDate, rentalMinTenancy, stockQuantity, serviceDuration, autoPublish, choosePaymentType, isUserLockedField]);
 
   /**
    * Vision success → SAME Āwhina listing brain:
@@ -2798,6 +2876,18 @@ export default function AIPostPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+              {listingType === "physical" && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-[var(--muted)]">Colour</label>
+                  <input
+                    type="text"
+                    value={vehicleColour}
+                    onChange={(e) => { setVehicleColour(e.target.value); markField("vehicleColour"); }}
+                    placeholder="e.g. Natural Titanium"
+                    className={`w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-3)] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent-primary)]/45 ${fieldAttentionClass("vehicleColour")}`}
+                  />
                 </div>
               )}
             </div>

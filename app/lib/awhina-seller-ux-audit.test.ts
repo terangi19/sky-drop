@@ -53,6 +53,7 @@ function assertNoFiller(desc: string) {
   expect(desc).not.toMatch(/perfect for|latest features|advanced capabilities|reliable performance/i);
   expect(desc).not.toMatch(/details?\s+(?:are|were|was)\s+not\s+provided/i);
   expect(desc).not.toMatch(/great choice|solid choice|must-have|don'?t miss/i);
+  expect(desc).not.toMatch(/to ensure|pristine condition|performing perfectly|ensuring reliability|well maintained/i);
   expect(desc).not.toMatch(
     /LISTING CREATION REQUEST|LISTING_FILL|Sell page|Parse everything|respond ONLY|Generate a complete listing|general chat advice/i
   );
@@ -90,6 +91,7 @@ describe("seller UX audit — exact production flows", () => {
       expect(fill.condition).toBe("Used - Like New");
       expect(fill.price).toBe("1250");
       expect(fill.location).toBe("Auckland");
+      expect(String(fill.vehicleColour || extrasBlob(fill))).toMatch(/titanium/i);
       const extras = extrasBlob(fill);
       expect(extras).toMatch(/storage:256GB/i);
       expect(extras + " " + String(fill.vehicleColour || "")).toMatch(/titanium/i);
@@ -102,13 +104,14 @@ describe("seller UX audit — exact production flows", () => {
       expect(desc.length).toBeGreaterThan(40);
       expect(desc).toMatch(/like[- ]new/i);
       expect(desc).toMatch(/256\s*GB/i);
-      expect(desc).toMatch(/titanium/i);
+      expect(desc).toMatch(/Natural Titanium|titanium/i);
       expect(desc).toMatch(/94\s*%|battery/i);
       expect(desc).toMatch(/box/i);
       expect(desc).toMatch(/cable|usb/i);
       expect(desc).toMatch(/case|protector/i);
       expect(desc).toMatch(/crack|fault|repair/i);
       expect(desc).toMatch(/auckland/i);
+      expect(desc).not.toMatch(/pristine|to ensure/i);
       expect((desc.match(/no cracks/gi) || []).length).toBeLessThanOrEqual(1);
       assertNoFiller(desc);
       assertFormDescAgree(fill, ["condition", "price", "location"]);
@@ -248,20 +251,107 @@ describe("seller UX audit — exact production flows", () => {
     });
   });
 
-  describe("no draft reset on type refinement", () => {
-    it("keeps price/location when follow-up adds vehicle details to a seeded car", () => {
-      const id = "audit-no-reset";
+  describe("seller corrections", () => {
+    it("late price/condition correction replaces prior values everywhere", () => {
+      const id = "audit-correct";
       wipe(id);
-      const t1 = turn(id, "sell my Mazda Axela Auckland $11500");
-      expect(t1.listingFill?.price).toBe("11500");
-      expect(t1.listingFill?.location).toMatch(/Auckland/i);
-      const t2 = turn(id, "2015, blue, 128000km, good condition", {
+      const t1 = turn(id, "I want to sell my iPhone 15 Pro");
+      const t2 = turn(
+        id,
+        "256GB, Natural Titanium, like-new condition, $1,250, Auckland",
+        { listingFill: t1.listingFill }
+      );
+      expect(t2.listingFill?.price).toBe("1250");
+      expect(t2.listingFill?.condition).toBe("Used - Like New");
+
+      const t3 = turn(id, "Actually make it $1,150 and condition is good used.", {
+        listingFill: t2.listingFill,
+      });
+      expect(t3.listingFill?.price).toBe("1150");
+      expect(t3.listingFill?.condition).toBe("Used - Good");
+      const desc = String(t3.listingFill?.description || "");
+      expect(desc).toMatch(/good used|good condition/i);
+      expect(desc).not.toMatch(/like[- ]new/i);
+      expect(desc).not.toMatch(/\$\s*1,?250|1250/);
+    });
+
+    it("opposite order: good used then like-new correction wins", () => {
+      const id = "audit-correct-2";
+      wipe(id);
+      const t1 = turn(id, "Sell my PS5, good used condition, $500, Auckland");
+      expect(t1.listingFill?.condition).toBe("Used - Good");
+      expect(t1.listingFill?.price).toBe("500");
+      const t2 = turn(id, "Actually it's like-new and $550", {
         listingFill: t1.listingFill,
       });
-      expect(t2.listingFill?.price).toBe("11500");
-      expect(t2.listingFill?.location).toMatch(/Auckland/i);
-      expect(t2.listingFill?.vehicleYear).toBe("2015");
-      expect(t2.listingFill?.condition).toBe("Used - Good");
+      expect(t2.listingFill?.condition).toBe("Used - Like New");
+      expect(t2.listingFill?.price).toBe("550");
+      const desc = String(t2.listingFill?.description || "");
+      expect(desc).toMatch(/like[- ]new/i);
+      expect(desc).not.toMatch(/good used/i);
+    });
+  });
+
+  describe("furniture service rental property", () => {
+    it("grey couch: price condition location and wear survive", () => {
+      const id = "audit-couch";
+      wipe(id);
+      const t1 = turn(
+        id,
+        "Grey 3-seater couch for sale in Henderson, good condition, $300. Small mark on left arm, no tears."
+      );
+      const fill = t1.listingFill!;
+      expect(fill.price).toBe("300");
+      expect(fill.condition).toBe("Used - Good");
+      expect(String(fill.location || extrasBlob(fill))).toMatch(/Henderson/i);
+      const desc = String(fill.description || "");
+      expect(desc).toMatch(/grey|gray|couch|sofa|seater/i);
+      expect(desc).toMatch(/mark|arm|tear/i);
+      assertNoFiller(desc);
+      assertFormDescAgree(fill, ["condition", "price"]);
+      if (fill.location) assertFormDescAgree(fill, ["location"]);
+    });
+
+    it("lawn mowing: rate and area, no invented benefits", () => {
+      const id = "audit-lawn";
+      wipe(id);
+      const t1 = turn(
+        id,
+        "Lawn mowing, West Auckland, $45 per standard section, green waste removal available."
+      );
+      const fill = t1.listingFill!;
+      expect(fill.listingType).toBe("service");
+      expect(fill.price || fill.servicePricingType).toBeTruthy();
+      expect(String(fill.price || "")).toMatch(/45/);
+      expect(fill.location).toMatch(/West Auckland|Auckland/i);
+      const desc = String(fill.description || "");
+      if (desc) {
+        assertNoFiller(desc);
+        expect(desc).not.toMatch(/insured|years of experience|guaranteed/i);
+      }
+    });
+
+    it("2-bed rental: weekly rent, bond, pets, availability", () => {
+      const id = "audit-unit";
+      wipe(id);
+      const t1 = turn(
+        id,
+        "I want to rent out my 2-bedroom unit in Massey for $590 a week, $2360 bond, available September 1, pets negotiable."
+      );
+      const fill = t1.listingFill!;
+      expect(fill.listingType).toBe("rental");
+      expect(fill.location).toMatch(/Massey/i);
+      const moneyBlob = [
+        fill.rentalPriceWeekly,
+        fill.price,
+        fill.rentalDeposit,
+      ]
+        .map((v) => String(v || ""))
+        .join(" ");
+      expect(moneyBlob).toMatch(/590|2360/);
+      if (fill.rentalBedrooms) expect(String(fill.rentalBedrooms)).toMatch(/2/);
+      const desc = String(fill.description || "");
+      if (desc) assertNoFiller(desc);
     });
   });
 });

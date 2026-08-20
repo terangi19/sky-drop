@@ -77,12 +77,13 @@ export type DescriptionWriterFacts = {
 const STRUCTURED_EXTRA_KEY_RE =
   /^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|categoryid|condition_code|conditioncode|vision_confidence|visionconfidence|provenance|field_source|fieldsource)$/i;
 export const MARKETING_FILLER_RE =
-  /\b(?:must[- ]have|perfect(?:\s+(?:for|addition))?|great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout(?:\s+(?:vehicle|car|item|product|player))?|known for (?:its )?(?:performance|design)|performance and design|legendary (?:figures|status)|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|reliable performance|reliable choice|reliable gaming experience|latest features|advanced capabilities|the seller (?:confirms|states)|seller states|details were not provided|any .* collection|don'?t miss out|highly sought[- ]after|rare|valuable|iconic|grab a bargain|sure to impress|classic era|represents a|era of .{0,40}performance|great choice)\b/i;
+  /\b(?:must[- ]have|perfect(?:\s+(?:for|addition))?|great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout(?:\s+(?:vehicle|car|item|product|player))?|known for (?:its )?(?:performance|design)|performance and design|legendary (?:figures|status)|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|reliable performance|reliable choice|reliable gaming experience|latest features|advanced capabilities|the seller (?:confirms|states)|seller states|details were not provided|any .* collection|don'?t miss out|highly sought[- ]after|rare|valuable|iconic|grab a bargain|sure to impress|classic era|represents a|era of .{0,40}performance|great choice|to ensure(?:\s+its)?(?:\s+pristine)?|ensuring (?:its |a |the )?(?:pristine|reliability|performance|condition)|pristine condition|which keeps it|making it (?:ideal|perfect|pristine)|performing perfectly|well maintained|ensuring reliability)\b/i;
 
 export type DescriptionValidationFailureReason =
   | "too_short"
   | "too_long"
   | "marketing_filler"
+  | "invented_reasoning"
   | "metadata_leak"
   | "seller_guidance"
   | "unsupported_claim"
@@ -93,7 +94,12 @@ export type DescriptionValidationFailureReason =
   | "title_equivalent"
   | "price_or_location_leak"
   | "insufficient_seller_evidence"
-  | "orchestration_leak";
+  | "orchestration_leak"
+  | "missing_seller_fact";
+
+/** Invented causality / benefits — never acceptable in public listing copy. */
+export const INVENTED_REASONING_RE =
+  /\b(?:to ensure(?:\s+its)?(?:\s+\w+){0,3}\s+condition|ensuring (?:its |a |the )?(?:pristine|reliability|performance|condition)|pristine condition|which keeps (?:it|this)|making (?:it|this) (?:ideal|perfect|pristine)|performing perfectly|ensuring reliability|well maintained(?!\s+with))\b/i;
 
 export type DescriptionValidationResult =
   | { ok: true; description: string; requiredFacts: string[]; optionalFacts: string[] }
@@ -125,10 +131,15 @@ export function stripUnsupportedPromotionalSentences(proposed: string): string {
         )
         .replace(/,?\s*ensuring\s+reliable\s+performance\.?$/i, ".")
         .replace(/,?\s*making\s+(?:it|this)\s+a\s+reliable\s+choice[^.]*\.?$/i, ".")
+        .replace(
+          /,?\s*to\s+ensure(?:\s+its)?(?:\s+\w+){0,4}\s+condition\.?$/i,
+          "."
+        )
+        .replace(/,?\s*which\s+keeps\s+it\s+[^.]*\.?$/i, ".")
         .replace(/\s{2,}/g, " ")
         .trim()
     )
-    .filter((sentence) => !MARKETING_FILLER_RE.test(sentence))
+    .filter((sentence) => !MARKETING_FILLER_RE.test(sentence) && !INVENTED_REASONING_RE.test(sentence))
     .join(" ")
     .trim();
 }
@@ -392,9 +403,13 @@ export function buildDescriptionWriterFacts(fill: SkyAiListingFill): Description
   quantity ??= inferListedItemCount(items);
   const title = cleanDescriptionItemName(fill.title || "");
   const parentIdentity = inferParentIdentity(title, items, collection);
-  const sealed = isSealedTradingCardProductFormat(
-    productFormat || `${title} ${(fill.extras || []).join(" ")}`
-  );
+  // Shared colour/finish field — physical goods store colour here too.
+  if (!product.colour && fill.vehicleColour?.trim()) {
+    product.colour = fill.vehicleColour.trim();
+  }
+  // Only title / explicit product format — never scan included extras ("original box")
+  // or accessory notes, or ordinary goods get misclassified as sealed TCG.
+  const sealed = isSealedTradingCardProductFormat(productFormat || title);
   if (sealed) {
     // Sealed packaging colour / parallel cues are not card attributes.
     delete collectible.parallel;
@@ -574,6 +589,28 @@ function descriptionFactPolicy(facts: DescriptionWriterFacts): {
       if (value) optionalFacts.push(value);
     }
   }
+  // Explicit product colour/storage are seller facts — required in public copy.
+  if (facts.product?.colour) requiredFacts.push(facts.product.colour);
+  if (facts.product?.storage) requiredFacts.push(facts.product.storage);
+  const evidence = facts.sellerEvidence || {};
+  for (const key of ["included", "mechanical", "conditionDetails", "notes"] as const) {
+    const values = evidence[key];
+    if (!Array.isArray(values)) continue;
+    for (const value of values) {
+      const text = String(value || "").trim();
+      if (!text) continue;
+      // Require coverage of distinctive evidence atoms (box, cable, battery %, case…).
+      if (
+        /\b(?:box|cable|usb|controller|battery|case|protector|crack|fault|repair|damage)\b/i.test(
+          text
+        )
+      ) {
+        requiredFacts.push(text);
+      } else {
+        optionalFacts.push(text);
+      }
+    }
+  }
   optionalFacts.push(
     ...(facts.sellerNotes || []),
     ...Object.values(facts.product || {}).filter(
@@ -615,6 +652,9 @@ export function validateAiListingDescriptionResult(
 
   if (containsInternalOrchestration(description) || containsInternalOrchestration(proposed)) {
     return fail("orchestration_leak");
+  }
+  if (INVENTED_REASONING_RE.test(description) || INVENTED_REASONING_RE.test(proposed)) {
+    return fail("invented_reasoning");
   }
   // A removable promotional tail should not discard otherwise grounded prose.
   // When stripping leaves no substantive copy, expose marketing as the cause.
@@ -661,8 +701,8 @@ export function validateAiListingDescriptionResult(
   const requiredBeyondTitle = requiredFacts.filter(
     (value) => !mentionsSupportedValue(facts.title, value)
   );
-  if (requiredBeyondTitle.some((value) => !mentionsSupportedValue(description, value))) {
-    return fail("required_identity_missing");
+  if (requiredBeyondTitle.some((value) => !evidenceItemCovered(description, value))) {
+    return fail("missing_seller_fact");
   }
   if (facts.quantity && facts.items) {
     const listedItems = splitListedItems(facts.items);
@@ -731,7 +771,8 @@ export function validateAiListingDescriptionResult(
   const evidenceAtoms = flattenSellerEvidenceAtoms(facts);
   if (evidenceAtoms.length >= 3) {
     const covered = evidenceAtoms.filter((item) => evidenceItemCovered(description, item));
-    if (covered.length < Math.ceil(evidenceAtoms.length * 0.5)) {
+    // Rich seller evidence must largely survive into public copy.
+    if (covered.length < Math.ceil(evidenceAtoms.length * 0.7)) {
       return fail("insufficient_seller_evidence");
     }
     if (isIdentityConditionLocationOnly(description, facts)) {
@@ -828,9 +869,12 @@ Writing rules:
 - Compose relationships; never serialize raw metadata keys or labels.
 - Compose facts naturally. Preserve meaning, not exact seller wording.
 - Never invent praise, era commentary, or enthusiast filler to pad sparse copy.
+- Never invent reasons, outcomes, benefits, causality, or conclusions the seller did not state (banned examples: "to ensure its pristine condition", "which keeps it performing perfectly", "making it ideal for…", "ensuring reliability", "well maintained" unless seller evidence explicitly supports that exact claim).
+- State protection/usage facts plainly (e.g. "always used with a case and screen protector") without explaining why.
 - Never mention asking price, contact actions, "for sale", "for sale in", database labels, or unsupported claims.
 - Never write "the seller confirms", "seller states", or that details were not provided.
 - Never invent product features, benefits, reliability, or "latest features".
+- When colour, storage, battery health, included items, or wear disclosures are in the facts, include them.
 - When sellerEvidence.location or location is supplied, you may include it once as a closing fact. Never invent a location.
 - For related/bundled items, explain the relationship naturally when facts support it.
 - Preserve the most specific supplied collection, group, model, or product-family name; do not replace it with a generic category.

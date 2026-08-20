@@ -437,12 +437,13 @@ describe("grounded AI description writer quality gate", () => {
       condition: "Used - Good",
       extras: ["colour:Midnight Black", "variant:Limited Edition"],
     });
+    // Colour is a stated seller fact — omitting it fails coverage.
     expect(
       validateAiListingDescription(
         "Sony DualSense Wireless Controller in good used condition. Includes the confirmed product details.",
         controllerFacts
       )
-    ).toMatch(/good used condition/);
+    ).toBeNull();
     expect(
       validateAiListingDescription(
         "Sony DualSense Wireless Controller in the Midnight Black Limited Edition variant. The controller is in good used condition.",

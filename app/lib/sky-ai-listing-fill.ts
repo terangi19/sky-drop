@@ -664,20 +664,22 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
   if (!isStripeCheckoutProductEnabled()) {
     out.paymentType = "contact";
   }
-  if (listingType === "vehicle" || (raw.vehicleMake || raw.vehicleModel)) {
-    // Explicit non-vehicle type (user override) — do not attach vehicle sale fields.
+  if (listingType === "vehicle" || (raw.vehicleMake || raw.vehicleModel || raw.vehicleColour)) {
+    // Explicit non-vehicle type (user override) — do not attach vehicle *sale* fields.
+    // Colour/finish still attaches for physical goods (phones, furniture, etc.).
     if (
       listingType === "physical" ||
       listingType === "service" ||
       listingType === "wanted"
     ) {
-      // skip vehicle field attach
+      if (raw.vehicleColour) out.vehicleColour = normalizeColour(raw.vehicleColour);
     } else if (listingType === "rental") {
       if (raw.vehicleMake) out.vehicleMake = raw.vehicleMake.slice(0, 60);
       if (raw.vehicleModel) out.vehicleModel = raw.vehicleModel.slice(0, 60);
       if (raw.vehicleYear) out.vehicleYear = raw.vehicleYear;
       if (raw.vehicleTransmission)
         out.vehicleTransmission = normalizeTransmission(raw.vehicleTransmission);
+      if (raw.vehicleColour) out.vehicleColour = normalizeColour(raw.vehicleColour);
     } else {
       if (!out.listingType) out.listingType = "vehicle";
       if (!out.category) out.category = "Cars";
@@ -699,6 +701,8 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
         if (inferred) out.vehicleBodyType = inferred;
       }
     }
+  } else if (raw.vehicleColour) {
+    out.vehicleColour = normalizeColour(raw.vehicleColour);
   }
 
   if (raw.replaceDraft === true) out.replaceDraft = true;
@@ -993,7 +997,8 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
     if (normalized.shippingAvailable !== undefined) h.setShippingAvailable?.(normalized.shippingAvailable);
     if (normalized.acceptOffers !== undefined) h.setAcceptOffers?.(normalized.acceptOffers);
     if (normalized.saleType) h.setSaleType?.(normalized.saleType);
-    // Physical never applies vehicle sale fields — even if draft memory still has them.
+    // Physical goods still use vehicleColour as the shared finish/colour field.
+    if (normalized.vehicleColour) h.setVehicleColour?.(normalized.vehicleColour);
   }
 
   if (normalized.title) h.setTitle(normalized.title);
