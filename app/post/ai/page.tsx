@@ -45,6 +45,7 @@ import {
   promoteColourFromExtras,
   reconcileListingDraftForSync,
   resolveLockedMergeValue,
+  semanticDraftFieldsPersisted,
   shouldApplyFillToField,
 } from "../../lib/awhina-form-sync";
 import {
@@ -741,6 +742,69 @@ export default function AIPostPage() {
   const draftIdRef = useRef(createListingDraftId());
   /** Last LISTING_FILL applied — keeps storage in sync until React form state catches up. */
   const pendingFillRef = useRef<SkyAiListingFill | null>(null);
+  /** Live form mirror for applyFill — avoids stale closures blocking price/condition. */
+  const formSnapshotRef = useRef({
+    title: "",
+    description: "",
+    category: "",
+    condition: "",
+    price: "",
+    listingType: "physical" as string,
+    location: "",
+    vehicleMake: "",
+    vehicleModel: "",
+    vehicleGeneration: "",
+    vehicleYear: "",
+    vehicleOdometer: "",
+    vehicleColour: "",
+    vehicleBodyType: "",
+    vehicleFuelType: "",
+    vehicleTransmission: "",
+    rentalPropertyType: "",
+    rentalPriceWeekly: "",
+    rentalPriceMonthly: "",
+    rentalDeposit: "",
+    rentalBedrooms: "",
+    rentalBathrooms: "",
+    rentalParkingSpaces: "",
+    rentalFurnishedStatus: "",
+    rentalPetsPolicy: "",
+    rentalAvailableDate: "",
+    rentalMinTenancy: "",
+    stockQuantity: "",
+    serviceDuration: "",
+  });
+  formSnapshotRef.current = {
+    title,
+    description,
+    category,
+    condition,
+    price,
+    listingType,
+    location,
+    vehicleMake,
+    vehicleModel,
+    vehicleGeneration,
+    vehicleYear,
+    vehicleOdometer,
+    vehicleColour,
+    vehicleBodyType,
+    vehicleFuelType,
+    vehicleTransmission,
+    rentalPropertyType,
+    rentalPriceWeekly,
+    rentalPriceMonthly,
+    rentalDeposit,
+    rentalBedrooms,
+    rentalBathrooms,
+    rentalParkingSpaces,
+    rentalFurnishedStatus,
+    rentalPetsPolicy,
+    rentalAvailableDate,
+    rentalMinTenancy,
+    stockQuantity,
+    serviceDuration,
+  };
 
   const resetLocalListingSession = useCallback(() => {
     draftIdRef.current = createListingDraftId();
@@ -1177,38 +1241,8 @@ export default function AIPostPage() {
 
     /** Manual USER facts stay authoritative — empty locks do not block Āwhina. */
     const currentFormValue = (key: keyof ListingDraftFormSnapshot): string => {
-      const map: Partial<Record<keyof ListingDraftFormSnapshot, string>> = {
-        title,
-        description,
-        category,
-        condition,
-        price,
-        listingType,
-        location,
-        vehicleMake,
-        vehicleModel,
-        vehicleGeneration,
-        vehicleYear,
-        vehicleOdometer,
-        vehicleColour,
-        vehicleBodyType,
-        vehicleFuelType,
-        vehicleTransmission,
-        rentalPropertyType,
-        rentalPriceWeekly,
-        rentalPriceMonthly,
-        rentalDeposit,
-        rentalBedrooms,
-        rentalBathrooms,
-        rentalParkingSpaces,
-        rentalFurnishedStatus,
-        rentalPetsPolicy,
-        rentalAvailableDate,
-        rentalMinTenancy,
-        stockQuantity,
-        serviceDuration,
-      };
-      return String(map[key] || "");
+      const snap = formSnapshotRef.current as Record<string, string>;
+      return String(snap[key as string] || "");
     };
     const guardSet =
       <T,>(key: keyof ListingDraftFormSnapshot, setter: (v: T) => void) =>
@@ -1226,6 +1260,9 @@ export default function AIPostPage() {
           return;
         }
         setter(v);
+        if (typeof v === "string") {
+          (formSnapshotRef.current as Record<string, string>)[key as string] = v;
+        }
       };
 
     const ok = applySkyAiListingFill(merged, {
@@ -1268,6 +1305,43 @@ export default function AIPostPage() {
       setStockQuantity: guardSet("stockQuantity", setStockQuantity),
       setServiceDuration: guardSet("serviceDuration", setServiceDuration),
     });
+
+    // Canonical structured fields must land on the visible form even if
+    // normalize/apply missed a branch. No new parsers — use merged values only.
+    const ensureVisible = (
+      key: keyof ListingDraftFormSnapshot,
+      value: string | undefined,
+      setter: (v: string) => void
+    ) => {
+      const next = String(value || "").trim();
+      if (!next) return;
+      if (currentFormValue(key) === next) return;
+      guardSet(key, setter)(next);
+    };
+    ensureVisible("price", merged.price, trackingSetPrice);
+    ensureVisible("condition", merged.condition, trackingSetCondition);
+    ensureVisible("location", merged.location, trackingSetLocation);
+    ensureVisible("title", merged.title, trackingSetTitle);
+    if (merged.vehicleColour) {
+      ensureVisible("vehicleColour", merged.vehicleColour, (v) => setVehicleColour(v));
+    }
+    if (merged.vehicleYear) ensureVisible("vehicleYear", merged.vehicleYear, setVehicleYear);
+    if (merged.vehicleOdometer) {
+      ensureVisible("vehicleOdometer", merged.vehicleOdometer, setVehicleOdometer);
+    }
+    if (merged.vehicleTransmission) {
+      ensureVisible("vehicleTransmission", merged.vehicleTransmission, setVehicleTransmission);
+    }
+    if (merged.vehicleFuelType) {
+      ensureVisible("vehicleFuelType", merged.vehicleFuelType, setVehicleFuelType);
+    }
+    if (merged.rentalPriceWeekly) {
+      ensureVisible("rentalPriceWeekly", merged.rentalPriceWeekly, setRentalPriceWeekly);
+    }
+    if (merged.rentalDeposit) {
+      ensureVisible("rentalDeposit", merged.rentalDeposit, setRentalDeposit);
+    }
+
     // Persist and read back the exact canonical proposal before callers are
     // allowed to acknowledge a mutation. React state settles asynchronously,
     // so the storage draft is the synchronous, refresh-safe confirmation.
@@ -1295,11 +1369,9 @@ export default function AIPostPage() {
         fieldProvenance: persistedProvenance,
       });
       const confirmed = readListingDraftFromSkyAi();
-      persisted = changedKeys.every(
-        (key) =>
-          String((confirmed as Record<string, unknown> | null)?.[key] || "") ===
-          String((merged as Record<string, unknown>)[key] || "")
-      );
+      // Only visible semantic fields gate "applied". Extras/booleans must not
+      // fail the mutation while price/condition are correctly stored.
+      persisted = semanticDraftFieldsPersisted(merged, confirmed);
     }
     if (ok && fieldsChanged > 0) {
       const notes: string[] = [];

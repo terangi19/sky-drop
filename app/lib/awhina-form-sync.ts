@@ -9,6 +9,7 @@ import type {
   ListingDraftFormSnapshot,
   ListingFieldProvenanceMap,
 } from "./listing-draft-confirmed";
+import { SEMANTIC_LISTING_FIELDS } from "./listing-draft-confirmed";
 
 const FORM_SYNC_KEYS = [
   "title",
@@ -46,6 +47,31 @@ const FORM_SYNC_KEYS = [
 
 export type FormSyncKey = (typeof FORM_SYNC_KEYS)[number];
 
+/** Fields that must round-trip into visible Listing Details + publish payload. */
+export const VISIBLE_FORM_SYNC_KEYS = [
+  "title",
+  "description",
+  "category",
+  "condition",
+  "price",
+  "location",
+  "listingType",
+  "vehicleMake",
+  "vehicleModel",
+  "vehicleGeneration",
+  "vehicleYear",
+  "vehicleOdometer",
+  "vehicleColour",
+  "vehicleBodyType",
+  "vehicleFuelType",
+  "vehicleTransmission",
+  "rentalPriceWeekly",
+  "rentalPriceMonthly",
+  "rentalDeposit",
+  "rentalBedrooms",
+  "rentalBathrooms",
+] as const satisfies ReadonlyArray<keyof ListingDraftFormSnapshot>;
+
 /**
  * USER locks must not block Āwhina from filling an empty field.
  * Only a non-empty USER value stays authoritative.
@@ -59,10 +85,7 @@ export function shouldApplyFillToField(opts: {
   fieldKey?: keyof ListingDraftFormSnapshot;
 }): boolean {
   if (opts.replaceDraft) return true;
-  if (
-    opts.allowDescriptionRewrite &&
-    opts.fieldKey === "description"
-  ) {
+  if (opts.allowDescriptionRewrite && opts.fieldKey === "description") {
     return true;
   }
   if (!opts.userLocked) return true;
@@ -86,16 +109,53 @@ export function resolveLockedMergeValue(
   if (!userLocked) return incomingValue;
   if (typeof priorValue === "string") {
     if (priorValue.trim()) return priorValue;
-    // Empty prior lock must not clobber incoming seller facts.
     return incomingValue;
   }
   return priorValue !== undefined ? priorValue : incomingValue;
 }
 
+function normalizeComparable(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value.replace(/\s+/g, " ").trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .join("\n");
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+/**
+ * Persistence proof for form sync — only visible semantic fields.
+ * Booleans / extras / authority stamps must not fail the whole mutation.
+ */
+export function semanticDraftFieldsPersisted(
+  expected: SkyAiListingFill,
+  confirmed: SkyAiListingContext | null
+): boolean {
+  if (!confirmed) return false;
+  for (const key of VISIBLE_FORM_SYNC_KEYS) {
+    const next = expected[key as keyof SkyAiListingFill];
+    if (typeof next !== "string" || !next.trim()) continue;
+    if (
+      normalizeComparable((confirmed as Record<string, unknown>)[key]) !==
+      normalizeComparable(next)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * Continuous form→storage sync must not erase a just-applied fill before React
- * state catches up. Prefer non-empty form values; otherwise keep pending fill /
- * prior draft values for the same keys.
+ * state catches up.
  */
 export function reconcileListingDraftForSync(opts: {
   formConfirmed: SkyAiListingContext;
@@ -166,4 +226,8 @@ export function promoteColourFromExtras(fill: SkyAiListingFill): SkyAiListingFil
     }
   }
   return fill;
+}
+
+export function isSemanticListingField(key: string): boolean {
+  return (SEMANTIC_LISTING_FIELDS as readonly string[]).includes(key);
 }

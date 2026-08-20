@@ -12,6 +12,7 @@ import {
   promoteColourFromExtras,
   reconcileListingDraftForSync,
   resolveLockedMergeValue,
+  semanticDraftFieldsPersisted,
   shouldApplyFillToField,
 } from "./awhina-form-sync";
 import {
@@ -82,6 +83,31 @@ describe("awhina form sync", () => {
         pending
       )
     ).toBe(true);
+  });
+
+  it("semantic persistence ignores boolean/extras mismatch", () => {
+    const expected = {
+      title: "iPhone 15 Pro",
+      price: "1250",
+      condition: "Used - Like New",
+      location: "Auckland",
+      pickupAvailable: true,
+      extras: ["storage:256GB"],
+    };
+    const confirmed = {
+      title: "iPhone 15 Pro",
+      price: "1250",
+      condition: "Used - Like New",
+      location: "Auckland",
+    };
+    expect(semanticDraftFieldsPersisted(expected, confirmed)).toBe(true);
+    expect(
+      semanticDraftFieldsPersisted(expected, {
+        title: "iPhone 15 Pro",
+        condition: "Used - Like New",
+        location: "Auckland",
+      })
+    ).toBe(false);
   });
 
   it("applySkyAiListingFill sets price, condition, and colour for physical", () => {
