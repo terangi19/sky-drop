@@ -58,7 +58,9 @@ function assertNoFiller(desc: string) {
 function assertNotReadyWhileMissing(reply: string, fill: SkyAiListingFill) {
   const missing = computeMissingListingSlots(fill);
   const readiness = getListingReadinessState(fill);
-  if (missing.length > 0 || readiness.state === "NEEDS_DETAILS") {
+  // Only READY_TO_PUBLISH may say "ready". STARTED / IN_PROGRESS / READY_TO_REVIEW
+  // still have work left on the form.
+  if (missing.length > 0 || readiness !== "READY_TO_PUBLISH") {
     expect(reply).not.toMatch(/listing(?:'s| is) ready/i);
   }
 }
