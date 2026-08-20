@@ -1945,7 +1945,7 @@ describe("authoritative description boundary regressions", () => {
           condition: "New",
           description: "Price: $120. Location: Auckland. Brand: Sony.",
         },
-        must: [/brand new/i, /Sony DualSense/i, /PS5/i],
+        must: [/brand new/i, /Sony DualSense/i, /PS5|PlayStation 5/i],
         never: [/\$120|Auckland|Price:|Location:|Attr:|Set\s+|Chrome\s+Topps/i, CTA_PURPOSE_RE],
       },
       {

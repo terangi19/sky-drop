@@ -24,8 +24,10 @@ export function parseListingCondition(raw: string | undefined | null): ListingCo
   }
   const t = source.toLowerCase().replace(/[_/]+/g, " ").replace(/\s+/g, " ").trim();
   if (!t) return undefined;
-  if (LIKE_NEW_RE.test(t)) return "Used - Like New";
-  if (BRAND_NEW_RE.test(t)) return "New";
+  const sealed = BRAND_NEW_RE.test(t);
+  // like-new must beat bare "new" (hyphen trap), but factory-sealed/unopened wins over mint.
+  if (LIKE_NEW_RE.test(t) && !sealed) return "Used - Like New";
+  if (sealed) return "New";
   if (/\b(?:mint|excellent)\b/.test(t)) return "Used - Like New";
   if (BARE_NEW_RE.test(t) && !LIKE_NEW_RE.test(t) && !/\bnew zealand\b/.test(t)) return "New";
   if (/\bfair\b|\brough\b/.test(t)) return "Used - Fair";

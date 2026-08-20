@@ -1373,7 +1373,7 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   if (
     sentences.length >= 3 &&
     sentences.filter((s) =>
-      /^(Condition:|Located in|Odometer:|Colour:|Pickup available\.|Pickup only\.|Set\s+)/i.test(s.trim())
+      /^(Condition:|Located in:|Odometer:|Colour:|Pickup available\.|Pickup only\.|Set\s+)/i.test(s.trim())
     ).length >= 2
   ) {
     return true;
@@ -1596,11 +1596,20 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
   const sellerCount = sellerEvidenceItemCount(
     groupedSellerEvidenceFromExtras(facts.extras, facts.location || undefined)
   );
-  const maxSentences = sellerCount >= 6 ? 10 : sellerCount >= 3 ? 7 : 5;
+  const maxSentences = sellerCount >= 6 ? 12 : sellerCount >= 3 ? 10 : 6;
   if (sentences.length > maxSentences) {
     const cta = sentences.find((s) => classifySentence(s) === "cta");
-    const body = sentences.filter((s) => classifySentence(s) !== "cta").slice(0, maxSentences - 1);
-    sentences = cta ? [...body, cta] : body;
+    const keepers = sentences.filter(
+      (s) =>
+        /^Located in\b/i.test(s.trim()) ||
+        /\b(?:wof|registration|rego)\b/i.test(s)
+    );
+    let body = sentences.filter(
+      (s) => classifySentence(s) !== "cta" && !keepers.includes(s)
+    );
+    const reserved = (cta ? 1 : 0) + keepers.length;
+    body = body.slice(0, Math.max(1, maxSentences - reserved));
+    sentences = [...body, ...keepers, ...(cta ? [cta] : [])];
   }
 
   let text = polishParagraph(sentences.join(" "));

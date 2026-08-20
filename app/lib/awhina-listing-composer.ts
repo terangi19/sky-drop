@@ -43,6 +43,7 @@ import {
   sellerEvidenceItemCount,
 } from "./awhina-seller-evidence";
 import { hasCategoryIncompatibleDescription } from "./awhina-category-copy-guard";
+import { isSealedTradingCardProductFormat } from "./awhina-public-copy-gate";
 
 export type ListingComposeSeed = {
   item: string;
@@ -185,6 +186,16 @@ function isRejectedPublicCopy(description: string | undefined | null, fill: SkyA
 
 function shouldDeferSparseAiDescription(fill: SkyAiListingFill): boolean {
   if (fill.descriptionSource === "user") return false;
+  const listingType = String(fill.listingType || "").toLowerCase();
+  if (listingType === "service" || listingType === "rental" || listingType === "wanted") {
+    return false;
+  }
+  if (
+    isSealedTradingCardProductFormat(fill.title) ||
+    isSealedTradingCardProductFormat((fill.extras || []).join(" "))
+  ) {
+    return false;
+  }
   const evidence = groupedSellerEvidenceFromExtras(fill.extras, undefined);
   const evidenceCount = sellerEvidenceItemCount(evidence);
   const structuredExtras = (fill.extras || []).filter((extra) =>
@@ -192,6 +203,7 @@ function shouldDeferSparseAiDescription(fill: SkyAiListingFill): boolean {
   ).length;
   const vehicleDetailCount = [
     fill.vehicleYear,
+    fill.vehicleGeneration,
     fill.vehicleColour,
     fill.vehicleOdometer,
     fill.vehicleTransmission,

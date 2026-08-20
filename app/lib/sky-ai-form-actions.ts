@@ -3,6 +3,7 @@ import {
   harvestSellerEvidence,
   sellerEvidenceToExtras,
 } from "./awhina-seller-evidence";
+import { parseListingCondition } from "./awhina-listing-condition";
 
 const NZ_REGIONS = [
   "Northland",
@@ -253,18 +254,7 @@ function mergeListingExtras(existing: string[] | undefined, incoming: string[]):
 }
 
 function parseExplicitCondition(message: string): SkyAiListingFill["condition"] | undefined {
-  const text = message.toLowerCase().replace(/[–—]/g, "-");
-  // Specific phrases MUST win over the bare word "new".
-  if (/\blike[-\s]?new(?:\s+condition)?\b|\bmint(?:\s+condition)?\b|\bexcellent(?:\s+condition)?\b/.test(text)) {
-    return "Used - Like New";
-  }
-  if (/\bbrand[-\s]?new(?:\s+condition)?\b|\bfactory[-\s]?sealed\b|\bunopened\b/.test(text)) {
-    return "New";
-  }
-  if (/\bfair(?:\s+used)?(?:\s+condition)?\b/.test(text)) return "Used - Fair";
-  if (/\bgood(?:\s+used)?(?:\s+condition)?\b|\bused\s+condition\b/.test(text)) return "Used - Good";
-  if (/\bnew\s+condition\b/.test(text)) return "New";
-  return undefined;
+  return parseListingCondition(message.replace(/[–—]/g, "-"));
 }
 
 function parseGenericProductColour(message: string): string | undefined {
