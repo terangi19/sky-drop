@@ -145,7 +145,7 @@ export default function AwhinaGlobalAssistant() {
     setAwhinaIntroOpen(true);
   }, [user, pathname]);
 
-  // Close global sheet when entering an inline-assistant route (prevents duplicates).
+  // Close global chat when entering an inline-assistant route (prevents duplicates).
   // Conversation identity lives in awhina-conversation-store — remount must not reset it.
   useEffect(() => {
     if (inlineAssistant && chatOpen) setChatOpen(false);
@@ -182,15 +182,25 @@ export default function AwhinaGlobalAssistant() {
   return (
     <>
       {showChatSheet && chatPanelMounted && (
-        <SkyAiChatPanel
-          mode="sheet"
-          open={chatOpen}
-          onOpenChange={setChatOpen}
-          autoQuery={pendingChatQuery}
-          onAutoQueryConsumed={() => setPendingChatQuery(undefined)}
-          floatingFab={false}
-          globalVoiceActive={voice.voiceMode}
-        />
+        <div
+          className={`fixed bottom-[calc(5.75rem+var(--mobile-nav-offset,0px))] right-4 z-[10001] h-[min(680px,calc(100dvh-7.5rem))] w-[min(420px,calc(100vw-2rem))] transition-all duration-200 md:bottom-6 md:right-6 ${
+            chatOpen
+              ? "translate-y-0 scale-100 opacity-100"
+              : "pointer-events-none translate-y-3 scale-[0.98] opacity-0"
+          }`}
+          aria-hidden={!chatOpen}
+        >
+          <SkyAiChatPanel
+            mode="inline"
+            open={chatOpen}
+            onOpenChange={setChatOpen}
+            autoQuery={pendingChatQuery}
+            onAutoQueryConsumed={() => setPendingChatQuery(undefined)}
+            floatingFab={false}
+            globalVoiceActive={voice.voiceMode}
+            className="!mt-0 h-full min-h-0 shadow-2xl"
+          />
+        </div>
       )}
 
       <AwhinaVoiceBar
