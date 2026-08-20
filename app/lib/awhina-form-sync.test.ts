@@ -9,9 +9,12 @@ import {
 } from "./sky-ai-listing-fill";
 import {
   formCaughtUpWithFill,
+  normalizeFormCondition,
+  normalizeFormPrice,
   promoteColourFromExtras,
   reconcileListingDraftForSync,
   resolveLockedMergeValue,
+  sellerFactsPersisted,
   semanticDraftFieldsPersisted,
   shouldApplyFillToField,
 } from "./awhina-form-sync";
@@ -237,5 +240,22 @@ describe("invented reasoning + fact coverage", () => {
     expect(desc).toMatch(/256\s*GB/i);
     expect(desc).not.toMatch(/pristine|to ensure/i);
     expect(desc).not.toMatch(/\$\s*1,?250|asking/i);
+  });
+
+  it("normalizes currency noise and seller-fact persistence", () => {
+    expect(normalizeFormPrice("$1,250")).toBe("1250");
+    expect(normalizeFormCondition("like-new")).toBe("Used - Like New");
+    expect(
+      sellerFactsPersisted(
+        { price: "$1,250", condition: "like new", location: "Auckland" },
+        { price: "1250", condition: "Used - Like New", location: "Auckland" }
+      )
+    ).toBe(true);
+    expect(
+      sellerFactsPersisted(
+        { price: "1250", condition: "Used - Like New" },
+        { price: "1250", title: "x" }
+      )
+    ).toBe(false);
   });
 });

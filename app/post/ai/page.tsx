@@ -42,9 +42,12 @@ import {
 } from "../../lib/listing-draft-confirmed";
 import {
   formCaughtUpWithFill,
+  normalizeFormCondition,
+  normalizeFormPrice,
   promoteColourFromExtras,
   reconcileListingDraftForSync,
   resolveLockedMergeValue,
+  sellerFactsPersisted,
   semanticDraftFieldsPersisted,
   shouldApplyFillToField,
 } from "../../lib/awhina-form-sync";
@@ -885,8 +888,12 @@ export default function AIPostPage() {
         }
       }
       if (stored.category) setCategory(String(stored.category));
-      if (stored.condition) setCondition(String(stored.condition));
-      if (stored.price) setPrice(String(stored.price));
+      if (stored.condition) {
+        setCondition(normalizeFormCondition(stored.condition) || String(stored.condition));
+      }
+      if (stored.price) {
+        setPrice(normalizeFormPrice(stored.price) || String(stored.price).replace(/[$,]/g, ""));
+      }
       if (stored.location) setLocation(String(stored.location));
       if (stored.listingType) {
         setListingType(
@@ -1047,6 +1054,26 @@ export default function AIPostPage() {
     fieldProvenance,
   ]);
 
+  // Pull empty form fields from a just-applied fill / draft only while pending.
+  // Never overwrite a non-empty controlled value (seller edits must stick).
+  useEffect(() => {
+    if (!draftHydrated) return;
+    const pending = pendingFillRef.current;
+    const stored = readListingDraftFromSkyAi();
+    const source = pending || stored;
+    if (!source) return;
+    const draftPrice = normalizeFormPrice(source.price);
+    const draftCondition = normalizeFormCondition(source.condition);
+    if (draftPrice && !normalizeFormPrice(price)) {
+      setPrice(draftPrice);
+      formSnapshotRef.current.price = draftPrice;
+    }
+    if (draftCondition && !normalizeFormCondition(condition)) {
+      setCondition(draftCondition);
+      formSnapshotRef.current.condition = draftCondition;
+    }
+  }, [draftHydrated, price, condition, title, listingType]);
+
   const applyFill = useCallback((
     fill: SkyAiListingFill,
     opts?: {
@@ -1112,6 +1139,10 @@ export default function AIPostPage() {
       ...promoteColourFromExtras(merged),
       draftId: draftIdRef.current,
     };
+    if (merged.price) merged.price = normalizeFormPrice(merged.price) || merged.price;
+    if (merged.condition) {
+      merged.condition = normalizeFormCondition(merged.condition) || merged.condition;
+    }
     // The persisted draft is the canonical source of truth. Never let an
     // AI proposal update storage when the editor correctly refused it because
     // the seller owns that field; otherwise chat can claim a mutation the UI
@@ -1174,10 +1205,18 @@ export default function AIPostPage() {
     if (merged.extras?.length) setDraftExtras(merged.extras);
 
     // Mark fields Āwhina/vision actually provided — never demote USER / edit locks
+    // except empty USER locks on seller facts (price/condition/location).
     const filledKeys: (keyof ListingDraftFormSnapshot)[] = [];
+    const sellerFactMarkKeys = new Set(["price", "condition", "location"]);
+    const currentFormValueSafe = (key: keyof ListingDraftFormSnapshot): string => {
+      const snap = formSnapshotRef.current as Record<string, string>;
+      return String(snap[key as string] || "").trim();
+    };
     const maybeMark = (key: keyof ListingDraftFormSnapshot, val: unknown) => {
       if (typeof val !== "string" || !val.trim()) return;
-      if (!replaceDraft && isUserLockedField(key)) return;
+      if (!replaceDraft && isUserLockedField(key)) {
+        if (!(sellerFactMarkKeys.has(key) && !currentFormValueSafe(key))) return;
+      }
       filledKeys.push(key);
     };
     maybeMark("title", merged.title);
@@ -1280,13 +1319,13 @@ export default function AIPostPage() {
     // visible form. Do not let USER locks or apply branches drop them while
     // description / preview still show the same draft.
     const setPriceFromFill = (v: string) => {
-      const next = String(v || "").trim();
+      const next = normalizeFormPrice(v);
       if (!next) return;
       trackingSetPrice(next);
       formSnapshotRef.current.price = next;
     };
     const setConditionFromFill = (v: string) => {
-      const next = String(v || "").trim();
+      const next = normalizeFormCondition(v);
       if (!next) return;
       trackingSetCondition(next);
       formSnapshotRef.current.condition = next;
@@ -1343,6 +1382,18 @@ export default function AIPostPage() {
     setPriceFromFill(merged.price || "");
     setConditionFromFill(merged.condition || "");
     setLocationFromFill(merged.location || "");
+    // Re-assert after paint so controlled inputs cannot lose a just-applied fill
+    // to a same-tick continuous sync / batch race.
+    if (typeof window !== "undefined" && (merged.price || merged.condition || merged.location)) {
+      const wantPrice = normalizeFormPrice(merged.price);
+      const wantCondition = normalizeFormCondition(merged.condition);
+      const wantLocation = String(merged.location || "").trim();
+      window.requestAnimationFrame(() => {
+        if (wantPrice) setPriceFromFill(wantPrice);
+        if (wantCondition) setConditionFromFill(wantCondition);
+        if (wantLocation) setLocationFromFill(wantLocation);
+      });
+    }
     if (merged.vehicleColour) {
       guardSet("vehicleColour", setVehicleColour)(merged.vehicleColour);
     }
@@ -1392,9 +1443,10 @@ export default function AIPostPage() {
         fieldProvenance: persistedProvenance,
       });
       const confirmed = readListingDraftFromSkyAi();
-      // Only visible semantic fields gate "applied". Extras/booleans must not
-      // fail the mutation while price/condition are correctly stored.
-      persisted = semanticDraftFieldsPersisted(merged, confirmed);
+      // Seller price/condition/location win acknowledgment even if an unrelated
+      // visible field (locked title, colour, etc.) fails full semantic round-trip.
+      const sellerOk = sellerFactsPersisted(fill, confirmed) || sellerFactsPersisted(merged, confirmed);
+      persisted = sellerOk || semanticDraftFieldsPersisted(merged, confirmed);
     }
     if (ok && fieldsChanged > 0) {
       const notes: string[] = [];

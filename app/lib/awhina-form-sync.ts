@@ -10,6 +10,7 @@ import type {
   ListingFieldProvenanceMap,
 } from "./listing-draft-confirmed";
 import { SEMANTIC_LISTING_FIELDS } from "./listing-draft-confirmed";
+import { parseListingCondition } from "./awhina-listing-condition";
 
 const FORM_SYNC_KEYS = [
   "title",
@@ -131,6 +132,24 @@ function normalizeComparable(value: unknown): string {
   }
 }
 
+/** Strip currency noise so controlled number inputs accept the value. */
+export function normalizeFormPrice(raw: unknown): string {
+  if (raw == null) return "";
+  const cleaned = String(raw).replace(/[$,\s]/g, "").trim();
+  if (!cleaned) return "";
+  const n = Number(cleaned);
+  if (!Number.isFinite(n) || n < 0) return "";
+  return Number.isInteger(n) ? String(Math.round(n)) : String(n);
+}
+
+/** Map free-text / API condition onto chip values (Used - Like New, …). */
+export function normalizeFormCondition(raw: unknown): string {
+  if (raw == null) return "";
+  const s = String(raw).trim();
+  if (!s) return "";
+  return parseListingCondition(s) || s;
+}
+
 /**
  * Persistence proof for form sync — only visible semantic fields.
  * Booleans / extras / authority stamps must not fail the whole mutation.
@@ -151,6 +170,36 @@ export function semanticDraftFieldsPersisted(
     }
   }
   return true;
+}
+
+/**
+ * Seller-stated price/condition/location must count as applied even when an
+ * unrelated visible field (title lock, colour, etc.) fails round-trip.
+ */
+export function sellerFactsPersisted(
+  fill: SkyAiListingFill,
+  confirmed: SkyAiListingContext | null
+): boolean {
+  if (!confirmed) return false;
+  const checks: Array<{ expected: string; actual: string }> = [];
+  const price = normalizeFormPrice(fill.price);
+  if (price) checks.push({ expected: price, actual: normalizeFormPrice(confirmed.price) });
+  const condition = normalizeFormCondition(fill.condition);
+  if (condition) {
+    checks.push({
+      expected: condition,
+      actual: normalizeFormCondition(confirmed.condition),
+    });
+  }
+  const location = String(fill.location || "").trim();
+  if (location) {
+    checks.push({
+      expected: normalizeComparable(location),
+      actual: normalizeComparable(confirmed.location),
+    });
+  }
+  if (!checks.length) return false;
+  return checks.every((c) => c.expected === c.actual);
 }
 
 /**
