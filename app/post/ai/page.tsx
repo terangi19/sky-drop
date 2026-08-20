@@ -1116,6 +1116,8 @@ export default function AIPostPage() {
     // AI proposal update storage when the editor correctly refused it because
     // the seller owns that field; otherwise chat can claim a mutation the UI
     // never received. Empty USER locks do not count as owned values.
+    // Price/condition/location from this listingFill are seller facts — never
+    // let a stale USER lock blank or overwrite them with an empty prior.
     if (!replaceDraft && prior) {
       const lockedKeys: (keyof ListingDraftFormSnapshot)[] = [
         "title", "description", "category", "condition", "price", "listingType",
@@ -1127,11 +1129,20 @@ export default function AIPostPage() {
         "rentalFurnishedStatus", "rentalPetsPolicy", "rentalAvailableDate",
         "rentalMinTenancy", "stockQuantity", "serviceDuration",
       ];
+      const sellerFactKeys = new Set(["price", "condition", "location"]);
       for (const key of lockedKeys) {
         if (key === "description" && explicitDescriptionRewrite) continue;
+        const incoming = merged[key as keyof typeof merged];
+        if (
+          sellerFactKeys.has(key) &&
+          typeof incoming === "string" &&
+          incoming.trim()
+        ) {
+          // Keep seller-stated structured facts from this fill.
+          continue;
+        }
         if (!isUserLockedField(key)) continue;
         const previous = prior[key as keyof typeof prior];
-        const incoming = merged[key as keyof typeof merged];
         (merged as Record<string, unknown>)[key] = resolveLockedMergeValue(
           previous,
           incoming,
@@ -1265,14 +1276,36 @@ export default function AIPostPage() {
         }
       };
 
+    // Price / condition / location from listingFill are seller facts for the
+    // visible form. Do not let USER locks or apply branches drop them while
+    // description / preview still show the same draft.
+    const setPriceFromFill = (v: string) => {
+      const next = String(v || "").trim();
+      if (!next) return;
+      trackingSetPrice(next);
+      formSnapshotRef.current.price = next;
+    };
+    const setConditionFromFill = (v: string) => {
+      const next = String(v || "").trim();
+      if (!next) return;
+      trackingSetCondition(next);
+      formSnapshotRef.current.condition = next;
+    };
+    const setLocationFromFill = (v: string) => {
+      const next = String(v || "").trim();
+      if (!next) return;
+      trackingSetLocation(next);
+      formSnapshotRef.current.location = next;
+    };
+
     const ok = applySkyAiListingFill(merged, {
       setTitle: guardSet("title", trackingSetTitle),
       setDescription: guardSet("description", trackingSetDescription),
       setCategory: guardSet("category", trackingSetCategory),
-      setCondition: guardSet("condition", trackingSetCondition),
-      setPrice: guardSet("price", trackingSetPrice),
+      setCondition: setConditionFromFill,
+      setPrice: setPriceFromFill,
       setListingType: guardSet("listingType", trackingSetListingType),
-      setLocation: guardSet("location", trackingSetLocation),
+      setLocation: setLocationFromFill,
       setPaymentType: choosePaymentType,
       setVehicleMake: guardSet("vehicleMake", setVehicleMake),
       setVehicleModel: guardSet("vehicleModel", setVehicleModel),
@@ -1306,40 +1339,30 @@ export default function AIPostPage() {
       setServiceDuration: guardSet("serviceDuration", setServiceDuration),
     });
 
-    // Canonical structured fields must land on the visible form even if
-    // normalize/apply missed a branch. No new parsers — use merged values only.
-    const ensureVisible = (
-      key: keyof ListingDraftFormSnapshot,
-      value: string | undefined,
-      setter: (v: string) => void
-    ) => {
-      const next = String(value || "").trim();
-      if (!next) return;
-      if (currentFormValue(key) === next) return;
-      guardSet(key, setter)(next);
-    };
-    ensureVisible("price", merged.price, trackingSetPrice);
-    ensureVisible("condition", merged.condition, trackingSetCondition);
-    ensureVisible("location", merged.location, trackingSetLocation);
-    ensureVisible("title", merged.title, trackingSetTitle);
+    // Always re-assert canonical price/condition/location onto the visible form.
+    setPriceFromFill(merged.price || "");
+    setConditionFromFill(merged.condition || "");
+    setLocationFromFill(merged.location || "");
     if (merged.vehicleColour) {
-      ensureVisible("vehicleColour", merged.vehicleColour, (v) => setVehicleColour(v));
+      guardSet("vehicleColour", setVehicleColour)(merged.vehicleColour);
     }
-    if (merged.vehicleYear) ensureVisible("vehicleYear", merged.vehicleYear, setVehicleYear);
+    if (merged.vehicleYear) {
+      guardSet("vehicleYear", setVehicleYear)(merged.vehicleYear);
+    }
     if (merged.vehicleOdometer) {
-      ensureVisible("vehicleOdometer", merged.vehicleOdometer, setVehicleOdometer);
+      guardSet("vehicleOdometer", setVehicleOdometer)(merged.vehicleOdometer);
     }
     if (merged.vehicleTransmission) {
-      ensureVisible("vehicleTransmission", merged.vehicleTransmission, setVehicleTransmission);
+      guardSet("vehicleTransmission", setVehicleTransmission)(merged.vehicleTransmission);
     }
     if (merged.vehicleFuelType) {
-      ensureVisible("vehicleFuelType", merged.vehicleFuelType, setVehicleFuelType);
+      guardSet("vehicleFuelType", setVehicleFuelType)(merged.vehicleFuelType);
     }
     if (merged.rentalPriceWeekly) {
-      ensureVisible("rentalPriceWeekly", merged.rentalPriceWeekly, setRentalPriceWeekly);
+      guardSet("rentalPriceWeekly", setRentalPriceWeekly)(merged.rentalPriceWeekly);
     }
     if (merged.rentalDeposit) {
-      ensureVisible("rentalDeposit", merged.rentalDeposit, setRentalDeposit);
+      guardSet("rentalDeposit", setRentalDeposit)(merged.rentalDeposit);
     }
 
     // Persist and read back the exact canonical proposal before callers are
