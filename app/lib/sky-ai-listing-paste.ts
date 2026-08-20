@@ -10,6 +10,7 @@ import {
 } from "./sky-ai-listing-fill";
 import { mergeListingFillWithDraft } from "./sky-ai-draft-merge";
 import type { SkyAiListingContext } from "./sky-ai-types";
+import { parseListingCondition } from "./awhina-listing-condition";
 
 const LABELED_LISTING =
   /\b(?:price|category|condition|location|description|listing\s+type|stock|property\s+type|availability|bedroom|bathroom|bond|move-?in)\s*:/i;
@@ -120,13 +121,7 @@ function normalizeListingType(raw: string | undefined, text = ""): string {
 
 function normalizeCondition(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
-  const s = raw.trim();
-  const lower = s.toLowerCase();
-  if (lower === "new") return "New";
-  if (/like new|excellent|mint/i.test(lower)) return "Used - Like New";
-  if (/good|used/i.test(lower)) return "Used - Good";
-  if (/fair|rough/i.test(lower)) return "Used - Fair";
-  return "Used - Good";
+  return parseListingCondition(raw);
 }
 
 function parsePrice(raw: string | undefined): string | undefined {
