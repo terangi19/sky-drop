@@ -278,9 +278,16 @@ function hasAcceptableOfflineFallback(description: string, fill: SkyAiListingFil
   const text = description.trim();
   if (!text || isRejectedPublicCopy(text, fill)) return false;
   if (/\b(?:asking\s+\$|priced at\s+\$)\b/i.test(text)) return false;
-  if (/\bfor sale in\b/i.test(text) && fill.listingType === "physical") return false;
+  if (/\bfor sale in\b/i.test(text)) return false;
   if (/\blocated in\b/i.test(text) && !(fill.location || fill.pickupArea || "").trim()) return false;
-  const normalized = (value: string) => value.toLowerCase().replace(/\b(?:brand[- ]new|like[- ]new|good used condition|good condition|fair condition)\b/g, "").replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  const normalized = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/\b(?:brand[- ]new|like[- ]new|good used condition|good condition|fair condition)\b/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  // A title or title+condition is never a useful offline public description.
   return normalized(text) !== normalized(fill.title || "");
 }
 

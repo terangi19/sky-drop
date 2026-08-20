@@ -76,7 +76,7 @@ export type DescriptionWriterFacts = {
 const STRUCTURED_EXTRA_KEY_RE =
   /^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|categoryid|condition_code|conditioncode|vision_confidence|visionconfidence|provenance|field_source|fieldsource)$/i;
 export const MARKETING_FILLER_RE =
-  /\b(?:must[- ]have|perfect(?:\s+(?:for|addition))?|great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout(?:\s+(?:vehicle|car|item|product|player))?|known for (?:its )?(?:performance|design)|performance and design|legendary (?:figures|status)|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|reliable performance|reliable choice|any .* collection|don'?t miss out|highly sought[- ]after|rare|valuable|iconic|grab a bargain|sure to impress|classic era|represents a|era of .{0,40}performance|great choice)\b/i;
+  /\b(?:must[- ]have|perfect(?:\s+(?:for|addition))?|great addition|valuable addition|perfect opportunity|enhance your|showcase these|step (?:into|up)|experience .{0,45}(?:like never before|gaming)|vibrant design|standout(?:\s+(?:vehicle|car|item|product|player))?|known for (?:its )?(?:performance|design)|performance and design|legendary (?:figures|status)|ideal for|sleek design|sneaker game|(?:unique|notable) collectible|fans? and collectors?|seamless gaming|reliable controller|reliable performance|reliable choice|reliable gaming experience|latest features|advanced capabilities|the seller (?:confirms|states)|seller states|details were not provided|any .* collection|don'?t miss out|highly sought[- ]after|rare|valuable|iconic|grab a bargain|sure to impress|classic era|represents a|era of .{0,40}performance|great choice)\b/i;
 
 export type DescriptionValidationFailureReason =
   | "too_short"
@@ -90,7 +90,8 @@ export type DescriptionValidationFailureReason =
   | "collection_missing"
   | "required_identity_missing"
   | "title_equivalent"
-  | "price_or_location_leak";
+  | "price_or_location_leak"
+  | "insufficient_seller_evidence";
 
 export type DescriptionValidationResult =
   | { ok: true; description: string; requiredFacts: string[]; optionalFacts: string[] }
@@ -459,18 +460,90 @@ function hasMeaningfulFacts(facts: DescriptionWriterFacts): boolean {
       facts.items ||
       facts.sellerNotes?.length ||
       facts.extras.length ||
-      facts.vehicle ||
       facts.sellerEvidence ||
-      facts.title.split(/\s+/).length >= 3
+      facts.product ||
+      facts.vehicle
   );
+}
+
+const EVIDENCE_STOPWORDS = new Set([
+  "the",
+  "and",
+  "with",
+  "from",
+  "that",
+  "this",
+  "have",
+  "has",
+  "been",
+  "used",
+  "always",
+  "comes",
+  "including",
+  "known",
+  "previous",
+]);
+
+function flattenSellerEvidenceAtoms(facts: DescriptionWriterFacts): string[] {
+  const atoms: string[] = [
+    ...(facts.sellerNotes || []),
+    facts.product?.storage,
+    facts.product?.colour,
+    facts.product?.size,
+    facts.product?.variant,
+  ].filter((value): value is string => Boolean(value?.trim()));
+  const evidence = facts.sellerEvidence || {};
+  for (const key of [
+    "modifications",
+    "maintenance",
+    "conditionDetails",
+    "mechanical",
+    "compliance",
+    "included",
+    "notes",
+  ] as const) {
+    const values = evidence[key];
+    if (Array.isArray(values)) atoms.push(...values.map(String));
+  }
+  return [...new Set(atoms.map((item) => item.trim()).filter(Boolean))];
+}
+
+function evidenceItemCovered(description: string, item: string): boolean {
+  const haystack = description.toLowerCase().replace(/[^a-z0-9%]+/g, " ");
+  const tokens = item
+    .toLowerCase()
+    .replace(/[^a-z0-9%]+/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 2 && !EVIDENCE_STOPWORDS.has(token));
+  if (!tokens.length) return true;
+  const distinctive = tokens.filter((token) => token.length > 3 || /\d/.test(token));
+  const check = distinctive.length ? distinctive : tokens;
+  const needed = Math.max(1, Math.ceil(check.length * 0.5));
+  return check.filter((token) => haystack.includes(token)).length >= needed;
+}
+
+function isIdentityConditionLocationOnly(
+  description: string,
+  facts: DescriptionWriterFacts
+): boolean {
+  let stripped = description.toLowerCase();
+  for (const value of [facts.title, facts.condition, facts.location, facts.product?.colour]) {
+    if (!value) continue;
+    stripped = stripped.replace(new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), " ");
+  }
+  stripped = stripped
+    .replace(/\b(?:in|located|condition|like-new|like new|brand new|good used|fair used|used)\b/gi, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped.split(" ").filter((word) => word.length > 2).length < 3;
 }
 
 /**
  * Public-copy fact policy:
  * - Required: identity that stops the item becoming generic; collection/item
  *   names for a supplied bundle; stated condition.
- * - Optional: seller notes and other enrichment. Those facts ground the writer
- *   but need not be repeated verbatim.
+ * - Rich seller evidence is not optional decoration. Semantic coverage is required.
  */
 function descriptionFactPolicy(facts: DescriptionWriterFacts): {
   requiredFacts: string[];
@@ -562,8 +635,6 @@ export function validateAiListingDescriptionResult(
     return fail("unsupported_claim");
   }
   if (description.length < 24) return fail("too_short");
-  const wordCount = description.split(/\s+/).filter(Boolean).length;
-  if (evidenceCount >= 5 && wordCount < 40) return fail("too_short");
   if (description.length > 1400) return fail("too_long");
   if (/\b(?:is|are)\s+in\s+(?:brand new|new)\b/i.test(description)) {
     return fail("invalid_condition_grammar");
@@ -602,7 +673,7 @@ export function validateAiListingDescriptionResult(
   if (/\b(?:asking\s+\$|priced at\s+\$)\b/i.test(description)) {
     return fail("price_or_location_leak");
   }
-  if (/\bfor sale in\b/i.test(description) && facts.listingType === "physical") {
+  if (/\bfor sale in\b/i.test(description)) {
     return fail("price_or_location_leak");
   }
   if (
@@ -644,6 +715,23 @@ export function validateAiListingDescriptionResult(
     titleWords.some((word) => description.toLowerCase().includes(word))
   ) {
     return fail("title_equivalent");
+  }
+  if (
+    /\b(?:the seller (?:confirms|states)|seller states|details were not provided)\b/i.test(
+      description
+    )
+  ) {
+    return fail("seller_guidance");
+  }
+  const evidenceAtoms = flattenSellerEvidenceAtoms(facts);
+  if (evidenceAtoms.length >= 3) {
+    const covered = evidenceAtoms.filter((item) => evidenceItemCovered(description, item));
+    if (covered.length < Math.ceil(evidenceAtoms.length * 0.5)) {
+      return fail("insufficient_seller_evidence");
+    }
+    if (isIdentityConditionLocationOnly(description, facts)) {
+      return fail("insufficient_seller_evidence");
+    }
   }
   return { ok: true, description, requiredFacts, optionalFacts };
 }
@@ -735,7 +823,9 @@ Writing rules:
 - Compose relationships; never serialize raw metadata keys or labels.
 - Compose facts naturally. Preserve meaning, not exact seller wording.
 - Never invent praise, era commentary, or enthusiast filler to pad sparse copy.
-- Never mention asking price, contact actions, "for sale", database labels, or unsupported claims.
+- Never mention asking price, contact actions, "for sale", "for sale in", database labels, or unsupported claims.
+- Never write "the seller confirms", "seller states", or that details were not provided.
+- Never invent product features, benefits, reliability, or "latest features".
 - When sellerEvidence.location or location is supplied, you may include it once as a closing fact. Never invent a location.
 - For related/bundled items, explain the relationship naturally when facts support it.
 - Preserve the most specific supplied collection, group, model, or product-family name; do not replace it with a generic category.

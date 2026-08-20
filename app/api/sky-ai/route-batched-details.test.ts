@@ -126,4 +126,55 @@ describe("POST /api/sky-ai batched seller details", () => {
     ).json();
     assert(second.listingFill, second.reply);
   });
+
+  it("keeps a rich phone follow-up in listingFill and the public description", async () => {
+    const anonSessionId = `route-phone-${Date.now()}`;
+    const first = await (await POST(request({ message: "I want to sell my iPhone 15 Pro", anonSessionId }))).json();
+    expect(String(first.listingFill?.description || "")).not.toMatch(/for sale in/i);
+    const second = await (
+      await POST(
+        request({
+          message:
+            "256GB, Natural Titanium, like-new condition, $1,250, Auckland. Battery health is 94%. Comes with the original box and USB-C cable. Always used with a case and screen protector. No cracks, faults or repairs.",
+          anonSessionId,
+          listingContext: first.listingFill,
+          awhinaSession: first.awhinaSession,
+        })
+      )
+    ).json();
+    expect(second.listingFill?.condition).toBe("Used - Like New");
+    expect(second.listingFill?.price).toBe("1250");
+    expect(second.listingFill?.location).toBe("Auckland");
+    expect(String(second.listingFill?.vehicleColour || extrasText(second.listingFill))).toMatch(
+      /titanium/i
+    );
+    const description = String(second.listingFill?.description || "");
+    expect(description).toMatch(/256\s*GB/i);
+    expect(description).toMatch(/like[- ]new/i);
+    expect(description).toMatch(/battery|94/i);
+    expect(description).toMatch(/box/i);
+    expect(description).toMatch(/cable|usb/i);
+    expect(description).not.toMatch(/for sale in/i);
+    expect(description).not.toMatch(/good used condition/i);
+  });
+
+  it("keeps console accessories after a rich follow-up", async () => {
+    const anonSessionId = `route-console-${Date.now()}`;
+    const first = await (await POST(request({ message: "sell my PS5", anonSessionId }))).json();
+    const second = await (
+      await POST(
+        request({
+          message: "Like new, $550, Auckland. Comes with one controller and all cables. No faults or damage.",
+          anonSessionId,
+          listingContext: first.listingFill,
+          awhinaSession: first.awhinaSession,
+        })
+      )
+    ).json();
+    expect(second.listingFill?.condition).toBe("Used - Like New");
+    const description = String(second.listingFill?.description || "");
+    expect(description).toMatch(/controller/i);
+    expect(description).toMatch(/cable/i);
+    expect(description).not.toMatch(/for sale in/i);
+  });
 });

@@ -48,6 +48,7 @@ import {
   hasRentalOfferingIntent,
   hasSearchIntentLanguage,
   hasServiceOfferingIntent,
+  isExplicitNewSellListingMessage,
 } from "./sky-ai-intent";
 import {
   buildClarificationCopy,
@@ -314,6 +315,15 @@ export function detectPendingClarificationOverride(
 
   if (hasServiceOfferingIntent(m)) return { reason: "service", toTask: "selling" };
   if (hasRentalOfferingIntent(m)) return { reason: "rental", toTask: "selling" };
+  // Open listing-detail batches must survive data-rich answers that merely
+  // LOOK like sell seeds (year + km + $price). Only an explicit NEW listing
+  // cancels them.
+  if (pending.kind === "listing_slots") {
+    if (isExplicitNewSellListingMessage(m) || hasExplicitSellSwitch(m)) {
+      return { reason: "sell", toTask: "selling" };
+    }
+    return null;
+  }
   if (hasExplicitSellSwitch(m) || hasListingSellIntent(m)) {
     return { reason: "sell", toTask: "selling" };
   }

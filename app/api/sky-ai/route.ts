@@ -43,6 +43,10 @@ import {
   finalizeAwhinaListingDescription,
   finalizeAwhinaListingDescriptionAsync,
 } from "../../lib/awhina-listing-composer";
+import {
+  buildDescriptionWriterFacts,
+  validateAiListingDescription,
+} from "../../lib/awhina-description-writer";
 import type { SkyAiProfileContext } from "../../lib/sky-ai-profile-context";
 import { runVisionCapability } from "../../lib/awhina-vision-capability";
 import { runVisionListing } from "../../lib/awhina-vision-listing";
@@ -68,6 +72,25 @@ function listingFillConfirmReply(fill: SkyAiListingFill | undefined): string {
   return buildPostListingNextActions(fill, { hasPhotos: false });
 }
 
+function listingHasBuyerCopyEvidence(fill: SkyAiListingFill): boolean {
+  const extras = (fill.extras || []).filter(
+    (entry) =>
+      !/^(domain|objectType|object_type|listing_type|listingtype|category_id|field_source|vision_confidence):/i.test(
+        String(entry)
+      )
+  );
+  return Boolean(
+    fill.condition ||
+      extras.length ||
+      fill.vehicleYear ||
+      fill.vehicleOdometer ||
+      fill.vehicleTransmission ||
+      fill.vehicleColour ||
+      fill.servicePricingType ||
+      fill.rentalSubType
+  );
+}
+
 function shouldWriteDescription(
   fill: SkyAiListingFill,
   prior: SkyAiListingContext | null,
@@ -77,10 +100,13 @@ function shouldWriteDescription(
   if (/\b(?:rewrite|regenerate|improve|update|make).{0,30}\b(?:description|desc)\b/i.test(message)) {
     return true;
   }
+  if (!listingHasBuyerCopyEvidence(fill)) return false;
   if (!prior) return true;
   return (
     fill.title !== prior.title ||
     fill.condition !== prior.condition ||
+    fill.location !== prior.location ||
+    fill.vehicleColour !== prior.vehicleColour ||
     JSON.stringify(fill.extras || []) !== JSON.stringify(prior.extras || []) ||
     fill.vehicleMake !== prior.vehicleMake ||
     fill.vehicleModel !== prior.vehicleModel ||
@@ -95,12 +121,16 @@ async function enhanceAiOwnedDescription(
   message: string
 ): Promise<SkyAiListingFill | undefined> {
   if (!fill || !shouldWriteDescription(fill, prior, message)) return fill;
+  const rewriteRequested =
+    /\b(?:rewrite|regenerate|improve|update|make).{0,30}\b(?:description|desc)\b/i.test(message);
+  const stillValid = fill.description?.trim()
+    ? validateAiListingDescription(fill.description, buildDescriptionWriterFacts(fill))
+    : null;
   try {
     return await finalizeAwhinaListingDescriptionAsync(fill, {
-      force: /\b(?:rewrite|regenerate|improve|update|make).{0,30}\b(?:description|desc)\b/i.test(message),
+      force: rewriteRequested || !stillValid,
     });
   } catch {
-    // Description polish must never prevent a safe canonical listing update.
     return fill;
   }
 }

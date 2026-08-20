@@ -2,27 +2,27 @@
 
 exports[`category-aware description snapshots > clothing snapshot 1`] = `"Like-new North Face Jacket in Hamilton. Pickup locally."`;
 
-exports[`category-aware description snapshots > furniture snapshot 1`] = `"3 Seater Couch in good used condition for sale in Christchurch. Local pickup is available."`;
+exports[`category-aware description snapshots > furniture snapshot 1`] = `"3 Seater Couch in good used condition. Local pickup is available. Located in Christchurch."`;
 
-exports[`category-aware description snapshots > gaming electronics snapshot 1`] = `"Brand new PlayStation 5 Console for sale in Auckland. Local pickup is available."`;
+exports[`category-aware description snapshots > gaming electronics snapshot 1`] = `"Brand new PlayStation 5 Console. Local pickup is available. Located in Auckland."`;
 
 exports[`category-aware description snapshots > home and garden snapshot 1`] = `"Lawn Mower in good used condition in Palmerston North. Pickup locally."`;
 
-exports[`category-aware description snapshots > phones / electronics snapshot 1`] = `"Like-new iPhone 15 Pro for sale in Wellington. Pickup or shipping can be arranged."`;
+exports[`category-aware description snapshots > phones / electronics snapshot 1`] = `"Like-new iPhone 15 Pro. Pickup or shipping can be arranged. Located in Wellington."`;
 
 exports[`category-aware description snapshots > property rental snapshot 1`] = `"2 Bedroom Apartment in Auckland is available to rent. 2 bedrooms, 1 bathroom, unfurnished, $520 per week, $2080 bond. Happy to arrange a viewing — just message me."`;
 
 exports[`category-aware description snapshots > services snapshot 1`] = `"Lawn Mowing available in Hamilton for $60 per hour. Whether it's a one-off tidy-up or regular lawn maintenance, happy to talk through what you need. Message with a few job details and I'll get back to you."`;
 
-exports[`category-aware description snapshots > sports snapshot 1`] = `"Mountain Bike in good used condition for sale in Dunedin. Pickup locally."`;
+exports[`category-aware description snapshots > sports snapshot 1`] = `"Mountain Bike in good used condition. Pickup locally. Located in Dunedin."`;
 
 exports[`category-aware description snapshots > vehicles snapshot 1`] = `"2018 BMW 320i in Auckland. Finished in blue with 85,000 km and an automatic transmission. The car is in good used condition. Message if you're interested."`;
 
 exports[`description quality suite — golden reference cases > BMW: ≤1 CTA, grounded, type-aware 1`] = `"2018 BMW 320i in Auckland. Finished in blue with 85,000 km and an automatic transmission. The car is in good used condition. Message if you're interested."`;
 
-exports[`description quality suite — golden reference cases > PS5: ≤1 CTA, grounded, type-aware 1`] = `"Brand new PlayStation 5 Console for sale in Auckland. Pickup locally."`;
+exports[`description quality suite — golden reference cases > PS5: ≤1 CTA, grounded, type-aware 1`] = `"Brand new PlayStation 5 Console. Pickup locally. Located in Auckland."`;
 
-exports[`description quality suite — golden reference cases > couch: ≤1 CTA, grounded, type-aware 1`] = `"3 Seater Couch in good used condition for sale in Christchurch. Local pickup is available."`;
+exports[`description quality suite — golden reference cases > couch: ≤1 CTA, grounded, type-aware 1`] = `"3 Seater Couch in good used condition. Local pickup is available. Located in Christchurch."`;
 
 exports[`description quality suite — golden reference cases > house cleaner: ≤1 CTA, grounded, type-aware 1`] = `"House Cleaning available in Wellington. Happy to discuss the scope and put a quote together once I know a bit more about the job. Message with a few job details and I'll get back to you."`;
 

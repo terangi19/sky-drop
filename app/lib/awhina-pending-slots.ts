@@ -27,6 +27,10 @@ import {
   harvestSellerEvidence,
   sellerEvidenceToExtras,
 } from "./awhina-seller-evidence";
+import {
+  looksLikeColourFinish,
+  parseListingCondition,
+} from "./awhina-listing-condition";
 
 export type ListingMissingSlot =
   | "price"
@@ -355,7 +359,7 @@ const SIZE_RE = /^\s*(?:size\s*)?(\d{1,2}(?:\.\d)?|XS|S|M|L|XL|XXL|XXXL)\s*$/i;
 const GRADE_RE = /^\s*(psa|bgs|cgc|sgc)\s*([0-9]{1,2}(?:\.\d)?)\s*$/i;
 const PRICE_RE = /^\s*\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\s*$/i;
 const CONDITION_WORDS =
-  /^(new|brand\s*new|like\s*new|used|good|fair|mint|sealed|unopened|excellent|great)\b/i;
+  /^(new|brand[\s-]*new|like[\s-]*new|used|good|fair|mint|sealed|unopened|excellent|great)\b/i;
 const NZ_CITY =
   /^(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|rotorua|queenstown|nelson|whangarei)\b/i;
 const TRANS_RE = /^(manual|automatic|auto)\b/i;
@@ -552,11 +556,7 @@ export function parseShortReplyForPendingSlot(
   }
 
   if (activeSlot === "condition" && CONDITION_WORDS.test(t)) {
-    const raw = t.toLowerCase();
-    let condition = "Used - Good";
-    if (/brand\s*new|sealed|unopened|^new\b/.test(raw)) condition = "New";
-    else if (/like\s*new|mint|excellent/.test(raw)) condition = "Used - Like New";
-    else if (/fair/.test(raw)) condition = "Used - Fair";
+    const condition = parseListingCondition(t) || "Used - Good";
     return { matched: true, filledSlot: "condition", partial: { condition } };
   }
 
@@ -1149,37 +1149,24 @@ export function extractCompoundListingFacts(
     " "
   );
   const conditionHit =
-    /\bbrand\s*new\b|\blike\s*new\b|\b(new|used|good|fair|mint|excellent)\s+condition\b|\bcondition\s*(?:is\s*)?(new|used|good|fair|mint)/i.test(
+    /\bbrand[\s-]*new\b|\blike[\s-]*new\b|\b(new|used|good|fair|mint|excellent)\s+condition\b|\bcondition\s*(?:is\s*)?(new|used|good|fair|mint)/i.test(
       residualForCondition
     ) ||
-    /\b(brand\s*new|like\s*new|excellent|mint)\b/i.test(residualForCondition) ||
+    /\b(brand[\s-]*new|like[\s-]*new|excellent|mint)\b/i.test(residualForCondition) ||
     (/\b(new|used|good|fair|mint|excellent|sealed|unopened)\b/i.test(residualForCondition) &&
-      !/\bnew\s+zealand\b/i.test(residualForCondition));
+      !/\bnew\s+zealand\b/i.test(residualForCondition) &&
+      !/\blike[\s-]*new\b/i.test(residualForCondition));
   if (conditionHit) {
-    const raw = residualForCondition.toLowerCase();
-    let condition = "Used - Good";
-    if (
-      /brand\s*new|sealed|unopened|(?:^|[^\w])new(?:\s+condition)?\b/.test(raw) &&
-      !/new\s+zealand/.test(raw)
-    ) {
-      condition = "New";
-    } else if (/like\s*new|mint|excellent/.test(raw)) {
-      condition = "Used - Like New";
-    } else if (/\bfair\b/.test(raw)) {
-      condition = "Used - Fair";
-    } else if (/\b(used|good)\b/.test(raw)) {
-      condition = "Used - Good";
-    }
+    const condition = parseListingCondition(residualForCondition) || "Used - Good";
     partial.condition = condition;
     filledSlots.push("condition");
     notes.push(condition === "New" ? "brand new" : condition);
     residual = residual
-      .replace(/\bbrand\s*new\b/gi, " ")
-      .replace(/\blike\s*new\b/gi, " ")
+      .replace(/\bbrand[\s-]*new\b/gi, " ")
+      .replace(/\blike[\s-]*new\b/gi, " ")
       .replace(/\b(good|fair|mint|excellent|used|new)\s+condition\b/gi, " ")
       .replace(/\bcondition\s*(?:is\s*)?(new|used|good|fair|mint|excellent)\b/gi, " ")
-      .replace(/\b(brand\s*new|like\s*new|excellent|mint)\b/gi, " ")
-      // Bare condition tokens in compound turns (do not strip "new" from New Zealand — already guarded)
+      .replace(/\b(brand[\s-]*new|like[\s-]*new|excellent|mint)\b/gi, " ")
       .replace(/\b(new|used|good|fair|mint|excellent|sealed|unopened)\b/gi, " ")
       .replace(/\s+/g, " ")
       .trim();
@@ -1194,20 +1181,22 @@ export function extractCompoundListingFacts(
 
   // Colour (vehicles / explicit colour words in compound replies)
   const colourMatch = residual.match(
-    /\b((?:gunmetal|midnight|pearl|matte|metallic|navy|dark|light|forest|racing)\s+)?(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy)\b/i
+    /\b((?:natural|space|midnight|pearl|matte|metallic|starlight|graphite|alpine|gunmetal|navy|dark|light|forest|racing)\s+)?(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy|titanium|graphite|starlight)\b/i
   );
+  const colourPhrase = colourMatch
+    ? [colourMatch[1], colourMatch[2]].filter(Boolean).join(" ").replace(/\s+/g, " ").trim()
+    : "";
   if (
     colourMatch &&
+    colourPhrase &&
+    !partial.vehicleColour &&
+    !(base.vehicleColour || "").trim() &&
     (opts?.activeSlot === "colour" ||
       domain === "vehicle" ||
-      missingFromBase.includes("colour"))
+      missingFromBase.includes("colour") ||
+      looksLikeColourFinish(colourPhrase))
   ) {
-    const phrase = [colourMatch[1], colourMatch[2]]
-      .filter(Boolean)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-    partial.vehicleColour = phrase
+    partial.vehicleColour = colourPhrase
       .split(/\s+/)
       .map((word, index) =>
         index === 0
@@ -1217,6 +1206,9 @@ export function extractCompoundListingFacts(
       .join(" ");
     filledSlots.push("colour");
     notes.push(`colour ${partial.vehicleColour}`);
+    partial.extras = mergeExtras(partial.extras || base.extras, [
+      `colour:${partial.vehicleColour}`,
+    ]);
     residual = residual.replace(colourMatch[0], " ").replace(/\s+/g, " ").trim();
   }
 
@@ -1436,6 +1428,18 @@ export function extractCompoundListingFacts(
     const extras = sellerEvidenceToExtras(sellerItems);
     partial.extras = mergeExtras(partial.extras || base.extras, extras);
     notes.push(...sellerItems.map((item) => item.text));
+    if (!partial.vehicleColour && !(base.vehicleColour || "").trim()) {
+      const colourItem = sellerItems.find((item) => looksLikeColourFinish(item.text));
+      if (colourItem) {
+        const colour = colourItem.text
+          .split(/\s+/)
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(" ");
+        partial.vehicleColour = colour;
+        partial.extras = mergeExtras(partial.extras, [`colour:${colour}`]);
+        filledSlots.push("colour");
+      }
+    }
     residual = residual
       .replace(
         /\b(?:mostly stock|aftermarket|modified|modifications?|exhaust|wheels?|upgrades?|faults?|issues?|maintenance|serviced?|service history|coilovers?|intake|wof|rego|registration|stone chips?|interior is tidy)[\s\S]*/i,

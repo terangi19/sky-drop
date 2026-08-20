@@ -31,6 +31,7 @@ import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SearchSessionFilters } from "./awhina-search-memory";
 import type { PendingClarification } from "./awhina-task-scope";
 import { resolveVehicleIdentity } from "./sky-ai-find-routing";
+import { parseListingCondition } from "./awhina-listing-condition";
 import { knowledgeTurnPatch, marketplaceClarifyQuestion } from "./marketplace-knowledge";
 import { isListPublishActionMessage } from "./awhina-active-draft-commands";
 
@@ -233,14 +234,8 @@ export function extractTurnEntities(message: string): AwhinaTurnEntities {
     out.location = loc[1].replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
-  const cond = m.match(/\b(brand\s+new|like\s+new|new|used|excellent|mint|good|fair)\b/i);
-  if (cond) {
-    const c = cond[1].toLowerCase();
-    if (c === "brand new" || c === "new") out.condition = "New";
-    else if (c === "like new" || c === "mint" || c === "excellent") out.condition = "Used - Like New";
-    else if (c === "good" || c === "used") out.condition = "Used - Good";
-    else if (c === "fair") out.condition = "Used - Fair";
-  }
+  const parsedCondition = parseListingCondition(m);
+  if (parsedCondition) out.condition = parsedCondition;
 
   const item = m.match(
     /\b(ps5|ps4|playstation\s*[45]|xbox(?:\s*series\s*[sx])?|iphone(?:\s*\d+(?:\s*pro)?)?|airpods(?:\s*pro)?|couch|sofa|samsung\s*tv|macbook)\b/i

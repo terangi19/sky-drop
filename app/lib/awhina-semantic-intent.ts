@@ -5,6 +5,7 @@
 
 import type { ListingMissingSlot } from "./awhina-pending-slots";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
+import { parseListingCondition } from "./awhina-listing-condition";
 
 export type SemanticIntentKind =
   | "NEW_FACT"
@@ -380,30 +381,11 @@ export function interpretSemanticTurn(opts: {
   const pickup = extractPickupOnly(message);
   if (pickup) facts.push(pickup);
 
-  // Condition — require an explicit condition token (don't default to Used - Good)
-  if (
-    /\b(brand\s*new|like\s*new|mint|excellent|sealed|unopened)\b/i.test(message) ||
-    (/\bnew\b/i.test(message) && !/\bnew\s+zealand\b/i.test(message)) ||
-    /\b(used|fair)\b/i.test(message) ||
-    /\bgood\s+condition\b/i.test(message)
-  ) {
-    const raw = message.toLowerCase();
-    let condition = "Used - Good";
-    if (
-      /\bbrand\s*new\b|\bsealed\b|\bunopened\b/.test(raw) ||
-      (/\bnew\b/.test(raw) && !/\bnew\s+zealand\b/.test(raw) && !/\blike\s*new\b/.test(raw))
-    ) {
-      condition = "New";
-    } else if (/\blike\s*new\b|\bmint\b|\bexcellent\b/.test(raw)) {
-      condition = "Used - Like New";
-    } else if (/\bfair\b/.test(raw)) {
-      condition = "Used - Fair";
-    } else if (/\bused\b|\bgood\s+condition\b/.test(raw)) {
-      condition = "Used - Good";
-    }
+  const parsedCondition = parseListingCondition(message);
+  if (parsedCondition) {
     facts.push({
       key: "condition",
-      value: condition,
+      value: parsedCondition,
       slot: "condition",
       confidence: "HIGH",
     });

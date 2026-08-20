@@ -29,6 +29,7 @@ import {
   isSellerEvidenceExtra,
   sellerEvidenceItemCount,
 } from "./awhina-seller-evidence";
+import { hasAffirmativeWear } from "./awhina-listing-condition";
 
 export type ListingDescriptionQuality = "standard" | "premium" | "premium_plus";
 
@@ -210,6 +211,15 @@ function formatMoneyPlain(price: string | undefined | null): string | null {
 
 function indefiniteArticle(word: string): string {
   return /^[aeiou]/i.test(word) ? "an" : "a";
+}
+
+function appendLocatedIn(text: string, location?: string | null): string {
+  const loc = String(location || "").trim();
+  if (!loc) return text;
+  const escaped = loc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (new RegExp(`\\b${escaped}\\b`, "i").test(text)) return text;
+  const base = text.trim().replace(/[.!?]*$/, ".");
+  return polishParagraph(`${base} Located in ${loc}.`);
 }
 
 function conditionShort(condition: string | undefined): string | null {
@@ -458,12 +468,8 @@ function reconcileConditionPhrase(
   title?: string
 ): string | null {
   if (!phrase) return phrase;
-  const blob = `${extras.join(" ")} ${title || ""}`.toLowerCase();
-  const hasWear =
-    /\b(scratches?|scuffs?|dents?|dings?|cracks?|chips?|wear|worn|damaged?)\b/i.test(
-      blob
-    );
-  if (!hasWear) return phrase;
+  const blob = `${extras.join(" ")} ${title || ""}`;
+  if (!hasAffirmativeWear(blob)) return phrase;
   if (/\b(?:factory[- ]sealed|still sealed)\b/i.test(blob)) return phrase;
   if (/brand new|like-new/i.test(phrase)) return "good used condition";
   return phrase;
@@ -495,6 +501,7 @@ function composeExtrasProse(extras: string[], location?: string | null): string 
           /\bstorage\b/i.test(value) ? value : `${value} storage`
         )
         .replace(/^size:/i, "Size ")
+        .replace(/^colour:|^color:/i, "")
         .replace(/^variant:/i, "")
         .replace(/^visual:\s*/i, "")
         .replace(/^attr:\s*/i, "")
@@ -1414,13 +1421,11 @@ export function passesListingDescriptionQualityGate(
   if (t.includes("\n\n")) return false;
   if (countCtas(t) > 1) return false;
   const n = wordCount(t);
-  // Facts set length, not a template target. A complete product + condition
-  // sentence (for example a brand-new DualSense) can be excellent at 8–9 words.
-  // Rich copy still stays under 100 words.
-  const min = 8;
-  if (n < min || n > 100) return false;
+  // Facts set length, not a template target. Compact identity + location
+  // copy can be excellent at ~6–9 words; rich evidence can run longer.
+  if (n < (opts?.sparse ? 5 : 6) || n > 170) return false;
   const sentences = splitSentences(t);
-  if (sentences.length < 1 || sentences.length > 5) return false;
+  if (sentences.length < 1 || sentences.length > 10) return false;
   if (hasAdjacentIdeaRepetition(sentences)) return false;
   return true;
 }
@@ -1740,12 +1745,12 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
           `This ${attributiveConditionPhrase(noun)} is a ${sealedRelationship}.`
         )
       );
-    } else if (facts.location) {
-      // Price belongs in the price field — never in buyer prose.
-      parts.push(polishParagraph(`${capFirst(noun)} for sale in ${facts.location}.`));
     } else {
       parts.push(polishParagraph(`${capFirst(noun)}.`));
     }
+    const extrasWithLocation = composeExtrasProse(facts.extras, facts.location);
+    if (extrasWithLocation) parts.push(extrasWithLocation);
+    return appendLocatedIn(finalGrammarCleanup(parts.filter(Boolean).join(" ")), facts.location);
   }
 
   // No auto "Message if interested" on physical — keep soft close only for service/rental/wanted
@@ -2044,16 +2049,15 @@ function writeTradingCard(
   }
   // Price stays on the listing price field — never "asking $…" in card prose.
   if (loc) {
-    parts.push(polishParagraph(`${capFirst(opener)} for sale in ${loc}.`));
+    parts.push(polishParagraph(`${capFirst(opener)}.`));
   } else {
     parts.push(polishParagraph(`${capFirst(opener)}.`));
   }
 
   // Wear / feature extras only — never Set/manufacturer dumps
-  const extrasProse = composeExtrasProse(deduped.weaveExtras);
+  const extrasProse = composeExtrasProse(deduped.weaveExtras, loc);
   if (extrasProse) parts.push(extrasProse);
-
-  return parts.join(" ");
+  return appendLocatedIn(parts.join(" "), loc);
 }
 
 function writePhysical(facts: DescriptionFacts): string {
@@ -2115,16 +2119,16 @@ function writePhysical(facts: DescriptionFacts): string {
       { title: facts.item, extras: facts.extras, listingType: "physical" },
       facts.extras
     ).weaveExtras;
-    const extrasProse = composeExtrasProse(weaveOnly);
+    const extrasProse = composeExtrasProse(weaveOnly, loc);
     if (extrasProse) parts.push(extrasProse);
-    return parts.join(" ");
+    return appendLocatedIn(parts.join(" "), loc);
   }
   // Structured price is never buyer-facing prose for ordinary physical goods.
   let opener: string;
   if (loc) {
     opener =
       struct === 0
-        ? `${capFirst(noun)} for sale in ${loc}.`
+        ? `${capFirst(noun)}.`
         : `${capFirst(noun)} in ${loc}.`;
   } else {
     opener = `${capFirst(noun)}.`;
@@ -2157,15 +2161,11 @@ function writePhysical(facts: DescriptionFacts): string {
     );
   }
 
-  // Only weave non-identity extras (wear, battery, mods)
-  const weaveOnly = selectDescriptionFacts(
-    { title: facts.item, extras: facts.extras, listingType: "physical" },
-    facts.extras
-  ).weaveExtras;
-  const extrasProse = composeExtrasProse(weaveOnly);
+  // Weave seller evidence and remaining extras — not identity dumps.
+  const extrasProse = composeExtrasProse(facts.extras, loc && struct !== 0 ? undefined : loc);
   if (extrasProse) parts.push(extrasProse);
 
-  return parts.join(" ");
+  return appendLocatedIn(parts.join(" "), loc);
 }
 
 function writeVehicle(facts: DescriptionFacts): string {
@@ -2234,7 +2234,7 @@ function writeVehicle(facts: DescriptionFacts): string {
     );
   }
 
-  return parts.join(" ");
+  return appendLocatedIn(parts.join(" "), facts.location);
 }
 
 function writeService(facts: DescriptionFacts): string {
@@ -2436,12 +2436,7 @@ export function applyDescriptionContradictionGuard(
 ): string {
   let out = text;
   const extrasBlob = facts.extras.join(" ");
-  const hasWear =
-    /\b(scratches?|scuffs?|dents?|dings?|cracks?|chips?|wear|worn|damaged?)\b/i.test(
-      extrasBlob
-    ) ||
-    /\b(scratches?|scuffs?|dents?|dings?|cracks?|chips?)\b/i.test(out);
-  if (hasWear) {
+  if (hasAffirmativeWear(`${extrasBlob} ${out}`)) {
     out = out
       .replace(/\blike-new\b/gi, "good used condition")
       .replace(/\blike new\b/gi, "good used condition")
@@ -2463,6 +2458,7 @@ export function applyDescriptionContradictionGuard(
     (m) => m.replace(/,.*/i, "").trim()
   );
   out = out.replace(/\b(\d+)\s*(gb|tb)\b/gi, (_, n, u) => `${n}${String(u).toUpperCase()}`);
+  out = out.replace(/\bfor sale in\b/gi, "in");
   return polishParagraph(out);
 }
 
@@ -2511,6 +2507,34 @@ export function buildListingDescriptionFromFacts(
     !opts?.force &&
     !getVehicleDraftReadiness(fill).worthGeneratingBuyerCopy &&
     !hasSpecificVehicleIdentity
+  ) {
+    const sellerCount = sellerEvidenceItemCount(
+      groupedSellerEvidenceFromExtras(fill.extras, fill.location)
+    );
+    if (sellerCount < 1 && !fill.vehicleYear?.trim() && !fill.vehicleOdometer?.trim()) {
+      return "";
+    }
+  }
+  const extras = (fill.extras || []).filter(
+    (entry) =>
+      !/^(domain|objectType|object_type|listing_type|listingtype|category_id|field_source|vision_confidence):/i.test(
+        String(entry)
+      )
+  );
+  const listingType = String(fill.listingType || "").toLowerCase();
+  const sealedFromTitle = Boolean(
+    sealedProductRelationship(`${fill.title || ""} ${extras.join(" ")}`)
+  );
+  if (
+    !opts?.force &&
+    !isVehicleListingFill(fill) &&
+    listingType !== "wanted" &&
+    listingType !== "service" &&
+    listingType !== "rental" &&
+    !fill.condition &&
+    extras.length === 0 &&
+    !(fill.location || fill.pickupArea || "").trim() &&
+    !sealedFromTitle
   ) {
     return "";
   }

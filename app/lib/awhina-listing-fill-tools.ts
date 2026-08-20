@@ -54,6 +54,7 @@ import {
   composeListingTitleAndDescription,
   finalizeAwhinaListingDescription,
 } from "./awhina-listing-composer";
+import { parseListingCondition } from "./awhina-listing-condition";
 import {
   looksLikeVehicleYearToken,
   parseVehicleYear,
@@ -165,7 +166,7 @@ const NON_PRICE_NUMBER_RE =
 const STORAGE_GLUED_RE = /\b(\d+)\s*(gb|tb|mb)\b/i;
 
 const CONDITION_RE =
-  /\b(?:condition(?:\s+is)?|it'?s|its)\s+(new|used(?:\s*[-–]?\s*(?:like\s+new|good|fair))?|like\s+new|excellent|mint|good|fair|rough)\b|\b(brand\s+new|like\s+new|excellent|mint|good|fair|used)\s+condition\b|\b(new|used|like\s+new|excellent|mint)\b(?!\s+(?:zealand|listing))/i;
+  /\b(?:condition(?:\s+is)?|it'?s|its)\s+(new|used(?:\s*[-–]?\s*(?:like[\s-]*new|good|fair))?|like[\s-]*new|excellent|mint|good|fair|rough)\b|\b(brand[\s-]*new|like[\s-]*new|excellent|mint|good|fair|used)\s+condition\b|\b(like[\s-]*new|brand[\s-]*new|used|excellent|mint)\b(?!\s+(?:zealand|listing))|\bnew\b(?!\s+(?:zealand|listing))(?<![A-Za-z]-)/i;
 
 const SELL_ITEM_RE =
   /\b(?:want\s+to\s+list|selling|sell(?:ing)?|list(?:ing)?|post(?:ing)?)\s+(?:my\s+|a\s+|an\s+|the\s+)?(.+)$/i;
@@ -385,12 +386,7 @@ export function validatePriceString(
 }
 
 function normalizeConditionLocal(raw: string): string | undefined {
-  const lower = raw.trim().toLowerCase();
-  if (lower === "new") return "New";
-  if (/like new|excellent|mint/.test(lower)) return "Used - Like New";
-  if (/fair|rough/.test(lower)) return "Used - Fair";
-  if (/good|used/.test(lower)) return "Used - Good";
-  return undefined;
+  return parseListingCondition(raw);
 }
 
 function isStorageOrSizeToken(raw: string, message: string): boolean {
@@ -1339,23 +1335,12 @@ export function processListingFillMessage(
     touched = true;
   }
 
-  // Condition — "brand new" / "its brand new" → New (current message wins)
-  if (/\bbrand\s+new\b/i.test(trimmed)) {
-    partial.condition = "New";
-    notes.push("condition New");
+  // Condition — like-new / sealed / used from the whole message
+  const parsedCondition = parseListingCondition(trimmed);
+  if (parsedCondition) {
+    partial.condition = parsedCondition;
+    notes.push(`condition ${parsedCondition}`);
     touched = true;
-  } else {
-    const condMatch = trimmed.match(CONDITION_RE);
-    if (condMatch) {
-      const cond = normalizeConditionLocal(
-        condMatch[1] || condMatch[2] || condMatch[3] || ""
-      );
-      if (cond) {
-        partial.condition = cond;
-        notes.push(`condition ${cond}`);
-        touched = true;
-      }
-    }
   }
 
   // Location — "in Auckland" or bare NZ city after pickup

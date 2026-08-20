@@ -37,6 +37,7 @@ import {
   progressStatesForRoute,
   maybeOneProactiveSuggestion,
   sanitizeSearchQueryText,
+  detectPendingClarificationOverride,
 } from "./awhina-product-ux";
 import {
   resetAwhinaObsForTests,
@@ -703,6 +704,39 @@ describe("quality metrics", () => {
     expect(s.toolSuccessRate).toBeGreaterThan(0);
     expect(s).toHaveProperty("avgLatencyMs");
     expect(JSON.stringify(s)).not.toMatch(/I need a PS5|password|email@/i);
+  });
+});
+
+describe("listing_slots clarification override hardening", () => {
+  it("does not cancel an open detail batch on a data-rich vehicle answer", () => {
+    const pending = {
+      kind: "listing_slots" as const,
+      status: "open" as const,
+      priorMessage: "What's the year, mileage, transmission, condition, and asking price?",
+      askedAt: Date.now(),
+      pendingSlot: "year",
+      missingListingSlots: ["year", "odometer", "transmission", "condition", "price"],
+    };
+    expect(
+      detectPendingClarificationOverride(
+        "1999 Nissan Skyline R34, 145,000 km, manual, good used condition, asking $38,000. Aftermarket exhaust, wheels, coilovers and intake.",
+        pending
+      )
+    ).toBeNull();
+  });
+
+  it("still cancels listing_slots on an explicit new sell", () => {
+    const pending = {
+      kind: "listing_slots" as const,
+      status: "open" as const,
+      priorMessage: "What year is it?",
+      askedAt: Date.now(),
+      pendingSlot: "year",
+    };
+    expect(detectPendingClarificationOverride("sell my ps5", pending)).toEqual({
+      reason: "sell",
+      toTask: "selling",
+    });
   });
 });
 

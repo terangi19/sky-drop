@@ -5,6 +5,7 @@ import {
   SERVICE_LISTING_CATEGORIES as SERVICE_CATEGORIES,
 } from "./listing-type-config";
 import { isStripeCheckoutProductEnabled } from "./stripe-checkout-flags";
+import { parseListingCondition } from "./awhina-listing-condition";
 
 export const SKY_AI_LISTING_FILL_TAG =
   /\[\[LISTING_FILL\]\]\s*([\s\S]*?)\s*\[\[\/LISTING_FILL\]\]/gi;
@@ -168,12 +169,7 @@ export function formatNavTagForDisplay(path: string): string {
 function normalizeCondition(raw: string): string | undefined {
   const s = raw.trim();
   if (CONDITIONS.has(s)) return s;
-  const lower = s.toLowerCase();
-  if (lower === "new") return "New";
-  if (/like new|excellent|mint/i.test(s)) return "Used - Like New";
-  if (/good|used/i.test(s)) return "Used - Good";
-  if (/fair|rough/i.test(s)) return "Used - Fair";
-  return "Used - Good";
+  return parseListingCondition(s) || "Used - Good";
 }
 
 function normalizeRentalCategory(raw: string): string {

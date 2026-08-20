@@ -107,7 +107,7 @@ describe("premium title + description (reusable categories)", () => {
       category: "Gaming",
     });
     expect(desc).toMatch(/PlayStation\s*5/i);
-    expect(desc).toMatch(/\$200|Asking \$200/);
+    expect(desc).not.toMatch(/\$200|Asking \$200/);
     expect(desc).toMatch(/Auckland/);
     expect(desc).not.toMatch(/controller|dualsense|games included|SSD/i);
     expect(desc).not.toMatch(/Condition:|Message me with any questions|I'm selling this/i);
@@ -127,7 +127,7 @@ describe("sell UX copy: no Updated / Started a draft / FB Trade Me", () => {
       pickupAvailable: true,
       description: "Selling Brand New PlayStation 5 Console. Condition: New. Asking $200.",
     });
-    expect(text).toMatch(/listing is ready/i);
+    expect(text).toMatch(/listing(?:'s| is) ready/i);
     expect(text).not.toMatch(/^Updated:/i);
     expect(text).not.toMatch(/Started a draft/i);
     expect(text).not.toMatch(/Facebook|Trade Me/i);
@@ -315,7 +315,7 @@ describe("response quality snapshots reject bad patterns", () => {
       { conversationId: "snap-ps5", pathname: "/" }
     );
     expect(r.listingFill?.price).toBe("200");
-    expect(r.reply).toMatch(/listing is ready/i);
+    expect(r.reply).toMatch(/listing(?:'s| is) ready/i);
     expect(r.reply).not.toMatch(/Updated:|Started a draft|Facebook|Trade Me/i);
     const score = scoreConversationReply(r.reply || "", { listingFill: r.listingFill });
     expect(score.failures).not.toContain("legacy_updated_prefix");

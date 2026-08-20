@@ -59,10 +59,12 @@ const MOD_ITEM_RE =
 const MAINT_RE =
   /\b(serviced|service|fresh (?:engine )?oil|filters?|maintenance|oil change|new chain|new (?:tyres?|tires?))\b/i;
 const MECH_RE =
-  /\b(no known (?:mechanical )?faults?|starts and drives|drives well|mechanical faults?|battery health|\d{2,3}\s*%\s*battery)\b/i;
+  /\b(no known (?:mechanical )?faults?|no (?:cracks?|faults?|repairs?|damage)|starts and drives|drives well|mechanical faults?|battery health|\d{2,3}\s*%\s*(?:battery)?|battery(?:\s+health)?\s*(?:is\s*(?:at\s*)?)?\d{2,3}\s*%)\b/i;
 const COMPLY_RE = /\b(wof|warrant of fitness|rego|registration)\b/i;
 const INCLUDED_RE =
-  /\b(comes with|original box|with box|charger|box and charger)\b/i;
+  /\b(comes with|original box|with box|charger|box and charger|usb-?c|cables?|controller|screen protector)\b/i;
+const USE_HISTORY_RE =
+  /\b(always used with|used with a case|screen protector|case and screen)\b/i;
 const COND_DETAIL_RE =
   /\b(scratch(?:es)?|stone chips?|marks?|dents?|dings?|scuffs?|chips?|tidy|wear|worn twice|paint|interior|age-related|tiny scratch|small (?:scratch|mark|dent)|corner)\b/i;
 const LOGISTICS_RE = /\b(pickup only|pick-?up only|shipping only)\b/i;
@@ -70,7 +72,7 @@ const PROVENANCE_RE = /\b(bought from|purchased from|from [A-Z][\w' -]{2,40})\b/
 const DIMENSION_RE = /\b\d+(?:\.\d+)?\s*(?:cm|mm|m|inch(?:es)?|ft)\b/i;
 const MATERIAL_RE = /\b(solid oak|oak|pine|teak|walnut|steel|alloy|leather|canvas)\b/i;
 const COLOUR_ONLY_RE =
-  /^(?:(?:gunmetal|midnight|pearl|matte|metallic|navy|dark|light|forest|racing)\s+)?(?:black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy)$/i;
+  /^(?:(?:natural|space|midnight|pearl|matte|metallic|starlight|graphite|alpine|gunmetal|navy|dark|light|forest|racing)\s+)?(?:black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy|titanium|graphite|starlight)$/i;
 
 export function isSellerEvidenceExtraKey(key: string): boolean {
   const normalized = key.toLowerCase().replace(/_/g, "");
@@ -117,7 +119,7 @@ function shouldSkipFragment(raw: string, ctx: SellerEvidenceHarvestContext): boo
   }
   if (/^(manual|automatic|auto)$/.test(t)) return true;
   if (
-    /^(?:brand new|like new|good used condition|good condition|used condition|fair condition|excellent condition|mint condition|new|used|good|fair|sealed|unopened)$/.test(
+    /^(?:brand new|like[\s-]*new(?:\s+condition)?|good used condition|good condition|used condition|fair condition|excellent condition|mint condition|new|used|good|fair|sealed|unopened)$/.test(
       t
     )
   ) {
@@ -203,9 +205,14 @@ function harvestFragment(
     if (/\bstarts and drives\b|\bdrives well\b/i.test(text)) {
       pushUnique(items, { kind: "mechanical", text: "starts and drives well" });
     }
-    const battery = text.match(/(\d{2,3})\s*%\s*(?:battery(?:\s+health)?)/i);
+    const battery =
+      text.match(/(\d{2,3})\s*%\s*(?:battery(?:\s+health)?)/i) ||
+      text.match(/battery(?:\s+health)?\s*(?:is\s*(?:at\s*)?)?(\d{2,3})\s*%/i);
     if (battery) {
       pushUnique(items, { kind: "mechanical", text: `${battery[1]}% battery health` });
+    }
+    if (/\bno (?:cracks?|faults?|repairs?|damage)\b/i.test(text)) {
+      pushUnique(items, { kind: "mechanical", text });
     }
     if (items.length) return items;
   }
@@ -238,7 +245,7 @@ function harvestFragment(
     return items;
   }
 
-  if (INCLUDED_RE.test(text)) {
+  if (INCLUDED_RE.test(text) || USE_HISTORY_RE.test(text)) {
     pushUnique(items, { kind: "included", text });
     return items;
   }
@@ -270,6 +277,10 @@ function harvestSentence(
 ): SellerEvidenceItem[] {
   const text = cleanFragment(sentence);
   if (!text) return [];
+
+  if (/\bno\s+(?:known\s+)?(?:cracks?|faults?|repairs?|damage)/i.test(text)) {
+    return harvestFragment(text, ctx);
+  }
 
   if (/,/.test(text) || /;/.test(text)) {
     const parts = text.split(/\s*[,;]\s*/).map(cleanFragment).filter(Boolean);
@@ -441,7 +452,11 @@ export function composeSellerEvidenceProse(grouped: GroupedSellerEvidence): stri
   }
   for (const item of grouped.included) {
     sentences.push(
-      ensureSentence(/^(comes|includes|with)\b/i.test(item) ? item : `Comes with ${item}`)
+      ensureSentence(
+        /^(comes|includes|with|always)\b/i.test(item) || /\bused with\b/i.test(item)
+          ? item
+          : `Comes with ${item}`
+      )
     );
   }
   for (const item of grouped.notes) sentences.push(ensureSentence(item));

@@ -47,7 +47,7 @@ describe("BUY→SELL hard reset (BMW search → PS5 sell)", () => {
     expect(sell.listingFill?.pickupAvailable).toBe(true);
     expect(sell.listingFill?.category).toBe("Gaming");
     expect(String(sell.listingFill?.description || "").length).toBeGreaterThan(40);
-    expect(sell.reply).toMatch(/listing is ready/i);
+    expect(sell.reply).toMatch(/listing(?:'s| is) ready/i);
     expect(sell.reply).not.toMatch(/^Updated:/i);
     expect(JSON.stringify(sell.listingFill)).not.toMatch(/bmw|335i|2007|15000/i);
 
