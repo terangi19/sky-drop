@@ -149,9 +149,8 @@ export default function FloatingActionDock({
       collapse();
       return;
     }
-    // Keep the primary launcher lightweight: first tap opens the compact
-    // shortcut menu. Chat only opens when the user explicitly chooses Āwhina.
-    setExpanded(true);
+    // Primary tap opens the compact Āwhina chat. Speed dial stays on hold/context-menu.
+    onOpenChat();
   };
 
   const handlePointerDown = () => {
@@ -172,7 +171,9 @@ export default function FloatingActionDock({
 
   const primaryLabel = expanded
     ? "Close menu"
-    : `${AWHINA_NAME} shortcuts`;
+    : chatHidden
+      ? `Focus ${AWHINA_NAME}`
+      : AWHINA_LAUNCHER_LABEL;
 
   if (dockHidden) {
     return <FeedbackModal />;
