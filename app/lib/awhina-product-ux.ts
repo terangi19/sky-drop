@@ -27,6 +27,7 @@ import {
   type ListingDescriptionStyle,
 } from "./awhina-listing-description";
 import { getListingDetailBatch } from "./awhina-pending-slots";
+import { getListingReadinessState } from "./awhina-listing-readiness";
 
 export {
   buildListingDescriptionFromFacts,
@@ -924,17 +925,9 @@ export function buildPremiumListingTitle(opts: {
 /** Listing descriptions: see awhina-listing-description.ts (facts → type writer → quality pass). */
 
 export function isCompleteListingDraft(fill: SkyAiListingFill): boolean {
-  const hasTitle = Boolean(fill.title?.trim());
-  const hasPrice = Boolean(fill.price && String(fill.price).trim());
-  const hasCondition = Boolean(fill.condition?.trim());
-  const hasLocation = Boolean(fill.location?.trim() || fill.pickupArea?.trim());
-  if (!(hasTitle && hasPrice && hasCondition && hasLocation)) return false;
-  if (isVehicleListingFill(fill)) {
-    const readiness = getVehicleDraftReadiness(fill);
-    // Vehicles need resolved identity + year before "ready"
-    return readiness.identityComplete && Boolean(fill.vehicleYear?.trim());
-  }
-  return true;
+  // Single authority with the form readiness badge — never say "ready" while
+  // high-value slots (storage, odometer, etc.) are still missing.
+  return getListingReadinessState(fill) === "READY_TO_PUBLISH";
 }
 
 /** Normalize title/desc/category/keywords from extracted facts. */

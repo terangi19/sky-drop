@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractCompoundListingFacts } from "./awhina-pending-slots";
-import { parseListingCondition } from "./awhina-listing-condition";
+import { parseListingCondition, hasAffirmativeWear } from "./awhina-listing-condition";
 import {
   buildDescriptionWriterFacts,
   MARKETING_FILLER_RE,
@@ -29,6 +29,23 @@ describe("listing condition precedence", () => {
     expect(parseListingCondition("Factory sealed, box is in excellent condition")).toBe("New");
     expect(parseListingCondition("new")).toBe("New");
     expect(parseListingCondition("good used")).toBe("Used - Good");
+  });
+
+  it("does not treat maintenance 'new oil/filters' as listing condition New", () => {
+    expect(
+      parseListingCondition(
+        "good used condition, recently serviced with new oil and filters"
+      )
+    ).toBe("Used - Good");
+    expect(parseListingCondition("new tyres, good condition")).toBe("Used - Good");
+  });
+});
+
+describe("affirmative wear negation", () => {
+  it("ignores 'No faults or damage' and 'No cracks, faults or repairs'", () => {
+    expect(hasAffirmativeWear("No faults or damage")).toBe(false);
+    expect(hasAffirmativeWear("No cracks, faults or repairs")).toBe(false);
+    expect(hasAffirmativeWear("a few stone chips on the bumper")).toBe(true);
   });
 });
 

@@ -948,9 +948,14 @@ export function processListingFillMessage(
           extracted.filledSlots.includes("generation") ||
           hasDescriptionRelevantFact
         ) {
-          // Explicit write-description OR new facts → recompose from FULL confirmed draft
-          const forceDesc = draftCmds.commands.includes("regenerate_description");
-          if (forceDesc) {
+          // Explicit rewrite OR any non-price/location fact → rebuild buyer copy
+          // so shallow seed prose cannot outlive richer seller evidence.
+          const forceDesc =
+            draftCmds.commands.includes("regenerate_description") ||
+            hasDescriptionRelevantFact ||
+            Boolean(extracted.partial.condition) ||
+            Boolean(extracted.partial.extras?.length);
+          if (draftCmds.commands.includes("regenerate_description")) {
             // The seller explicitly requested new copy: this is the only
             // command allowed to supersede their prior description lock.
             merged.forceDescriptionRewrite = true;

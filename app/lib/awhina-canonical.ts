@@ -422,17 +422,33 @@ function applyPendingSlotFill(opts: {
   if (baseHydrated.descriptionSource === "user" && baseHydrated.description) {
     merged.description = baseHydrated.description;
     merged.descriptionSource = "user";
-  } else if (isVehicleListingFill(merged)) {
-    const composed = composeVehicleIdentityTitle(merged);
-    if (composed) {
-      merged.title = buildPremiumListingTitle({
-        item: composed,
-        condition: merged.condition,
-        listingType: "vehicle",
-        vehicleYear: merged.vehicleYear,
-      });
+  } else {
+    // Always rebuild buyer copy when pending-slot facts land — otherwise a
+    // shallow seed description outlives richer follow-ups (phones, consoles).
+    if (isVehicleListingFill(merged)) {
+      const composed = composeVehicleIdentityTitle(merged);
+      if (composed) {
+        merged.title = buildPremiumListingTitle({
+          item: composed,
+          condition: merged.condition,
+          listingType: "vehicle",
+          vehicleYear: merged.vehicleYear,
+        });
+      }
     }
-    const finalized = finalizeAwhinaListingDescription(merged);
+    const priorDesc = String(baseHydrated.description || "").trim();
+    const force =
+      Boolean(partial.condition) ||
+      Boolean(partial.extras?.length) ||
+      Boolean(partial.price) ||
+      Boolean(partial.location) ||
+      Boolean(partial.vehicleColour) ||
+      Boolean(partial.vehicleOdometer) ||
+      Boolean(partial.vehicleYear) ||
+      (priorDesc.length > 0 &&
+        priorDesc.length < 80 &&
+        (merged.extras || []).length > (baseHydrated.extras || []).length);
+    const finalized = finalizeAwhinaListingDescription(merged, { force });
     merged.description = finalized.description;
     merged.descriptionSource = finalized.descriptionSource;
   }

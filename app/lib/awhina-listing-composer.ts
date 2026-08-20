@@ -258,8 +258,26 @@ export function finalizeAwhinaListingDescription(fill: SkyAiListingFill, opts?: 
   if (!opts?.force && fill.description?.trim() && !isRejectedPublicCopy(fill.description, fill)) {
     const facts = buildDescriptionWriterFacts(fill);
     const kept = validateAiListingDescription(fill.description, facts);
-    const conditionPhrase = fill.condition?.trim() ? fill.condition.replace(/^Used\s*-\s*/i, "").toLowerCase() : "";
-    const reflectsCondition = !conditionPhrase || new RegExp(conditionPhrase.split(/\s+/).filter((word) => word.length > 2).join("|") || "condition", "i").test(kept || "");
+    const conditionPhrase = fill.condition?.trim()
+      ? fill.condition.replace(/^Used\s*-\s*/i, "").toLowerCase()
+      : "";
+    // Like New must appear as like-new; bare "new" matching inside "condition"
+    // is not enough. Good/Fair similarly need their own phrase.
+    let reflectsCondition = true;
+    if (conditionPhrase) {
+      if (/like\s*new/.test(conditionPhrase)) {
+        reflectsCondition = /like[- ]new/i.test(kept || "");
+      } else if (/^new$/.test(conditionPhrase)) {
+        reflectsCondition = /\bbrand\s+new\b|\bnew\b/i.test(kept || "") && !/like[- ]new/i.test(kept || "");
+      } else if (/good/.test(conditionPhrase)) {
+        reflectsCondition = /good used|good condition/i.test(kept || "");
+      } else if (/fair/.test(conditionPhrase)) {
+        reflectsCondition = /fair/i.test(kept || "");
+      } else {
+        const tokens = conditionPhrase.split(/\s+/).filter((word) => word.length > 2);
+        reflectsCondition = tokens.length === 0 || new RegExp(tokens.join("|"), "i").test(kept || "");
+      }
+    }
     if (kept && reflectsCondition && !isRejectedPublicCopy(kept, fill)) return { ...fill, description: kept, descriptionSource: "ai" };
   }
   let description = recomposeListingDescription(fill, { ...opts, force: opts?.force || Boolean(fill.description?.trim()) });

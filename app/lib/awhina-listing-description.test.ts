@@ -1624,8 +1624,9 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
       listingContext: withCond.listingFill as never,
     });
     const d4 = String(withLoc.listingFill?.description || "");
-    expect(d4).not.toMatch(/Auckland/i);
-    expect(d4).not.toMatch(/\$12,?000|\$12000|asking|priced at/i);
+    // Seller-supplied location is a real fact — keep it; never invent asking price.
+    expect(d4).toMatch(/Auckland/i);
+    expect(d4).not.toMatch(/\$12,?000|\$12000|asking|priced at|for sale in/i);
     expect(d4).toMatch(/good used condition|good condition/i);
     expect(d4).not.toMatch(SELLER_LEAK);
     assertOneCtaMax(d4);
