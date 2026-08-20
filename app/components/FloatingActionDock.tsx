@@ -149,9 +149,9 @@ export default function FloatingActionDock({
       collapse();
       return;
     }
-    // Primary tap ALWAYS opens Āwhina (inline workspace or global sheet).
-    // Speed dial is hold / context-menu only — never the sole tap target.
-    onOpenChat();
+    // Keep the primary launcher lightweight: first tap opens the compact
+    // shortcut menu. Chat only opens when the user explicitly chooses Āwhina.
+    setExpanded(true);
   };
 
   const handlePointerDown = () => {
@@ -172,9 +172,7 @@ export default function FloatingActionDock({
 
   const primaryLabel = expanded
     ? "Close menu"
-    : chatHidden
-      ? `Focus ${AWHINA_NAME}`
-      : AWHINA_LAUNCHER_LABEL;
+    : `${AWHINA_NAME} shortcuts`;
 
   if (dockHidden) {
     return <FeedbackModal />;
