@@ -15,6 +15,10 @@ import {
   splitListingDescriptionSentences,
   stripStructuredMetadataLeakage,
 } from "./awhina-listing-description";
+import {
+  GENERIC_MARKETPLACE_FILLER_RE,
+  hasSemanticFactDuplication,
+} from "./awhina-description-quality";
 import { isSealedTradingCardProductFormat } from "./awhina-public-copy-gate";
 import {
   compactSellerEvidence,
@@ -83,6 +87,7 @@ export type DescriptionValidationFailureReason =
   | "too_short"
   | "too_long"
   | "marketing_filler"
+  | "semantic_duplicate"
   | "invented_reasoning"
   | "metadata_leak"
   | "seller_guidance"
@@ -139,7 +144,12 @@ export function stripUnsupportedPromotionalSentences(proposed: string): string {
         .replace(/\s{2,}/g, " ")
         .trim()
     )
-    .filter((sentence) => !MARKETING_FILLER_RE.test(sentence) && !INVENTED_REASONING_RE.test(sentence))
+    .filter(
+      (sentence) =>
+        !MARKETING_FILLER_RE.test(sentence) &&
+        !GENERIC_MARKETPLACE_FILLER_RE.test(sentence) &&
+        !INVENTED_REASONING_RE.test(sentence)
+    )
     .join(" ")
     .trim();
 }
@@ -661,9 +671,13 @@ export function validateAiListingDescriptionResult(
   // When the seller supplied rich evidence, filler is never an acceptable substitute.
   if (
     MARKETING_FILLER_RE.test(description) ||
+    GENERIC_MARKETPLACE_FILLER_RE.test(description) ||
     (proposedContainsMarketingFiller && (description.length < 24 || evidenceCount >= 3))
   ) {
     return fail("marketing_filler");
+  }
+  if (hasSemanticFactDuplication(description)) {
+    return fail("semantic_duplicate");
   }
   if (
     METADATA_RE.test(description) ||

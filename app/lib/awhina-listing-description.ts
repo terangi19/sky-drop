@@ -30,6 +30,7 @@ import {
   sellerEvidenceItemCount,
 } from "./awhina-seller-evidence";
 import { hasAffirmativeWear, looksLikeColourFinish } from "./awhina-listing-condition";
+import { GENERIC_MARKETPLACE_FILLER_RE } from "./awhina-description-quality";
 
 export type ListingDescriptionQuality = "standard" | "premium" | "premium_plus";
 
@@ -1201,6 +1202,17 @@ function semanticKey(s: string): string {
   if (PICKUP_PURPOSE_RE.test(s)) return "logistics:pickup";
   if (SHIP_PURPOSE_RE.test(s)) return "logistics:ship";
   if (PRICE_PURPOSE_RE.test(s)) return "price";
+  const loc = s.match(/^Located in\s+(.+?)[.!?]?$/i);
+  if (loc) return `location:${loc[1].toLowerCase().replace(/[^a-z0-9\s,]/g, "").trim()}`;
+  const km = s.match(/([\d,]+)\s*(?:km|kms|kilomet)/i);
+  if (km) return `odometer:${km[1].replace(/,/g, "")}`;
+  if (/\b\d{1,3}\s*%\s*battery/i.test(s)) {
+    const pct = (s.match(/(\d{1,3})\s*%\s*battery/i) || [])[1];
+    if (pct) return `battery:${pct}`;
+  }
+  if (/\b(?:good|fair|like[- ]?new|brand new)\s+(?:used\s+)?condition\b/i.test(s)) {
+    return `condition:${t.replace(/[^a-z\s-]/g, "").slice(0, 40)}`;
+  }
   // Near-duplicate: first 48 chars of normalized text
   return `text:${t.slice(0, 48)}`;
 }
@@ -1274,6 +1286,7 @@ function stripBadSentences(sentences: string[]): string[] {
     if (IMPLEMENTATION_LEAK_RE.test(s) || SELLER_EDITOR_GUIDANCE_RE.test(s)) return false;
     if (IMPLY_CLAIMS_RE.test(s) || SERVICE_INVENTION_RE.test(s)) return false;
     if (SERVICE_TEMPLATE_SMELL_RE.test(s)) return false;
+    if (GENERIC_MARKETPLACE_FILLER_RE.test(s)) return false;
     // Drop robotic field sentences
     if (/^(Condition is|Priced at|Odometer is|Colour is)\b/i.test(s)) return false;
     if (/^Located in\s*:/i.test(s)) return false;
@@ -1601,11 +1614,8 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
   } else if (!allowCta && !allowPhysicalCta) {
     sentences = sentences.filter((s) => classifySentence(s) !== "cta");
   } else {
-    // standard + non-sparse vehicle: compact close, still one invite max
+    // standard + non-sparse vehicle: no generic filler padding
     sentences = sentences.filter((s) => classifySentence(s) !== "cta");
-    if (facts.kind !== "physical") {
-      sentences.push("Happy to answer questions.");
-    }
   }
 
   // Cap sentence count with room for rich seller evidence
@@ -2226,13 +2236,23 @@ function writeVehicle(facts: DescriptionFacts): string {
   const hasColourInOpener = Boolean(colour && new RegExp(`\\b${colour}\\b`, "i").test(opener));
   if (colour && v?.odometer && v?.transmission) {
     const trans = v.transmission.toLowerCase();
-    parts.push(
-      polishParagraph(
-        hasColourInOpener
-          ? `It has ${formatOdo(v.odometer)} and ${indefiniteArticle(trans)} ${trans} transmission.`
-          : `Finished in ${colour.toLowerCase()} with ${formatOdo(v.odometer)} and ${indefiniteArticle(trans)} ${trans} transmission.`
-      )
-    );
+    if (v?.fuel) {
+      parts.push(
+        polishParagraph(
+          hasColourInOpener
+            ? `${capFirst(v.fuel.toLowerCase())} with an ${trans} transmission and ${formatOdo(v.odometer)} on the odometer.`
+            : `Finished in ${colour.toLowerCase()}, ${v.fuel.toLowerCase()} with an ${trans} transmission and ${formatOdo(v.odometer)} on the odometer.`
+        )
+      );
+    } else {
+      parts.push(
+        polishParagraph(
+          hasColourInOpener
+            ? `It has ${formatOdo(v.odometer)} and ${indefiniteArticle(trans)} ${trans} transmission.`
+            : `Finished in ${colour.toLowerCase()} with ${formatOdo(v.odometer)} and ${indefiniteArticle(trans)} ${trans} transmission.`
+        )
+      );
+    }
   } else {
     const detailBits: string[] = [];
     if (colour && !hasColourInOpener) detailBits.push(`finished in ${colour.toLowerCase()}`);
@@ -2298,38 +2318,6 @@ function writeService(facts: DescriptionFacts): string {
         "Scope and pricing depend on the job — happy to put a quote together once I have a few more details.",
       ])
     );
-  } else {
-    // One mid about discussing needs — NOT a second CTA
-    const blob = `${item} ${facts.style}`.toLowerCase();
-    if (/lawn|mow/.test(blob)) {
-      parts.push(
-        pickVariant(seed + ":smid", [
-          "Whether it's a one-off tidy-up or regular lawn maintenance, happy to talk through what you need.",
-          "Happy to talk through the size of the job and find a time that works.",
-        ])
-      );
-    } else if (/clean/.test(blob)) {
-      parts.push(
-        pickVariant(seed + ":smid", [
-          "Whether it's a one-off clean or regular visits, happy to talk through what you need.",
-          "Happy to talk through the space and find a time that works.",
-        ])
-      );
-    } else if (/photo|tutor|lesson|teach/.test(blob)) {
-      parts.push(
-        pickVariant(seed + ":smid", [
-          "Happy to discuss what you're after and arrange a time that suits.",
-          "Whether it's a one-off session or ongoing work, happy to talk through what you need.",
-        ])
-      );
-    } else {
-      parts.push(
-        pickVariant(seed + ":smid", [
-          "Happy to discuss what you need and work out the details from there.",
-          "Whether it's a one-off job or something more regular, happy to talk through the scope.",
-        ])
-      );
-    }
   }
 
   if (facts.serviceDuration) {

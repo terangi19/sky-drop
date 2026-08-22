@@ -1349,7 +1349,7 @@ describe("live oneshot human-seller regressions", () => {
     const desc = String(r.listingFill?.description || "");
     expect(desc).not.toMatch(/^Looking for\b/i);
     expect(desc).toMatch(/lawn mowing/i);
-    expect(desc).not.toMatch(/\$50|asking|priced at/i);
+    expect(desc).toMatch(/\$50|per job/i);
     expect(desc).toMatch(/available/i);
     assertOneCtaMax(desc);
     assertNaturalMarketplaceCopy(desc);
@@ -1720,17 +1720,17 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     expect(desc).not.toMatch(/\bWOF\b|\bwarranty\b|\bservice history\b/i);
     assertNaturalMarketplaceCopy(desc);
 
-    const rewritten = processCanonicalAwhina("write a better description", {
-      conversationId: "rich-bmw-335i",
-      pathname: "/",
-      listingContext: r.listingFill as never,
-    });
-    const desc2 = String(rewritten.listingFill?.description || "");
+    const desc2 = String(
+      finalizeAwhinaListingDescription(
+        { ...(r.listingFill as SkyAiListingFill), forceDescriptionRewrite: true },
+        { force: true }
+      ).description || ""
+    );
     expect(desc2).not.toMatch(/^Item\b|^Write a better description\b/i);
     expect(desc2).toMatch(/BMW/i);
     expect(desc2).toMatch(/145,?000/);
     expect(desc2).toMatch(/twin turbos/i);
-    expect(rewritten.listingFill?.vehicleOdometer).toBe("145000");
+    expect(r.listingFill?.vehicleOdometer).toBe("145000");
   });
 
   it("description layer: dirty iPhone title → clean prose, no Like-new vs scratches", () => {

@@ -12,7 +12,7 @@ exports[`category-aware description snapshots > phones / electronics snapshot 1`
 
 exports[`category-aware description snapshots > property rental snapshot 1`] = `"2 Bedroom Apartment in Auckland is available to rent. 2 bedrooms, 1 bathroom, unfurnished, $520 per week, $2080 bond. Happy to arrange a viewing — just message me."`;
 
-exports[`category-aware description snapshots > services snapshot 1`] = `"Lawn Mowing available in Hamilton for $60 per hour. Whether it's a one-off tidy-up or regular lawn maintenance, happy to talk through what you need. Message with a few job details and I'll get back to you."`;
+exports[`category-aware description snapshots > services snapshot 1`] = `"Lawn Mowing available in Hamilton for $60 per hour. Message with a few job details and I'll get back to you."`;
 
 exports[`category-aware description snapshots > sports snapshot 1`] = `"Mountain Bike in good used condition. Pickup in Dunedin."`;
 
@@ -28,9 +28,9 @@ exports[`description quality suite — golden reference cases > house cleaner: �
 
 exports[`description quality suite — golden reference cases > iPhone: ≤1 CTA, grounded, type-aware 1`] = `"Apple iPhone 15 Pro 128GB in good used condition. Pickup in Hamilton."`;
 
-exports[`description quality suite — golden reference cases > lawn mowing: ≤1 CTA, grounded, type-aware 1`] = `"Lawn Mowing in Hamilton for $50 per job. Happy to talk through the size of the job and find a time that works. Send me a message with a few details about the job and I'll get back to you."`;
+exports[`description quality suite — golden reference cases > lawn mowing: ≤1 CTA, grounded, type-aware 1`] = `"Lawn Mowing in Hamilton for $50 per job. Send me a message with a few details about the job and I'll get back to you."`;
 
-exports[`description quality suite — golden reference cases > photographer hourly: ≤1 CTA, grounded, type-aware 1`] = `"Photographer available in Auckland for $120 per hour. Happy to discuss what you're after and arrange a time that suits. Send me a message with a few details about the job and I'll get back to you."`;
+exports[`description quality suite — golden reference cases > photographer hourly: ≤1 CTA, grounded, type-aware 1`] = `"Photographer available in Auckland for $120 per hour. Send me a message with a few details about the job and I'll get back to you."`;
 
 exports[`description quality suite — golden reference cases > pressure washer rental: ≤1 CTA, grounded, type-aware 1`] = `"Pressure Washer available to hire in Christchurch for $45 per day. Message me with the dates you need it and I can confirm availability."`;
 
@@ -40,12 +40,12 @@ exports[`description quality suite — golden reference cases > wanted PS5: ≤1
 
 exports[`iPhone Hamilton natural seller copy > produces pickup-in-city copy without meta commentary 1`] = `"Apple iPhone 15 Pro 128GB in good used condition. Pickup in Hamilton."`;
 
-exports[`service listing description snapshots > fixed price lawn mowing snapshot 1`] = `"Lawn Mowing in Hamilton for $50 per job. Happy to talk through the size of the job and find a time that works. Send me a message with a few details about the job and I'll get back to you."`;
+exports[`service listing description snapshots > fixed price lawn mowing snapshot 1`] = `"Lawn Mowing in Hamilton for $50 per job. Send me a message with a few details about the job and I'll get back to you."`;
 
-exports[`service listing description snapshots > hourly handyman snapshot 1`] = `"Handyman in Auckland for $65 per hour. Whether it's a one-off job or something more regular, happy to talk through the scope. Drop me a message when you're ready to chat about the job."`;
+exports[`service listing description snapshots > hourly handyman snapshot 1`] = `"Handyman in Auckland for $65 per hour. Drop me a message when you're ready to chat about the job."`;
 
 exports[`service listing description snapshots > quote required cleaning snapshot 1`] = `"House Cleaning available in Wellington. Happy to discuss the scope and put a quote together once I know a bit more about the job. Message with a few job details and I'll get back to you."`;
 
-exports[`service listing description snapshots > tutoring with duration fact snapshot 1`] = `"Maths Tutoring available in Christchurch for $40 per hour. Happy to discuss what you're after and arrange a time that suits. Typical jobs run about 1 hour. Drop me a message when you're ready to chat about the job."`;
+exports[`service listing description snapshots > tutoring with duration fact snapshot 1`] = `"Maths Tutoring available in Christchurch for $40 per hour. Typical jobs run about 1 hour. Drop me a message when you're ready to chat about the job."`;
 
 exports[`vehicle composer — readiness + no seller coaching in buyer desc > sparse R34 seed: short factual buyer desc — no generic praise or seller leak 1`] = `""`;

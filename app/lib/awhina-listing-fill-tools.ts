@@ -982,10 +982,6 @@ export function processListingFillMessage(
           if (desc) {
             merged.description = desc;
             merged.descriptionSource = "ai";
-          } else if (forceDesc && (titleCore || merged.title)) {
-            // Minimal restrained starter when force still gated empty
-            merged.description = `${titleCore || merged.title} available for sale.`;
-            merged.descriptionSource = "ai";
           } else if (!forceDesc && merged.descriptionSource !== "user") {
             // Keep prior AI/blank until readiness threshold — do not invent
             if (baseDraftEarly.description) {

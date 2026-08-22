@@ -338,6 +338,37 @@ export function sellerEvidenceToExtras(items: SellerEvidenceItem[]): string[] {
     .filter((entry) => entry.length > 4);
 }
 
+function proseFromStructuredExtra(key: string, value: string): { kind: SellerEvidenceKind; text: string } | null {
+  const k = key.toLowerCase().replace(/_/g, "");
+  const v = sanitizePublicListingCopy(value.trim());
+  if (!v || containsInternalOrchestration(v)) return null;
+
+  if (k === "battery") {
+    const pct = v.match(/(\d{1,3})\s*%/);
+    return { kind: "mechanical", text: pct ? `${pct[1]}% battery health` : v };
+  }
+  if (k === "includes" || k === "include") {
+    return { kind: "included", text: v.replace(/^includes?\s*/i, "").trim() };
+  }
+  if (k === "service") return { kind: "maintenance", text: v };
+  if (k === "storage") return { kind: "note", text: `${v} storage` };
+  if (k === "ram") return { kind: "note", text: `${v} RAM` };
+  if (k === "size") return { kind: "note", text: `Size ${v}` };
+  if (k === "dimensions" || k === "material" || k === "bundle" || k === "turnaround") {
+    return { kind: "note", text: v };
+  }
+  if (k === "fuel") return { kind: "note", text: `${v} fuel` };
+  if (k === "quantity") return { kind: "note", text: v };
+  if (k === "pricing" || k === "rate" || k === "rent" || k === "bond") return { kind: "note", text: v };
+  if (k === "bedrooms") return { kind: "note", text: `${v} bedroom${v === "1" ? "" : "s"}` };
+  if (k === "bathrooms") return { kind: "note", text: `${v} bathroom${v === "1" ? "" : "s"}` };
+  if (k === "servicearea") return { kind: "note", text: `Service area covers ${v}` };
+  if (k === "pickup" && /only/i.test(v)) return { kind: "note", text: "Pickup only" };
+  if (k === "grade" && v.length >= 2) return { kind: "note", text: v.match(/psa|bgs|cgc|near mint/i) ? v : `Graded ${v}` };
+  if (k === "set" || k === "subject" || k === "colour" || k === "color") return null;
+  return null;
+}
+
 export function sellerEvidenceFromExtras(extras: string[] | undefined): SellerEvidenceItem[] {
   const items: SellerEvidenceItem[] = [];
   for (const raw of extras || []) {
@@ -370,7 +401,12 @@ export function sellerEvidenceFromExtras(extras: string[] | undefined): SellerEv
                   : key === "note"
                     ? "note"
                     : null;
-    if (kind) pushUnique(items, { kind, text: value });
+    if (kind) {
+      pushUnique(items, { kind, text: value });
+      continue;
+    }
+    const structured = proseFromStructuredExtra(key, value);
+    if (structured) pushUnique(items, structured);
   }
   return items;
 }
@@ -525,7 +561,13 @@ export function composeSellerEvidenceProse(grouped: GroupedSellerEvidence): stri
     );
   }
   for (const item of grouped.notes) sentences.push(ensureSentence(item));
-  if (grouped.location) sentences.push(`Located in ${grouped.location}.`);
+  if (grouped.location) {
+    const loc = grouped.location;
+    const locPattern = loc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (!sentences.some((s) => new RegExp(`\\b(?:in|located in)\\s+${locPattern}\\b`, "i").test(s))) {
+      sentences.push(`Located in ${loc}.`);
+    }
+  }
   return sentences.filter(Boolean).join(" ");
 }
 

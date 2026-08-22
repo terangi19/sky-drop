@@ -43,6 +43,12 @@ import {
   sellerEvidenceItemCount,
 } from "./awhina-seller-evidence";
 import { hasCategoryIncompatibleDescription } from "./awhina-category-copy-guard";
+import {
+  mustRecomposeDescription,
+  polishPublicDescription,
+  containsGenericMarketplaceFiller,
+  hasSemanticFactDuplication,
+} from "./awhina-description-quality";
 import { isSealedTradingCardProductFormat } from "./awhina-public-copy-gate";
 import {
   containsInternalOrchestration,
@@ -183,6 +189,8 @@ function isRejectedPublicCopy(description: string | undefined | null, fill: SkyA
   return Boolean(
     description?.trim() &&
       (isGenericPublicCopy(description) ||
+        containsGenericMarketplaceFiller(description) ||
+        hasSemanticFactDuplication(description) ||
         UNSUPPORTED_ABSENCE_COPY_RE.test(description) ||
         containsInternalOrchestration(description) ||
         hasCategoryIncompatibleDescription(description, fill))
@@ -256,11 +264,14 @@ export function recomposeListingDescription(fill: SkyAiListingFill, opts?: { qua
 
 export function finalizeAwhinaListingDescription(fill: SkyAiListingFill, opts?: { quality?: ListingDescriptionQuality; force?: boolean }): SkyAiListingFill {
   fill = normalizeAwhinaListingTitle(fill);
-  if (fill.descriptionSource === "user" && fill.description?.trim() && !opts?.force) return { ...fill, description: fill.description.trim() };
-  if (shouldDeferSparseAiDescription(fill) && !opts?.force) {
+  const forceRecompose = mustRecomposeDescription(fill, opts);
+  if (fill.descriptionSource === "user" && fill.description?.trim() && !forceRecompose) {
+    return { ...fill, description: polishPublicDescription(fill.description.trim(), fill) };
+  }
+  if (shouldDeferSparseAiDescription(fill) && !forceRecompose) {
     return { ...fill, description: "", descriptionSource: "ai" };
   }
-  if (!opts?.force && fill.description?.trim() && !isRejectedPublicCopy(fill.description, fill)) {
+  if (!forceRecompose && fill.description?.trim() && !isRejectedPublicCopy(fill.description, fill)) {
     const facts = buildDescriptionWriterFacts(fill);
     const kept = validateAiListingDescription(fill.description, facts);
     const conditionPhrase = fill.condition?.trim()
@@ -283,18 +294,43 @@ export function finalizeAwhinaListingDescription(fill: SkyAiListingFill, opts?: 
         reflectsCondition = tokens.length === 0 || new RegExp(tokens.join("|"), "i").test(kept || "");
       }
     }
-    if (kept && reflectsCondition && !isRejectedPublicCopy(kept, fill)) return { ...fill, description: kept, descriptionSource: "ai" };
+    const polished = kept ? polishPublicDescription(kept, fill) : "";
+    if (
+      polished &&
+      reflectsCondition &&
+      !isRejectedPublicCopy(polished, fill) &&
+      !containsGenericMarketplaceFiller(polished) &&
+      !hasSemanticFactDuplication(polished)
+    ) {
+      return { ...fill, description: polished, descriptionSource: "ai" };
+    }
   }
-  let description = recomposeListingDescription(fill, { ...opts, force: opts?.force || Boolean(fill.description?.trim()) });
-  description = removeStructuredPriceCopy(description);
+  let description = recomposeListingDescription(fill, {
+    ...opts,
+    force: forceRecompose || Boolean(fill.description?.trim()),
+  });
+  description = polishPublicDescription(description, fill);
+  const listingTypeLower = String(fill.listingType || "").toLowerCase();
+  if (listingTypeLower !== "service" && listingTypeLower !== "rental" && listingTypeLower !== "wanted") {
+    description = removeStructuredPriceCopy(description);
+  }
   description = stripStructuredMetadataLeakage(description);
   description = splitListingDescriptionSentences(description)
-    .filter((sentence) => !/\b(message|get in touch|feel free|send me a message|drop me a message|happy to (sort|arrange|chat|answer)|if you'?re (interested|keen)|come take a look|just message)\b/i.test(sentence))
+    .filter((sentence) => {
+      if (listingTypeLower === "service" || listingTypeLower === "rental" || listingTypeLower === "wanted") {
+        return true;
+      }
+      return !/\b(message|get in touch|feel free|send me a message|drop me a message|happy to (sort|arrange|chat|answer)|if you'?re (interested|keen)|come take a look|just message)\b/i.test(
+        sentence
+      );
+    })
     .filter((sentence) => !isRejectedPublicCopy(sentence, fill))
     .join(" ").trim();
+  description = polishPublicDescription(description, fill);
   if (isRejectedPublicCopy(description, fill)) description = "";
   description = sanitizePublicListingCopy(description);
   if (containsInternalOrchestration(description)) description = "";
+  description = polishPublicDescription(description, fill);
   return { ...fill, description, descriptionSource: "ai" };
 }
 
@@ -338,25 +374,41 @@ export async function finalizeAwhinaListingDescriptionAsync(
   opts?: { quality?: ListingDescriptionQuality; force?: boolean; writer?: DescriptionWriterRunOptions["generateRawOutput"] }
 ): Promise<SkyAiListingFill> {
   fill = normalizeAwhinaListingTitle(fill);
-  if (fill.descriptionSource === "user" && fill.description?.trim() && !opts?.force) return finalizeAwhinaListingDescription(fill, opts);
-  if (shouldDeferSparseAiDescription(fill) && !opts?.force) {
+  const forceRecompose = mustRecomposeDescription(fill, opts);
+  if (fill.descriptionSource === "user" && fill.description?.trim() && !forceRecompose) {
+    return finalizeAwhinaListingDescription(fill, opts);
+  }
+  if (shouldDeferSparseAiDescription(fill) && !forceRecompose) {
     return { ...fill, description: "", descriptionSource: "ai" as const };
   }
-  const previousValid = fill.description?.trim() && !isRejectedPublicCopy(fill.description, fill)
-    ? validateAiListingDescription(fill.description, buildDescriptionWriterFacts(fill))
-    : null;
-  const attempt = await runAwhinaListingDescriptionWriter(fill, { force: opts?.force, generateRawOutput: opts?.writer });
-  if (attempt.description && !isRejectedPublicCopy(attempt.description, fill)) {
-    const result = { ...fill, description: attempt.description, descriptionSource: "ai" as const };
+  const previousValid =
+    !forceRecompose && fill.description?.trim() && !isRejectedPublicCopy(fill.description, fill)
+      ? validateAiListingDescription(fill.description, buildDescriptionWriterFacts(fill))
+      : null;
+  const attempt = await runAwhinaListingDescriptionWriter(fill, {
+    force: forceRecompose || opts?.force,
+    generateRawOutput: opts?.writer,
+  });
+  const writerDesc = attempt.description
+    ? polishPublicDescription(attempt.description, fill)
+    : "";
+  if (
+    writerDesc &&
+    !isRejectedPublicCopy(writerDesc, fill) &&
+    !containsGenericMarketplaceFiller(writerDesc) &&
+    !hasSemanticFactDuplication(writerDesc)
+  ) {
+    const result = { ...fill, description: writerDesc, descriptionSource: "ai" as const };
     logAsyncDescriptionOutcome(attempt, false, result.description);
     return result;
   }
   if (previousValid && !isRejectedPublicCopy(previousValid, fill)) {
-    const result = { ...fill, description: previousValid, descriptionSource: "ai" as const };
+    const polished = polishPublicDescription(previousValid, fill);
+    const result = { ...fill, description: polished, descriptionSource: "ai" as const };
     logAsyncDescriptionOutcome(attempt, false, result.description);
     return result;
   }
-  const deterministic = finalizeAwhinaListingDescription(fill, opts);
+  const deterministic = finalizeAwhinaListingDescription(fill, { ...opts, force: forceRecompose || opts?.force });
   const fallback = removePhysicalFallbackLocation(deterministic.description || "", fill);
   if (hasAcceptableOfflineFallback(fallback, fill)) {
     const result = { ...deterministic, description: fallback, descriptionSource: "ai" as const };

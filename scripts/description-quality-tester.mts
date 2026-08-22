@@ -1,0 +1,339 @@
+/**
+ * Description quality tester — readable category sweep + sequential isolation.
+ *
+ * Usage:
+ *   npm run test:description-quality
+ *   npx tsx scripts/description-quality-tester.mts
+ *   npx tsx scripts/description-quality-tester.mts --category "Toyota Hilux"
+ *   npx tsx scripts/description-quality-tester.mts --sequential
+ *   npx tsx scripts/description-quality-tester.mts --manual
+ */
+
+import type { SkyAiListingFill } from "../app/lib/sky-ai-listing-fill.ts";
+import { finalizeAwhinaListingDescription } from "../app/lib/awhina-listing-composer.ts";
+import {
+  GENERIC_MARKETPLACE_FILLER_RE,
+  hasSemanticFactDuplication,
+} from "../app/lib/awhina-description-quality.ts";
+import {
+  MARKETING_FILLER_RE,
+  validateAiListingDescription,
+  buildDescriptionWriterFacts,
+} from "../app/lib/awhina-description-writer.ts";
+
+type Case = {
+  name: string;
+  fill: Partial<SkyAiListingFill> & { title: string };
+  must: RegExp[];
+  mustNot?: RegExp[];
+  manualSeed?: string;
+};
+
+const CASES: Case[] = [
+  {
+    name: "iPhone",
+    manualSeed:
+      "Apple iPhone 15 Pro 256GB, Natural Titanium, like-new, $1,250, Hamilton. 94% battery, original box.",
+    fill: {
+      title: "Apple iPhone 15 Pro 256GB",
+      condition: "Used - Like New",
+      location: "Hamilton",
+      extras: ["storage:256GB", "colour:Natural Titanium", "battery:94%"],
+    },
+    must: [/256GB/i, /Hamilton/i],
+    mustNot: [/Hilux/i, /Samsung/i],
+  },
+  {
+    name: "Samsung Galaxy",
+    manualSeed:
+      "Samsung Galaxy S24 Ultra 512GB Titanium Black, good condition, Henderson Auckland. Original box and S Pen.",
+    fill: {
+      title: "Samsung Galaxy S24 Ultra 512GB",
+      condition: "Used - Good",
+      location: "Henderson, Auckland",
+      extras: ["storage:512GB", "colour:Titanium Black", "includes:original box", "includes:S Pen"],
+    },
+    must: [/512GB/i, /Henderson/i],
+    mustNot: [/iPhone/i, /128,?000\s*km/i],
+  },
+  {
+    name: "Toyota Hilux",
+    manualSeed:
+      "List my 2018 Toyota Hilux SR5, 128,000km, automatic, diesel, black, good condition, full service history, canopy and tow bar, $34,500 Auckland",
+    fill: {
+      title: "2018 Toyota Hilux SR5",
+      listingType: "vehicle",
+      category: "Cars",
+      condition: "Used - Good",
+      location: "Auckland",
+      vehicleYear: "2018",
+      vehicleMake: "Toyota",
+      vehicleModel: "Hilux",
+      vehicleOdometer: "128000",
+      vehicleTransmission: "Automatic",
+      vehicleFuelType: "Diesel",
+      vehicleColour: "Black",
+      extras: ["includes:canopy", "includes:tow bar", "service:full service history"],
+    },
+    must: [/2018/i, /128,?000\s*km/i, /diesel/i, /Auckland/i],
+    mustNot: [/256GB/i, /iPhone/i],
+  },
+  {
+    name: "Pokémon card",
+    manualSeed: "Charizard VMAX PSA 10 Champion's Path, like new, Auckland",
+    fill: {
+      title: "Charizard VMAX",
+      category: "Collectibles",
+      condition: "Used - Like New",
+      location: "Auckland",
+      extras: ["set:Champion's Path", "grade:PSA 10", "subject:Charizard"],
+    },
+    must: [/Charizard/i, /PSA\s*10/i],
+    mustNot: [/odometer/i],
+  },
+  {
+    name: "Lawn mowing service",
+    manualSeed: "Lawn mowing North Shore Auckland from $60",
+    fill: {
+      title: "Lawn mowing",
+      listingType: "service",
+      category: "Gardening",
+      location: "Auckland",
+      extras: ["service area:North Shore", "pricing:from $60"],
+    },
+    must: [/lawn|mowing/i, /Auckland/i],
+    mustNot: [/128,?000\s*km/i],
+  },
+  {
+    name: "Trailer hire",
+    manualSeed: "6x4 box trailer hire Hamilton $45/day bond $100",
+    fill: {
+      title: "6x4 box trailer hire",
+      listingType: "rental",
+      category: "Equipment Hire",
+      location: "Hamilton",
+      price: "45",
+      rentalPriceDaily: "45",
+      rentalDeposit: "100",
+      rentalSubType: "equipment",
+    },
+    must: [/trailer/i, /Hamilton/i],
+    mustNot: [/iPhone/i],
+  },
+  {
+    name: "Vintage typewriter (niche)",
+    manualSeed: "1960s Olivetti Lettera 32 typewriter, new ribbon, case, all keys working, Greymouth",
+    fill: {
+      title: "1960s Olivetti Lettera 32 typewriter",
+      condition: "Used - Good",
+      location: "Greymouth",
+      extras: ["ribbon:new", "case included", "all keys working"],
+    },
+    must: [/Olivetti|typewriter/i, /Greymouth/i],
+    mustNot: [/512GB|weekly rent/i],
+  },
+];
+
+const SEQUENTIAL: Array<Partial<SkyAiListingFill> & { title: string; replaceDraft?: boolean }> = [
+  { title: "Apple iPhone 15 Pro", extras: ["storage:256GB"], location: "Hamilton" },
+  {
+    title: "2018 Toyota Hilux SR5",
+    listingType: "vehicle",
+    vehicleYear: "2018",
+    vehicleMake: "Toyota",
+    vehicleModel: "Hilux",
+    vehicleOdometer: "128000",
+    location: "Auckland",
+    replaceDraft: true,
+  },
+  {
+    title: "Samsung Galaxy S24 Ultra",
+    extras: ["storage:512GB"],
+    location: "Henderson, Auckland",
+    replaceDraft: true,
+  },
+  {
+    title: "Charizard VMAX PSA 10",
+    category: "Collectibles",
+    extras: ["grade:PSA 10"],
+    location: "Wellington",
+    replaceDraft: true,
+  },
+  {
+    title: "Lawn mowing",
+    listingType: "service",
+    location: "Christchurch",
+    replaceDraft: true,
+  },
+  {
+    title: "6x4 trailer hire",
+    listingType: "rental",
+    location: "Dunedin",
+    replaceDraft: true,
+  },
+];
+
+const args = process.argv.slice(2);
+const onlyCategory = args.includes("--category")
+  ? args[args.indexOf("--category") + 1]
+  : null;
+const runSequential = args.includes("--sequential");
+const showManual = args.includes("--manual");
+
+function describe(fill: SkyAiListingFill): string {
+  return finalizeAwhinaListingDescription(fill, { force: true }).description?.trim() || "";
+}
+
+function check(desc: string, fill: SkyAiListingFill, must: RegExp[], mustNot: RegExp[] = []) {
+  const issues: string[] = [];
+  if (desc.length < 12) issues.push("description too short");
+  for (const re of must) {
+    if (!re.test(desc)) issues.push(`missing: ${re.source}`);
+  }
+  for (const re of mustNot) {
+    if (re.test(desc)) issues.push(`forbidden: ${re.source}`);
+  }
+  if (MARKETING_FILLER_RE.test(desc)) issues.push("marketing filler");
+  if (GENERIC_MARKETPLACE_FILLER_RE.test(desc)) issues.push("generic marketplace filler");
+  if (hasSemanticFactDuplication(desc)) issues.push("semantic duplicate facts");
+  const validated = validateAiListingDescription(desc, buildDescriptionWriterFacts(fill));
+  if (!validated) issues.push("writer validation rejected copy");
+  return issues;
+}
+
+function printCase(testCase: Case) {
+  const fill: SkyAiListingFill = {
+    listingType: testCase.fill.listingType || "physical",
+    category: testCase.fill.category || "Other",
+    condition:
+      testCase.fill.condition ??
+      (testCase.fill.listingType === "service" || testCase.fill.listingType === "rental"
+        ? undefined
+        : "Used - Good"),
+    ...testCase.fill,
+  };
+  const desc = describe(fill);
+  const issues = check(desc, fill, testCase.must, testCase.mustNot || []);
+  const ok = issues.length === 0;
+  console.log(`\n${"─".repeat(72)}`);
+  console.log(`${ok ? "✓ PASS" : "✗ FAIL"}  ${testCase.name}`);
+  console.log(`Title: ${fill.title}`);
+  if (fill.location) console.log(`Location: ${fill.location}`);
+  console.log(`\nDescription:\n  ${desc || "(empty)"}`);
+  if (testCase.manualSeed) {
+    console.log(`\nManual /post/ai seed:\n  ${testCase.manualSeed}`);
+  }
+  if (!ok) console.log(`\nIssues:\n  ${issues.map((i) => `- ${i}`).join("\n  ")}`);
+  return ok;
+}
+
+function runCategorySweep() {
+  let pass = 0;
+  let fail = 0;
+  const cases = onlyCategory
+    ? CASES.filter((c) => c.name.toLowerCase().includes(onlyCategory.toLowerCase()))
+    : CASES;
+  if (!cases.length) {
+    console.error(`No case matched --category "${onlyCategory}"`);
+    process.exit(1);
+  }
+  console.log("Description quality tester — category sweep");
+  console.log(`Cases: ${cases.length}`);
+  for (const c of cases) {
+    if (printCase(c)) pass++;
+    else fail++;
+  }
+  console.log(`\n${"═".repeat(72)}`);
+  console.log(`Result: ${pass} passed, ${fail} failed`);
+  return fail === 0 ? 0 : 1;
+}
+
+function runSequentialChain() {
+  console.log("Description quality tester — sequential isolation chain");
+  console.log("iPhone → Hilux → Samsung → Pokémon → service → trailer\n");
+  let prior = "";
+  let fail = 0;
+  for (const step of SEQUENTIAL) {
+    const fill: SkyAiListingFill = {
+      listingType: step.listingType || "physical",
+      category: step.category || "Other",
+      condition: step.listingType === "service" || step.listingType === "rental" ? undefined : "Used - Good",
+      ...step,
+      description: prior || undefined,
+    };
+    const desc = describe(fill);
+    const blob = `${fill.title} ${(fill.extras || []).join(" ")}`.toLowerCase();
+    const bleed: string[] = [];
+    if (!/iphone/i.test(blob) && /iphone|256gb/i.test(desc)) bleed.push("iPhone bleed");
+    if (!/hilux/i.test(blob) && /hilux|128,?000/i.test(desc)) bleed.push("Hilux bleed");
+    if (!/samsung/i.test(blob) && /samsung|512gb/i.test(desc)) bleed.push("Samsung bleed");
+    if (!/charizard|pok/i.test(blob) && /charizard|pok[eé]mon/i.test(desc)) bleed.push("card bleed");
+    const issues = [
+      ...(desc.length < 12 ? ["empty description"] : []),
+      ...(hasSemanticFactDuplication(desc) ? ["semantic dupes"] : []),
+      ...(GENERIC_MARKETPLACE_FILLER_RE.test(desc) ? ["filler"] : []),
+      ...bleed,
+    ];
+    const ok = issues.length === 0;
+    console.log(`${ok ? "✓" : "✗"} ${step.title}`);
+    console.log(`  ${desc}`);
+    if (!ok) console.log(`  Issues: ${issues.join(", ")}`);
+    if (!ok) fail++;
+    prior = desc;
+  }
+  console.log(fail ? `\nSequential chain: FAILED (${fail} steps)` : "\nSequential chain: PASSED");
+  return fail === 0 ? 0 : 1;
+}
+
+function printManualGuide() {
+  console.log(`
+${"═".repeat(72)}
+MANUAL UI TESTER — /post/ai
+${"═".repeat(72)}
+
+Open: http://localhost:3000/post/ai
+
+For each seed below:
+  1. Paste the message → wait for draft
+  2. Open Edit details → confirm title, price, condition, location
+  3. Read description — check: grounded facts, no filler, no dupes, natural voice
+
+SEQUENTIAL ISOLATION (do NOT clear chat between steps):
+  Step 1: iPhone seed
+  Step 2: Hilux seed (full listing message)
+  Step 3: Samsung seed
+  → Samsung description must have ZERO iPhone/Hilux facts
+
+EDIT REGEN:
+  After Samsung draft: "actually battery health is 91%"
+  → description must show 91% only (not 94%)
+
+REPLACE REGEN:
+  After Samsung: "remove the tow bar" (on Hilux) / location change
+  → old fact must disappear entirely
+
+CATEGORY SEEDS:
+`);
+  for (const c of CASES) {
+    if (c.manualSeed) console.log(`  [${c.name}]\n    ${c.manualSeed}\n`);
+  }
+}
+
+async function main() {
+  if (showManual) {
+    printManualGuide();
+    return;
+  }
+  let code = 0;
+  if (runSequential) {
+    code = runSequentialChain();
+  } else {
+    code = runCategorySweep();
+  }
+  if (code !== 0) process.exit(code);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
