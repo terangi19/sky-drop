@@ -2,6 +2,10 @@ import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import {
   harvestSellerEvidence,
   sellerEvidenceToExtras,
+  extractModificationClause,
+  sanitizeListingExtras,
+  structuredFactContextFromFill,
+  stripStructuredFactsFromText,
 } from "./awhina-seller-evidence";
 import { parseListingCondition } from "./awhina-listing-condition";
 import { extractSellerAuthoredText } from "./awhina-orchestration-boundary";
@@ -304,15 +308,16 @@ function enrichSellerFactsFromMessage(message: string, fill: SkyAiListingFill): 
   const explicitCondition = parseExplicitCondition(sellerText);
   if (explicitCondition) out.condition = explicitCondition;
 
-  const harvested = harvestSellerEvidence(sellerText, {
-    title: out.title,
-    colour: out.vehicleColour,
-    location: out.location || out.pickupArea,
-    condition: out.condition,
-  });
+  const ctx = structuredFactContextFromFill(out);
+  const modClause = extractModificationClause(sellerText);
+  const harvestSource =
+    modClause || stripStructuredFactsFromText(sellerText, ctx);
+  const harvested = harvestSource
+    ? harvestSellerEvidence(harvestSource, ctx)
+    : [];
   const harvestedExtras = sellerEvidenceToExtras(harvested);
   const supplemental = supplementalSellerExtras(sellerText, out);
-  out.extras = mergeListingExtras(out.extras, [...harvestedExtras, ...supplemental]);
+  out.extras = sanitizeListingExtras(out, mergeListingExtras(out.extras, [...harvestedExtras, ...supplemental]));
 
   // Any genuinely new seller facts make the old AI description stale. The
   // async writer will rebuild it from the enriched canonical evidence.

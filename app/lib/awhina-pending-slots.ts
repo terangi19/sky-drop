@@ -26,6 +26,9 @@ import {
   extraKeyIsMultiValue,
   harvestSellerEvidence,
   sellerEvidenceToExtras,
+  extractModificationClause,
+  sanitizeListingExtras,
+  structuredFactContextFromFill,
 } from "./awhina-seller-evidence";
 import {
   looksLikeColourFinish,
@@ -1419,13 +1422,36 @@ export function extractCompoundListingFacts(
       .trim();
   }
 
-  // Preserve useful seller statements that do not have dedicated schema fields.
-  const sellerItems = harvestSellerEvidence(message, {
+  // Preserve useful seller statements — harvest per sentence/clause, never the
+  // full raw message as one blob. Composite sentences are reduced inside harvest.
+  const evidenceCtx = structuredFactContextFromFill({
+    ...base,
+    ...partial,
     title: partial.title || base.title,
-    colour: partial.vehicleColour || base.vehicleColour,
-    location: partial.location || base.location,
-    condition: partial.condition || base.condition,
   });
+  const modClause =
+    extractModificationClause(residual) || extractModificationClause(message);
+  const sentenceSources = [
+    ...(modClause ? [modClause] : []),
+    ...extractSellerAuthoredText(message)
+      .split(/(?<=[.!?])\s+/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean),
+    ...residual
+      .split(/(?<=[.!?])\s+/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean),
+  ];
+  const sellerItems: ReturnType<typeof harvestSellerEvidence> = [];
+  const seenEvidence = new Set<string>();
+  for (const source of sentenceSources) {
+    for (const item of harvestSellerEvidence(source, evidenceCtx)) {
+      const key = `${item.kind}:${item.text.toLowerCase().replace(/\s+/g, " ").trim()}`;
+      if (seenEvidence.has(key)) continue;
+      seenEvidence.add(key);
+      sellerItems.push(item);
+    }
+  }
   if (sellerItems.length) {
     const extras = sellerEvidenceToExtras(sellerItems);
     partial.extras = mergeExtras(partial.extras || base.extras, extras);
@@ -1469,6 +1495,13 @@ export function extractCompoundListingFacts(
   }
 
   residual = residual.replace(/\b(?:and|then|also|please|make\s+it)\b/gi, " ").replace(/\s+/g, " ").trim();
+
+  if (partial.extras?.length) {
+    partial.extras = sanitizeListingExtras(
+      { ...base, ...partial } as SkyAiListingFill,
+      partial.extras
+    );
+  }
 
   return { partial, filledSlots, residual, notes };
 }

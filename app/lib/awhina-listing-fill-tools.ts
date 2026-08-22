@@ -96,6 +96,13 @@ import {
   buildReadinessFollowUpReply,
 } from "./awhina-listing-readiness";
 import { applyAwhinaDomainKnowledge } from "./awhina-domain-knowledge";
+import {
+  extractModificationClause,
+  harvestSellerEvidence,
+  sanitizeListingExtras,
+  sellerEvidenceToExtras,
+  structuredFactContextFromFill,
+} from "./awhina-seller-evidence";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSIONS = 400;
@@ -1532,10 +1539,29 @@ export function processListingFillMessage(
         ) {
           vehicleOdometer = compound.partial.vehicleOdometer;
         }
-        const modNote = extractFreeformModificationNote(trimmed);
+        const modClause = extractModificationClause(trimmed);
+        const modExtras = modClause
+          ? sellerEvidenceToExtras(
+              harvestSellerEvidence(
+                modClause,
+                structuredFactContextFromFill({
+                  title: item,
+                  listingType: "vehicle",
+                  vehicleMake: identityEarly.make || undefined,
+                  vehicleModel: identityEarly.model || undefined,
+                  vehicleYear: vehicleYearSeed,
+                  vehicleColour,
+                  vehicleOdometer,
+                  vehicleTransmission,
+                  location: partial.location,
+                  condition: partial.condition,
+                })
+              ).filter((entry) => entry.kind === "modification")
+            )
+          : [];
         const extraBits = [
           ...(compound.partial.extras || []),
-          ...(modNote ? [modNote] : []),
+          ...modExtras,
         ];
         if (extraBits.length) seedExtras = [...new Set(extraBits)].slice(0, 12);
       }
@@ -1809,6 +1835,7 @@ function finishFill(
   if (!isPartial) {
     listingFill = { ...listingFill, replaceDraft: true };
   }
+  listingFill = { ...listingFill, extras: sanitizeListingExtras(listingFill) };
   if (listingFill.descriptionSource !== "user") {
     listingFill = enforcePublicListingDescription(listingFill, {
       force: Boolean(listingFill.forceDescriptionRewrite),

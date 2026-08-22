@@ -6,6 +6,8 @@
  *   npx tsx scripts/description-quality-tester.mts
  *   npx tsx scripts/description-quality-tester.mts --category "Toyota Hilux"
  *   npx tsx scripts/description-quality-tester.mts --sequential
+ *   npx tsx scripts/description-quality-tester.mts --unknown
+ *   npx tsx scripts/description-quality-tester.mts --all
  *   npx tsx scripts/description-quality-tester.mts --manual
  */
 
@@ -131,6 +133,103 @@ const CASES: Case[] = [
   },
 ];
 
+/** Categories never used as implementation templates — proves generalisation. */
+const UNKNOWN_CASES: Case[] = [
+  {
+    name: "Metal lathe (industrial)",
+    manualSeed: "Colchester Triumph 2000 metal lathe, 3-phase, chuck and tooling, fair condition, Whanganui",
+    fill: {
+      title: "Colchester Triumph 2000 metal lathe",
+      condition: "Used - Fair",
+      location: "Whanganui",
+      extras: ["note:3-phase power", "note:includes chuck and tooling"],
+    },
+    must: [/lathe/i, /Whanganui/i],
+    mustNot: [/\bper hour\b/i],
+  },
+  {
+    name: "Bee hive (niche physical)",
+    manualSeed: "Flow Hive 2 cedar bee hive, used one season, complete with frames, Nelson",
+    fill: {
+      title: "Flow Hive 2 cedar bee hive",
+      condition: "Used - Good",
+      location: "Nelson",
+      extras: ["note:complete with frames", "note:used one season"],
+    },
+    must: [/hive|Flow/i, /Nelson/i],
+  },
+  {
+    name: "Wanted E92 bumper",
+    manualSeed: "Looking for an E92 M Sport rear bumper in Space Grey around Auckland, budget around $800",
+    fill: {
+      title: "BMW E92 M Sport rear bumper Space Grey",
+      listingType: "wanted",
+      location: "Auckland",
+      price: "800",
+    },
+    must: [/looking for|wanted|after a/i, /E92|bumper/i, /Auckland/i],
+    mustNot: [/\bfor sale\b/i, /\bselling my\b/i],
+  },
+  {
+    name: "Rich lawn service",
+    manualSeed:
+      "I mow lawns around West Auckland. Small lawns from $40, larger lawns quoted depending on size. Fortnightly mowing and green waste removal.",
+    fill: {
+      title: "Lawn mowing",
+      listingType: "service",
+      category: "Gardening",
+      location: "West Auckland",
+      extras: [
+        "note:small lawns from $40",
+        "note:larger lawns quoted depending on size",
+        "note:regular fortnightly mowing available",
+        "note:green waste removal offered",
+      ],
+    },
+    must: [/lawn|mowing/i, /West Auckland|\$40|fortnightly|green waste/i],
+    mustNot: [/\b(?:item|product)\s+in\s+good\s+condition\b/i, /\bfor sale\b/i],
+  },
+  {
+    name: "Tandem trailer rental",
+    manualSeed: "Renting out my tandem trailer in Henderson, $60 a day, $150 bond, pickup only, tie-down straps included",
+    fill: {
+      title: "Tandem trailer",
+      listingType: "rental",
+      category: "Equipment Hire",
+      location: "Henderson",
+      rentalPriceDaily: "60",
+      rentalDeposit: "150",
+      rentalSubType: "equipment",
+      extras: ["note:pickup only", "includes:tie-down straps"],
+    },
+    must: [/trailer/i, /Henderson/i],
+    mustNot: [/\bselling my\b/i, /\bfor sale\b/i],
+  },
+  {
+    name: "Kombucha SCOBY kit",
+    manualSeed: "Kombucha SCOBY starter kit, includes jar and starter tea, 2 cultures, good condition, New Plymouth",
+    fill: {
+      title: "Kombucha SCOBY starter kit",
+      condition: "Used - Good",
+      location: "New Plymouth",
+      extras: ["note:includes jar and starter tea", "quantity:2 cultures"],
+    },
+    must: [/SCOBY|kombucha/i, /New Plymouth/i],
+  },
+  {
+    name: "Piano tuning service",
+    manualSeed: "Piano tuning Christchurch, $180 standard tune, can travel within Canterbury",
+    fill: {
+      title: "Piano tuning",
+      listingType: "service",
+      category: "Music & Instruments",
+      location: "Christchurch",
+      extras: ["note:$180 standard tune", "note:can travel within Canterbury"],
+    },
+    must: [/piano/i, /Christchurch|Canterbury|\$180/i],
+  },
+];
+
 const SEQUENTIAL: Array<Partial<SkyAiListingFill> & { title: string; replaceDraft?: boolean }> = [
   { title: "Apple iPhone 15 Pro", extras: ["storage:256GB"], location: "Hamilton" },
   {
@@ -175,6 +274,8 @@ const onlyCategory = args.includes("--category")
   ? args[args.indexOf("--category") + 1]
   : null;
 const runSequential = args.includes("--sequential");
+const runUnknown = args.includes("--unknown");
+const runAll = args.includes("--all");
 const showManual = args.includes("--manual");
 
 function describe(fill: SkyAiListingFill): string {
@@ -224,25 +325,19 @@ function printCase(testCase: Case) {
   return ok;
 }
 
-function runCategorySweep() {
+function runCaseList(label: string, cases: Case[]) {
+  console.log(`\n${"═".repeat(72)}`);
+  console.log(label);
+  console.log(`Cases: ${cases.length}`);
   let pass = 0;
   let fail = 0;
-  const cases = onlyCategory
-    ? CASES.filter((c) => c.name.toLowerCase().includes(onlyCategory.toLowerCase()))
-    : CASES;
-  if (!cases.length) {
-    console.error(`No case matched --category "${onlyCategory}"`);
-    process.exit(1);
-  }
-  console.log("Description quality tester — category sweep");
-  console.log(`Cases: ${cases.length}`);
   for (const c of cases) {
     if (printCase(c)) pass++;
     else fail++;
   }
-  console.log(`\n${"═".repeat(72)}`);
+  console.log(`\n${"─".repeat(72)}`);
   console.log(`Result: ${pass} passed, ${fail} failed`);
-  return fail === 0 ? 0 : 1;
+  return fail;
 }
 
 function runSequentialChain() {
@@ -314,6 +409,10 @@ CATEGORY SEEDS:
   for (const c of CASES) {
     if (c.manualSeed) console.log(`  [${c.name}]\n    ${c.manualSeed}\n`);
   }
+  console.log("UNKNOWN / NICHE SEEDS (architecture must generalise — not template-specific):\n");
+  for (const c of UNKNOWN_CASES) {
+    if (c.manualSeed) console.log(`  [${c.name}]\n    ${c.manualSeed}\n`);
+  }
 }
 
 async function main() {
@@ -321,13 +420,28 @@ async function main() {
     printManualGuide();
     return;
   }
-  let code = 0;
-  if (runSequential) {
-    code = runSequentialChain();
+  let fail = 0;
+  if (runAll) {
+    fail += runCaseList("Description quality tester — category sweep", CASES);
+    fail += runSequentialChain();
+    fail += runCaseList("Description quality tester — unknown / niche listings", UNKNOWN_CASES);
+  } else if (runSequential) {
+    fail = runSequentialChain();
+  } else if (runUnknown) {
+    fail = runCaseList("Description quality tester — unknown / niche listings", UNKNOWN_CASES);
   } else {
-    code = runCategorySweep();
+    const cases = onlyCategory
+      ? [...CASES, ...UNKNOWN_CASES].filter((c) =>
+          c.name.toLowerCase().includes(onlyCategory!.toLowerCase())
+        )
+      : CASES;
+    if (!cases.length) {
+      console.error(`No case matched --category "${onlyCategory}"`);
+      process.exit(1);
+    }
+    fail = runCaseList("Description quality tester — category sweep", cases);
   }
-  if (code !== 0) process.exit(code);
+  if (fail !== 0) process.exit(1);
 }
 
 main().catch((err) => {

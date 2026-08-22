@@ -12,6 +12,7 @@ import {
   extractSellerAuthoredText,
   sanitizePublicListingCopy,
 } from "./awhina-orchestration-boundary";
+import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 
 export const SELLER_EVIDENCE_KINDS = [
   "modification",
@@ -46,7 +47,21 @@ export type SellerEvidenceHarvestContext = {
   colour?: string;
   location?: string;
   condition?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: string;
+  vehicleOdometer?: string;
+  vehicleTransmission?: string;
+  vehicleColour?: string;
+  vehicleBodyType?: string;
+  price?: string;
+  listingType?: string;
 };
+
+export type StructuredFactContext = SellerEvidenceHarvestContext;
+
+const NZ_LOCATION_RE =
+  /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|waitakere|north\s+shore|west\s+auckland|greymouth|whanganui|new\s+plymouth)\b/i;
 
 const MULTI_VALUE_KEYS = new Set([
   "modification",
@@ -104,6 +119,151 @@ function cleanFragment(raw: string): string {
 
 function normalize(value: string): string {
   return value.toLowerCase().replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function structuredFactContextFromFill(
+  fill: Partial<SkyAiListingFill>
+): StructuredFactContext {
+  return {
+    title: fill.title,
+    colour: fill.vehicleColour,
+    location: fill.location || fill.pickupArea,
+    condition: fill.condition,
+    vehicleMake: fill.vehicleMake,
+    vehicleModel: fill.vehicleModel,
+    vehicleYear: fill.vehicleYear,
+    vehicleOdometer: fill.vehicleOdometer,
+    vehicleTransmission: fill.vehicleTransmission,
+    vehicleColour: fill.vehicleColour,
+    vehicleBodyType: fill.vehicleBodyType,
+    price: fill.price,
+    listingType: fill.listingType,
+  };
+}
+
+export function structuredFactSignalCount(
+  text: string,
+  ctx: StructuredFactContext = {}
+): number {
+  const t = normalize(text);
+  if (!t) return 0;
+  let signals = 0;
+  const bump = (hit: boolean) => {
+    if (hit) signals += 1;
+  };
+  bump(/\b(19|20)\d{2}\b/.test(t));
+  bump(/\b[\d,]{3,7}\s*kms?\b/.test(t) || /\b[\d,]{3,7}\s*(?:km|kilometers|kilometres)\b/.test(t));
+  bump(/\b(manual|automatic|auto)\b/.test(t));
+  bump(
+    COLOUR_ONLY_RE.test(t.trim()) ||
+      /\b(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy|titanium|graphite|starlight)\b/.test(
+        t
+      )
+  );
+  bump(/\b(good|fair|like new|brand new|excellent|mint)\s+condition\b/.test(t) || /\bcondition\b/.test(t));
+  bump(NZ_LOCATION_RE.test(t));
+  bump(/\b(coupe|sedan|hatch(?:back)?|suv|ute|wagon|van|convertible)\b/.test(t));
+  bump(/\$\s*[\d,]/.test(text) || /\bfor\s+\d/.test(t));
+  if (ctx.vehicleMake?.trim()) bump(t.includes(normalize(ctx.vehicleMake)));
+  if (ctx.vehicleModel?.trim()) bump(t.includes(normalize(ctx.vehicleModel)));
+  if (ctx.vehicleYear?.trim()) bump(t.includes(normalize(ctx.vehicleYear)));
+  if (ctx.vehicleOdometer?.trim()) {
+    const odo = ctx.vehicleOdometer.replace(/,/g, "");
+    bump(t.includes(odo) || t.includes(`${Number(odo) / 1000}k`));
+  }
+  if (ctx.title?.trim()) {
+    const title = normalize(ctx.title);
+    if (title.length >= 6 && t.includes(title)) bump(true);
+  }
+  return signals;
+}
+
+export function isCompositeStructuredExtra(
+  value: string,
+  ctx: StructuredFactContext = {}
+): boolean {
+  const text = String(value || "").trim();
+  if (text.split(/\s+/).length < 6) return false;
+  return structuredFactSignalCount(text, ctx) >= 3;
+}
+
+export function extractModificationClause(text: string): string | null {
+  const source = String(text || "").replace(/\s+/g, " ").trim();
+  if (!source) return null;
+  const withTail = source.match(
+    /\b(?:modified|upgraded|fitted with)\s+(?:with\s+)?(.+?)(?=\s*,\s*(?:cars?\s+in\b|and\s+it'?s\b|located\b|based\b|its\s+in\b|in\s+(?:auckland|wellington|christchurch|hamilton|tauranga|dunedin)|$)|$)/i
+  );
+  if (withTail?.[1]) {
+    const tail = cleanFragment(withTail[1])
+      .replace(/\s+(?:in\s+)?(?:auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|rotorua|queenstown|nelson|whangarei|henderson)\b.*$/i, "")
+      .replace(/\s+(?:good|fair|excellent|mint|used|brand new|like new)\s+condition\b.*$/i, "")
+      .trim();
+    return tail.length >= 4 ? tail : null;
+  }
+  const bareModified = source.match(
+    /\bmodified\s+(.+?)(?=\s+(?:in\s+)?(?:auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|rotorua|queenstown|nelson|whangarei|henderson|west auckland|north shore)\b|\s+(?:good|fair|excellent|mint|used|brand new|like new)\s+condition\b|$)/i
+  );
+  if (bareModified?.[1]) {
+    const tail = cleanFragment(bareModified[1]);
+    return tail.length >= 4 ? tail : null;
+  }
+  const aftermarket = source.match(/\baftermarket\s+(.+?)(?=\.|$)/i);
+  if (aftermarket?.[1]) {
+    const tail = cleanFragment(aftermarket[1]);
+    return tail.length >= 4 ? tail : null;
+  }
+  return null;
+}
+
+export function stripStructuredFactsFromText(
+  text: string,
+  ctx: StructuredFactContext = {}
+): string {
+  let out = String(text || "").replace(/\s+/g, " ").trim();
+  if (!out) return "";
+  out = out.replace(/\b(?:19|20)\d{2}\b/g, " ");
+  if (ctx.vehicleMake) {
+    out = out.replace(new RegExp(`\\b${escapeRegExp(ctx.vehicleMake)}\\b`, "gi"), " ");
+  }
+  if (ctx.vehicleModel) {
+    out = out.replace(new RegExp(`\\b${escapeRegExp(ctx.vehicleModel)}\\b`, "gi"), " ");
+  }
+  out = out.replace(/\b[\d,]{3,7}\s*kms?\b/gi, " ");
+  out = out.replace(/\b[\d,]{3,7}\s*(?:km|kilometers|kilometres)\b/gi, " ");
+  out = out.replace(/\b(manual|automatic|auto)\b/gi, " ");
+  out = out.replace(/\b(coupe|sedan|hatch(?:back)?|suv|ute|wagon|van|convertible)\b/gi, " ");
+  out = out.replace(/\b(good|fair|like new|brand new|excellent|mint|used)\s+condition\b/gi, " ");
+  out = out.replace(NZ_LOCATION_RE, " ");
+  if (ctx.vehicleColour) {
+    out = out.replace(new RegExp(`\\b${escapeRegExp(ctx.vehicleColour)}\\b`, "gi"), " ");
+  }
+  if (ctx.location) {
+    out = out.replace(new RegExp(`\\b${escapeRegExp(ctx.location)}\\b`, "gi"), " ");
+  }
+  const modClause = extractModificationClause(text);
+  if (modClause) {
+    out = out.replace(
+      new RegExp(`\\b(?:modified|upgraded|fitted with)\\s+(?:with\\s+)?${escapeRegExp(modClause)}`, "i"),
+      " "
+    );
+  }
+  return out.replace(/\s+/g, " ").trim();
+}
+
+function splitModificationParts(tail: string): string[] {
+  const fromList = splitList(tail);
+  if (fromList.length > 1) return fromList;
+  const split = tail
+    .split(
+      /\s+(?=(?:intercooler|downpipes?|intakes?|coilovers?|exhaust|intake|wheels?|brakes?|suspension|18-?inch|20-?inch)\b)/i
+    )
+    .map(cleanFragment)
+    .filter(Boolean);
+  return split.length > 1 ? split : [tail];
 }
 
 function splitList(text: string): string[] {
@@ -192,6 +352,11 @@ function harvestFragment(
 ): SellerEvidenceItem[] {
   const text = cleanFragment(raw);
   if (!text || shouldSkipFragment(text, ctx)) return [];
+  if (isCompositeStructuredExtra(text, ctx)) {
+    const modTail = extractModificationClause(text);
+    if (modTail) return harvestFragment(modTail, ctx);
+    return [];
+  }
   const items: SellerEvidenceItem[] = [];
 
   if (COMPLY_RE.test(text)) {
@@ -233,8 +398,11 @@ function harvestFragment(
       pushUnique(items, { kind: "note", text });
       return items;
     }
-    const parts = splitList(
-      text.replace(/^(?:fitted with|modified with|has|with)\s+/i, "")
+    const modSource =
+      extractModificationClause(text) ||
+      text.replace(/^.*?\b(?:modified|upgraded|fitted with)\s+(?:with\s+)?/i, "");
+    const parts = splitModificationParts(
+      modSource.replace(/^(?:fitted with|modified with|has|with)\s+/i, "")
     );
     if (parts.length > 1) {
       for (const part of parts) {
@@ -313,17 +481,30 @@ export function harvestSellerEvidence(
   message: string,
   ctx: SellerEvidenceHarvestContext = {}
 ): SellerEvidenceItem[] {
-  // Never harvest orchestration / prompt wrappers as seller evidence.
-  const source = extractSellerAuthoredText(message).replace(/\s+/g, " ").trim();
-  if (!source || containsInternalOrchestration(source)) return [];
-  const sentences = source
+  const raw = extractSellerAuthoredText(message).replace(/\s+/g, " ").trim();
+  if (!raw || containsInternalOrchestration(raw)) return [];
+
+  const sentenceParts = raw
     .split(/(?<=[.!?])\s+/)
     .map(cleanFragment)
     .filter(Boolean)
     .filter((sentence) => !containsInternalOrchestration(sentence));
+
+  const sources =
+    sentenceParts.length > 1
+      ? sentenceParts
+      : (() => {
+          let source = raw;
+          if (structuredFactSignalCount(source, ctx) >= 3) {
+            const modOnly = extractModificationClause(source);
+            source = modOnly || stripStructuredFactsFromText(source, ctx);
+          }
+          return source ? [source] : [];
+        })();
+
   const items: SellerEvidenceItem[] = [];
-  for (const sentence of sentences.length ? sentences : [source]) {
-    for (const item of harvestSentence(sentence, ctx)) {
+  for (const source of sources) {
+    for (const item of harvestSentence(source, ctx)) {
       const cleaned = sanitizePublicListingCopy(item.text);
       if (!cleaned) continue;
       pushUnique(items, { kind: item.kind, text: cleaned });
@@ -336,6 +517,75 @@ export function sellerEvidenceToExtras(items: SellerEvidenceItem[]): string[] {
   return items
     .map((item) => `${item.kind}:${item.text}`)
     .filter((entry) => entry.length > 4);
+}
+
+function reparsedItemsFromCompositeBlob(
+  value: string,
+  ctx: StructuredFactContext
+): SellerEvidenceItem[] {
+  const modTail = extractModificationClause(value) || extractModificationClause(`modified ${value}`);
+  if (modTail) {
+    return harvestSellerEvidence(modTail, ctx).filter((item) => item.kind === "modification");
+  }
+  return [];
+}
+
+function dedupeExtras(extras: string[]): string[] {
+  const out: string[] = [];
+  for (const extra of extras) {
+    const key = extra.toLowerCase();
+    if (!out.some((existing) => existing.toLowerCase() === key)) out.push(extra);
+  }
+  return out.slice(0, 48);
+}
+
+/** Remove structured-field duplicates and reject/reparse composite evidence blobs. */
+export function sanitizeListingExtras(
+  fill: SkyAiListingFill,
+  extras?: string[]
+): string[] {
+  const ctx = structuredFactContextFromFill(fill);
+  const source = extras ?? fill.extras ?? [];
+  const cleaned: string[] = [];
+
+  for (const raw of source) {
+    const extra = String(raw || "").trim();
+    if (!extra) continue;
+    const match = extra.match(/^([a-z][a-z0-9_]*)\s*:\s*(.+)$/i);
+    if (!match) continue;
+    const key = match[1].toLowerCase().replace(/_/g, "");
+    const value = sanitizePublicListingCopy(match[2].trim());
+    if (!value || containsInternalOrchestration(value)) continue;
+
+    if (key === "colour" || key === "color") {
+      const colour = fill.vehicleColour?.trim();
+      if (colour && normalize(value) === normalize(colour)) continue;
+    }
+    if (key === "fuel" && fill.vehicleFuelType && normalize(value).includes(normalize(fill.vehicleFuelType))) {
+      continue;
+    }
+
+    const evidenceKind =
+      key === "modification" ||
+      key === "maintenance" ||
+      key === "conditiondetail" ||
+      key === "mechanical" ||
+      key === "compliance" ||
+      key === "included" ||
+      key === "note";
+
+    if (evidenceKind && isCompositeStructuredExtra(value, ctx)) {
+      const reparsed = reparsedItemsFromCompositeBlob(value, ctx);
+      if (reparsed.length) cleaned.push(...sellerEvidenceToExtras(reparsed));
+      continue;
+    }
+
+    if (key === "note" && isCompositeStructuredExtra(value, ctx)) continue;
+
+    cleaned.push(`${match[1]}:${value}`);
+  }
+
+  return dedupeExtras(cleaned);
 }
 
 function proseFromStructuredExtra(key: string, value: string): { kind: SellerEvidenceKind; text: string } | null {
@@ -372,7 +622,10 @@ function proseFromStructuredExtra(key: string, value: string): { kind: SellerEvi
   return null;
 }
 
-export function sellerEvidenceFromExtras(extras: string[] | undefined): SellerEvidenceItem[] {
+export function sellerEvidenceFromExtras(
+  extras: string[] | undefined,
+  ctx: StructuredFactContext = {}
+): SellerEvidenceItem[] {
   const items: SellerEvidenceItem[] = [];
   for (const raw of extras || []) {
     const extra = String(raw || "").trim();
@@ -381,6 +634,11 @@ export function sellerEvidenceFromExtras(extras: string[] | undefined): SellerEv
     const key = match[1].toLowerCase().replace(/_/g, "");
     const value = sanitizePublicListingCopy(match[2].trim());
     if (!value || containsInternalOrchestration(value)) continue;
+    if (key === "modification" && isCompositeStructuredExtra(value, ctx)) {
+      for (const item of reparsedItemsFromCompositeBlob(value, ctx)) pushUnique(items, item);
+      continue;
+    }
+    if (key === "note" && isCompositeStructuredExtra(value, ctx)) continue;
     if (key === "sellernotes" || key === "sellernote") {
       for (const sentence of value.split(/(?<=[.!?])\s+/)) {
         const text = cleanFragment(sentence);
@@ -485,9 +743,11 @@ function foldOverlappingEvidence(grouped: GroupedSellerEvidence): GroupedSellerE
 
 export function groupedSellerEvidenceFromExtras(
   extras: string[] | undefined,
-  location?: string
+  location?: string,
+  fill?: Partial<SkyAiListingFill>
 ): GroupedSellerEvidence {
-  return groupSellerEvidence(sellerEvidenceFromExtras(extras), location);
+  const ctx = fill ? structuredFactContextFromFill(fill) : location ? { location } : {};
+  return groupSellerEvidence(sellerEvidenceFromExtras(extras, ctx), location);
 }
 
 export function sellerEvidenceItemCount(grouped: GroupedSellerEvidence): number {
