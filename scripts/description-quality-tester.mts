@@ -78,6 +78,36 @@ const CASES: Case[] = [
     mustNot: [/256GB/i, /iPhone/i],
   },
   {
+    name: "BMW 335i extraction",
+    manualSeed:
+      "2007 BMW 335i coupe 145000km automatic grey modified twin turbos intercooler downpipes intakes Auckland good condition",
+    fill: {
+      title: "2007 BMW 335i",
+      listingType: "vehicle",
+      category: "Cars",
+      condition: "Used - Good",
+      location: "Auckland",
+      vehicleYear: "2007",
+      vehicleMake: "BMW",
+      vehicleModel: "335i",
+      vehicleBodyType: "Coupe",
+      vehicleOdometer: "145000",
+      vehicleTransmission: "Automatic",
+      vehicleColour: "Grey",
+      extras: [
+        "modification:twin turbos",
+        "modification:intercooler",
+        "modification:downpipes",
+        "modification:intakes",
+      ],
+    },
+    must: [/2007/i, /335i/i, /145,?000\s*km/i, /grey|gray/i, /Auckland/i, /twin turbos/i, /intercooler/i],
+    mustNot: [
+      /Fitted with 2007 BMW 335i coupe 145000km/i,
+      /modified twin turbos intercooler downpipes intakes Auckland good condition/i,
+    ],
+  },
+  {
     name: "Pokémon card",
     manualSeed: "Charizard VMAX PSA 10 Champion's Path, like new, Auckland",
     fill: {
