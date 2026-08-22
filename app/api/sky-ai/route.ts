@@ -39,6 +39,7 @@ import {
 } from "../../lib/sky-ai-profile-fill";
 import { finalizePageAwareResponse } from "../../lib/sky-ai-page-intent";
 import { validateListingFillFields } from "../../lib/awhina-listing-fill-tools";
+import { assessDraftTransition } from "../../lib/awhina-draft-transition";
 import { sanitizeProfileFillProposal } from "../../lib/awhina-profile-tools";
 import {
   finalizeAwhinaListingDescription,
@@ -288,8 +289,14 @@ function finalizeListingFill(
 
   // Explicit NEW sell → fresh draft. Do NOT merge prior draft/search fields.
   // Follow-ups ("actually make it $250") still merge.
+  const transition = assessDraftTransition({
+    message,
+    priorDraft: listingContext,
+  });
   const fresh =
-    listingFill.replaceDraft === true || isExplicitNewSellListingMessage(message);
+    listingFill.replaceDraft === true ||
+    transition.mode === "REPLACE" ||
+    isExplicitNewSellListingMessage(message);
 
   if (fresh) {
     const seed = { ...listingFill, replaceDraft: true };

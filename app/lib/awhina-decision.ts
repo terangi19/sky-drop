@@ -13,6 +13,7 @@ import {
   resolveTaskForMessage,
   type TaskScopeSession,
 } from "./awhina-task-scope";
+import { assessTextObjectContinuity } from "./awhina-draft-transition";
 import {
   extractServiceOfferingTitle,
   hasExplicitSellSwitch,
@@ -544,7 +545,8 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
     Boolean(
       ((explicitSell || sellIntent) && (priorTask === "shopping" || priorTask === "help")) ||
         (isExplicitNewSellListingMessage(trimmed) && priorTask === "selling") ||
-        domainShiftSell
+        domainShiftSell ||
+        assessTextObjectContinuity(trimmed, input.listingContext) === "NEW_OBJECT"
     );
 
   let intent: AwhinaDecisionIntent = input.intentHint || "unknown";

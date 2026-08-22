@@ -1132,42 +1132,7 @@ export default function AIPostPage() {
     // Explicit NEW sell: clear prior draft — do not keep stale price/year/vehicle fields
     if (replaceDraft) {
       clearListingDraftFromSkyAi();
-      pendingFillRef.current = null;
-      setFillEcho(null);
-      fieldProvenanceRef.current = {};
-      setFieldProvenance({});
-      setTitle("");
-      setDescription("");
-      setCategory("");
-      setCondition("");
-      setPrice("");
-      setListingType("physical");
-      setLocation("");
-      setVehicleMake("");
-      setVehicleModel("");
-      setVehicleGeneration("");
-      setVehicleYear("");
-      setVehicleOdometer("");
-      setVehicleTransmission("");
-      setVehicleFuelType("");
-      setVehicleBodyType("");
-      setVehicleColour("");
-      setDraftExtras([]);
-      setRentalSubType("equipment");
-      setRentalPropertyType("");
-      setRentalPriceWeekly("");
-      setRentalPriceMonthly("");
-      setRentalDeposit("");
-      setRentalBedrooms("");
-      setRentalBathrooms("");
-      setRentalParkingSpaces("");
-      setRentalFurnishedStatus("");
-      setRentalPetsPolicy("");
-      setRentalAvailableDate("");
-      setRentalMinTenancy("");
-      setRentalFeatures([]);
-      setStockQuantity("");
-      setServiceDuration("");
+      resetLocalListingSession();
     }
     let merged = {
       ...(replaceDraft
@@ -1555,7 +1520,7 @@ export default function AIPostPage() {
       changedKeys,
       draft: persisted ? readListingDraftFromSkyAi() : null,
     };
-  }, [imagePreviews.length, title, description, category, condition, price, listingType, location, vehicleMake, vehicleModel, vehicleGeneration, vehicleYear, vehicleOdometer, vehicleColour, vehicleBodyType, vehicleFuelType, vehicleTransmission, rentalPropertyType, rentalPriceWeekly, rentalPriceMonthly, rentalDeposit, rentalBedrooms, rentalBathrooms, rentalParkingSpaces, rentalFurnishedStatus, rentalPetsPolicy, rentalAvailableDate, rentalMinTenancy, stockQuantity, serviceDuration, autoPublish, choosePaymentType, isUserLockedField]);
+  }, [imagePreviews.length, title, description, category, condition, price, listingType, location, vehicleMake, vehicleModel, vehicleGeneration, vehicleYear, vehicleOdometer, vehicleColour, vehicleBodyType, vehicleFuelType, vehicleTransmission, rentalPropertyType, rentalPriceWeekly, rentalPriceMonthly, rentalDeposit, rentalBedrooms, rentalBathrooms, rentalParkingSpaces, rentalFurnishedStatus, rentalPetsPolicy, rentalAvailableDate, rentalMinTenancy, stockQuantity, serviceDuration, autoPublish, choosePaymentType, isUserLockedField, resetLocalListingSession]);
 
   /**
    * Vision success → SAME Āwhina listing brain:

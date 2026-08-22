@@ -5,6 +5,10 @@
  */
 
 import {
+  assessDraftTransition,
+  stampReplaceDraft,
+} from "./awhina-draft-transition";
+import {
   hasFormActionContent,
   parseFormActionsFromMessage,
   mergeFormActionsIntoFill,
@@ -1221,26 +1225,15 @@ export function processListingFillMessage(
     hasActiveDraftCommandLanguage(trimmed) ||
     isListPublishActionMessage(trimmed) ||
     Boolean(getActiveListingSlot(opts.pendingClarification));
+  const draftTransition = assessDraftTransition({
+    message: trimmed,
+    priorDraft: opts.listingContext,
+    freshStartHint: opts.freshStart === true,
+    pendingClarification: opts.pendingClarification,
+  });
   // New NL sell request (has item seed) — never inherit SEARCH/old unrelated draft.
   // Active-draft compound follow-ups must NOT reset the draft.
-  const isNewSellSeed =
-    opts.freshStart === true ||
-    (!activeDraftFollowUp &&
-      (isExplicitNewSellListingMessage(trimmed) ||
-        ((serviceOffer || rentalOffer) &&
-          !hasActiveListingDraft(opts.listingContext) &&
-          !Object.keys(
-            reconstructListingDraftBase({
-              listingContext: opts.listingContext,
-              sessionKey,
-              freshStart: false,
-            })
-          ).length) ||
-        (Boolean(sellItemEarly || serviceTitleEarly) &&
-          (hasListingSellIntent(trimmed) ||
-            /\b(want\s+to\s+list|list(?:ing)?\s+my|sell(?:ing)?\s+my|create\s+(?:a\s+)?listing)\b/i.test(
-              trimmed
-            )))));
+  const isNewSellSeed = draftTransition.freshStart;
 
   if (isNewSellSeed) {
     clearListingDraftSession(sessionKey);
@@ -1783,7 +1776,7 @@ export function processListingFillMessage(
 
   const intent = hasDraft && !isNewSellSeed ? "listing_update" : "listing_create";
   if (isNewSellSeed || intent === "listing_create") {
-    validated.fill.replaceDraft = true;
+    validated.fill = stampReplaceDraft(validated.fill);
   }
   let reply: string;
   if (isCompleteListingDraft(validated.fill)) {

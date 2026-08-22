@@ -72,6 +72,10 @@ import {
   detectActiveDraftCommands,
 } from "./awhina-active-draft-commands";
 import { hasActiveListingDraft } from "./sky-ai-draft-merge";
+import {
+  assessDraftTransition,
+  isTerseListingCommand,
+} from "./awhina-draft-transition";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SkyAiProfileContext } from "./sky-ai-profile-context";
 import type { SkyAiProfileFill } from "./sky-ai-profile-fill";
@@ -1531,15 +1535,25 @@ export function processCanonicalAwhina(
   const hasListDraftEarly =
     hasActiveListingDraft(context.listingContext) || Boolean(listSessionEarly?.draft);
 
-  // On the sell workspace, a terse listing command always means continue the
-  // current draft. Never send it through generic capability ambiguity.
+  // On the sell workspace, a terse listing command continues the current draft.
+  // Never intercept a data-rich NEW listing (iPhone → Hilux) — that must REPLACE.
+  const priorForTransition = reconstructListingDraftBase({
+    listingContext: context.listingContext,
+    sessionKey: listKeyEarly,
+    freshStart: false,
+  });
+  const draftTransition = assessDraftTransition({
+    message: trimmed,
+    priorDraft: priorForTransition,
+    pendingClarification: taskSession?.pendingClarification,
+  });
   if (
     pathname.startsWith("/post/ai") &&
     hasListDraftEarly &&
     hasListingSellIntent(trimmed) &&
-    // A data-rich answer such as "1999 Nissan... 145,000 km..." resembles a
-    // fresh listing seed. When details are pending, it is an answer first.
-    !getActiveListingSlot(taskSession?.pendingClarification)
+    !getActiveListingSlot(taskSession?.pendingClarification) &&
+    draftTransition.mode === "PATCH" &&
+    isTerseListingCommand(trimmed)
   ) {
     const fill = reconstructListingDraftBase({
       listingContext: context.listingContext,
