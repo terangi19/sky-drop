@@ -122,7 +122,7 @@ import {
   isVehicleListingFill,
   type ListingFacts,
 } from "./awhina-product-ux";
-import { finalizeAwhinaListingDescription } from "./awhina-listing-composer";
+import { enforcePublicListingDescription } from "./awhina-listing-composer";
 import {
   buildAwhinaDecision,
   collectIgnoredStaleContext,
@@ -452,7 +452,7 @@ function applyPendingSlotFill(opts: {
       (priorDesc.length > 0 &&
         priorDesc.length < 80 &&
         (merged.extras || []).length > (baseHydrated.extras || []).length);
-    const finalized = finalizeAwhinaListingDescription(merged, { force });
+    const finalized = enforcePublicListingDescription(merged, { force });
     merged.description = finalized.description;
     merged.descriptionSource = finalized.descriptionSource;
   }

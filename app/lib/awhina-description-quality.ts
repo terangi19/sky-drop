@@ -5,6 +5,7 @@
 
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import { hasCategoryIncompatibleDescription } from "./awhina-category-copy-guard";
+import { containsInternalOrchestration } from "./awhina-orchestration-boundary";
 
 function splitDescriptionSentences(text: string): string[] {
   return String(text || "")
@@ -144,36 +145,132 @@ export function polishPublicDescription(
   return out.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 }
 
-/** Validation helper — description must not contradict current draft facts. */
-export function descriptionContradictsDraft(
-  description: string,
+export type DescriptionQualityViolation =
+  | "empty_when_facts_exist"
+  | "marketing_filler"
+  | "semantic_duplicate"
+  | "category_incompatible"
+  | "orchestration_leak"
+  | "wrong_domain_language"
+  | "wanted_sounds_like_sale"
+  | "service_sounds_like_product"
+  | "rental_sounds_like_sale"
+  | "invented_collectible_hype"
+  | "stale_prior_listing";
+
+const INVENTED_COLLECTIBLE_HYPE_RE =
+  /\b(?:rare(?:ly)?|highly sought[- ]after|investment potential|sure to appreciate|iconic status|legendary status|valuable addition)\b/i;
+
+const SERVICE_AS_PRODUCT_RE =
+  /\b(?:item|product|listing)\s+in\s+(?:good|fair|like[- ]?new|brand new)(?:\s+used)?\s+condition\b/i;
+
+const PRODUCT_AS_SERVICE_RE = /\b(?:per hour|hourly rate|quote required for the job)\b/i;
+
+export type DescriptionQualityContractResult =
+  | { ok: true; description: string }
+  | { ok: false; violations: DescriptionQualityViolation[]; description: string };
+
+function listingDomain(fill: SkyAiListingFill): string {
+  return String(fill.listingType || "physical").toLowerCase();
+}
+
+function draftFactBlob(fill: SkyAiListingFill): string {
+  return [
+    fill.title,
+    fill.location,
+    fill.condition,
+    fill.vehicleMake,
+    fill.vehicleModel,
+    fill.vehicleYear,
+    fill.vehicleOdometer,
+    ...(fill.extras || []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+/** Category-independent quality contract — no product-specific templates. */
+export function validateDescriptionQualityContract(
+  description: string | undefined | null,
   fill: SkyAiListingFill,
-  priorDescription?: string
-): boolean {
-  const lower = description.toLowerCase();
-  // Stale prior-listing bleed: old location still present after change
-  if (priorDescription && fill.location) {
-    const oldLocs = [...priorDescription.matchAll(/\blocated in\s+([^.,!?]+)/gi)].map((m) =>
-      normalizeLoc(m[1])
-    );
-    const newLoc = normalizeLoc(fill.location);
-    for (const old of oldLocs) {
-      if (old && old !== newLoc && lower.includes(old) && !lower.includes(newLoc)) {
-        return true;
-      }
+  opts?: { priorDescription?: string; requireNonEmpty?: boolean }
+): DescriptionQualityContractResult {
+  const text = String(description || "").replace(/\s+/g, " ").trim();
+  const violations: DescriptionQualityViolation[] = [];
+  if (!text) {
+    if (opts?.requireNonEmpty) violations.push("empty_when_facts_exist");
+    return violations.length ? { ok: false, violations, description: "" } : { ok: true, description: "" };
+  }
+
+  if (containsGenericMarketplaceFiller(text)) violations.push("marketing_filler");
+  if (hasSemanticFactDuplication(text)) violations.push("semantic_duplicate");
+  if (hasCategoryIncompatibleDescription(text, fill)) violations.push("category_incompatible");
+  if (containsInternalOrchestration(text)) violations.push("orchestration_leak");
+
+  const domain = listingDomain(fill);
+  if (domain === "service") {
+    if (SERVICE_AS_PRODUCT_RE.test(text)) violations.push("service_sounds_like_product");
+    if (/\bfor sale\b/i.test(text)) violations.push("wrong_domain_language");
+  } else if (domain === "rental") {
+    if (/\b(?:selling my|for sale|up for sale)\b/i.test(text)) violations.push("rental_sounds_like_sale");
+  } else if (domain === "wanted") {
+    if (/\b(?:for sale|selling my|available to buy|buy now)\b/i.test(text)) {
+      violations.push("wanted_sounds_like_sale");
+    }
+  } else if (PRODUCT_AS_SERVICE_RE.test(text)) {
+    violations.push("wrong_domain_language");
+  }
+
+  const factBlob = draftFactBlob(fill);
+  if (
+    fill.category?.toLowerCase() === "collectibles" ||
+    /\b(?:card|graded|psa|bgs|cgc)\b/i.test(`${fill.title} ${(fill.extras || []).join(" ")}`)
+  ) {
+    if (INVENTED_COLLECTIBLE_HYPE_RE.test(text) && !INVENTED_COLLECTIBLE_HYPE_RE.test(factBlob)) {
+      violations.push("invented_collectible_hype");
     }
   }
-  // Obvious cross-listing keywords when draft has no match
-  const stalePatterns = [
-    /\biphone\b/i,
-    /\b256\s*gb\b/i,
-    /\bhilux\b/i,
-    /\btow bar\b/i,
-    /\bpok[eé]mon\b/i,
-  ];
-  const draftBlob = `${fill.title} ${fill.description} ${(fill.extras || []).join(" ")} ${fill.vehicleMake} ${fill.vehicleModel}`.toLowerCase();
-  for (const re of stalePatterns) {
-    if (re.test(description) && !re.test(draftBlob)) return true;
+
+  if (opts?.priorDescription && opts.priorDescription.trim().length > 20 && fill.replaceDraft) {
+    const prior = opts.priorDescription.toLowerCase();
+    const priorTokens = prior
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 4)
+      .filter((w) => !factBlob.includes(w));
+    const bleed = priorTokens.filter((w) => text.toLowerCase().includes(w)).slice(0, 3);
+    if (bleed.length >= 2) violations.push("stale_prior_listing");
   }
-  return false;
+
+  if (violations.length) return { ok: false, violations, description: text };
+  return { ok: true, description: text };
+}
+
+/** Last-resort factual copy when writer + deterministic paths fail contract. */
+export function minimalSafeDescription(fill: SkyAiListingFill): string {
+  const domain = listingDomain(fill);
+  const title = (fill.title || "Listing").trim();
+  const loc = (fill.location || fill.pickupArea || "").trim();
+  const hasUsefulFact = Boolean(
+    fill.condition?.trim() ||
+      loc ||
+      fill.vehicleYear?.trim() ||
+      fill.vehicleOdometer?.trim() ||
+      fill.vehicleGeneration?.trim() ||
+      (fill.extras || []).some((e) => String(e).trim().length > 0)
+  );
+  if (!hasUsefulFact && (domain === "vehicle" || domain === "physical")) {
+    return "";
+  }
+  if (domain === "wanted") {
+    return loc ? `Looking for ${title.toLowerCase()} in ${loc}.` : `Looking for ${title.toLowerCase()}.`;
+  }
+  if (domain === "service") {
+    return loc ? `${title} available in ${loc}.` : `${title} available.`;
+  }
+  if (domain === "rental") {
+    return loc ? `${title} available to hire in ${loc}.` : `${title} available to hire.`;
+  }
+  if (loc) return `${title}. Located in ${loc}.`;
+  return `${title}.`;
 }

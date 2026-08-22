@@ -9,7 +9,7 @@ import {
   type AwhinaAIRequest,
 } from "../../lib/awhina-ai-server";
 import { processCanonicalAwhina } from "../../lib/awhina-canonical";
-import { finalizeAwhinaListingDescription } from "../../lib/awhina-listing-composer";
+import { enforcePublicListingDescription } from "../../lib/awhina-listing-composer";
 import type { SkyAiListingFill } from "../../lib/sky-ai-listing-fill";
 import type { SkyAiListingContext } from "../../lib/sky-ai-types";
 import {
@@ -195,12 +195,14 @@ export async function POST(req: NextRequest) {
       // A previously generated thin description must not survive after the seller
       // supplies richer vehicle facts. Recompose from the fully merged canonical
       // draft, while never overwriting a user-written description.
-      if (
-        listingFill &&
-        listingFill.descriptionSource !== "user" &&
-        listingFactsChanged(listingContext, listingFill)
-      ) {
-        listingFill = finalizeAwhinaListingDescription(listingFill, { force: true });
+      if (listingFill && listingFill.descriptionSource !== "user") {
+        listingFill = enforcePublicListingDescription(listingFill, {
+          force: Boolean(
+            listingFill.forceDescriptionRewrite ||
+              listingFill.replaceDraft ||
+              listingFactsChanged(listingContext, listingFill)
+          ),
+        });
       }
 
       return NextResponse.json({

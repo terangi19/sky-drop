@@ -26,6 +26,11 @@ import {
   type ListingDescriptionQuality,
   type ListingDescriptionStyle,
 } from "./awhina-listing-description";
+import {
+  minimalSafeDescription,
+  polishPublicDescription,
+  validateDescriptionQualityContract,
+} from "./awhina-description-quality";
 import { getListingDetailBatch } from "./awhina-pending-slots";
 import { getListingReadinessState } from "./awhina-listing-readiness";
 
@@ -956,11 +961,14 @@ export function autoImproveListingDraft(fill: SkyAiListingFill): SkyAiListingFil
     }
   }
   if (isRoboticListingDescription(out.description)) {
-    // Sparse vehicles stay blank — do not invent buyer copy or seller coaching
     if (isVehicleListingFill(out) && !getVehicleDraftReadiness(out).worthGeneratingBuyerCopy) {
       out.description = "";
     } else {
-      out.description = buildListingDescriptionFromFacts(out);
+      const draft = buildListingDescriptionFromFacts(out, { force: true });
+      const polished = polishPublicDescription(draft, out);
+      const contract = validateDescriptionQualityContract(polished, out);
+      out.description = contract.ok ? contract.description : minimalSafeDescription(out);
+      out.descriptionSource = "ai";
     }
   } else if (out.description) {
     // Normalize product tokens but preserve paragraph breaks. Also migrate any

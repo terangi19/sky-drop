@@ -149,7 +149,10 @@ export function mergeVisionWithSellerText(
         sellerText: msg,
         visualDescription: visionAdapted.listingFill.description,
       });
-      if (composed) listingFill.description = composed;
+      if (composed) {
+        listingFill.extras = [...(listingFill.extras || []), `note:${composed.slice(0, 400)}`];
+        delete listingFill.description;
+      }
     } else {
       delete listingFill.description;
     }

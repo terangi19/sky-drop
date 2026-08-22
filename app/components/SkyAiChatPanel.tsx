@@ -62,7 +62,7 @@ import {
 import { AWHINA_CHAT_BACKDROP_Z, AWHINA_CHAT_SHEET_Z } from "../lib/floating-ui-layout";
 import { mergeListingFillWithDraft } from "../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi, clearListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
-import { finalizeAwhinaListingDescription } from "../lib/awhina-listing-composer";
+import { enforcePublicListingDescription } from "../lib/awhina-listing-composer";
 import {
   dispatchListingImages,
   prepareSkyAiImages,
@@ -204,7 +204,10 @@ function handleListingFill(fill: SkyAiListingFill | undefined, _navigateTo?: str
   const merged = replaceDraft
     ? { ...fill }
     : mergeListingFillWithDraft(readListingDraftFromSkyAi(), fill);
-  const finalized = finalizeAwhinaListingDescription(merged);
+  const priorDescription = replaceDraft
+    ? undefined
+    : readListingDraftFromSkyAi()?.description;
+  const finalized = enforcePublicListingDescription(merged, { priorDescription });
   const hasContent =
     !!finalized.title ||
     !!finalized.description ||

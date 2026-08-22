@@ -10,16 +10,13 @@
  */
 
 import type { SkyAiListingFill } from "../app/lib/sky-ai-listing-fill.ts";
-import { finalizeAwhinaListingDescription } from "../app/lib/awhina-listing-composer.ts";
+import { enforcePublicListingDescription } from "../app/lib/awhina-listing-composer.ts";
 import {
   GENERIC_MARKETPLACE_FILLER_RE,
   hasSemanticFactDuplication,
+  validateDescriptionQualityContract,
 } from "../app/lib/awhina-description-quality.ts";
-import {
-  MARKETING_FILLER_RE,
-  validateAiListingDescription,
-  buildDescriptionWriterFacts,
-} from "../app/lib/awhina-description-writer.ts";
+import { MARKETING_FILLER_RE } from "../app/lib/awhina-description-writer.ts";
 
 type Case = {
   name: string;
@@ -181,7 +178,7 @@ const runSequential = args.includes("--sequential");
 const showManual = args.includes("--manual");
 
 function describe(fill: SkyAiListingFill): string {
-  return finalizeAwhinaListingDescription(fill, { force: true }).description?.trim() || "";
+  return enforcePublicListingDescription(fill, { force: true }).description?.trim() || "";
 }
 
 function check(desc: string, fill: SkyAiListingFill, must: RegExp[], mustNot: RegExp[] = []) {
@@ -196,8 +193,8 @@ function check(desc: string, fill: SkyAiListingFill, must: RegExp[], mustNot: Re
   if (MARKETING_FILLER_RE.test(desc)) issues.push("marketing filler");
   if (GENERIC_MARKETPLACE_FILLER_RE.test(desc)) issues.push("generic marketplace filler");
   if (hasSemanticFactDuplication(desc)) issues.push("semantic duplicate facts");
-  const validated = validateAiListingDescription(desc, buildDescriptionWriterFacts(fill));
-  if (!validated) issues.push("writer validation rejected copy");
+  const contract = validateDescriptionQualityContract(desc, fill, { requireNonEmpty: must.length > 0 });
+  if (!contract.ok) issues.push(`quality contract: ${contract.violations.join(", ")}`);
   return issues;
 }
 

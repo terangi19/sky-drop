@@ -30,7 +30,7 @@ import {
   clearListingDraftFromSkyAi,
   SKY_AI_LISTING_DRAFT_RESET_EVENT,
 } from "../../lib/sky-ai-listing-context";
-import { finalizeAwhinaListingDescription } from "../../lib/awhina-listing-composer";
+import { enforcePublicListingDescription } from "../../lib/awhina-listing-composer";
 import {
   buildConfirmedListingContext,
   markProvenance,
@@ -916,7 +916,7 @@ export default function AIPostPage() {
           !isUserLockedProvenance(restoredProvenance.description) &&
           /asking\s+\$/i.test(rawDescription)
         ) {
-          const cleaned = finalizeAwhinaListingDescription({
+          const cleaned = enforcePublicListingDescription({
             ...stored,
             description: rawDescription,
             descriptionSource: "ai",
@@ -1191,7 +1191,7 @@ export default function AIPostPage() {
     // canonical draft fields instead of trusting a model-provided prose string.
     if (!isUserLockedField("description") || explicitDescriptionRewrite) {
       merged = {
-        ...finalizeAwhinaListingDescription(merged),
+        ...enforcePublicListingDescription(merged),
         draftId: draftIdRef.current,
       };
     }

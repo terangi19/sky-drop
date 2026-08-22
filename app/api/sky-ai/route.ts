@@ -42,8 +42,8 @@ import { validateListingFillFields } from "../../lib/awhina-listing-fill-tools";
 import { assessDraftTransition } from "../../lib/awhina-draft-transition";
 import { sanitizeProfileFillProposal } from "../../lib/awhina-profile-tools";
 import {
-  finalizeAwhinaListingDescription,
-  finalizeAwhinaListingDescriptionAsync,
+  enforcePublicListingDescription,
+  enforcePublicListingDescriptionAsync,
 } from "../../lib/awhina-listing-composer";
 import {
   buildDescriptionWriterFacts,
@@ -129,7 +129,7 @@ async function enhanceAiOwnedDescription(
     ? validateAiListingDescription(fill.description, buildDescriptionWriterFacts(fill))
     : null;
   try {
-    return await finalizeAwhinaListingDescriptionAsync(fill, {
+    return await enforcePublicListingDescriptionAsync(fill, {
       force: rewriteRequested || !stillValid,
     });
   } catch {
@@ -302,15 +302,18 @@ function finalizeListingFill(
     const seed = { ...listingFill, replaceDraft: true };
     const enhanced = enhanceListingFillFromMessage(message, seed) ?? seed;
     return {
-      ...finalizeAwhinaListingDescription(enhanced),
+      ...enforcePublicListingDescription(enhanced, {
+        priorDescription: listingContext?.description,
+      }),
       replaceDraft: true,
     };
   }
 
   const merged = mergeFillWithContext(listingContext, listingFill);
   if (!merged) return undefined;
-  return finalizeAwhinaListingDescription(
-    enhanceListingFillFromMessage(message, merged) ?? merged
+  return enforcePublicListingDescription(
+    enhanceListingFillFromMessage(message, merged) ?? merged,
+    { priorDescription: listingContext?.description }
   );
 }
 

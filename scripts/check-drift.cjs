@@ -137,6 +137,12 @@ function main() {
   }
 
   console.log("OK: No sensitive client Firestore write drift detected.");
+
+  const { execSync } = require("child_process");
+  execSync("node scripts/check-description-boundary.cjs", {
+    stdio: "inherit",
+    cwd: path.join(__dirname, ".."),
+  });
 }
 
 main();

@@ -57,6 +57,7 @@ import {
 import {
   composeListingTitleAndDescription,
   finalizeAwhinaListingDescription,
+  enforcePublicListingDescription,
 } from "./awhina-listing-composer";
 import { parseListingCondition } from "./awhina-listing-condition";
 import {
@@ -1807,6 +1808,11 @@ function finishFill(
   const isPartial = intent === "listing_update";
   if (!isPartial) {
     listingFill = { ...listingFill, replaceDraft: true };
+  }
+  if (listingFill.descriptionSource !== "user") {
+    listingFill = enforcePublicListingDescription(listingFill, {
+      force: Boolean(listingFill.forceDescriptionRewrite),
+    });
   }
   const toolCall: AwhinaToolCall = isPartial
     ? {

@@ -11,6 +11,8 @@ import {
 } from "./awhina-product-ux";
 import {
   buildListingDescriptionFromFacts,
+  getVehicleDraftReadiness,
+  isVehicleListingFill,
   removeStructuredPriceCopy,
   splitListingDescriptionSentences,
   stripStructuredMetadataLeakage,
@@ -48,6 +50,8 @@ import {
   polishPublicDescription,
   containsGenericMarketplaceFiller,
   hasSemanticFactDuplication,
+  validateDescriptionQualityContract,
+  minimalSafeDescription,
 } from "./awhina-description-quality";
 import { isSealedTradingCardProductFormat } from "./awhina-public-copy-gate";
 import {
@@ -199,9 +203,32 @@ function isRejectedPublicCopy(description: string | undefined | null, fill: SkyA
 
 function shouldDeferSparseAiDescription(fill: SkyAiListingFill): boolean {
   if (fill.descriptionSource === "user") return false;
+  if (fill.forceDescriptionRewrite === true) return false;
   const listingType = String(fill.listingType || "").toLowerCase();
   if (listingType === "service" || listingType === "rental" || listingType === "wanted") {
     return false;
+  }
+  if (isVehicleListingFill(fill)) {
+    if (getVehicleDraftReadiness(fill).worthGeneratingBuyerCopy) return false;
+    const hasSpecificVehicleIdentity = Boolean(
+      fill.vehicleMake?.trim() &&
+        fill.vehicleModel?.trim() &&
+        fill.vehicleGeneration?.trim()
+    );
+    if (hasSpecificVehicleIdentity) return false;
+    const evidence = groupedSellerEvidenceFromExtras(fill.extras, fill.location);
+    const hasMeaningfulVehicleFact = Boolean(
+      fill.vehicleYear?.trim() ||
+        fill.vehicleOdometer?.trim() ||
+        fill.condition?.trim() ||
+        fill.location?.trim() ||
+        fill.pickupArea?.trim() ||
+        fill.vehicleColour?.trim() ||
+        fill.vehicleTransmission?.trim() ||
+        fill.vehicleFuelType?.trim() ||
+        sellerEvidenceItemCount(evidence) > 0
+    );
+    return !hasMeaningfulVehicleFact;
   }
   if (
     isSealedTradingCardProductFormat(fill.title) ||
@@ -262,13 +289,16 @@ export function recomposeListingDescription(fill: SkyAiListingFill, opts?: { qua
   return buildListingDescriptionFromFacts(fill, { quality: opts?.quality ?? "premium_plus", force: opts?.force });
 }
 
-export function finalizeAwhinaListingDescription(fill: SkyAiListingFill, opts?: { quality?: ListingDescriptionQuality; force?: boolean }): SkyAiListingFill {
+export function finalizeAwhinaListingDescription(
+  fill: SkyAiListingFill,
+  opts?: { quality?: ListingDescriptionQuality; force?: boolean; priorDescription?: string }
+): SkyAiListingFill {
   fill = normalizeAwhinaListingTitle(fill);
   const forceRecompose = mustRecomposeDescription(fill, opts);
   if (fill.descriptionSource === "user" && fill.description?.trim() && !forceRecompose) {
     return { ...fill, description: polishPublicDescription(fill.description.trim(), fill) };
   }
-  if (shouldDeferSparseAiDescription(fill) && !forceRecompose) {
+  if (shouldDeferSparseAiDescription(fill)) {
     return { ...fill, description: "", descriptionSource: "ai" };
   }
   if (!forceRecompose && fill.description?.trim() && !isRejectedPublicCopy(fill.description, fill)) {
@@ -331,7 +361,59 @@ export function finalizeAwhinaListingDescription(fill: SkyAiListingFill, opts?: 
   description = sanitizePublicListingCopy(description);
   if (containsInternalOrchestration(description)) description = "";
   description = polishPublicDescription(description, fill);
+  const priorDesc = opts?.priorDescription;
+  let contract = validateDescriptionQualityContract(description, fill, { priorDescription: priorDesc });
+  if (!contract.ok && description) {
+    description = recomposeListingDescription(fill, { ...opts, force: true });
+    description = polishPublicDescription(description, fill);
+    if (listingTypeLower !== "service" && listingTypeLower !== "rental" && listingTypeLower !== "wanted") {
+      description = removeStructuredPriceCopy(description);
+    }
+    description = sanitizePublicListingCopy(stripStructuredMetadataLeakage(description));
+    contract = validateDescriptionQualityContract(description, fill, { priorDescription: priorDesc });
+  }
+  if (!contract.ok || !description) {
+    if (shouldDeferSparseAiDescription(fill)) {
+      description = "";
+    } else {
+      description = minimalSafeDescription(fill);
+    }
+  }
   return { ...fill, description, descriptionSource: "ai" };
+}
+
+/**
+ * Fail-closed public copy boundary — prefer this when returning listingFill to
+ * clients, tools, vision, or API routes. See awhina-description-boundary.ts.
+ */
+export function enforcePublicListingDescription(
+  fill: SkyAiListingFill,
+  opts?: { quality?: ListingDescriptionQuality; force?: boolean; priorDescription?: string }
+): SkyAiListingFill {
+  const prior = opts?.priorDescription;
+  const result = finalizeAwhinaListingDescription(fill, opts);
+  const contract = validateDescriptionQualityContract(result.description, result, { priorDescription: prior });
+  if (contract.ok) return result;
+  return finalizeAwhinaListingDescription(fill, { ...opts, force: true });
+}
+
+export async function enforcePublicListingDescriptionAsync(
+  fill: SkyAiListingFill,
+  opts?: {
+    quality?: ListingDescriptionQuality;
+    force?: boolean;
+    priorDescription?: string;
+    writer?: DescriptionWriterRunOptions["generateRawOutput"];
+  }
+): Promise<SkyAiListingFill> {
+  const prior = opts?.priorDescription;
+  let result = await finalizeAwhinaListingDescriptionAsync(fill, opts);
+  let contract = validateDescriptionQualityContract(result.description, result, { priorDescription: prior });
+  if (contract.ok) return result;
+  result = enforcePublicListingDescription(fill, { ...opts, force: true, priorDescription: prior });
+  contract = validateDescriptionQualityContract(result.description, result, { priorDescription: prior });
+  if (contract.ok) return result;
+  return { ...result, description: minimalSafeDescription(fill), descriptionSource: "ai" as const };
 }
 
 function escapeRegExp(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
@@ -378,7 +460,7 @@ export async function finalizeAwhinaListingDescriptionAsync(
   if (fill.descriptionSource === "user" && fill.description?.trim() && !forceRecompose) {
     return finalizeAwhinaListingDescription(fill, opts);
   }
-  if (shouldDeferSparseAiDescription(fill) && !forceRecompose) {
+  if (shouldDeferSparseAiDescription(fill)) {
     return { ...fill, description: "", descriptionSource: "ai" as const };
   }
   const previousValid =

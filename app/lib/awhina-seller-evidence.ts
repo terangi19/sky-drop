@@ -360,6 +360,9 @@ function proseFromStructuredExtra(key: string, value: string): { kind: SellerEvi
   if (k === "fuel") return { kind: "note", text: `${v} fuel` };
   if (k === "quantity") return { kind: "note", text: v };
   if (k === "pricing" || k === "rate" || k === "rent" || k === "bond") return { kind: "note", text: v };
+  if (k === "requirements" || k === "exclusions" || k === "availability" || k === "duration") {
+    return { kind: "note", text: v };
+  }
   if (k === "bedrooms") return { kind: "note", text: `${v} bedroom${v === "1" ? "" : "s"}` };
   if (k === "bathrooms") return { kind: "note", text: `${v} bathroom${v === "1" ? "" : "s"}` };
   if (k === "servicearea") return { kind: "note", text: `Service area covers ${v}` };
@@ -378,7 +381,7 @@ export function sellerEvidenceFromExtras(extras: string[] | undefined): SellerEv
     const key = match[1].toLowerCase().replace(/_/g, "");
     const value = sanitizePublicListingCopy(match[2].trim());
     if (!value || containsInternalOrchestration(value)) continue;
-    if (key === "sellernotes") {
+    if (key === "sellernotes" || key === "sellernote") {
       for (const sentence of value.split(/(?<=[.!?])\s+/)) {
         const text = cleanFragment(sentence);
         if (text.length >= 3) pushUnique(items, { kind: "note", text });

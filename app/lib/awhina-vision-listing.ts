@@ -28,7 +28,7 @@ import {
 import { isAwhinaVisionListingEnabledServer } from "./awhina-vision-listing-flags";
 import { mergeVisionWithSellerText } from "./awhina-vision-compound";
 import { enrichObservationWithKnowledge } from "./awhina-vision-knowledge";
-import { finalizeAwhinaListingDescriptionAsync } from "./awhina-listing-composer";
+import { enforcePublicListingDescriptionAsync } from "./awhina-listing-composer";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import {
   logAwhinaTiming,
@@ -107,7 +107,7 @@ async function withGroundedListingDescription(
   fill: SkyAiListingFill | undefined
 ): Promise<SkyAiListingFill | undefined> {
   if (!fill) return fill;
-  return finalizeAwhinaListingDescriptionAsync(fill);
+  return enforcePublicListingDescriptionAsync(fill);
 }
 
 /**

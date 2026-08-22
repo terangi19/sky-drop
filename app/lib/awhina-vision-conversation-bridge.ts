@@ -14,7 +14,7 @@ import {
   type ListingFieldProvenanceMap,
   isUserLockedProvenance,
 } from "./listing-draft-confirmed";
-import { finalizeAwhinaListingDescription } from "./awhina-listing-composer";
+import { enforcePublicListingDescription } from "./awhina-listing-composer";
 import {
   buildDescriptionWriterFacts,
   validateAiListingDescription,
@@ -280,7 +280,7 @@ export function prepareVisionConversationBridge(
     }
     Object.assign(
       fill,
-      finalizeAwhinaListingDescription(finalizerInput, {
+      enforcePublicListingDescription(finalizerInput, {
         quality: "premium_plus",
       })
     );

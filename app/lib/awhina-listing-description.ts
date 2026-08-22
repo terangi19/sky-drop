@@ -2518,7 +2518,6 @@ export function buildListingDescriptionFromFacts(
   );
   if (
     isVehicleListingFill(fill) &&
-    !opts?.force &&
     !getVehicleDraftReadiness(fill).worthGeneratingBuyerCopy &&
     !hasSpecificVehicleIdentity
   ) {
