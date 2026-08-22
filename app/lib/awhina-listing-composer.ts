@@ -53,6 +53,7 @@ import {
   validateDescriptionQualityContract,
   minimalSafeDescription,
 } from "./awhina-description-quality";
+import { shouldUseSafeDescriptionMode } from "./awhina-description-safe-mode";
 import { isSealedTradingCardProductFormat } from "./awhina-public-copy-gate";
 import {
   containsInternalOrchestration,
@@ -294,7 +295,31 @@ export function finalizeAwhinaListingDescription(
   opts?: { quality?: ListingDescriptionQuality; force?: boolean; priorDescription?: string }
 ): SkyAiListingFill {
   fill = normalizeAwhinaListingTitle(fill);
-  const forceRecompose = mustRecomposeDescription(fill, opts);
+  const safeMode = shouldUseSafeDescriptionMode();
+  const priorDesc = safeMode ? undefined : opts?.priorDescription;
+  const forceRecompose = mustRecomposeDescription(fill, opts) || safeMode;
+
+  if (safeMode) {
+    if (fill.descriptionSource === "user" && fill.description?.trim() && !forceRecompose) {
+      return { ...fill, description: polishPublicDescription(fill.description.trim(), fill) };
+    }
+    if (shouldDeferSparseAiDescription(fill)) {
+      return { ...fill, description: "", descriptionSource: "ai" };
+    }
+    let description = recomposeListingDescription(fill, { ...opts, force: true });
+    description = polishPublicDescription(description, fill);
+    const listingTypeLower = String(fill.listingType || "").toLowerCase();
+    if (listingTypeLower !== "service" && listingTypeLower !== "rental" && listingTypeLower !== "wanted") {
+      description = removeStructuredPriceCopy(description);
+    }
+    description = sanitizePublicListingCopy(stripStructuredMetadataLeakage(description));
+    let contract = validateDescriptionQualityContract(description, fill, { priorDescription: priorDesc });
+    if (!contract.ok || !description) {
+      description = shouldDeferSparseAiDescription(fill) ? "" : minimalSafeDescription(fill);
+    }
+    return { ...fill, description, descriptionSource: "ai" };
+  }
+
   if (fill.descriptionSource === "user" && fill.description?.trim() && !forceRecompose) {
     return { ...fill, description: polishPublicDescription(fill.description.trim(), fill) };
   }
@@ -361,7 +386,6 @@ export function finalizeAwhinaListingDescription(
   description = sanitizePublicListingCopy(description);
   if (containsInternalOrchestration(description)) description = "";
   description = polishPublicDescription(description, fill);
-  const priorDesc = opts?.priorDescription;
   let contract = validateDescriptionQualityContract(description, fill, { priorDescription: priorDesc });
   if (!contract.ok && description) {
     description = recomposeListingDescription(fill, { ...opts, force: true });
@@ -455,6 +479,9 @@ export async function finalizeAwhinaListingDescriptionAsync(
   fill: SkyAiListingFill,
   opts?: { quality?: ListingDescriptionQuality; force?: boolean; writer?: DescriptionWriterRunOptions["generateRawOutput"] }
 ): Promise<SkyAiListingFill> {
+  if (shouldUseSafeDescriptionMode()) {
+    return finalizeAwhinaListingDescription(fill, { ...opts, force: true });
+  }
   fill = normalizeAwhinaListingTitle(fill);
   const forceRecompose = mustRecomposeDescription(fill, opts);
   if (fill.descriptionSource === "user" && fill.description?.trim() && !forceRecompose) {

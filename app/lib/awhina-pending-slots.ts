@@ -24,7 +24,7 @@ import {
 import { selectDomainKnowledgeQuestions } from "./awhina-domain-knowledge";
 import {
   extraKeyIsMultiValue,
-  harvestSellerEvidence,
+  harvestSellerEvidenceFromStructuredContext,
   sellerEvidenceToExtras,
   extractModificationClause,
   sanitizeListingExtras,
@@ -1422,36 +1422,13 @@ export function extractCompoundListingFacts(
       .trim();
   }
 
-  // Preserve useful seller statements — harvest per sentence/clause, never the
-  // full raw message as one blob. Composite sentences are reduced inside harvest.
-  const evidenceCtx = structuredFactContextFromFill({
+  // Preserve useful seller statements — positive classification only, after structured facts.
+  const evidenceFill = {
     ...base,
     ...partial,
     title: partial.title || base.title,
-  });
-  const modClause =
-    extractModificationClause(residual) || extractModificationClause(message);
-  const sentenceSources = [
-    ...(modClause ? [modClause] : []),
-    ...extractSellerAuthoredText(message)
-      .split(/(?<=[.!?])\s+/)
-      .map((sentence) => sentence.trim())
-      .filter(Boolean),
-    ...residual
-      .split(/(?<=[.!?])\s+/)
-      .map((sentence) => sentence.trim())
-      .filter(Boolean),
-  ];
-  const sellerItems: ReturnType<typeof harvestSellerEvidence> = [];
-  const seenEvidence = new Set<string>();
-  for (const source of sentenceSources) {
-    for (const item of harvestSellerEvidence(source, evidenceCtx)) {
-      const key = `${item.kind}:${item.text.toLowerCase().replace(/\s+/g, " ").trim()}`;
-      if (seenEvidence.has(key)) continue;
-      seenEvidence.add(key);
-      sellerItems.push(item);
-    }
-  }
+  };
+  const sellerItems = harvestSellerEvidenceFromStructuredContext(message, evidenceFill);
   if (sellerItems.length) {
     const extras = sellerEvidenceToExtras(sellerItems);
     partial.extras = mergeExtras(partial.extras || base.extras, extras);

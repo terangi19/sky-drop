@@ -1,11 +1,8 @@
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import {
-  harvestSellerEvidence,
+  harvestSellerEvidenceFromStructuredContext,
   sellerEvidenceToExtras,
-  extractModificationClause,
   sanitizeListingExtras,
-  structuredFactContextFromFill,
-  stripStructuredFactsFromText,
 } from "./awhina-seller-evidence";
 import { parseListingCondition } from "./awhina-listing-condition";
 import { extractSellerAuthoredText } from "./awhina-orchestration-boundary";
@@ -296,7 +293,7 @@ function supplementalSellerExtras(message: string, fill: SkyAiListingFill): stri
   if (included?.[1]) extras.push(`included:Comes with ${included[1].trim()}`);
 
   const protectedUse = message.match(/\b(?:always|only)\s+used\s+with\s+([^.!?]+)/i);
-  if (protectedUse?.[1]) extras.push(`note:Always used with ${protectedUse[1].trim()}`);
+  if (protectedUse?.[1]) extras.push(`included:Always used with ${protectedUse[1].trim()}`);
 
   return extras;
 }
@@ -308,13 +305,7 @@ function enrichSellerFactsFromMessage(message: string, fill: SkyAiListingFill): 
   const explicitCondition = parseExplicitCondition(sellerText);
   if (explicitCondition) out.condition = explicitCondition;
 
-  const ctx = structuredFactContextFromFill(out);
-  const modClause = extractModificationClause(sellerText);
-  const harvestSource =
-    modClause || stripStructuredFactsFromText(sellerText, ctx);
-  const harvested = harvestSource
-    ? harvestSellerEvidence(harvestSource, ctx)
-    : [];
+  const harvested = harvestSellerEvidenceFromStructuredContext(sellerText, out);
   const harvestedExtras = sellerEvidenceToExtras(harvested);
   const supplemental = supplementalSellerExtras(sellerText, out);
   out.extras = sanitizeListingExtras(out, mergeListingExtras(out.extras, [...harvestedExtras, ...supplemental]));

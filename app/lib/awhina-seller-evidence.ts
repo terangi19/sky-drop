@@ -21,6 +21,7 @@ export const SELLER_EVIDENCE_KINDS = [
   "mechanical",
   "compliance",
   "included",
+  "logistics",
   "note",
 ] as const;
 
@@ -38,6 +39,7 @@ export type GroupedSellerEvidence = {
   mechanical: string[];
   compliance: string[];
   included: string[];
+  logistics: string[];
   notes: string[];
   location?: string;
 };
@@ -54,6 +56,7 @@ export type SellerEvidenceHarvestContext = {
   vehicleTransmission?: string;
   vehicleColour?: string;
   vehicleBodyType?: string;
+  vehicleFuelType?: string;
   price?: string;
   listingType?: string;
 };
@@ -70,8 +73,20 @@ const MULTI_VALUE_KEYS = new Set([
   "mechanical",
   "compliance",
   "included",
+  "logistics",
   "note",
 ]);
+
+const VEHICLE_TRIM_RE =
+  /\b(SR5|SRX|GLX|GLS|LTZ|Raptor|Wildtrak|XLT|SX|GX|EX|SE|LE|Sport|Limited|Premium|Executive|Touring|GT|GTT|GT-R|SR|SRV|ZR|ZRX|Workmate|Rogue|Adventure)\b/i;
+
+const VEHICLE_ACCESSORY_RE =
+  /\b(canopy|tow\s*bar|roof\s*racks?|bull\s*bar|nudge\s*bar|ute\s*liner|tonneau|hard\s*lid|snorkel|winch|side\s*steps?|running\s*boards?|toolbox|roof\s*basket|bike\s*rack|cargo\s*barrier|roof\s*rails?|weathershields?)\b/i;
+
+const MAINTENANCE_SPAN_RE =
+  /\b(full\s+service\s+history|recently\s+serviced(?:\s+with[^,.;]+)?|fresh\s+(?:engine\s+)?oil(?:\s+and\s+filters?)?|new\s+(?:tyres?|tires?|chain)|(?:regularly\s+)?serviced(?:\s+with[^,.;]+)?|oil\s+change)\b/i;
+
+const FACTORY_SEALED_RE = /\b(factory\s+sealed|still\s+sealed|unopened)\b/i;
 
 const MOD_HEAD_RE =
   /\b(aftermarket|modified|modifications?|fitted with|upgraded|upgrade)\b/i;
@@ -140,6 +155,7 @@ export function structuredFactContextFromFill(
     vehicleTransmission: fill.vehicleTransmission,
     vehicleColour: fill.vehicleColour,
     vehicleBodyType: fill.vehicleBodyType,
+    vehicleFuelType: fill.vehicleFuelType,
     price: fill.price,
     listingType: fill.listingType,
   };
@@ -232,17 +248,31 @@ export function stripStructuredFactsFromText(
   if (ctx.vehicleModel) {
     out = out.replace(new RegExp(`\\b${escapeRegExp(ctx.vehicleModel)}\\b`, "gi"), " ");
   }
+  out = out.replace(VEHICLE_TRIM_RE, " ");
   out = out.replace(/\b[\d,]{3,7}\s*kms?\b/gi, " ");
   out = out.replace(/\b[\d,]{3,7}\s*(?:km|kilometers|kilometres)\b/gi, " ");
   out = out.replace(/\b(manual|automatic|auto)\b/gi, " ");
-  out = out.replace(/\b(coupe|sedan|hatch(?:back)?|suv|ute|wagon|van|convertible)\b/gi, " ");
+  out = out.replace(/\b(petrol|diesel|hybrid|electric|ev)\b/gi, " ");
+  if (ctx.vehicleFuelType) {
+    out = out.replace(new RegExp(`\\b${escapeRegExp(ctx.vehicleFuelType)}\\b`, "gi"), " ");
+  }
+  out = out.replace(/\b(coupe|sedan|hatch(?:back)?|suv|ute|wagon|van|convertible|double\s+cab)\b/gi, " ");
   out = out.replace(/\b(good|fair|like new|brand new|excellent|mint|used)\s+condition\b/gi, " ");
+  if (ctx.condition?.trim()) {
+    out = out.replace(/\b(?:used\s*-\s*)?(?:like\s*new|good|fair|excellent|mint|new|used)\b/gi, " ");
+  }
   out = out.replace(NZ_LOCATION_RE, " ");
   if (ctx.vehicleColour) {
     out = out.replace(new RegExp(`\\b${escapeRegExp(ctx.vehicleColour)}\\b`, "gi"), " ");
   }
+  if (ctx.colour?.trim() && ctx.colour !== ctx.vehicleColour) {
+    out = out.replace(new RegExp(`\\b${escapeRegExp(ctx.colour)}\\b`, "gi"), " ");
+  }
   if (ctx.location) {
     out = out.replace(new RegExp(`\\b${escapeRegExp(ctx.location)}\\b`, "gi"), " ");
+  }
+  if (ctx.vehicleBodyType) {
+    out = out.replace(new RegExp(`\\b${escapeRegExp(ctx.vehicleBodyType)}\\b`, "gi"), " ");
   }
   const modClause = extractModificationClause(text);
   if (modClause) {
@@ -252,6 +282,63 @@ export function stripStructuredFactsFromText(
     );
   }
   return out.replace(/\s+/g, " ").trim();
+}
+
+/** Split residual text into classifiable evidence fragments — never the raw paste. */
+export function splitEvidenceFragments(text: string): string[] {
+  const source = cleanFragment(text);
+  if (!source) return [];
+  const commaParts = source
+    .split(/\s*[,;]\s*/)
+    .map(cleanFragment)
+    .filter(Boolean);
+  if (commaParts.length > 1) return commaParts;
+
+  const spans: string[] = [];
+  const maint = source.match(MAINTENANCE_SPAN_RE);
+  if (maint) spans.push(cleanFragment(maint[0]));
+  let remainder = maint ? source.replace(maint[0], " ").trim() : source;
+  const accessories = [...remainder.matchAll(new RegExp(VEHICLE_ACCESSORY_RE.source, "gi"))].map(
+    (m) => cleanFragment(m[0])
+  );
+  if (accessories.length) {
+    spans.push(...accessories);
+    for (const acc of accessories) {
+      remainder = remainder.replace(new RegExp(`\\b${escapeRegExp(acc)}\\b`, "i"), " ");
+    }
+    remainder = remainder.replace(/\s+/g, " ").trim();
+  }
+  if (spans.length) {
+    if (remainder.length >= 3 && !isCompositeStructuredExtra(remainder)) spans.push(remainder);
+    return spans.filter(Boolean);
+  }
+  return [source];
+}
+
+export function fragmentOverlapsStructuredFacts(
+  fragment: string,
+  ctx: StructuredFactContext = {}
+): boolean {
+  const text = cleanFragment(fragment);
+  if (!text) return true;
+  if (isCompositeStructuredExtra(text, ctx)) return true;
+  const n = normalize(text);
+  if (ctx.vehicleMake?.trim() && n === normalize(ctx.vehicleMake)) return true;
+  if (ctx.vehicleModel?.trim() && n === normalize(ctx.vehicleModel)) return true;
+  if (ctx.vehicleYear?.trim() && n === normalize(ctx.vehicleYear)) return true;
+  if (ctx.vehicleColour?.trim() && n === normalize(ctx.vehicleColour)) return true;
+  if (ctx.location?.trim() && (n === normalize(ctx.location) || n === `in ${normalize(ctx.location)}`)) {
+    return true;
+  }
+  if (ctx.vehicleTransmission?.trim() && n === normalize(ctx.vehicleTransmission)) return true;
+  if (ctx.vehicleFuelType?.trim() && n === normalize(ctx.vehicleFuelType)) return true;
+  if (ctx.condition?.trim()) {
+    const cond = normalize(ctx.condition).replace(/^used\s*-\s*/, "");
+    if (n === cond || n === `${cond} condition` || /^good condition$/.test(n)) return true;
+  }
+  const title = ctx.title ? normalize(ctx.title) : "";
+  if (title && (n === title || (title.includes(n) && text.split(/\s+/).length >= 4))) return true;
+  return false;
 }
 
 function splitModificationParts(tail: string): string[] {
@@ -346,16 +433,18 @@ function pushUnique(items: SellerEvidenceItem[], item: SellerEvidenceItem): void
   items.push({ kind: item.kind, text });
 }
 
-function harvestFragment(
+/** Positive classification only — unknown fragments are discarded. */
+function classifyEvidenceFragment(
   raw: string,
   ctx: SellerEvidenceHarvestContext
 ): SellerEvidenceItem[] {
   const text = cleanFragment(raw);
   if (!text || shouldSkipFragment(text, ctx)) return [];
+  if (fragmentOverlapsStructuredFacts(text, ctx)) return [];
   if (isCompositeStructuredExtra(text, ctx)) {
     const modTail = extractModificationClause(text);
-    if (modTail) return harvestFragment(modTail, ctx);
-    return [];
+    if (modTail) return classifyEvidenceFragment(modTail, ctx);
+    return splitEvidenceFragments(text).flatMap((part) => classifyEvidenceFragment(part, ctx));
   }
   const items: SellerEvidenceItem[] = [];
 
@@ -388,16 +477,15 @@ function harvestFragment(
     if (items.length) return items;
   }
 
-  if (MAINT_RE.test(text) && !MOD_HEAD_RE.test(text)) {
-    pushUnique(items, { kind: "maintenance", text });
+  const maintSpan = text.match(MAINTENANCE_SPAN_RE);
+  if (maintSpan && !MOD_HEAD_RE.test(text)) {
+    pushUnique(items, { kind: "maintenance", text: cleanFragment(maintSpan[0]) });
+    const rest = text.replace(maintSpan[0], " ").replace(/\s+/g, " ").trim();
+    if (rest.length >= 3) items.push(...classifyEvidenceFragment(rest, ctx));
     return items;
   }
 
   if (MOD_HEAD_RE.test(text) || MOD_ITEM_RE.test(text)) {
-    if (/\bmostly stock\b|\bexcept\b/i.test(text)) {
-      pushUnique(items, { kind: "note", text });
-      return items;
-    }
     const modSource =
       extractModificationClause(text) ||
       text.replace(/^.*?\b(?:modified|upgraded|fitted with)\s+(?:with\s+)?/i, "");
@@ -406,20 +494,33 @@ function harvestFragment(
     );
     if (parts.length > 1) {
       for (const part of parts) {
-        if (!shouldSkipFragment(part, ctx)) {
+        if (!shouldSkipFragment(part, ctx) && !fragmentOverlapsStructuredFacts(part, ctx)) {
           pushUnique(items, { kind: "modification", text: part });
         }
       }
       if (items.length) return items;
     }
-    pushUnique(items, {
-      kind: "modification",
-      text: text.replace(/^(?:fitted with|modified with|has)\s+/i, ""),
-    });
+    const modText = text.replace(/^(?:fitted with|modified with|has)\s+/i, "");
+    if (modText.length >= 3 && !fragmentOverlapsStructuredFacts(modText, ctx)) {
+      pushUnique(items, { kind: "modification", text: modText });
+    }
+    return items;
+  }
+
+  const accessories = [...text.matchAll(new RegExp(VEHICLE_ACCESSORY_RE.source, "gi"))].map(
+    (m) => cleanFragment(m[0])
+  );
+  if (accessories.length) {
+    for (const acc of accessories) pushUnique(items, { kind: "included", text: acc });
     return items;
   }
 
   if (INCLUDED_RE.test(text) || USE_HISTORY_RE.test(text)) {
+    pushUnique(items, { kind: "included", text });
+    return items;
+  }
+
+  if (/\b(?:two|2|\d+)\s+batter(?:y|ies)\b/i.test(text)) {
     pushUnique(items, { kind: "included", text });
     return items;
   }
@@ -429,20 +530,30 @@ function harvestFragment(
     return items;
   }
 
-  if (LOGISTICS_RE.test(text) || PROVENANCE_RE.test(text) || DIMENSION_RE.test(text) || MATERIAL_RE.test(text)) {
+  if (LOGISTICS_RE.test(text)) {
+    pushUnique(items, {
+      kind: "logistics",
+      text: /pickup/i.test(text) ? "Pickup only" : text,
+    });
+    return items;
+  }
+
+  if (PROVENANCE_RE.test(text)) {
     pushUnique(items, { kind: "note", text });
     return items;
   }
 
-  if (/\b(factory sealed|unopened)\b/i.test(text)) {
+  if (DIMENSION_RE.test(text) || MATERIAL_RE.test(text)) {
     pushUnique(items, { kind: "note", text });
     return items;
   }
 
-  if (text.split(/\s+/).length >= 2) {
-    pushUnique(items, { kind: "note", text });
+  if (FACTORY_SEALED_RE.test(text)) {
+    pushUnique(items, { kind: "note", text: text.match(FACTORY_SEALED_RE)![0] });
+    return items;
   }
-  return items;
+
+  return [];
 }
 
 function harvestSentence(
@@ -453,13 +564,13 @@ function harvestSentence(
   if (!text) return [];
 
   if (/\bno\s+(?:known\s+)?(?:cracks?|faults?|repairs?|damage)/i.test(text)) {
-    return harvestFragment(text, ctx);
+    return classifyEvidenceFragment(text, ctx);
   }
 
   if (/,/.test(text) || /;/.test(text)) {
     const parts = text.split(/\s*[,;]\s*/).map(cleanFragment).filter(Boolean);
     if (parts.length > 1) {
-      return parts.flatMap((part) => harvestFragment(part, ctx));
+      return parts.flatMap((part) => classifyEvidenceFragment(part, ctx));
     }
   }
 
@@ -471,18 +582,27 @@ function harvestSentence(
     !COND_DETAIL_RE.test(text) &&
     !MAINT_RE.test(text)
   ) {
-    return harvestFragment(text, ctx);
+    return classifyEvidenceFragment(text, ctx);
   }
 
-  return harvestFragment(text, ctx);
+  return classifyEvidenceFragment(text, ctx);
 }
 
-export function harvestSellerEvidence(
+/**
+ * Harvest seller evidence after structured fields are known.
+ * Never treats the raw seller message as evidence — strips structured facts first.
+ */
+export function harvestSellerEvidenceFromStructuredContext(
   message: string,
-  ctx: SellerEvidenceHarvestContext = {}
+  fill: Partial<SkyAiListingFill>
 ): SellerEvidenceItem[] {
+  const ctx = structuredFactContextFromFill(fill);
   const raw = extractSellerAuthoredText(message).replace(/\s+/g, " ").trim();
   if (!raw || containsInternalOrchestration(raw)) return [];
+
+  const modClause = extractModificationClause(raw);
+  const stripped = stripStructuredFactsFromText(raw, ctx);
+  const items: SellerEvidenceItem[] = [];
 
   const sentenceParts = raw
     .split(/(?<=[.!?])\s+/)
@@ -490,27 +610,43 @@ export function harvestSellerEvidence(
     .filter(Boolean)
     .filter((sentence) => !containsInternalOrchestration(sentence));
 
-  const sources =
-    sentenceParts.length > 1
-      ? sentenceParts
-      : (() => {
-          let source = raw;
-          if (structuredFactSignalCount(source, ctx) >= 3) {
-            const modOnly = extractModificationClause(source);
-            source = modOnly || stripStructuredFactsFromText(source, ctx);
-          }
-          return source ? [source] : [];
-        })();
-
-  const items: SellerEvidenceItem[] = [];
-  for (const source of sources) {
-    for (const item of harvestSentence(source, ctx)) {
-      const cleaned = sanitizePublicListingCopy(item.text);
-      if (!cleaned) continue;
-      pushUnique(items, { kind: item.kind, text: cleaned });
+  if (sentenceParts.length > 1) {
+    for (const sentence of sentenceParts) {
+      const sentenceStripped = stripStructuredFactsFromText(sentence, ctx);
+      for (const fragment of splitEvidenceFragments(sentenceStripped || sentence)) {
+        for (const item of classifyEvidenceFragment(fragment, ctx)) {
+          const cleaned = sanitizePublicListingCopy(item.text);
+          if (cleaned) pushUnique(items, { kind: item.kind, text: cleaned });
+        }
+      }
+    }
+  } else {
+    for (const fragment of splitEvidenceFragments(stripped)) {
+      if (fragmentOverlapsStructuredFacts(fragment, ctx)) continue;
+      for (const item of classifyEvidenceFragment(fragment, ctx)) {
+        const cleaned = sanitizePublicListingCopy(item.text);
+        if (cleaned) pushUnique(items, { kind: item.kind, text: cleaned });
+      }
     }
   }
+
+  if (modClause) {
+    for (const item of classifyEvidenceFragment(modClause, ctx)) {
+      if (item.kind === "modification") {
+        const cleaned = sanitizePublicListingCopy(item.text);
+        if (cleaned) pushUnique(items, { kind: item.kind, text: cleaned });
+      }
+    }
+  }
+
   return items;
+}
+
+export function harvestSellerEvidence(
+  message: string,
+  ctx: SellerEvidenceHarvestContext = {}
+): SellerEvidenceItem[] {
+  return harvestSellerEvidenceFromStructuredContext(message, ctx);
 }
 
 export function sellerEvidenceToExtras(items: SellerEvidenceItem[]): string[] {
@@ -525,9 +661,27 @@ function reparsedItemsFromCompositeBlob(
 ): SellerEvidenceItem[] {
   const modTail = extractModificationClause(value) || extractModificationClause(`modified ${value}`);
   if (modTail) {
-    return harvestSellerEvidence(modTail, ctx).filter((item) => item.kind === "modification");
+    return classifyEvidenceFragment(modTail, ctx).filter((item) => item.kind === "modification");
   }
-  return [];
+  return splitEvidenceFragments(stripStructuredFactsFromText(value, ctx)).flatMap((fragment) =>
+    classifyEvidenceFragment(fragment, ctx)
+  );
+}
+
+function isPositivelyClassifiedEvidenceExtra(key: string, value: string, ctx: StructuredFactContext): boolean {
+  const k = key.toLowerCase().replace(/_/g, "");
+  const allowed =
+    k === "modification" ||
+    k === "maintenance" ||
+    k === "conditiondetail" ||
+    k === "mechanical" ||
+    k === "compliance" ||
+    k === "included" ||
+    k === "logistics" ||
+    k === "note";
+  if (!allowed) return true;
+  if (k !== "note") return true;
+  return classifyEvidenceFragment(value, ctx).some((item) => item.kind === "note");
 }
 
 function dedupeExtras(extras: string[]): string[] {
@@ -572,6 +726,7 @@ export function sanitizeListingExtras(
       key === "mechanical" ||
       key === "compliance" ||
       key === "included" ||
+      key === "logistics" ||
       key === "note";
 
     if (evidenceKind && isCompositeStructuredExtra(value, ctx)) {
@@ -579,6 +734,8 @@ export function sanitizeListingExtras(
       if (reparsed.length) cleaned.push(...sellerEvidenceToExtras(reparsed));
       continue;
     }
+
+    if (evidenceKind && !isPositivelyClassifiedEvidenceExtra(key, value, ctx)) continue;
 
     if (key === "note" && isCompositeStructuredExtra(value, ctx)) continue;
 
@@ -616,7 +773,7 @@ function proseFromStructuredExtra(key: string, value: string): { kind: SellerEvi
   if (k === "bedrooms") return { kind: "note", text: `${v} bedroom${v === "1" ? "" : "s"}` };
   if (k === "bathrooms") return { kind: "note", text: `${v} bathroom${v === "1" ? "" : "s"}` };
   if (k === "servicearea") return { kind: "note", text: `Service area covers ${v}` };
-  if (k === "pickup" && /only/i.test(v)) return { kind: "note", text: "Pickup only" };
+  if (k === "pickup" && /only/i.test(v)) return { kind: "logistics", text: "Pickup only" };
   if (k === "grade" && v.length >= 2) return { kind: "note", text: v.match(/psa|bgs|cgc|near mint/i) ? v : `Graded ${v}` };
   if (k === "set" || k === "subject" || k === "colour" || k === "color") return null;
   return null;
@@ -641,8 +798,9 @@ export function sellerEvidenceFromExtras(
     if (key === "note" && isCompositeStructuredExtra(value, ctx)) continue;
     if (key === "sellernotes" || key === "sellernote") {
       for (const sentence of value.split(/(?<=[.!?])\s+/)) {
-        const text = cleanFragment(sentence);
-        if (text.length >= 3) pushUnique(items, { kind: "note", text });
+        for (const item of classifyEvidenceFragment(sentence, ctx)) {
+          pushUnique(items, item);
+        }
       }
       continue;
     }
@@ -659,10 +817,15 @@ export function sellerEvidenceFromExtras(
                 ? "compliance"
                 : key === "included"
                   ? "included"
-                  : key === "note"
-                    ? "note"
-                    : null;
+                  : key === "logistics"
+                    ? "logistics"
+                    : key === "note"
+                      ? "note"
+                      : null;
     if (kind) {
+      if (kind === "note" && !classifyEvidenceFragment(value, ctx).some((item) => item.kind === "note")) {
+        continue;
+      }
       pushUnique(items, { kind, text: value });
       continue;
     }
@@ -683,6 +846,7 @@ export function groupSellerEvidence(
     mechanical: [],
     compliance: [],
     included: [],
+    logistics: [],
     notes: [],
   };
   const add = (list: string[], value: string) => {
@@ -699,6 +863,7 @@ export function groupSellerEvidence(
     else if (item.kind === "mechanical") add(grouped.mechanical, item.text);
     else if (item.kind === "compliance") add(grouped.compliance, item.text);
     else if (item.kind === "included") add(grouped.included, item.text);
+    else if (item.kind === "logistics") add(grouped.logistics, item.text);
     else add(grouped.notes, item.text);
   }
   if (location?.trim()) grouped.location = location.trim();
@@ -758,6 +923,7 @@ export function sellerEvidenceItemCount(grouped: GroupedSellerEvidence): number 
     grouped.mechanical.length +
     grouped.compliance.length +
     grouped.included.length +
+    grouped.logistics.length +
     grouped.notes.length +
     (grouped.location ? 1 : 0)
   );
@@ -823,6 +989,7 @@ export function composeSellerEvidenceProse(grouped: GroupedSellerEvidence): stri
       )
     );
   }
+  for (const item of grouped.logistics) sentences.push(ensureSentence(item));
   for (const item of grouped.notes) sentences.push(ensureSentence(item));
   if (grouped.location) {
     const loc = grouped.location;
@@ -844,6 +1011,7 @@ export function compactSellerEvidence(
   if (grouped.mechanical.length) compact.mechanical = grouped.mechanical;
   if (grouped.compliance.length) compact.compliance = grouped.compliance;
   if (grouped.included.length) compact.included = grouped.included;
+  if (grouped.logistics.length) compact.logistics = grouped.logistics;
   if (grouped.notes.length) compact.notes = grouped.notes;
   if (grouped.location) compact.location = grouped.location;
   return compact;

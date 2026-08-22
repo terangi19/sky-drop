@@ -470,6 +470,7 @@ function sellerEvidenceCount(facts: DescriptionWriterFacts): number {
     mechanical: (facts.sellerEvidence?.mechanical as string[]) || [],
     compliance: (facts.sellerEvidence?.compliance as string[]) || [],
     included: (facts.sellerEvidence?.included as string[]) || [],
+    logistics: (facts.sellerEvidence?.logistics as string[]) || [],
     notes: (facts.sellerEvidence?.notes as string[]) || [],
     location:
       typeof facts.sellerEvidence?.location === "string"
