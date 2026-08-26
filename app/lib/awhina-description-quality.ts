@@ -7,9 +7,10 @@ import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import { hasCategoryIncompatibleDescription } from "./awhina-category-copy-guard";
 import { containsInternalOrchestration } from "./awhina-orchestration-boundary";
 import {
-  composeSellerEvidenceProse,
-  groupedSellerEvidenceFromExtras,
-} from "./awhina-seller-evidence";
+  composeDomainAwareEvidenceProse,
+  normalizeSemanticFactText,
+} from "./awhina-description-semantic";
+import { groupedSellerEvidenceFromExtras } from "./awhina-seller-evidence";
 
 function splitDescriptionSentences(text: string): string[] {
   return String(text || "")
@@ -118,7 +119,7 @@ export function polishPublicDescription(
   const seen = new Set<string>();
   const out: string[] = [];
   for (const s of sentences) {
-    let key = s.toLowerCase().replace(/\s+/g, " ").slice(0, 64);
+    let key = normalizeSemanticFactText(s).slice(0, 80);
     const loc = s.match(/^Located in\s+(.+?)[.!?]?$/i);
     if (loc) key = `loc:${normalizeLoc(loc[1])}`;
     const ck = conditionKey(s);
@@ -127,7 +128,18 @@ export function polishPublicDescription(
     if (km) key = `odo:${km[1].replace(/,/g, "")}`;
     const batt = s.match(/(\d{1,3})\s*%\s*battery/i);
     if (batt) key = `battery:${batt[1]}`;
+    if (/^(comes with|includes|fitted with)\b/i.test(s)) {
+      key = `bundle:${normalizeSemanticFactText(s)}`;
+    }
     if (seen.has(key)) continue;
+    // Soft semantic overlap: skip if an earlier sentence already covers this one
+    const covered = out.some(
+      (prev) =>
+        normalizeSemanticFactText(prev) === normalizeSemanticFactText(s) ||
+        (normalizeSemanticFactText(s).length > 12 &&
+          normalizeSemanticFactText(prev).includes(normalizeSemanticFactText(s)))
+    );
+    if (covered) continue;
     seen.add(key);
     out.push(s);
   }
@@ -316,16 +328,21 @@ export function minimalSafeDescription(fill: SkyAiListingFill): string {
   if (domain === "wanted") {
     return loc ? `Looking for ${title.toLowerCase()} in ${loc}.` : `Looking for ${title.toLowerCase()}.`;
   }
-  if (domain === "service") {
-    return loc ? `${title} available in ${loc}.` : `${title} available.`;
-  }
   if (domain === "rental") {
     const base = loc
       ? `${title} available to hire in ${loc}.`
       : `${title} available to hire.`;
-    // Location already in the base sentence — evidence only (no second Located in).
-    const evidence = composeSellerEvidenceProse(
-      groupedSellerEvidenceFromExtras(fill.extras)
+    const evidence = composeDomainAwareEvidenceProse(
+      groupedSellerEvidenceFromExtras(fill.extras),
+      "rental"
+    );
+    return [base, evidence].filter(Boolean).join(" ").trim();
+  }
+  if (domain === "service") {
+    const base = loc ? `${title} available in ${loc}.` : `${title} available.`;
+    const evidence = composeDomainAwareEvidenceProse(
+      groupedSellerEvidenceFromExtras(fill.extras),
+      "service"
     );
     return [base, evidence].filter(Boolean).join(" ").trim();
   }

@@ -17,7 +17,7 @@ const BRAND_NEW_RE = /\bbrand[\s-]*new\b|\bfactory[\s-]+sealed\b|\b(?:still\s+)?
 const BARE_NEW_RE = /(?:^|[^\w]|_)new(?:\s+condition)?\b/;
 /** "new oil / new filters / new tyres" is maintenance — not listing condition New. */
 const NEW_PARTS_RE =
-  /\bnew\s+(?:chain|tyres?|tires?|brakes?|batter(?:y|ies)|filters?|oil|wheels?|exhaust|pads?|intake|clutch|rotors?|spark\s+plugs?|wipers?)\b/gi;
+  /\b(?:needs?\s+)?new\s+(?:chain|tyres?|tires?|brakes?|batter(?:y|ies)|filters?|oil|wheels?|exhaust|pads?|intake|clutch|rotors?|spark\s+plugs?|wipers?|bladder|valve|belt|hose|gasket|screen|display|hinge|charger|cable)\b/gi;
 
 export function parseListingCondition(raw: string | undefined | null): ListingCondition | undefined {
   const source = String(raw || "").trim();
@@ -36,7 +36,9 @@ export function parseListingCondition(raw: string | undefined | null): ListingCo
   if (/\b(?:mint|excellent)\b/.test(t)) return "Used - Like New";
   if (BARE_NEW_RE.test(t) && !LIKE_NEW_RE.test(t) && !/\bnew zealand\b/.test(t)) return "New";
   if (/\bfair\b|\brough\b/.test(t)) return "Used - Fair";
-  if (/\b(?:used|good)\b/.test(t)) return "Used - Good";
+  if (/\b(?:used|good)\b/.test(t) || /\bworking\s+order\b/.test(t) || /\bworks?\s+(?:well|ok|fine)\b/.test(t)) {
+    return "Used - Good";
+  }
   return undefined;
 }
 

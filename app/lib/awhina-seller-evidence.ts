@@ -105,7 +105,7 @@ const USE_HISTORY_RE =
 const PACKAGE_INCLUDED_RE =
   /\b(original\s+box|(?:the\s+)?box(?:\s+and\s+charger)?|usb-?c(?:\s+cable)?|hdmi(?:\s+cable)?|power\s+cable|charger|one\s+controller|controllers?|screen\s+protector|(?:phone\s+)?case)\b/gi;
 const COND_DETAIL_RE =
-  /\b(scratch(?:es)?|stone chips?|marks?|dents?|dings?|scuffs?|chips?|tidy|wear|worn twice|paint|interior|age-related|tiny scratch|small (?:scratch|mark|dent)|corner)\b/i;
+  /\b(scratch(?:es)?|stone chips?|marks?|dents?|dings?|scuffs?|chips?|cracks?|cracked|tidy|wear|worn twice|paint|interior|age-related|tiny scratch|small (?:scratch|mark|dent|scuff)|corner|oil\s+leak|needs?\s+(?:new\s+)?(?:repair|work|clutch)|doesn'?t\s+start|missing\s+\w+)\b/i;
 const LOGISTICS_RE = /\b(pickup only|pick-?up only|shipping only)\b/i;
 const PROVENANCE_RE = /\b(bought from|purchased from|from [A-Z][\w' -]{2,40})\b/i;
 const DIMENSION_RE = /\b\d+(?:\.\d+)?\s*(?:cm|mm|m|inch(?:es)?|ft)\b/i;
@@ -1036,8 +1036,16 @@ export function composeSellerEvidenceProse(grouped: GroupedSellerEvidence): stri
       `Fitted with ${joinAnd(grouped.modifications.map((item) => item.charAt(0).toLowerCase() + item.slice(1)))}.`
     );
   }
-  for (const item of grouped.maintenance) sentences.push(ensureSentence(item));
-  for (const item of grouped.conditionDetails) sentences.push(ensureSentence(item));
+  if (grouped.maintenance.length === 1) {
+    sentences.push(ensureSentence(grouped.maintenance[0]));
+  } else if (grouped.maintenance.length > 1) {
+    sentences.push(ensureSentence(joinAnd(grouped.maintenance)));
+  }
+  if (grouped.conditionDetails.length === 1) {
+    sentences.push(ensureSentence(grouped.conditionDetails[0]));
+  } else if (grouped.conditionDetails.length > 1) {
+    sentences.push(ensureSentence(joinAnd(grouped.conditionDetails)));
+  }
   if (grouped.mechanical.length) sentences.push(composeMechanicalProse(grouped.mechanical));
   if (grouped.compliance.length) {
     const blob = grouped.compliance.join(" ").toLowerCase();
@@ -1048,7 +1056,6 @@ export function composeSellerEvidenceProse(grouped: GroupedSellerEvidence): stri
     }
   }
   if (grouped.included.length) {
-    // Keep seller-authored full phrases; group bare accessory nouns into one sentence.
     const phrased: string[] = [];
     const bare: string[] = [];
     for (const item of grouped.included) {
@@ -1066,9 +1073,7 @@ export function composeSellerEvidenceProse(grouped: GroupedSellerEvidence): stri
       sentences.push(ensureSentence(`Comes with ${bare[0]}`));
     } else if (bare.length > 1) {
       sentences.push(
-        ensureSentence(
-          `Comes with ${joinAnd(bare.map((item) => lowerLead(item)))}`
-        )
+        ensureSentence(`Comes with ${joinAnd(bare.map((item) => lowerLead(item)))}`)
       );
     }
   }

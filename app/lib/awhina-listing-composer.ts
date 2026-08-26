@@ -17,6 +17,7 @@ import {
   splitListingDescriptionSentences,
   stripStructuredMetadataLeakage,
 } from "./awhina-listing-description";
+import { prepareFillForDescription } from "./awhina-description-semantic";
 import {
   buildDescriptionWriterFacts,
   runAwhinaListingDescriptionWriter,
@@ -307,7 +308,7 @@ export function finalizeAwhinaListingDescription(
   fill: SkyAiListingFill,
   opts?: { quality?: ListingDescriptionQuality; force?: boolean; priorDescription?: string }
 ): SkyAiListingFill {
-  fill = normalizeAwhinaListingTitle(fill);
+  fill = normalizeAwhinaListingTitle(prepareFillForDescription(fill));
   const safeMode = shouldUseSafeDescriptionMode();
   const priorDesc = safeMode ? undefined : opts?.priorDescription;
   const forceRecompose = mustRecomposeDescription(fill, opts) || safeMode;

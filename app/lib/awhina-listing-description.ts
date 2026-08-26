@@ -24,13 +24,17 @@ import {
   normalizeTradingCardProductLine,
 } from "./awhina-public-copy-gate";
 import {
-  composeSellerEvidenceProse,
   groupedSellerEvidenceFromExtras,
   isSellerEvidenceExtra,
   sellerEvidenceItemCount,
 } from "./awhina-seller-evidence";
 import { hasAffirmativeWear, looksLikeColourFinish } from "./awhina-listing-condition";
 import { GENERIC_MARKETPLACE_FILLER_RE } from "./awhina-description-quality";
+import {
+  composeDomainAwareEvidenceProse,
+  prepareFillForDescription,
+  normalizeSemanticFactText,
+} from "./awhina-description-semantic";
 
 export type ListingDescriptionQuality = "standard" | "premium" | "premium_plus";
 
@@ -477,12 +481,16 @@ function reconcileConditionPhrase(
 }
 
 /** Turn confirmed extras into buyer prose — never raw slot / field-label concatenation. */
-function composeExtrasProse(extras: string[], location?: string | null): string | null {
+function composeExtrasProse(
+  extras: string[],
+  location?: string | null,
+  listingType?: string | null
+): string | null {
   const grouped = groupedSellerEvidenceFromExtras(extras);
   if (sellerEvidenceItemCount(grouped) >= 1 && location?.trim()) {
     grouped.location = location.trim();
   }
-  const evidenceProse = composeSellerEvidenceProse(grouped);
+  const evidenceProse = composeDomainAwareEvidenceProse(grouped, listingType);
   // Identity / catalog / internal structured tags are composed elsewhere —
   // never "Set X.", "Bundle_quantity:3.", or lone "Topps."
   const bits = extras
@@ -1721,7 +1729,7 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
     }
     if (facts.conditionPhrase) bits.push(facts.conditionPhrase);
     if (bits.length) parts.push(capFirst(`${bits.join(", ")}.`));
-    const extrasProse = composeExtrasProse(facts.extras);
+    const extrasProse = composeExtrasProse(facts.extras, undefined, facts.kind);
     if (extrasProse) parts.push(extrasProse);
   } else if (facts.kind === "service") {
     const priceBit =
@@ -1753,7 +1761,7 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
         `${cleanItem}${facts.location ? ` available to hire in ${facts.location}` : " available to hire"}${rate ? ` for ${rate}` : ""}.`
       )
     );
-    const extrasProse = composeExtrasProse(facts.extras);
+    const extrasProse = composeExtrasProse(facts.extras, undefined, facts.kind);
     if (extrasProse) parts.push(extrasProse);
   } else if (facts.kind === "wanted") {
     parts.push(
@@ -1783,7 +1791,7 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
     } else {
       parts.push(polishParagraph(`${capFirst(noun)}.`));
     }
-    const extrasWithLocation = composeExtrasProse(facts.extras, facts.location);
+    const extrasWithLocation = composeExtrasProse(facts.extras, facts.location, facts.kind);
     if (extrasWithLocation) parts.push(extrasWithLocation);
     return appendLocatedIn(finalGrammarCleanup(parts.filter(Boolean).join(" ")), facts.location);
   }
@@ -2065,7 +2073,7 @@ function writeTradingCard(
         `This ${attributiveConditionPhrase(opener)} is a ${sealedRelationship}.`
       )
     );
-    const sealedExtras = composeExtrasProse(deduped.weaveExtras);
+    const sealedExtras = composeExtrasProse(deduped.weaveExtras, undefined, "physical");
     if (sealedExtras) parts.push(sealedExtras);
     return parts.join(" ");
   }
@@ -2095,7 +2103,7 @@ function writeTradingCard(
     }
     parts.push(polishParagraph(bundleSentence));
     // Wear / feature extras only — never re-append structured quantity tags.
-    const extrasProse = composeExtrasProse(deduped.weaveExtras);
+    const extrasProse = composeExtrasProse(deduped.weaveExtras, undefined, "physical");
     if (extrasProse) parts.push(extrasProse);
     return parts.join(" ");
   }
@@ -2107,7 +2115,7 @@ function writeTradingCard(
   }
 
   // Wear / feature extras only — never Set/manufacturer dumps
-  const extrasProse = composeExtrasProse(deduped.weaveExtras, loc);
+  const extrasProse = composeExtrasProse(deduped.weaveExtras, loc, "physical");
   if (extrasProse) parts.push(extrasProse);
   return appendLocatedIn(parts.join(" "), loc);
 }
@@ -2172,7 +2180,7 @@ function writePhysical(facts: DescriptionFacts): string {
       { title: facts.item, extras: facts.extras, listingType: "physical" },
       facts.extras
     ).weaveExtras;
-    const extrasProse = composeExtrasProse(weaveOnly);
+    const extrasProse = composeExtrasProse(weaveOnly, undefined, facts.kind);
     if (extrasProse) parts.push(extrasProse);
     return appendLocatedIn(parts.join(" "), loc);
   }
@@ -2198,7 +2206,7 @@ function writePhysical(facts: DescriptionFacts): string {
     parts.push(loc ? `Pickup in ${loc}.` : "Local pickup.");
   }
 
-  const extrasProse = composeExtrasProse(facts.extras);
+  const extrasProse = composeExtrasProse(facts.extras, undefined, facts.kind);
   if (extrasProse) parts.push(extrasProse);
 
   return appendLocatedIn(parts.join(" "), loc);
@@ -2266,10 +2274,7 @@ function writeVehicle(facts: DescriptionFacts): string {
   }
 
   // Freeform mods / extras — preserve seller wording, do not invent
-  const extrasProse = composeExtrasProse(
-    facts.extras,
-    hasGroundedSellerDetail ? facts.location : undefined
-  );
+  const extrasProse = composeExtrasProse(facts.extras, hasGroundedSellerDetail ? facts.location : undefined, facts.kind);
   if (extrasProse) {
     parts.push(extrasProse);
   }
@@ -2323,7 +2328,7 @@ function writeService(facts: DescriptionFacts): string {
   if (facts.serviceDuration) {
     parts.push(`Typical jobs run about ${facts.serviceDuration}.`);
   }
-  const extrasProse = composeExtrasProse(facts.extras, facts.location);
+  const extrasProse = composeExtrasProse(facts.extras, facts.location, facts.kind);
   if (extrasProse) parts.push(extrasProse);
 
   return parts.join(" ");
@@ -2387,7 +2392,7 @@ function writeRental(facts: DescriptionFacts): string {
   if (rates.length) bits.push(rates.join(", "));
   if (r?.availableFrom) bits.push(`available from ${r.availableFrom}`);
   // Location already woven into the opener — do not re-append "Located in…".
-  const extrasProse = composeExtrasProse(facts.extras);
+  const extrasProse = composeExtrasProse(facts.extras, undefined, facts.kind);
 
   if (bits.length) parts.push(capFirst(`${bits.join(", ")}.`));
   if (extrasProse) parts.push(extrasProse);
@@ -2509,6 +2514,7 @@ export function buildListingDescriptionFromFacts(
   fill: SkyAiListingFill,
   opts?: { quality?: ListingDescriptionQuality; force?: boolean }
 ): string {
+  fill = prepareFillForDescription(fill);
   // Sparse vehicles are still allowed a terse factual identity when make,
   // model and generation are known. Do not replace that with generic praise;
   // wait for year/mileage/etc. before expanding it into richer prose.

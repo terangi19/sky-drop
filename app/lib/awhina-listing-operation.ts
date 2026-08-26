@@ -32,6 +32,7 @@ import {
 import { createListingDraftId } from "./sky-ai-listing-context";
 import { enhanceListingFillFromMessage } from "./sky-ai-form-actions";
 import { composeListingTitleAndDescription } from "./awhina-listing-composer";
+import { mergeEvidenceExtrasSemantically } from "./awhina-description-semantic";
 import {
   extractCompoundListingFacts,
   hydrateVehicleGeneration,
@@ -153,16 +154,7 @@ function mergeEvidenceExtras(
   prior: string[] | undefined,
   incoming: string[] | undefined
 ): string[] {
-  const a = prior || [];
-  const b = incoming || [];
-  if (!a.length) return [...b];
-  if (!b.length) return [...a];
-  const seen = new Set(b.map((x) => x.toLowerCase()));
-  const out = [...b];
-  for (const item of a) {
-    if (!seen.has(item.toLowerCase())) out.push(item);
-  }
-  return out;
+  return mergeEvidenceExtrasSemantically(prior, incoming);
 }
 
 function applyPatchToFill(

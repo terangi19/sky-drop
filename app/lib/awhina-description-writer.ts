@@ -27,6 +27,7 @@ import {
   type GroupedSellerEvidence,
 } from "./awhina-seller-evidence";
 import { containsInternalOrchestration } from "./awhina-orchestration-boundary";
+import { prepareFillForDescription } from "./awhina-description-semantic";
 
 const MODEL = process.env.OPENAI_DESCRIPTION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini";
 const CTA_RE =
@@ -270,6 +271,7 @@ function cleanSellerNote(value: string): string | undefined {
 }
 
 export function buildDescriptionWriterFacts(fill: SkyAiListingFill): DescriptionWriterFacts {
+  fill = prepareFillForDescription(fill);
   const vehicle = Object.fromEntries(
     [
       ["year", fill.vehicleYear],

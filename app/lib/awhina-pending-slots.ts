@@ -1183,10 +1183,12 @@ export function extractCompoundListingFacts(
   }
 
   // Condition — including bare "new" / "used" in compound replies ("200 new auckland")
-  const residualForCondition = residual.replace(
-    /\bnew\s+(?:chain|tyres?|tires?|brakes?|batter(?:y|ies)|filters?|oil|wheels?|exhaust|pads?|intake|clutch)\b/gi,
-    " "
-  );
+  const residualForCondition = residual
+    .replace(
+      /\bnew\s+(?:chain|tyres?|tires?|brakes?|batter(?:y|ies)|filters?|oil|wheels?|exhaust|pads?|intake|clutch|blade|ribbon)\b/gi,
+      " "
+    )
+    .replace(/\bneeds?\s+new\s+\w+/gi, " ");
   const conditionHit =
     /\bbrand[\s-]*new\b|\blike[\s-]*new\b|\b(new|used|good|fair|mint|excellent)\s+condition\b|\bcondition\s*(?:is\s*)?(new|used|good|fair|mint)/i.test(
       residualForCondition
