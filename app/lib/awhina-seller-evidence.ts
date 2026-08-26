@@ -64,7 +64,7 @@ export type SellerEvidenceHarvestContext = {
 export type StructuredFactContext = SellerEvidenceHarvestContext;
 
 const NZ_LOCATION_RE =
-  /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|waitakere|north\s+shore|west\s+auckland|greymouth|whanganui|new\s+plymouth)\b/i;
+  /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|waitakere|north\s+shore|west\s+auckland|east\s+auckland|south\s+auckland|massey|petone|greymouth|whanganui|new\s+plymouth|mount\s+eden|mt\s+eden)\b/i;
 
 const MULTI_VALUE_KEYS = new Set([
   "modification",
@@ -107,7 +107,8 @@ const PACKAGE_INCLUDED_RE =
 const COND_DETAIL_RE =
   /\b(scratch(?:es)?|stone chips?|marks?|dents?|dings?|scuffs?|chips?|cracks?|cracked|tidy|wear|worn twice|paint|interior|age-related|tiny scratch|small (?:scratch|mark|dent|scuff)|corner|oil\s+leak|needs?\s+(?:new\s+)?(?:repair|work|clutch)|doesn'?t\s+start|missing\s+\w+)\b/i;
 const LOGISTICS_RE = /\b(pickup only|pick-?up only|shipping only)\b/i;
-const PROVENANCE_RE = /\b(bought from|purchased from|from [A-Z][\w' -]{2,40})\b/i;
+const PROVENANCE_RE =
+  /\b(?:bought|purchased)\s+from\b|\bfrom\s+[A-Z][a-zA-Z0-9' -]{2,40}\b/;
 const DIMENSION_RE = /\b\d+(?:\.\d+)?\s*(?:cm|mm|m|inch(?:es)?|ft)\b/i;
 const MATERIAL_RE = /\b(solid oak|oak|pine|teak|walnut|steel|alloy|leather|canvas)\b/i;
 const COLOUR_ONLY_RE =
@@ -262,7 +263,11 @@ export function stripStructuredFactsFromText(
   out = out.replace(/\b(coupe|sedan|hatch(?:back)?|suv|ute|wagon|van|convertible|double\s+cab)\b/gi, " ");
   out = out.replace(/\b(good|fair|like new|brand new|excellent|mint|used)\s+condition\b/gi, " ");
   if (ctx.condition?.trim()) {
-    out = out.replace(/\b(?:used\s*-\s*)?(?:like\s*new|good|fair|excellent|mint|new|used)\b/gi, " ");
+    // Do NOT strip bare "new" — it appears in "needs new clutch" and similar defects.
+    out = out.replace(
+      /\b(?:used\s*-\s*)?(?:like\s*new|good|fair|excellent|mint|used)\b/gi,
+      " "
+    );
   }
   out = out.replace(NZ_LOCATION_RE, " ");
   if (ctx.vehicleColour) {
@@ -276,6 +281,21 @@ export function stripStructuredFactsFromText(
   }
   if (ctx.vehicleBodyType) {
     out = out.replace(new RegExp(`\\b${escapeRegExp(ctx.vehicleBodyType)}\\b`, "gi"), " ");
+  }
+  // Price belongs on the price field — never leave $tokens in evidence residuals.
+  out = out.replace(/\$\s*[\d,]+(?:\.\d{1,2})?\s*k?\b/gi, " ");
+  out = out.replace(
+    /\b[\d,]+(?:\.\d{1,2})?\s*k?\s*(?:bucks|nzd|dollars?)\b/gi,
+    " "
+  );
+  if (ctx.price?.trim()) {
+    const amount = String(ctx.price).replace(/[^\d.]/g, "");
+    if (amount) {
+      out = out.replace(
+        new RegExp(`\\$?\\s*${escapeRegExp(amount)}(?:\\.0+)?\\s*k?\\b`, "gi"),
+        " "
+      );
+    }
   }
   const modClause = extractModificationClause(text);
   if (modClause) {
@@ -381,10 +401,17 @@ function splitList(text: string): string[] {
 }
 
 function shouldSkipFragment(raw: string, ctx: SellerEvidenceHarvestContext): boolean {
-  const t = normalize(raw);
+  // Strip residual price tokens before deciding — defects sharing a clause with $price must survive.
+  const withoutPrice = String(raw || "")
+    .replace(/\$\s*[\d,]+(?:\.\d{1,2})?\s*k?\b/gi, " ")
+    .replace(/\b[\d,]+(?:\.\d{1,2})?\s*k?\s*(?:bucks|nzd|dollars?)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const t = normalize(withoutPrice || raw);
   if (t.length < 3) return true;
   if (/\b(?:sell(?:ing)?|list)\s+my\b/.test(t)) return true;
-  if (/\$\s*[\d,]/.test(t)) return true;
+  // Price-only fragments — not mixed defect/evidence clauses
+  if (/^\$?\s*[\d,]+(?:\.\d{1,2})?\s*k?$/.test(t)) return true;
   if (/^asking\b/.test(t)) return true;
   if (/^\d{4}$/.test(t)) return true;
   if (/^\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*(?:k\s*)?(?:km|kilometers?|kilometres?)$/.test(t)) {
@@ -458,7 +485,11 @@ function classifyEvidenceFragment(
   raw: string,
   ctx: SellerEvidenceHarvestContext
 ): SellerEvidenceItem[] {
-  const text = cleanFragment(raw);
+  const text = cleanFragment(
+    String(raw || "")
+      .replace(/\$\s*[\d,]+(?:\.\d{1,2})?\s*k?\b/gi, " ")
+      .replace(/\b[\d,]+(?:\.\d{1,2})?\s*k?\s*(?:bucks|nzd|dollars?)\b/gi, " ")
+  );
   if (!text || shouldSkipFragment(text, ctx)) return [];
   if (fragmentOverlapsStructuredFacts(text, ctx)) return [];
   if (isCompositeStructuredExtra(text, ctx)) {

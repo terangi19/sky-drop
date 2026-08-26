@@ -1399,15 +1399,22 @@ export function extractCompoundListingFacts(
         missingFromBase.includes("year") ||
         opts?.activeSlot === "year");
     if (!yearLike && Number.isFinite(n) && n >= 1 && n <= 10_000_000) {
-      const rateLike =
-        domain === "rental" ||
+      const weeklyLike =
+        /\b(?:\/\s*week|a\s+week|per\s+week|weekly(?:\s+rent)?)\b/i.test(message);
+      const dailyLike =
         /\b(?:\/\s*day|a\s+day|per\s+day|\/day)\b/i.test(message);
+      const rateLike = domain === "rental" || weeklyLike || dailyLike;
       const serviceLike =
         domain === "service" ||
         /\bper\s+lawn|\/lawn|an?\s+hour|per\s+hour|\/\s*hr|\/hr\b/i.test(message);
       if (rateLike) {
-        partial.rentalPriceDaily = String(Math.round(n));
-        partial.price = String(Math.round(n));
+        if (weeklyLike) {
+          partial.rentalPriceWeekly = String(Math.round(n));
+          partial.price = String(Math.round(n));
+        } else {
+          partial.rentalPriceDaily = String(Math.round(n));
+          partial.price = String(Math.round(n));
+        }
         filledSlots.push("rental_rate");
       } else if (serviceLike) {
         partial.price = String(Math.round(n));
@@ -1426,9 +1433,23 @@ export function extractCompoundListingFacts(
     }
   }
 
+  // Bond / deposit for rentals
+  if (domain === "rental" || /\bbond\b/i.test(message)) {
+    const bondMatch =
+      residual.match(/\bbond\s*\$?\s*([\d,]+)/i) ||
+      residual.match(/\$\s*([\d,]+)\s*bond\b/i);
+    if (bondMatch?.[1]) {
+      const bond = Number(String(bondMatch[1]).replace(/,/g, ""));
+      if (Number.isFinite(bond) && bond > 0) {
+        partial.rentalDeposit = String(Math.round(bond));
+        residual = residual.replace(bondMatch[0], " ").replace(/\s+/g, " ").trim();
+      }
+    }
+  }
+
   // Location
   const locMatch = residual.match(
-    /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|waitakere|north\s+shore)\b/i
+    /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|waitakere|north\s+shore|west\s+auckland|east\s+auckland|south\s+auckland|massey|petone|lower\s+hutt|upper\s+hutt|porirua|paraparaumu|mount\s+eden|mt\s+eden|grey\s*lynn|new\s+lynn|epsom|onehunga|mangere|manurewa|papatoetoe|otahuhu|glenfield|birkenhead|devonport|orewa|hibiscus\s+coast|pukekohe|frankton|hillcrest)\b/i
   );
   if (locMatch) {
     const city = locMatch[1]

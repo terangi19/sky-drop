@@ -66,7 +66,7 @@ const CORPUS: CorpusCase[] = [
     name: "damaged-car",
     message:
       "2012 Mazda Axela 180000km automatic white fair condition needs new clutch small oil leak Auckland $3500",
-    must: [/clutch|oil leak|fair/i],
+    must: [/clutch/i, /oil\s*leak/i, /fair/i],
     mustNot: [/excellent|perfect|mechanically perfect/i],
   },
   // Electronics
@@ -74,7 +74,7 @@ const CORPUS: CorpusCase[] = [
     name: "iphone-anchor",
     message:
       "iPhone 15 Pro 256GB Natural Titanium like-new 94% battery original box USB-C cable case screen protector Auckland",
-    must: [/256\s*GB/i, /titanium/i, /94\s*%/i, /box/i],
+    must: [/iPhone\s*15\s*Pro|15\s*Pro/i, /256\s*GB/i, /titanium/i, /94\s*%/i, /box/i],
     mustNot: [/Comes with[\s\S]{0,40}Comes with/i, /pristine|carefully protected/i],
   },
   {
@@ -217,8 +217,8 @@ const CORPUS: CorpusCase[] = [
   {
     name: "handyman",
     message: "Handyman services North Shore $55 per hour no job too small plumbing electrical light",
-    must: [/handyman|55|hour|North Shore/i],
-    mustNot: [/Comes with|in good used condition/i],
+    must: [/handyman/i, /per hour|hourly/i, /55/i],
+    mustNot: [/Comes with|in good used condition|per job/i],
   },
   {
     name: "trailer-rental",
@@ -237,7 +237,7 @@ const CORPUS: CorpusCase[] = [
     name: "wanted-laptop",
     message: "Looking for a used MacBook Pro 2020 or newer budget up to $1200 Auckland",
     must: [/looking|MacBook|1200|Auckland/i],
-    mustNot: [/for sale|selling my/i],
+    mustNot: [/for sale|selling my|in good used condition/i],
   },
   // Unseen / weird / messy
   {
@@ -245,6 +245,12 @@ const CORPUS: CorpusCase[] = [
     message:
       "1960s Olivetti Lettera 32 typewriter new ribbon case included all keys working Greymouth",
     must: [/Olivetti|Lettera|ribbon|case|keys|Greymouth/i],
+  },
+  {
+    name: "unseen-sextant",
+    message: "Vintage brass sextant c.1920 working order engraved Wellington $1200",
+    must: [/sextant|brass|vintage/i, /1920/i, /Wellington/i],
+    mustNot: [/^1920\b/],
   },
   {
     name: "pottery-wheel",

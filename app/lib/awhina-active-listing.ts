@@ -38,7 +38,14 @@ export type ActiveListingAttributes = {
   category?: string;
   paymentType?: string;
   serviceDuration?: string;
+  servicePricingType?: string;
   rentalSubType?: string;
+  rentalPriceWeekly?: string;
+  rentalPriceDaily?: string;
+  rentalDeposit?: string;
+  rentalBedrooms?: string;
+  rentalPetsPolicy?: string;
+  rentalFurnishedStatus?: string;
 };
 
 export type ActiveListingEvidence = GroupedSellerEvidence;
@@ -140,7 +147,16 @@ export function fillToActiveListing(
       category: fill.category?.trim(),
       paymentType: fill.paymentType?.trim(),
       serviceDuration: fill.serviceDuration?.trim(),
+      servicePricingType:
+        typed.servicePricingType?.trim() ||
+        (typed as SkyAiListingFill).pricingType?.trim(),
       rentalSubType: fill.rentalSubType?.trim(),
+      rentalPriceWeekly: typed.rentalPriceWeekly?.trim(),
+      rentalPriceDaily: typed.rentalPriceDaily?.trim(),
+      rentalDeposit: typed.rentalDeposit?.trim(),
+      rentalBedrooms: typed.rentalBedrooms?.trim(),
+      rentalPetsPolicy: typed.rentalPetsPolicy?.trim(),
+      rentalFurnishedStatus: typed.rentalFurnishedStatus?.trim(),
     },
     evidence: groupedSellerEvidenceFromExtras(extras),
     description: fill.description?.trim(),
@@ -180,7 +196,14 @@ export function activeListingToFill(listing: ActiveListing): SkyAiListingFill {
     location: listing.attributes.location,
     paymentType: listing.attributes.paymentType,
     serviceDuration: listing.attributes.serviceDuration,
+    servicePricingType: listing.attributes.servicePricingType,
     rentalSubType: listing.attributes.rentalSubType,
+    rentalPriceWeekly: listing.attributes.rentalPriceWeekly,
+    rentalPriceDaily: listing.attributes.rentalPriceDaily,
+    rentalDeposit: listing.attributes.rentalDeposit,
+    rentalBedrooms: listing.attributes.rentalBedrooms,
+    rentalPetsPolicy: listing.attributes.rentalPetsPolicy,
+    rentalFurnishedStatus: listing.attributes.rentalFurnishedStatus,
     vehicleMake: listing.identity.make,
     vehicleModel: listing.identity.model,
     vehicleGeneration: listing.identity.variant,

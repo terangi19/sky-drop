@@ -220,9 +220,14 @@ function buildCreateFillFromMessage(message: string): SkyAiListingFill {
   const compound = extractCompoundListingFacts(message, { baseDraft: seed });
   seed = { ...seed, ...compound.partial };
 
+  const vehicleItem =
+    identity.make || identity.model
+      ? [identity.year, identity.make, identity.model].filter(Boolean).join(" ")
+      : "";
   const composed = composeListingTitleAndDescription({
     item:
-      [identity.year, identity.make, identity.model].filter(Boolean).join(" ") ||
+      vehicleItem ||
+      extractedIdentity?.title ||
       message.slice(0, 80),
     condition: seed.condition,
     price: seed.price,
@@ -237,6 +242,7 @@ function buildCreateFillFromMessage(message: string): SkyAiListingFill {
     vehicleFuelType: seed.vehicleFuelType,
     vehicleBodyType: seed.vehicleBodyType,
     extras: seed.extras,
+    servicePricingType: seed.servicePricingType,
   });
 
   seed = {

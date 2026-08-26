@@ -276,7 +276,7 @@ export function composeConditionPredicate(
  */
 export function cleanDescriptionItemName(raw: string): string {
   let s = String(raw || "")
-    .replace(/^(brand\s+new|like\s+new)\s+/i, "")
+    .replace(/^(brand[\s-]+new|like[\s-]+new)\s+/i, "")
     .replace(/\s+/g, " ")
     .trim();
   s = repairCardProductLineOrder(s);
@@ -286,6 +286,8 @@ export function cleanDescriptionItemName(raw: string): string {
       ""
     )
     .replace(/[,;]?\s*battery\s+health.*$/i, "")
+    .replace(/[,;]?\s*\d{1,3}\s*%\s*battery.*$/i, "")
+    .replace(/[,;]?\s*like[\s-]+new\b/gi, " ")
     .replace(/[,;]?\s*screen\s+is\b.*$/i, "")
     .replace(/\s+but\s*$/i, "")
     .replace(/[,;]+$/g, "")
@@ -1071,7 +1073,9 @@ export function extractDescriptionFacts(
     const pricingType = normalizeServicePricingType(
       fill.servicePricingType || fill.pricingType,
       fill.price,
-      `${fill.title || ""}`
+      `${fill.title || ""} ${fill.description || ""} ${
+        Array.isArray(fill.extras) ? fill.extras.join(" ") : ""
+      }`
     );
     if (pricingType === "hourly") priceMode = money ? "hourly" : null;
     else if (pricingType === "fixed") priceMode = money ? "fixed_job" : null;
@@ -1110,6 +1114,15 @@ export function extractDescriptionFacts(
       bond: fill.rentalDeposit?.trim() || null,
       availableFrom: fill.rentalAvailableDate?.trim() || null,
     };
+    // Guard: weekly rent mis-copied onto daily (same dollar figure) — keep weekly only.
+    if (
+      rental.weekly &&
+      rental.daily &&
+      rental.weekly === rental.daily &&
+      !/\b(?:\/\s*day|a\s+day|per\s+day)\b/i.test(`${fill.title || ""} ${fill.description || ""}`)
+    ) {
+      rental.daily = null;
+    }
     if (rental.weekly) priceMode = "weekly";
     else if (rental.monthly) priceMode = "monthly";
     else if (rental.daily) priceMode = "daily";
@@ -1133,11 +1146,19 @@ export function extractDescriptionFacts(
         }) || guardAdjacentIdentityDuplication(bare)
       : guardAdjacentIdentityDuplication(bare);
 
-  const conditionPhrase = reconcileConditionPhrase(
+  const conditionPhraseRaw = reconcileConditionPhrase(
     conditionShort(fill.condition),
     extras,
     title
   );
+  // Wanted listings: don't invent "prefer good used condition" from "used MacBook" phrasing.
+  const conditionPhrase =
+    kind === "wanted" &&
+    !/\b(?:prefer|preferably|must be|needs? to be|looking for .{0,20}(?:new|like[\s-]?new|good|fair))\b/i.test(
+      `${title} ${Array.isArray(fill.extras) ? fill.extras.join(" ") : ""}`
+    )
+      ? null
+      : conditionPhraseRaw;
 
   let knownBits = 0;
   if (item && !/^item$/i.test(item)) knownBits++;
@@ -1831,10 +1852,18 @@ function physicalNounPhrase(facts: DescriptionFacts): string {
     facts.vehicle?.colour ||
     null;
   let core = item;
-  if (storage) core = `${item} ${storage}`;
-  if (colour) core = `${core} in ${colour}`;
+  if (storage && !new RegExp(`\\b${storage.replace(/\s+/g, "\\s*")}\\b`, "i").test(core)) {
+    core = `${item} ${storage}`;
+  }
+  if (
+    colour &&
+    !new RegExp(`\\b${colour.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(core)
+  ) {
+    core = `${core} in ${colour}`;
+  }
   const cond = facts.conditionPhrase;
   if (!cond) return core;
+  if (/brand new|like-new/i.test(core)) return core;
   if (/brand new/i.test(cond)) return `brand new ${core}`;
   if (/like-new/i.test(cond)) return `like-new ${core}`;
   return `${core} in ${cond}`;
@@ -2054,7 +2083,9 @@ function writeTradingCard(
   let opener = identity;
   if (bits.length) opener = `${identity} ${bits.join(", ")}`;
   if (cond) {
-    if (/brand new/i.test(cond)) opener = `brand new ${opener}`;
+    if (/brand new|like-new/i.test(opener)) {
+      // condition already present in identity/title — do not re-prefix
+    } else if (/brand new/i.test(cond)) opener = `brand new ${opener}`;
     else if (/like-new/i.test(cond)) opener = `like-new ${opener}`;
     else opener = `${opener} in ${cond}`;
   }

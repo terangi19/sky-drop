@@ -915,7 +915,10 @@ export function buildPremiumListingTitle(opts: {
   let prefix = "";
   if (opts.condition === "New" && !/\bbrand\s+new\b/i.test(core)) {
     prefix = "Brand New ";
-  } else if (opts.condition === "Used - Like New" && !/\blike\s+new\b/i.test(core)) {
+  } else if (
+    opts.condition === "Used - Like New" &&
+    !/\blike[\s-]+new\b/i.test(core)
+  ) {
     prefix = "Like New ";
   }
 
