@@ -10,6 +10,7 @@ import {
   composeDomainAwareEvidenceProse,
   normalizeSemanticFactText,
 } from "./awhina-description-semantic";
+import { hasUncomposedFactDump } from "./awhina-description-fact-compose";
 import { groupedSellerEvidenceFromExtras } from "./awhina-seller-evidence";
 
 function splitDescriptionSentences(text: string): string[] {
@@ -181,7 +182,8 @@ export type DescriptionQualityViolation =
   | "rental_sounds_like_sale"
   | "invented_collectible_hype"
   | "stale_prior_listing"
-  | "identity_mismatch";
+  | "identity_mismatch"
+  | "uncomposed_fact_dump";
 
 const INVENTED_COLLECTIBLE_HYPE_RE =
   /\b(?:rare(?:ly)?|highly sought[- ]after|investment potential|sure to appreciate|iconic status|legendary status|valuable addition)\b/i;
@@ -230,6 +232,7 @@ export function validateDescriptionQualityContract(
 
   if (containsGenericMarketplaceFiller(text)) violations.push("marketing_filler");
   if (hasSemanticFactDuplication(text)) violations.push("semantic_duplicate");
+  if (hasUncomposedFactDump(text)) violations.push("uncomposed_fact_dump");
   if (hasCategoryIncompatibleDescription(text, fill)) violations.push("category_incompatible");
   if (containsInternalOrchestration(text)) violations.push("orchestration_leak");
 

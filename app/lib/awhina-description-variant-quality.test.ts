@@ -184,7 +184,7 @@ describe("accessory grouping prose", () => {
         "maintenance:Full service history",
       ])
     );
-    expect(prose).toMatch(/Comes with canopy and tow bar/i);
+    expect(prose).toMatch(/Comes with (?:a )?canopy and (?:a )?tow bar/i);
     expect((prose.match(/\bComes with\b/gi) || []).length).toBe(1);
   });
 });

@@ -12,6 +12,11 @@ import {
   groupedSellerEvidenceFromExtras,
   type GroupedSellerEvidence,
 } from "./awhina-seller-evidence";
+import {
+  composeNaturalConditionProse,
+  composeNaturalIncludedProse,
+  composeNaturalModificationProse,
+} from "./awhina-description-fact-compose";
 
 export type SemanticFactKind =
   | "identity"
@@ -316,12 +321,31 @@ export function scrubExtrasAgainstIdentity(
     }
     const key = keyed[1].toLowerCase().replace(/_/g, "");
     const value = keyed[2].trim();
-    // Always keep buyer evidence kinds
+    // Always keep buyer evidence kinds (except included items that only restate identity)
     if (
-      /^(modification|maintenance|conditiondetail|mechanical|compliance|included|logistics|note|sellernotes)$/i.test(
+      /^(modification|maintenance|conditiondetail|mechanical|compliance|logistics|note|sellernotes)$/i.test(
         key
       )
     ) {
+      out.push(extra);
+      continue;
+    }
+    if (key === "included") {
+      // Drop "box" when identity is already "box trailer", etc.
+      if (
+        identity &&
+        semanticFactCoveredBy(value, identity) &&
+        distinctiveTokens(value).length <= 2
+      ) {
+        continue;
+      }
+      // Single generic packaging nouns are usually identity fragments, not extras
+      if (
+        distinctiveTokens(value).length === 1 &&
+        /^(?:box|case|pack|kit|set)$/i.test(value.trim())
+      ) {
+        continue;
+      }
       out.push(extra);
       continue;
     }
@@ -366,6 +390,7 @@ export function prepareFillForDescription(
 /**
  * Domain-aware evidence grouping language.
  * Services/rentals/wanted avoid product accessory phrasing.
+ * Condition/included/mods go through natural composition — never raw dumps.
  */
 export function composeDomainAwareEvidenceProse(
   grouped: GroupedSellerEvidence,
@@ -392,19 +417,13 @@ export function composeDomainAwareEvidenceProse(
   };
 
   if (grouped.modifications.length) {
-    const lead =
-      domain === "vehicle" || domain === "physical"
-        ? "Fitted with"
-        : "Includes";
-    sentences.push(
-      ensure(
-        `${lead} ${joinAnd(
-          grouped.modifications.map((item) =>
-            item.charAt(0).toLowerCase() + item.slice(1)
-          )
-        )}`
-      )
-    );
+    if (domain === "vehicle" || domain === "physical") {
+      sentences.push(composeNaturalModificationProse(grouped.modifications));
+    } else {
+      sentences.push(
+        composeNaturalIncludedProse(grouped.modifications, "Includes")
+      );
+    }
   }
 
   // Group maintenance / history into one sentence when multiple
@@ -414,11 +433,9 @@ export function composeDomainAwareEvidenceProse(
     sentences.push(ensure(joinAnd(grouped.maintenance)));
   }
 
-  // Defects / wear: keep honest — group related cosmetic notes
-  if (grouped.conditionDetails.length === 1) {
-    sentences.push(ensure(grouped.conditionDetails[0]));
-  } else if (grouped.conditionDetails.length > 1) {
-    sentences.push(ensure(joinAnd(grouped.conditionDetails)));
+  // Defects / wear: expand jammed blobs → natural clauses (never raw dump)
+  if (grouped.conditionDetails.length) {
+    sentences.push(composeNaturalConditionProse(grouped.conditionDetails));
   }
 
   if (grouped.mechanical.length) {
@@ -461,17 +478,13 @@ export function composeDomainAwareEvidenceProse(
     }
     for (const item of phrased) sentences.push(ensure(item));
     if (bare.length) {
-      const lead =
+      const lead: "Comes with" | "Includes" | "Fitted with" =
         domain === "service" || domain === "rental" || domain === "wanted"
           ? "Includes"
-          : "Comes with";
-      sentences.push(
-        ensure(
-          bare.length === 1
-            ? `${lead} ${bare[0]}`
-            : `${lead} ${joinAnd(bare)}`
-        )
-      );
+          : domain === "vehicle"
+            ? "Fitted with"
+            : "Comes with";
+      sentences.push(composeNaturalIncludedProse(bare, lead));
     }
   }
 

@@ -13,6 +13,12 @@ import {
   sanitizePublicListingCopy,
 } from "./awhina-orchestration-boundary";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
+import {
+  composeNaturalConditionProse,
+  composeNaturalIncludedProse,
+  composeNaturalModificationProse,
+  splitJammedConditionAtoms,
+} from "./awhina-description-fact-compose";
 
 export const SELLER_EVIDENCE_KINDS = [
   "modification",
@@ -621,7 +627,10 @@ function classifyEvidenceFragment(
   }
 
   if (COND_DETAIL_RE.test(text)) {
-    pushUnique(items, { kind: "conditionDetail", text });
+    const atoms = splitJammedConditionAtoms(text);
+    for (const atom of atoms) {
+      pushUnique(items, { kind: "conditionDetail", text: atom });
+    }
     return items;
   }
 
@@ -1063,19 +1072,15 @@ function ensureSentence(text: string): string {
 export function composeSellerEvidenceProse(grouped: GroupedSellerEvidence): string {
   const sentences: string[] = [];
   if (grouped.modifications.length) {
-    sentences.push(
-      `Fitted with ${joinAnd(grouped.modifications.map((item) => item.charAt(0).toLowerCase() + item.slice(1)))}.`
-    );
+    sentences.push(composeNaturalModificationProse(grouped.modifications));
   }
   if (grouped.maintenance.length === 1) {
     sentences.push(ensureSentence(grouped.maintenance[0]));
   } else if (grouped.maintenance.length > 1) {
     sentences.push(ensureSentence(joinAnd(grouped.maintenance)));
   }
-  if (grouped.conditionDetails.length === 1) {
-    sentences.push(ensureSentence(grouped.conditionDetails[0]));
-  } else if (grouped.conditionDetails.length > 1) {
-    sentences.push(ensureSentence(joinAnd(grouped.conditionDetails)));
+  if (grouped.conditionDetails.length) {
+    sentences.push(composeNaturalConditionProse(grouped.conditionDetails));
   }
   if (grouped.mechanical.length) sentences.push(composeMechanicalProse(grouped.mechanical));
   if (grouped.compliance.length) {
@@ -1100,12 +1105,8 @@ export function composeSellerEvidenceProse(grouped: GroupedSellerEvidence): stri
       }
     }
     for (const item of phrased) sentences.push(ensureSentence(item));
-    if (bare.length === 1) {
-      sentences.push(ensureSentence(`Comes with ${bare[0]}`));
-    } else if (bare.length > 1) {
-      sentences.push(
-        ensureSentence(`Comes with ${joinAnd(bare.map((item) => lowerLead(item)))}`)
-      );
+    if (bare.length) {
+      sentences.push(composeNaturalIncludedProse(bare, "Comes with"));
     }
   }
   for (const item of grouped.logistics) sentences.push(ensureSentence(item));
