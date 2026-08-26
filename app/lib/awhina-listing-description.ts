@@ -1523,12 +1523,8 @@ function defaultCta(facts: DescriptionFacts): string {
     ]);
   }
   if (facts.kind === "vehicle") {
-    return pickVariant(seed, [
-      "Message if you're interested.",
-      "Message to arrange a viewing.",
-      "Happy to arrange a viewing — just message me.",
-      "Message if you'd like to come take a look.",
-    ]);
+    // Item-first copy — no viewing CTA on vehicle listings
+    return "";
   }
   if (facts.kind === "rental") {
     const sub = facts.rental?.subType || "";
@@ -1607,7 +1603,10 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
   // CTA: services/rentals/wanted keep one invite; physical never auto-pads
   if (allowCta && facts.quality !== "standard") {
     const hasCta = sentences.some((s) => classifySentence(s) === "cta");
-    if (!hasCta) sentences.push(defaultCta(facts));
+    if (!hasCta) {
+      const cta = defaultCta(facts);
+      if (cta.trim()) sentences.push(cta);
+    }
     sentences = enforceOneCta(sentences);
     sentences = semanticDedupe(sentences);
     sentences = collapseRepeatedAvailability(sentences);
@@ -1682,8 +1681,11 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
     facts.quality !== "standard" &&
     !sentences.some((s) => classifySentence(s) === "cta")
   ) {
-    sentences.push(defaultCta(facts));
-    sentences = enforceOneCta(sentences);
+    const cta = defaultCta(facts);
+    if (cta.trim()) {
+      sentences.push(cta);
+      sentences = enforceOneCta(sentences);
+    }
   } else if (!allowCta) {
     sentences = sentences.filter((s) => classifySentence(s) !== "cta");
   }
@@ -1796,11 +1798,7 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
       parts.push(defaultCta(facts));
     }
   } else if (facts.kind === "vehicle" && facts.factRichness !== "sparse") {
-    if (facts.quality === "standard") {
-      parts.push("Happy to answer questions.");
-    } else {
-      parts.push(defaultCta(facts));
-    }
+    // No viewing CTA — item facts only
   }
 
   return finalGrammarCleanup(parts.filter(Boolean).join(" "));

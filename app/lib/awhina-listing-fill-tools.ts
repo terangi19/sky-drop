@@ -9,6 +9,17 @@ import {
   stampReplaceDraft,
 } from "./awhina-draft-transition";
 import {
+  buildNewListingTransitionReply,
+  extractListingIdentityFromMessage,
+  isIdentityRichListingPaste,
+  listingIdentitiesConflict,
+} from "./awhina-listing-identity-conflict";
+import {
+  classifyListingOperation,
+  executeListingOperation,
+} from "./awhina-listing-operation";
+import { fillToActiveListing } from "./awhina-active-listing";
+import {
   hasFormActionContent,
   parseFormActionsFromMessage,
   mergeFormActionsIntoFill,
@@ -238,8 +249,16 @@ export function getListingDraftSession(key: string): ListingDraftSession | null 
   return s;
 }
 
-export function rememberListingDraft(key: string, draft: SkyAiListingFill): SkyAiListingFill {
+export function rememberListingDraft(
+  key: string,
+  draft: SkyAiListingFill,
+  replace = false
+): SkyAiListingFill {
   pruneSessions();
+  if (replace || draft.replaceDraft === true) {
+    sessions.set(key, { draft: { ...draft }, updatedAt: Date.now() });
+    return draft;
+  }
   const prev = sessions.get(key)?.draft || {};
   const merged = { ...prev, ...draft };
   sessions.set(key, { draft: merged, updatedAt: Date.now() });
@@ -297,6 +316,7 @@ export function validateListingFillFields(
   }
   if (fill.forceDescriptionRewrite === true) out.forceDescriptionRewrite = true;
   if (fill.fieldAuthority) out.fieldAuthority = fill.fieldAuthority;
+  if (fill.draftId) out.draftId = String(fill.draftId);
   if (fill.location) out.location = String(fill.location).trim().slice(0, 80);
   if (fill.pickupArea) out.pickupArea = String(fill.pickupArea).trim().slice(0, 80);
   if (typeof fill.pickupAvailable === "boolean") out.pickupAvailable = fill.pickupAvailable;
@@ -372,6 +392,7 @@ export function validateListingFillFields(
     }
   }
   if (fill.replaceDraft === true) fillOut.replaceDraft = true;
+  if (fill.draftId) fillOut.draftId = fill.draftId;
   const hydrated = applyAwhinaDomainKnowledge(
     hydrateVehicleGeneration(fillOut) as SkyAiListingFill
   );
@@ -837,12 +858,31 @@ export function processListingFillMessage(
   if (!trimmed) return { handled: false };
 
   const sessionKeyEarly = opts.sessionKey || listingDraftSessionKey({ pathname });
-  const draftCmds = detectActiveDraftCommands(trimmed);
+  const cachedDraftEarly = getListingDraftSession(sessionKeyEarly)?.draft;
+  const priorForIdentityEarly =
+    opts.listingContext || cachedDraftEarly || null;
+  const draftTransitionEarly = assessDraftTransition({
+    message: trimmed,
+    priorDraft: priorForIdentityEarly,
+    freshStartHint: opts.freshStart === true,
+    pendingClarification: opts.pendingClarification,
+  });
+  const identityReplace =
+    draftTransitionEarly.mode === "REPLACE" ||
+    listingIdentitiesConflict(priorForIdentityEarly, trimmed);
   const activeSlotEarly = getActiveListingSlot(opts.pendingClarification);
+  const slotAnswersSameListing =
+    Boolean(activeSlotEarly) && !listingIdentitiesConflict(opts.listingContext, trimmed);
+  if (identityReplace && !slotAnswersSameListing) {
+    clearListingDraftSession(sessionKeyEarly);
+    opts = { ...opts, freshStart: true, listingContext: null };
+  }
+
+  const draftCmds = detectActiveDraftCommands(trimmed);
 
   // ── Compound / active-draft turn (slot answer + facts + commands) ──
-  // Pending slot is a HINT, not a prison. Never discard R34 because user also said "write a description".
-  if (!opts.freshStart) {
+  // Pending slot is a HINT, not a prison. Never compound-merge across a new listing identity.
+  if (!opts.freshStart && !identityReplace) {
     const baseDraftEarly: SkyAiListingFill = reconstructListingDraftBase({
       listingContext: opts.listingContext,
       sessionKey: sessionKeyEarly,
@@ -863,6 +903,14 @@ export function processListingFillMessage(
         ));
 
     if (compoundWorthTrying) {
+      if (listingIdentitiesConflict(baseDraftEarly, trimmed)) {
+        return processListingFillMessage(trimmed, {
+          ...opts,
+          freshStart: true,
+          listingContext: null,
+          sessionKey: sessionKeyEarly,
+        });
+      }
       const residualForFacts = draftCmds.residualMessage || trimmed;
       const extracted = extractCompoundListingFacts(residualForFacts, {
         activeSlot: activeSlotEarly,
@@ -901,7 +949,20 @@ export function processListingFillMessage(
         if (extracted.partial.extras || baseDraftEarly.extras) {
           merged.extras = mergeExtras(baseDraftEarly.extras, extracted.partial.extras);
         }
-        // Sticky identity: never drop make/model/generation once set
+        // Sticky identity: never drop make/model/generation once set — unless incoming conflicts
+        const incomingMake = extracted.partial.vehicleMake?.trim();
+        if (baseDraftEarly.vehicleMake && incomingMake) {
+          if (
+            incomingMake.toLowerCase() !== String(baseDraftEarly.vehicleMake).toLowerCase()
+          ) {
+            return processListingFillMessage(trimmed, {
+              ...opts,
+              freshStart: true,
+              listingContext: null,
+              sessionKey: sessionKeyEarly,
+            });
+          }
+        }
         if (baseDraftEarly.vehicleMake) {
           merged.vehicleMake = extracted.partial.vehicleMake || baseDraftEarly.vehicleMake;
         }
@@ -1243,6 +1304,44 @@ export function processListingFillMessage(
     clearListingDraftSession(sessionKey);
   }
 
+  const currentActiveForOp = fillToActiveListing(
+    isNewSellSeed ? null : opts.listingContext || null
+  );
+  const listingOp = classifyListingOperation(trimmed, currentActiveForOp, {
+    freshStartHint: isNewSellSeed || opts.freshStart === true,
+    pendingClarification: opts.pendingClarification,
+    pathname,
+  });
+  if (
+    listingOp.type === "CREATE" &&
+    (listingOp.reason === "identity_conflict" ||
+      identityReplace ||
+      (currentActiveForOp != null && isIdentityRichListingPaste(trimmed)))
+  ) {
+    const executed = executeListingOperation(listingOp, currentActiveForOp);
+    const validatedCreate = validateListingFillFields(executed.fill);
+    if (!validatedCreate.ok) {
+      return {
+        handled: true,
+        reply: validatedCreate.error,
+        clarify: true,
+        intent: "listing_create",
+      };
+    }
+    rememberListingDraft(sessionKey, validatedCreate.fill, true);
+    let createReply = executed.reply || "";
+    if (!createReply) {
+      const incomingIdentity = extractListingIdentityFromMessage(trimmed);
+      if (incomingIdentity) {
+        createReply = buildNewListingTransitionReply(incomingIdentity);
+      }
+    }
+    if (!createReply) {
+      createReply = buildIncompleteDraftReply(validatedCreate.fill, []);
+    }
+    return finishFill(createReply, validatedCreate.fill, "listing_create");
+  }
+
   const baseDraft: SkyAiListingFill = reconstructListingDraftBase({
     listingContext: opts.listingContext,
     sessionKey,
@@ -1439,9 +1538,11 @@ export function processListingFillMessage(
       }
     }
 
-    const odoMatch = trimmed.match(
-      /^\s*([\d,]+)\s*(km|kms|kilometers|kilometres)\s*$/i
-    );
+    const odoMatch =
+      trimmed.match(/^\s*([\d,]+)\s*(km|kms|kilometers|kilometres)\s*$/i) ||
+      trimmed.match(
+        /\b(?:actually|change|make it|update|it'?s|its)?\s*([\d,]+)\s*(km|kms)\b/i
+      );
     if (odoMatch) {
       const n = Number(odoMatch[1].replace(/,/g, ""));
       if (Number.isFinite(n) && n >= 100 && n <= 2_000_000) {
@@ -1449,6 +1550,16 @@ export function processListingFillMessage(
         notes.push(`odometer ${partial.vehicleOdometer}`);
         touched = true;
       }
+    }
+
+    const colourPatch = trimmed.match(
+      /\b(?:it'?s|its|actually|change(?:\s+it)?(?:\s+to)?|make\s+it|and|now)\s+(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|navy)\b/i
+    );
+    if (colourPatch?.[1]) {
+      partial.vehicleColour =
+        colourPatch[1].charAt(0).toUpperCase() + colourPatch[1].slice(1).toLowerCase();
+      notes.push(`colour ${partial.vehicleColour}`);
+      touched = true;
     }
   }
 
@@ -1475,6 +1586,7 @@ export function processListingFillMessage(
       serviceTitle ||
       serviceOffer ||
       rentalOffer ||
+      isIdentityRichListingPaste(trimmed) ||
       (/selling|sell |list /i.test(trimmed) && Boolean(sellItem)))
   ) {
     const itemRaw =
@@ -1706,6 +1818,28 @@ export function processListingFillMessage(
   }
 
   if (!touched) {
+    if (hasDraft) {
+      const patchCurrent = fillToActiveListing(
+        (hasActiveListingDraft(baseDraft)
+          ? (baseDraft as SkyAiListingContext)
+          : opts.listingContext) || null
+      );
+      if (patchCurrent) {
+        const patchOp = classifyListingOperation(trimmed, patchCurrent, {
+          pendingClarification: opts.pendingClarification,
+          pathname,
+        });
+        if (patchOp.type === "PATCH" || patchOp.type === "REMOVE") {
+          const executed = executeListingOperation(patchOp, patchCurrent);
+          const validatedPatch = validateListingFillFields(executed.fill);
+          if (validatedPatch.ok) {
+            rememberListingDraft(sessionKey, validatedPatch.fill);
+            const reply = buildDraftUpdateReply(validatedPatch.fill, [], { suggestion: null });
+            return finishFill(reply, validatedPatch.fill, "listing_update");
+          }
+        }
+      }
+    }
     // On sell page with sell-ish short message without parseable fields
     if (onSell && hasListingSellIntent(trimmed) && trimmed.split(/\s+/).length < 4 && !hasDraft) {
       return {
@@ -1718,10 +1852,19 @@ export function processListingFillMessage(
     return { handled: false };
   }
 
-  // Partial merge — preserve draft; only change requested fields
+  // Partial merge — preserve draft; only change requested fields (never cross-listing identity)
+  if (listingIdentitiesConflict(hasDraft ? baseDraft : opts.listingContext, trimmed)) {
+    return processListingFillMessage(trimmed, {
+      ...opts,
+      freshStart: true,
+      listingContext: null,
+      sessionKey,
+    });
+  }
   let merged = mergeListingFillWithDraft(
     hasDraft ? ({ ...baseDraft } as SkyAiListingContext) : opts.listingContext,
-    partial
+    partial,
+    { message: trimmed }
   );
   // If no prior draft, start from partial alone
   if (!hasDraft) {
@@ -1732,7 +1875,8 @@ export function processListingFillMessage(
     // Re-apply context merge for fields we didn't touch
     merged = mergeListingFillWithDraft(
       opts.listingContext || ({ ...baseDraft } as SkyAiListingContext),
-      merged
+      merged,
+      { message: trimmed }
     );
     // Force partial overrides again after merge
     merged = { ...merged, ...partial };
@@ -1795,14 +1939,26 @@ export function processListingFillMessage(
     return { handled: true, reply: validated.error, clarify: true, intent: "listing_update" };
   }
 
-  rememberListingDraft(sessionKey, validated.fill);
+  rememberListingDraft(sessionKey, validated.fill, isNewSellSeed || identityReplace);
 
   const intent = hasDraft && !isNewSellSeed ? "listing_update" : "listing_create";
   if (isNewSellSeed || intent === "listing_create") {
     validated.fill = stampReplaceDraft(validated.fill);
   }
   let reply: string;
-  if (isCompleteListingDraft(validated.fill)) {
+  const incomingIdentity = extractListingIdentityFromMessage(trimmed);
+  if ((isNewSellSeed || identityReplace) && incomingIdentity) {
+    reply = buildNewListingTransitionReply(incomingIdentity);
+    const missing: string[] = [];
+    if (isVehicleListingFill(validated.fill)) {
+      missing.push(...getVehicleDraftReadiness(validated.fill).importantMissing.slice(0, 2));
+    } else if (!validated.fill.price) {
+      missing.push("price");
+    }
+    if (missing.length && !reply.toLowerCase().includes("price")) {
+      reply += ` Still need **${missing.join("**, **")}**.`;
+    }
+  } else if (isCompleteListingDraft(validated.fill)) {
     reply = buildCompleteDraftReply(validated.fill);
   } else if (isNewSellSeed || !hasDraft) {
     const missing: string[] = [];
@@ -1832,7 +1988,10 @@ function finishFill(
   pendingClarification?: PendingClarification
 ): ListingFillToolResult {
   const isPartial = intent === "listing_update";
-  if (!isPartial) {
+  if (isPartial) {
+    const { replaceDraft: _drop, ...rest } = listingFill;
+    listingFill = rest;
+  } else {
     listingFill = { ...listingFill, replaceDraft: true };
   }
   listingFill = { ...listingFill, extras: sanitizeListingExtras(listingFill) };

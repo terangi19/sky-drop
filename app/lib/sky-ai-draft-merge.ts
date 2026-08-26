@@ -4,6 +4,7 @@ import {
   hasClassicVehicleDefaultCluster,
   isForbiddenUntouchedDefault,
 } from "./listing-draft-confirmed";
+import { listingIdentitiesConflict } from "./awhina-listing-identity-conflict";
 
 const MERGE_STRING_FIELDS = [
   "title",
@@ -87,8 +88,13 @@ function mergeExtras(existing: string[] | undefined, incoming: string[] | undefi
 /** Merge AI LISTING_FILL onto the active draft — one source of truth, never drop prior fields */
 export function mergeListingFillWithDraft(
   draft: SkyAiListingContext | null | undefined,
-  incoming: SkyAiListingFill
+  incoming: SkyAiListingFill,
+  opts?: { message?: string }
 ): SkyAiListingFill {
+  if (incoming.replaceDraft === true) return { ...incoming };
+  if (opts?.message && listingIdentitiesConflict(draft, opts.message)) {
+    return { ...incoming, replaceDraft: true };
+  }
   if (!draft || !hasActiveListingDraft(draft)) return { ...incoming };
 
   const merged: SkyAiListingFill = { ...incoming };

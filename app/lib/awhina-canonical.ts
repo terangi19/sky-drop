@@ -76,6 +76,10 @@ import {
   assessDraftTransition,
   isTerseListingCommand,
 } from "./awhina-draft-transition";
+import {
+  isIdentityRichListingPaste,
+  listingIdentitiesConflict,
+} from "./awhina-listing-identity-conflict";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SkyAiProfileContext } from "./sky-ai-profile-context";
 import type { SkyAiProfileFill } from "./sky-ai-profile-fill";
@@ -383,6 +387,14 @@ function applyPendingSlotFill(opts: {
   pendingClarification: ReturnType<typeof buildListingSlotPending>;
 } | null {
   const { base, partial, filledSlots, message, sessionKey, scopeKey, pathname } = opts;
+  // Hard invariant: never sticky-merge a different item into the active draft.
+  // Hilux + BMW message must CREATE, not produce "2007 Toyota Hilux".
+  if (
+    listingIdentitiesConflict(base, message) &&
+    isIdentityRichListingPaste(message)
+  ) {
+    return null;
+  }
   const baseHydrated = hydrateVehicleGeneration(base) as SkyAiListingFill;
   let merged: SkyAiListingFill = { ...baseHydrated, ...partial };
   if (partial.extras || baseHydrated.extras) {
@@ -708,26 +720,78 @@ export function processCanonicalAwhina(
           if (check.reasons.includes("education_nav_messages")) navigateTo = undefined;
         }
         if (check.reasons.some((r) => r.startsWith("stale_")) && listingFill) {
-          // Drop prior-domain bleed fields; keep current-turn price/title when present
+          // Surgical scrub only — never nuke current-turn vehicle identity.
+          // Shared benign facts (Auckland, Automatic, Used-Good) can false-positive
+          // as stale_leak; wiping make/model/year caused "2007 Toyota Hilux" hybrids
+          // when CREATE fills lost BMW identity and the client re-merged Hilux fields.
           const scrubbed = { ...listingFill } as Record<string, unknown>;
-          for (const k of [
+          const replaceDraft = scrubbed.replaceDraft === true;
+          const curMake = decision.currentTurnEntities.make;
+          const curModel = decision.currentTurnEntities.model;
+          const curYear = decision.currentTurnEntities.year;
+          const identityKeys = new Set([
             "vehicleMake",
             "vehicleModel",
             "vehicleYear",
             "vehicleColour",
             "vehicleOdometer",
-            "rentalSubType",
-            "rentalPriceWeekly",
-            "rentalPriceMonthly",
-            "rentalDeposit",
-            "serviceDuration",
-            "servicePricingType",
-          ]) {
-            delete scrubbed[k];
+            "vehicleTransmission",
+            "vehicleFuelType",
+            "vehicleBodyType",
+            "title",
+          ]);
+
+          // Only strip fields whose values match an ignored stale marker AND are
+          // not the current turn's identity. On replaceDraft, keep all identity keys.
+          for (const reason of check.reasons) {
+            if (!reason.startsWith("stale_leak:")) continue;
+            const marker = reason.replace(/^stale_leak:[^:]+:/, "");
+            const val = marker.includes("=") ? marker.slice(marker.indexOf("=") + 1).trim() : "";
+            if (!val || val.length < 2) continue;
+            const lower = val.toLowerCase();
+            if (
+              (curMake && lower === curMake.toLowerCase()) ||
+              (curModel && lower === curModel.toLowerCase()) ||
+              (curYear && lower === curYear.toLowerCase())
+            ) {
+              continue;
+            }
+            for (const [k, v] of Object.entries(scrubbed)) {
+              if (identityKeys.has(k) && (replaceDraft || curMake || curModel)) continue;
+              if (typeof v === "string" && v.toLowerCase().includes(lower)) {
+                // Never blank current-turn make/model/year
+                if (k === "vehicleMake" || k === "vehicleModel" || k === "vehicleYear") continue;
+                if (k === "extras" && Array.isArray(scrubbed.extras)) {
+                  scrubbed.extras = (scrubbed.extras as string[]).filter(
+                    (e) => !String(e).toLowerCase().includes(lower)
+                  );
+                } else if (k === "description" && typeof scrubbed.description === "string") {
+                  // Description rebuild happens below; don't surgically edit prose here
+                } else if (
+                  k === "rentalSubType" ||
+                  k === "rentalPriceWeekly" ||
+                  k === "rentalPriceMonthly" ||
+                  k === "rentalDeposit" ||
+                  k === "serviceDuration" ||
+                  k === "servicePricingType"
+                ) {
+                  delete scrubbed[k];
+                }
+              }
+            }
           }
+
+          // Restore current-turn vehicle identity if present
+          if (curMake) scrubbed.vehicleMake = curMake;
+          if (curModel) scrubbed.vehicleModel = curModel;
+          if (curYear) scrubbed.vehicleYear = curYear;
+          if (replaceDraft && curMake) {
+            scrubbed.listingType = scrubbed.listingType || "vehicle";
+          }
+
           if (
             decision.currentTurnEntities.price &&
-            String(scrubbed.price) !== decision.currentTurnEntities.price
+            String(scrubbed.price || "") !== decision.currentTurnEntities.price
           ) {
             scrubbed.price = decision.currentTurnEntities.price;
           }
@@ -735,8 +799,6 @@ export function processCanonicalAwhina(
             decision.currentTurnEntities.listingType &&
             String(scrubbed.listingType || "") !== decision.currentTurnEntities.listingType
           ) {
-            // Never downgrade a vehicle sell (make/model/year) to soft-physical
-            const curMake = decision.currentTurnEntities.make;
             const curType = decision.currentTurnEntities.listingType;
             const scrubIsVehicle =
               scrubbed.listingType === "vehicle" ||
@@ -1620,7 +1682,24 @@ export function processCanonicalAwhina(
     const pendingListing = getTaskScope(scopeKey)?.pendingClarification;
     const activeSlot = getActiveListingSlot(pendingListing);
     const draftCmdsEarly = detectActiveDraftCommands(trimmed);
-    if (
+    const slotBaseDraft = reconstructListingDraftBase({
+      listingContext: context.listingContext,
+      sessionKey: listKeyEarly,
+      freshStart: false,
+    });
+    const pendingSlotIdentityConflict =
+      Boolean(activeSlot) &&
+      listingIdentitiesConflict(slotBaseDraft, trimmed) &&
+      isIdentityRichListingPaste(trimmed);
+    if (pendingSlotIdentityConflict) {
+      cancelOpenClarification(scopeKey, {
+        reason: "new_listing_identity",
+        toTask: "selling",
+        clearPendingItem: true,
+      });
+      clearListingDraftSession(listKeyEarly);
+      taskSession = getTaskScope(scopeKey);
+    } else if (
       activeSlot &&
       isClarificationOpen(pendingListing) &&
       pendingListing?.kind === "listing_slots" &&
@@ -2326,12 +2405,19 @@ export function processCanonicalAwhina(
     const priorSearchFilters = getSearchSession(memKey)?.filters || null;
     const priorListingForStale =
       context.listingContext || (listSession?.draft as SkyAiListingContext) || null;
-    if (switchingFromSearch || domainShiftSell) {
+    const identityConflictSell =
+      listingIdentitiesConflict(priorListingForStale, trimmed) &&
+      isIdentityRichListingPaste(trimmed);
+    if (switchingFromSearch || domainShiftSell || identityConflictSell) {
       if (switchingFromSearch) clearSearchSession(memKey);
       clearListingDraftSession(listKey);
       if (isClarificationOpen(getTaskScope(scopeKey)?.pendingClarification)) {
         cancelOpenClarification(scopeKey, {
-          reason: switchingFromSearch ? "task_switch_sell" : "domain_shift_sell",
+          reason: identityConflictSell
+            ? "new_listing_identity"
+            : switchingFromSearch
+              ? "task_switch_sell"
+              : "domain_shift_sell",
           toTask: "selling",
           clearPendingItem: true,
         });
@@ -2340,6 +2426,8 @@ export function processCanonicalAwhina(
           pendingItem: undefined,
           compareCandidates: undefined,
           pendingClarification: undefined,
+          entityLocked: false,
+          entityLockKey: undefined,
         });
       }
     }
@@ -2349,17 +2437,17 @@ export function processCanonicalAwhina(
       pathname: onSell ? pathname : "/post/ai",
       session: switchingFromSearch
         ? { task: "shopping", updatedAt: Date.now() }
-        : domainShiftSell
+        : domainShiftSell || identityConflictSell
           ? { task: "selling", updatedAt: Date.now() }
           : getTaskScope(scopeKey),
       // Keep prior draft visible to stale-check even when we hard-reset the fill
-      listingContext:
-        switchingFromSearch || domainShiftSell
-          ? priorListingForStale
-          : priorListingForStale,
+      listingContext: priorListingForStale,
       searchFilters: priorSearchFilters,
       intentHint:
-        switchingFromSearch || domainShiftSell || sellDecisionEarly.freshSellStart
+        switchingFromSearch ||
+        domainShiftSell ||
+        identityConflictSell ||
+        sellDecisionEarly.freshSellStart
           ? "listing_create"
           : undefined,
     });
@@ -2368,16 +2456,22 @@ export function processCanonicalAwhina(
       ...sellDecision,
       activeTask: "selling" as const,
       freshSellStart:
-        switchingFromSearch || domainShiftSell || sellDecision.freshSellStart,
+        switchingFromSearch ||
+        domainShiftSell ||
+        identityConflictSell ||
+        sellDecision.freshSellStart,
       ignoredStaleContext: collectIgnoredStaleContext({
         activeTask: "selling",
         priorTask: switchingFromSearch
           ? "shopping"
-          : domainShiftSell
+          : domainShiftSell || identityConflictSell
             ? "selling"
             : taskSession?.task || "none",
         freshSellStart:
-          switchingFromSearch || domainShiftSell || sellDecision.freshSellStart,
+          switchingFromSearch ||
+          domainShiftSell ||
+          identityConflictSell ||
+          sellDecision.freshSellStart,
         searchFilters: priorSearchFilters,
         listingContext: priorListingForStale,
         currentEntities: sellDecision.currentTurnEntities,
@@ -2422,15 +2516,15 @@ export function processCanonicalAwhina(
 
     const listing = processListingFillMessage(trimmed, {
       pathname: onSell ? pathname : "/post/ai",
-      // Fresh SELL / domain shift: ignore client listingContext bleed into the new draft
+      // Fresh SELL / domain shift / identity conflict: never merge into prior draft
       listingContext:
-        switchingFromSearch || domainShiftSell
+        switchingFromSearch || domainShiftSell || identityConflictSell
           ? null
           : priorListingForStale,
       sessionKey: listKey,
-      freshStart: switchingFromSearch || domainShiftSell,
+      freshStart: switchingFromSearch || domainShiftSell || identityConflictSell,
       pendingClarification:
-        switchingFromSearch || domainShiftSell
+        switchingFromSearch || domainShiftSell || identityConflictSell
           ? null
           : getTaskScope(scopeKey)?.pendingClarification,
     });

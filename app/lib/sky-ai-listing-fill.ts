@@ -31,6 +31,8 @@ export type SkyAiListingFill = {
    * fill as source of truth (do not mergeListingFillWithDraft). Follow-ups omit this.
    */
   replaceDraft?: boolean;
+  /** Authoritative listing task identity — new draft on CREATE, preserved on PATCH */
+  draftId?: string;
   vehicleMake?: string;
   vehicleModel?: string;
   /** Canonical generation token e.g. R34 */

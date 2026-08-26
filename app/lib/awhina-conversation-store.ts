@@ -22,13 +22,16 @@ export type AwhinaUiSurface = "global" | "listing_workspace";
 
 export type AwhinaConversationMessage = {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   text: string;
   _rawText?: string;
   images?: string[];
   navigating?: boolean;
   streaming?: boolean;
   progressLabel?: string;
+  /** Subtle session divider — new listing transition */
+  kind?: "message" | "listing_divider";
+  dividerLabel?: string;
 };
 
 export type AwhinaConversationStatus = "idle" | "busy" | "expanding";
@@ -436,6 +439,34 @@ export function startFreshListingTask(welcomeText?: string) {
     ...emptyState(welcomeText),
     surface: state.surface,
     conversationId: null,
+  });
+}
+
+/**
+ * Manual escape hatch: fresh empty draft, keep chat history visible.
+ * Inserts a subtle divider — does not wipe messages.
+ */
+export function startNewListingSessionKeepChat(dividerLabel = "New listing") {
+  clearListingDraftFromSkyAi();
+  appendListingDivider(dividerLabel);
+  commit({
+    ...state,
+    pendingSlot: null,
+    listingFillOccurred: state.listingFillOccurred,
+    handoff: null,
+    status: "idle",
+  });
+}
+
+export function appendListingDivider(label: string) {
+  const text = label.trim();
+  if (!text) return;
+  appendMessage({
+    id: `divider_${Date.now().toString(36)}`,
+    role: "system",
+    text: "",
+    kind: "listing_divider",
+    dividerLabel: text.startsWith("New listing") ? text : `New listing — ${text}`,
   });
 }
 

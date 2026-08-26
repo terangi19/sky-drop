@@ -81,12 +81,15 @@ import { useAwhinaVisionListing } from "../../lib/use-awhina-vision-listing";
 import { AWHINA_VISION_LISTING_UI_ENABLED } from "../../lib/awhina-vision-listing-flags";
 import {
   appendMessage,
+  appendListingDivider,
   consumeListingWorkspaceHandoff,
   peekListingWorkspaceHandoff,
   setAwhinaSurface,
   startFreshListingTask,
+  startNewListingSessionKeepChat,
   useAwhinaConversation,
 } from "../../lib/awhina-conversation-store";
+import { formatActiveListingLabel } from "../../lib/awhina-listing-identity-conflict";
 import { dispatchVisionBridgeDone } from "../../lib/awhina-vision-client";
 import {
   formatListingSlotLabel,
@@ -469,6 +472,15 @@ export default function AIPostPage() {
       description.trim() ||
       awhinaConversation.listingFillOccurred
   );
+
+  const activeListingLabel = formatActiveListingLabel({
+    title,
+    listingType,
+    vehicleMake,
+    vehicleModel,
+    vehicleYear,
+    vehicleGeneration,
+  });
 
   /** Fresh empty: calm hero — no Chat/Listing jargon, no giant empty editor. */
   const isFreshEmpty =
@@ -893,6 +905,28 @@ export default function AIPostPage() {
     visionListing.reset();
   }, [visionListing]);
 
+  const handleStartNewListingKeepChat = useCallback(() => {
+    const priorLabel = formatActiveListingLabel({
+      title,
+      listingType,
+      vehicleMake,
+      vehicleModel,
+      vehicleYear,
+      vehicleGeneration,
+    });
+    resetLocalListingSession();
+    clearListingDraftFromSkyAi();
+    startNewListingSessionKeepChat(priorLabel || "New listing");
+  }, [
+    resetLocalListingSession,
+    title,
+    listingType,
+    vehicleMake,
+    vehicleModel,
+    vehicleYear,
+    vehicleGeneration,
+  ]);
+
   useEffect(() => {
     const stored = readListingDraftFromSkyAi();
     if (stored && hasActiveListingDraft(stored)) {
@@ -1133,6 +1167,11 @@ export default function AIPostPage() {
     if (replaceDraft) {
       clearListingDraftFromSkyAi();
       resetLocalListingSession();
+      const dividerLabel =
+        formatActiveListingLabel(fill) ||
+        fill.title?.trim() ||
+        "New listing";
+      appendListingDivider(dividerLabel);
     }
     let merged = {
       ...(replaceDraft
@@ -2739,10 +2778,10 @@ export default function AIPostPage() {
               ) : null}
               <button
                 type="button"
-                onClick={() => startFreshListingTask("Kia ora — what are you selling? I’ll build the listing with you.")}
+                onClick={handleStartNewListingKeepChat}
                 className="mt-3 min-h-[36px] rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--accent-primary)]/45 hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
-                Start new listing
+                + New listing
               </button>
             </>
           ) : null}
@@ -3769,6 +3808,8 @@ export default function AIPostPage() {
               quickPrompts={[]}
               welcomeText="Kia ora — what are you selling? I’ll build the listing with you."
               workspaceChrome
+              activeListingLabel={activeListingLabel}
+              onStartNewListing={handleStartNewListingKeepChat}
               className="awhina-listing-workspace-chat sell-workspace-chat min-h-0 flex-1"
             />
           </div>

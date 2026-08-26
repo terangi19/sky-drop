@@ -100,6 +100,14 @@ export function polishPublicDescription(
   const sentences = splitDescriptionSentences(text).filter((s) => {
     if (GENERIC_MARKETPLACE_FILLER_RE.test(s)) return false;
     if (hasCategoryIncompatibleDescription(s, fill)) return false;
+    // Strip generic viewing CTAs from buyer copy
+    if (
+      /\b(?:happy to arrange a viewing|message to arrange a viewing|message if you'?d like to come take a look|message if you'?re interested)\b/i.test(
+        s
+      )
+    ) {
+      return false;
+    }
     return true;
   });
 
@@ -156,7 +164,8 @@ export type DescriptionQualityViolation =
   | "service_sounds_like_product"
   | "rental_sounds_like_sale"
   | "invented_collectible_hype"
-  | "stale_prior_listing";
+  | "stale_prior_listing"
+  | "identity_mismatch";
 
 const INVENTED_COLLECTIBLE_HYPE_RE =
   /\b(?:rare(?:ly)?|highly sought[- ]after|investment potential|sure to appreciate|iconic status|legendary status|valuable addition)\b/i;
@@ -240,6 +249,44 @@ export function validateDescriptionQualityContract(
       .filter((w) => !factBlob.includes(w));
     const bleed = priorTokens.filter((w) => text.toLowerCase().includes(w)).slice(0, 3);
     if (bleed.length >= 2) violations.push("stale_prior_listing");
+  }
+
+  // Canonical vehicle identity must agree with buyer copy
+  const make = String(fill.vehicleMake || "").trim().toLowerCase();
+  const model = String(fill.vehicleModel || "").trim().toLowerCase();
+  if (make || model) {
+    const descLower = text.toLowerCase();
+    const conflictingMakes = [
+      "toyota",
+      "honda",
+      "nissan",
+      "mazda",
+      "ford",
+      "bmw",
+      "subaru",
+      "mitsubishi",
+      "hyundai",
+      "kia",
+      "holden",
+      "volkswagen",
+      "audi",
+      "mercedes",
+    ].filter((m) => m !== make && descLower.includes(m));
+    const conflictingModels = [
+      "hilux",
+      "ranger",
+      "corolla",
+      "civic",
+      "axela",
+      "335i",
+      "330i",
+      "skyline",
+      "navara",
+      "amarok",
+    ].filter((m) => m !== model && !model.includes(m) && descLower.includes(m));
+    if (conflictingMakes.length > 0 || conflictingModels.length > 0) {
+      violations.push("identity_mismatch");
+    }
   }
 
   if (violations.length) return { ok: false, violations, description: text };

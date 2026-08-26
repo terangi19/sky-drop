@@ -17,6 +17,10 @@ import {
 import { normalizedAwhinaText } from "./awhina-input-normalize";
 import { getActiveListingSlot } from "./awhina-pending-slots";
 import type { PendingClarification } from "./awhina-task-scope";
+import {
+  isIdentityRichListingPaste,
+  listingIdentitiesConflict,
+} from "./awhina-listing-identity-conflict";
 
 export type DraftTransitionMode = "REPLACE" | "PATCH";
 
@@ -133,7 +137,7 @@ export function assessTextObjectContinuity(
     Boolean(prior.vehicleMake);
   const msgIsVehicle =
     YEAR_MAKE_RE.test(msgLower) ||
-    /\b(hilux|ranger|navara|d-max|bt-50|amarok|corolla|axela|camry|commodore|falcon|skyline|silvia|supra|wrx|outback|forester|pajero|patrol|land\s*cruiser|prado|fortuner|highlander|rav4|cx-5|cx-5|x-trail|leaf|model\s+[3sxy]|tesla)\b/i.test(
+    /\b(hilux|ranger|navara|d-max|bt-50|amarok|corolla|axela|camry|commodore|falcon|skyline|silvia|supra|wrx|outback|forester|pajero|patrol|land\s*cruiser|prado|fortuner|highlander|rav4|cx-5|cx-5|x-trail|leaf|model\s+[3sxy]|tesla|335i|330i|320i|328i|340i|m3|m4|bmw)\b/i.test(
       msgLower
     );
   const priorIsConsole = /\b(ps5|ps4|xbox|switch|nintendo|playstation)\b/i.test(priorLower);
@@ -225,9 +229,12 @@ export function assessDraftTransition(opts: {
 
   const shouldReplace =
     alsoSwitch ||
-    (explicitNew && (structured || continuity === "NEW_OBJECT" || domainShift)) ||
+    (continuity === "NEW_OBJECT" && isIdentityRichListingPaste(message)) ||
+    (continuity === "NEW_OBJECT" && listingIdentitiesConflict(prior, message)) ||
+    (explicitNew && (structured || isIdentityRichListingPaste(message) || continuity === "NEW_OBJECT" || domainShift)) ||
     (structured && continuity === "NEW_OBJECT") ||
     (structured && domainShift) ||
+    (isIdentityRichListingPaste(message) && continuity === "NEW_OBJECT") ||
     (hasListingSellIntent(message) && continuity === "NEW_OBJECT" && !patchFollowUp);
 
   if (shouldReplace && !patchFollowUp) {

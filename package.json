@@ -26,6 +26,7 @@
     "test:description-tester:all": "npx tsx scripts/description-quality-tester.mts --all",
     "test:bmw-extraction": "vitest run app/lib/awhina-bmw-extraction-regression.test.ts",
     "test:evidence-pipeline": "vitest run app/lib/awhina-evidence-pipeline-regression.test.ts app/lib/awhina-bmw-extraction-regression.test.ts app/lib/awhina-new-listing-contamination.test.ts app/lib/awhina-seller-evidence.test.ts",
+    "test:listing-session-ux": "vitest run app/lib/awhina-listing-session-ux.test.ts app/lib/awhina-new-listing-contamination.test.ts app/lib/awhina-cross-listing-contamination.test.ts",
     "test:awhina:live:compare": "cross-env SKY_AI_COMPARE_PRODUCTION=1 vitest run app/lib/sky-ai-live-eval.test.ts",
     "test:rules": "vitest run tests/firestore-rules.test.ts tests/storage-rules.test.ts tests/security-launch-gates.test.ts",
     "test:rules:emulator": "firebase emulators:exec --only firestore,storage \"npm run test:rules\"",

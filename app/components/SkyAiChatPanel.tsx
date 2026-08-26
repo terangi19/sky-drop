@@ -195,6 +195,10 @@ export type SkyAiChatPanelProps = {
    * composer pinned bottom, skip internal listing-preview card (page owns draft UI).
    */
   workspaceChrome?: boolean;
+  /** Authoritative active listing label for workspace header */
+  activeListingLabel?: string | null;
+  /** Manual escape hatch — fresh draft, keep chat */
+  onStartNewListing?: () => void;
 };
 
 function handleListingFill(fill: SkyAiListingFill | undefined, _navigateTo?: string) {
@@ -267,6 +271,8 @@ export default function SkyAiChatPanel({
   className = "",
   floatingFab = true,
   workspaceChrome = false,
+  activeListingLabel = null,
+  onStartNewListing,
 }: SkyAiChatPanelProps) {
   const router = useRouter();
   const pathname = usePathname() || "/";
@@ -1586,6 +1592,30 @@ export default function SkyAiChatPanel({
         </p>
       )}
 
+      {isWorkspace && (activeListingLabel || onStartNewListing) ? (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] px-4 py-2.5">
+          <p className="min-w-0 truncate text-[11px] text-zinc-400">
+            {activeListingLabel ? (
+              <>
+                <span className="font-medium text-zinc-300">Editing:</span>{" "}
+                <span className="text-zinc-100">{activeListingLabel}</span>
+              </>
+            ) : (
+              <span className="text-zinc-500">No active listing yet</span>
+            )}
+          </p>
+          {onStartNewListing ? (
+            <button
+              type="button"
+              onClick={onStartNewListing}
+              className="shrink-0 rounded-lg border border-white/10 px-2 py-1 text-[10px] font-medium text-zinc-300 transition hover:border-sky-500/40 hover:text-white"
+            >
+              + New listing
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div
         ref={listRef}
         className={`overflow-y-auto scrollbar-thin ${
@@ -1599,6 +1629,15 @@ export default function SkyAiChatPanel({
         }`}
       >
         {messages.map((m) => {
+          if (m.kind === "listing_divider" && m.dividerLabel) {
+            return (
+              <div key={m.id} className="flex justify-center py-1">
+                <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[10px] font-medium tracking-wide text-zinc-500">
+                  {m.dividerLabel}
+                </span>
+              </div>
+            );
+          }
           if (m.streaming && !m.text && !m.progressLabel) return null;
           return (
             <div

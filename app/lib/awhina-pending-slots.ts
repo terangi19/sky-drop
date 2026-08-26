@@ -1191,14 +1191,23 @@ export function extractCompoundListingFacts(
   const colourPhrase = colourMatch
     ? [colourMatch[1], colourMatch[2]].filter(Boolean).join(" ").replace(/\s+/g, " ").trim()
     : "";
+  const colourCorrection =
+    /\b(?:actually|it'?s|its|change|make\s+it|instead|rather|not\s+\w+\s+(?:it'?s|its)|and)\s+(?:a\s+|the\s+)?(?:natural|space|midnight|pearl|matte|metallic|starlight|graphite|alpine|gunmetal|navy|dark|light|forest|racing\s+)?(?:black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy|titanium|graphite|starlight)\b/i.test(
+      residual
+    );
+  const baseColour = (base.vehicleColour || "").trim().toLowerCase();
+  const incomingColour = colourPhrase.toLowerCase();
   if (
     colourMatch &&
     colourPhrase &&
     !partial.vehicleColour &&
-    !(base.vehicleColour || "").trim() &&
+    (colourCorrection ||
+      !baseColour ||
+      (incomingColour && baseColour && !baseColour.includes(incomingColour) && !incomingColour.includes(baseColour))) &&
     (opts?.activeSlot === "colour" ||
       domain === "vehicle" ||
       missingFromBase.includes("colour") ||
+      colourCorrection ||
       looksLikeColourFinish(colourPhrase))
   ) {
     partial.vehicleColour = colourPhrase
