@@ -345,7 +345,7 @@ export function selectDescriptionFacts(
     .filter(Boolean)
     .filter(
       (e) =>
-        !/^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity):/i.test(
+        !/^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|numbered|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity):/i.test(
           e
         )
     );
@@ -491,7 +491,7 @@ function composeExtrasProse(extras: string[], location?: string | null): string 
     .filter((e) => !isSellerEvidenceExtra(e))
     .filter(
       (e) =>
-        !/^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|categoryid|condition_code|conditioncode|vision_confidence|visionconfidence|provenance|field_source|fieldsource):/i.test(
+        !/^(subject|player|playername|set|productline|product_line|manufacturer|brand|serial|serialnumber|serial_number|grade|grader|parallel|parallelcolour|parallel_colour|year|team|bundle_quantity|bundlequantity|quantity|listing_type|listingtype|domain|category_id|categoryid|condition_code|conditioncode|vision_confidence|visionconfidence|provenance|field_source|fieldsource|variant):/i.test(
           e
         )
     )
@@ -503,7 +503,6 @@ function composeExtrasProse(extras: string[], location?: string | null): string 
         )
         .replace(/^size:/i, "Size ")
         .replace(/^colour:|^color:/i, "")
-        .replace(/^variant:/i, "")
         .replace(/^visual:\s*/i, "")
         .replace(/^attr:\s*/i, "")
         .replace(/^text:\s*/i, "")
@@ -692,7 +691,7 @@ function weaveableExtras(fill: SkyAiListingFill): string[] {
         e.split(/\s+/).length >= 2 ||
         isSellerEvidenceExtra(e) ||
         /^(storage|size):/i.test(e) ||
-        /servic|tyre|tire|receipt|paperwork|wof|rego|mod|include|controller|charger|box|manual|warranty|battery|scratches?|scuffs?|dents?|screen|turbo|intake|intercooler|downpipe|subject:|set:|serial:|parallel|grade:|manufacturer:/i.test(
+        /servic|tyre|tire|receipt|paperwork|wof|rego|mod|include|controller|charger|box|manual|warranty|battery|scratches?|scuffs?|dents?|screen|turbo|intake|intercooler|downpipe|subject:|set:|serial:|numbered:|parallel|grade:|manufacturer:/i.test(
           e
         )
     )
@@ -1534,11 +1533,8 @@ function defaultCta(facts: DescriptionFacts): string {
         "Happy to arrange a viewing — just message me.",
       ]);
     }
-    return pickVariant(seed, [
-      "Message me with the dates you need it and I can confirm availability.",
-      "Message with the dates you need and I'll confirm availability.",
-      "Message to arrange pickup.",
-    ]);
+    // Equipment / vehicle hire — keep copy factual; contact is in the UI.
+    return "";
   }
   if (facts.kind === "wanted") {
     return pickVariant(seed, [
@@ -1757,6 +1753,8 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
         `${cleanItem}${facts.location ? ` available to hire in ${facts.location}` : " available to hire"}${rate ? ` for ${rate}` : ""}.`
       )
     );
+    const extrasProse = composeExtrasProse(facts.extras);
+    if (extrasProse) parts.push(extrasProse);
   } else if (facts.kind === "wanted") {
     parts.push(
       polishParagraph(
@@ -2031,11 +2029,15 @@ function writeTradingCard(
   const deduped = semanticDedupeDescriptionFacts(selected, identity);
   const bits: string[] = [];
   // Serial/grade only when not already in identity
-  if (deduped.serial || selected.serial) {
-    const serial = deduped.serial || selected.serial;
-    if (serial && !identity.toLowerCase().includes(serial.toLowerCase())) {
-      bits.push(`numbered ${serial}`);
-    }
+  const serial =
+    deduped.serial ||
+    selected.serial ||
+    cardFacts.serialNumber?.replace(/^#/, "").trim() ||
+    labeledExtra(facts.extras, "numbered") ||
+    labeledExtra(facts.extras, "serial") ||
+    null;
+  if (serial && !identity.toLowerCase().includes(serial.toLowerCase())) {
+    bits.push(`numbered ${serial}`);
   }
   if (deduped.grade) bits.push(deduped.grade);
   if (deduped.parallel) bits.push(deduped.parallel);
@@ -2384,7 +2386,8 @@ function writeRental(facts: DescriptionFacts): string {
   }
   if (rates.length) bits.push(rates.join(", "));
   if (r?.availableFrom) bits.push(`available from ${r.availableFrom}`);
-  const extrasProse = composeExtrasProse(facts.extras, facts.location);
+  // Location already woven into the opener — do not re-append "Located in…".
+  const extrasProse = composeExtrasProse(facts.extras);
 
   if (bits.length) parts.push(capFirst(`${bits.join(", ")}.`));
   if (extrasProse) parts.push(extrasProse);

@@ -101,6 +101,9 @@ const INCLUDED_RE =
   /\b(comes with|original box|with box|charger|box and charger|usb-?c|cables?|controller|screen protector)\b/i;
 const USE_HISTORY_RE =
   /\b(always used with|used with a case|screen protector|case and screen)\b/i;
+/** Bundle/accessory nouns often listed without “comes with” (phones, consoles). */
+const PACKAGE_INCLUDED_RE =
+  /\b(original\s+box|(?:the\s+)?box(?:\s+and\s+charger)?|usb-?c(?:\s+cable)?|hdmi(?:\s+cable)?|power\s+cable|charger|one\s+controller|controllers?|screen\s+protector|(?:phone\s+)?case)\b/gi;
 const COND_DETAIL_RE =
   /\b(scratch(?:es)?|stone chips?|marks?|dents?|dings?|scuffs?|chips?|tidy|wear|worn twice|paint|interior|age-related|tiny scratch|small (?:scratch|mark|dent)|corner)\b/i;
 const LOGISTICS_RE = /\b(pickup only|pick-?up only|shipping only)\b/i;
@@ -308,8 +311,25 @@ export function splitEvidenceFragments(text: string): string[] {
     }
     remainder = remainder.replace(/\s+/g, " ").trim();
   }
+  const packageItems = [...remainder.matchAll(new RegExp(PACKAGE_INCLUDED_RE.source, "gi"))].map(
+    (m) => cleanFragment(m[0])
+  );
+  if (packageItems.length) {
+    spans.push(...packageItems);
+    for (const item of packageItems) {
+      remainder = remainder.replace(new RegExp(`\\b${escapeRegExp(item)}\\b`, "i"), " ");
+    }
+    remainder = remainder.replace(/\s+/g, " ").trim();
+  }
   if (spans.length) {
-    if (remainder.length >= 3 && !isCompositeStructuredExtra(remainder)) spans.push(remainder);
+    const remainderUseful =
+      remainder.length >= 3 &&
+      !isCompositeStructuredExtra(remainder) &&
+      !/^(?:comes\s+with|includes?|always\s+used\s+with|used\s+with|with|and|the|a|an|\s)+$/i.test(
+        remainder
+      ) &&
+      /[a-z0-9]/i.test(remainder.replace(/\b(?:comes|with|includes?|always|used|and|the|a|an)\b/gi, ""));
+    if (remainderUseful) spans.push(remainder);
     return spans.filter(Boolean);
   }
   return [source];
@@ -459,20 +479,39 @@ function classifyEvidenceFragment(
   }
 
   if (MECH_RE.test(text)) {
+    let rest = text;
     if (/\bno known (?:mechanical )?faults?\b/i.test(text)) {
       pushUnique(items, { kind: "mechanical", text: "no known mechanical faults" });
+      rest = rest.replace(/\bno known (?:mechanical )?faults?\b/gi, " ");
     }
     if (/\bstarts and drives\b|\bdrives well\b/i.test(text)) {
       pushUnique(items, { kind: "mechanical", text: "starts and drives well" });
+      rest = rest.replace(/\bstarts and drives\b|\bdrives well\b/gi, " ");
     }
     const battery =
       text.match(/(\d{2,3})\s*%\s*(?:battery(?:\s+health)?)/i) ||
       text.match(/battery(?:\s+health)?\s*(?:is\s*(?:at\s*)?)?(\d{2,3})\s*%/i);
     if (battery) {
       pushUnique(items, { kind: "mechanical", text: `${battery[1]}% battery health` });
+      rest = rest
+        .replace(/(\d{2,3})\s*%\s*(?:battery(?:\s+health)?)/gi, " ")
+        .replace(/battery(?:\s+health)?\s*(?:is\s*(?:at\s*)?)?(\d{2,3})\s*%/gi, " ");
     }
     if (/\bno (?:cracks?|faults?|repairs?|damage)\b/i.test(text)) {
-      pushUnique(items, { kind: "mechanical", text });
+      const denial =
+        text.match(/\bno\s+(?:cracks?|faults?|repairs?|damage)(?:\s*,\s*|\s+or\s+|\s+and\s+)*(?:cracks?|faults?|repairs?|damage)?(?:\s*,\s*|\s+or\s+|\s+and\s+)*(?:cracks?|faults?|repairs?|damage)?/i)?.[0] ||
+        "no cracks, faults or repairs";
+      pushUnique(items, {
+        kind: "mechanical",
+        text: /no cracks.*faults.*repairs/i.test(text)
+          ? "No cracks, faults or repairs"
+          : cleanFragment(denial),
+      });
+      rest = rest.replace(/\bno\s+(?:cracks?|faults?|repairs?|damage)(?:[\s,]+(?:or\s+|and\s+)?(?:cracks?|faults?|repairs?|damage))*/gi, " ");
+    }
+    rest = rest.replace(/\s+/g, " ").trim();
+    if (rest.length >= 3) {
+      items.push(...classifyEvidenceFragment(rest, ctx));
     }
     if (items.length) return items;
   }
@@ -516,8 +555,33 @@ function classifyEvidenceFragment(
   }
 
   if (INCLUDED_RE.test(text) || USE_HISTORY_RE.test(text)) {
+    const packageItems = [
+      ...text.matchAll(new RegExp(PACKAGE_INCLUDED_RE.source, "gi")),
+    ].map((m) => cleanFragment(m[0]));
+    if (packageItems.length > 1) {
+      for (const item of packageItems) {
+        pushUnique(items, { kind: "included", text: item });
+      }
+      return items;
+    }
     pushUnique(items, { kind: "included", text });
     return items;
+  }
+
+  // Bare accessory nouns after fragment split (e.g. "case", "original box").
+  {
+    const barePackage = [
+      ...text.matchAll(new RegExp(PACKAGE_INCLUDED_RE.source, "gi")),
+    ].map((m) => cleanFragment(m[0]));
+    if (
+      barePackage.length &&
+      barePackage.some((item) => normalize(item) === normalize(text))
+    ) {
+      for (const item of barePackage) {
+        pushUnique(items, { kind: "included", text: item });
+      }
+      return items;
+    }
   }
 
   if (/\b(?:two|2|\d+)\s+batter(?:y|ies)\b/i.test(text)) {
@@ -712,8 +776,11 @@ export function sanitizeListingExtras(
     if (!value || containsInternalOrchestration(value)) continue;
 
     if (key === "colour" || key === "color") {
+      // Vehicles already weave colour from vehicleColour — drop duplicate extras.
+      // Physical/electronics still need colour: for public copy (e.g. Natural Titanium).
       const colour = fill.vehicleColour?.trim();
-      if (colour && normalize(value) === normalize(colour)) continue;
+      const isVehicle = String(fill.listingType || "").toLowerCase() === "vehicle";
+      if (isVehicle && colour && normalize(value) === normalize(colour)) continue;
     }
     if (key === "fuel" && fill.vehicleFuelType && normalize(value).includes(normalize(fill.vehicleFuelType))) {
       continue;
@@ -980,14 +1047,30 @@ export function composeSellerEvidenceProse(grouped: GroupedSellerEvidence): stri
       sentences.push(ensureSentence(joinAnd(grouped.compliance)));
     }
   }
-  for (const item of grouped.included) {
-    sentences.push(
-      ensureSentence(
-        /^(comes|includes|with|always)\b/i.test(item) || /\bused with\b/i.test(item)
-          ? item
-          : `Comes with ${item}`
-      )
-    );
+  if (grouped.included.length) {
+    // Keep seller-authored full phrases; group bare accessory nouns into one sentence.
+    const phrased: string[] = [];
+    const bare: string[] = [];
+    for (const item of grouped.included) {
+      if (
+        /^(comes|includes|with|always)\b/i.test(item) ||
+        /\bused with\b/i.test(item)
+      ) {
+        phrased.push(item);
+      } else {
+        bare.push(item);
+      }
+    }
+    for (const item of phrased) sentences.push(ensureSentence(item));
+    if (bare.length === 1) {
+      sentences.push(ensureSentence(`Comes with ${bare[0]}`));
+    } else if (bare.length > 1) {
+      sentences.push(
+        ensureSentence(
+          `Comes with ${joinAnd(bare.map((item) => lowerLead(item)))}`
+        )
+      );
+    }
   }
   for (const item of grouped.logistics) sentences.push(ensureSentence(item));
   for (const item of grouped.notes) sentences.push(ensureSentence(item));

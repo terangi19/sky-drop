@@ -597,22 +597,44 @@ function descriptionFactPolicy(facts: DescriptionWriterFacts): {
     }
     for (const key of ["year", "odometer", "transmission", "colour", "fuel", "body"] as const) {
       const value = facts.vehicle[key];
-      if (value) optionalFacts.push(value);
+      if (value) {
+        if (key === "body" && !mentionsSupportedValue(facts.title, value)) {
+          requiredFacts.push(value);
+        } else if (key !== "body") {
+          optionalFacts.push(value);
+        }
+      }
     }
   }
-  // Explicit product colour/storage are seller facts — required in public copy.
+  // Explicit product colour/storage/variant are seller facts — required in public copy.
   if (facts.product?.colour) requiredFacts.push(facts.product.colour);
   if (facts.product?.storage) requiredFacts.push(facts.product.storage);
+  if (
+    facts.product?.variant &&
+    !mentionsSupportedValue(facts.title, facts.product.variant)
+  ) {
+    requiredFacts.push(facts.product.variant);
+  }
   const evidence = facts.sellerEvidence || {};
-  for (const key of ["included", "mechanical", "conditionDetails", "notes"] as const) {
+  for (const key of [
+    "included",
+    "modifications",
+    "maintenance",
+    "mechanical",
+    "conditionDetails",
+    "notes",
+  ] as const) {
     const values = evidence[key];
     if (!Array.isArray(values)) continue;
     for (const value of values) {
       const text = String(value || "").trim();
       if (!text) continue;
-      // Require coverage of distinctive evidence atoms (box, cable, battery %, case…).
+      // Buyer-facing evidence: accessories, mods, defects, service history, etc.
       if (
-        /\b(?:box|cable|usb|controller|battery|case|protector|crack|fault|repair|damage)\b/i.test(
+        key === "included" ||
+        key === "modifications" ||
+        key === "maintenance" ||
+        /\b(?:box|cable|usb|controller|battery|case|protector|crack|fault|repair|damage|mark|tear|scratch|chip|dent|scuff)\b/i.test(
           text
         )
       ) {

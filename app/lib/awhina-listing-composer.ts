@@ -33,11 +33,13 @@ import {
   type SkyAiListingFill,
 } from "./sky-ai-listing-fill";
 import {
+  extractVehicleVariantTrim,
   parseVehicleMake,
   parseVehicleModel,
   parseVehicleYear,
   resolveVehicleIdentity,
 } from "./sky-ai-find-routing";
+import { getVariantExtra } from "./awhina-pending-slots";
 import { extractServiceOfferingTitle, hasServiceOfferingIntent } from "./sky-ai-intent";
 import { SERVICE_LISTING_CATEGORY_LIST } from "./listing-type-config";
 import {
@@ -267,13 +269,24 @@ export function composeListingTitleAndDescription(seed: ListingComposeSeed): Com
   const make = seed.vehicleMake || identity.make || parseVehicleMake(item);
   const model = seed.vehicleModel || identity.model || parseVehicleModel(item);
   const year = seed.vehicleYear || identity.year || parseVehicleYear(item);
-  const titleCore = vehicle && (make || model) ? composeListingIdentity({ year, brand: make, product: model }) || item : extractServiceOfferingTitle(item) || item;
+  const variant =
+    getVariantExtra({ extras: seed.extras } as SkyAiListingFill) ||
+    (vehicle ? extractVehicleVariantTrim(item, model) : undefined);
+  const extras =
+    variant && !getVariantExtra({ extras: seed.extras } as SkyAiListingFill)
+      ? [...(seed.extras || []), `variant:${variant}`]
+      : seed.extras;
+  const titleCore =
+    vehicle && (make || model)
+      ? composeListingIdentity({ year, brand: make, product: model, variant }) ||
+        item
+      : extractServiceOfferingTitle(item) || item;
   const title = buildPremiumListingTitle({ item: titleCore, condition: seed.condition, listingType, vehicleYear: year, brand: make, model: vehicle ? undefined : model });
   const category = seed.category || (listingType === "vehicle" ? "Cars" : listingType === "service" ? inferServiceCategory(`${item} ${title}`) : inferPhysicalCategoryFromText(`${item} ${title}`) || "Other");
   const fill: SkyAiListingFill = {
     title, condition: seed.condition, price: seed.price, location: seed.location,
     pickupAvailable: seed.pickupAvailable, shippingAvailable: seed.shippingAvailable,
-    extras: seed.extras, listingType, category, vehicleMake: make, vehicleModel: model,
+    extras, listingType, category, vehicleMake: make, vehicleModel: model,
     vehicleYear: year, vehicleColour: seed.vehicleColour, vehicleOdometer: seed.vehicleOdometer,
     vehicleTransmission: seed.vehicleTransmission, vehicleFuelType: seed.vehicleFuelType,
     vehicleBodyType: seed.vehicleBodyType, servicePricingType: seed.servicePricingType,

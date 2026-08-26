@@ -325,7 +325,12 @@ export function extractTradingCardFactsFromExtras(
     else if (key === "parallel") out.parallel = val;
     else if (key === "parallelcolour" || key === "parallel_colour" || key === "colour") {
       out.parallelColour = val;
-    } else if (key === "serial" || key === "serialnumber" || key === "serial_number") {
+    } else if (
+      key === "serial" ||
+      key === "serialnumber" ||
+      key === "serial_number" ||
+      key === "numbered"
+    ) {
       out.serialNumber = val;
     } else if (key === "productformat" || key === "product_format" || key === "format") {
       out.productFormat = val;

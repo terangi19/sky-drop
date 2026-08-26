@@ -6,6 +6,10 @@
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import { hasCategoryIncompatibleDescription } from "./awhina-category-copy-guard";
 import { containsInternalOrchestration } from "./awhina-orchestration-boundary";
+import {
+  composeSellerEvidenceProse,
+  groupedSellerEvidenceFromExtras,
+} from "./awhina-seller-evidence";
 
 function splitDescriptionSentences(text: string): string[] {
   return String(text || "")
@@ -316,7 +320,14 @@ export function minimalSafeDescription(fill: SkyAiListingFill): string {
     return loc ? `${title} available in ${loc}.` : `${title} available.`;
   }
   if (domain === "rental") {
-    return loc ? `${title} available to hire in ${loc}.` : `${title} available to hire.`;
+    const base = loc
+      ? `${title} available to hire in ${loc}.`
+      : `${title} available to hire.`;
+    // Location already in the base sentence — evidence only (no second Located in).
+    const evidence = composeSellerEvidenceProse(
+      groupedSellerEvidenceFromExtras(fill.extras)
+    );
+    return [base, evidence].filter(Boolean).join(" ").trim();
   }
   if (loc) return `${title}. Located in ${loc}.`;
   return `${title}.`;

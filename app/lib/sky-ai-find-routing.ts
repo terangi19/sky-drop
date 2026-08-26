@@ -138,6 +138,171 @@ export function resolveVehicleIdentity(message: string): VehicleIdentity {
   return { make, model, year, confidence };
 }
 
+/**
+ * Capture explicit trim/variant tokens that appear immediately after the model
+ * in seller text (e.g. Hilux SR5, Ranger Wildtrak, Golf GTI, C63 AMG).
+ * Generic — no hardcoded trim catalogue. Stops at structural facts (km, fuel, colour…).
+ */
+export function extractVehicleVariantTrim(
+  message: string,
+  model?: string | null
+): string | undefined {
+  const text = String(message || "").replace(/\s+/g, " ").trim();
+  const modelNorm = String(model || "").trim();
+  if (!text || !modelNorm) return undefined;
+
+  const modelPat = modelNorm
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/\s+/g, "\\s+");
+  const afterMatch = text.match(new RegExp(`\\b${modelPat}\\b\\s+(.+)$`, "i"));
+  if (!afterMatch?.[1]) return undefined;
+
+  const STRUCTURAL_STOP = new Set([
+    "automatic",
+    "manual",
+    "cvt",
+    "dsg",
+    "petrol",
+    "diesel",
+    "hybrid",
+    "electric",
+    "gasoline",
+    "black",
+    "white",
+    "silver",
+    "grey",
+    "gray",
+    "blue",
+    "red",
+    "green",
+    "yellow",
+    "orange",
+    "brown",
+    "gold",
+    "beige",
+    "navy",
+    "maroon",
+    "purple",
+    "good",
+    "fair",
+    "excellent",
+    "mint",
+    "new",
+    "used",
+    "like",
+    "condition",
+    "brand",
+    "km",
+    "kms",
+    "kilometers",
+    "kilometres",
+    "miles",
+    "mi",
+    "coupe",
+    "sedan",
+    "hatch",
+    "hatchback",
+    "ute",
+    "wagon",
+    "suv",
+    "van",
+    "convertible",
+    "cabrio",
+    "full",
+    "service",
+    "history",
+    "canopy",
+    "tow",
+    "bar",
+    "towbar",
+    "roof",
+    "racks",
+    "leather",
+    "seats",
+    "upgraded",
+    "modified",
+    "twin",
+    "turbos",
+    "intercooler",
+    "downpipes",
+    "intakes",
+    "with",
+    "and",
+    "the",
+    "a",
+    "an",
+    "has",
+    "have",
+    "includes",
+    "including",
+    "fitted",
+    "comes",
+    "located",
+    "in",
+    "at",
+    "for",
+    "sale",
+    "auckland",
+    "wellington",
+    "christchurch",
+    "hamilton",
+    "tauranga",
+    "dunedin",
+    "napier",
+    "nelson",
+    "rotorua",
+    "queenstown",
+    "whangarei",
+  ]);
+
+  const tokens = afterMatch[1].trim().split(/\s+/).filter(Boolean);
+  const parts: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i].replace(/[,.;:]+$/g, "");
+    if (!tok) break;
+    if (/^\d{3,}$/.test(tok)) break;
+    if (/^\d+k(m)?$/i.test(tok)) break;
+    if (STRUCTURAL_STOP.has(tok.toLowerCase())) break;
+    if (!/^[A-Za-z][A-Za-z0-9/-]{0,19}$/.test(tok)) break;
+    parts.push(tok);
+    if (/\d/.test(tok) || parts.length >= 2) break;
+    if (tok.length >= 4) {
+      const next = (tokens[i + 1] || "").replace(/[,.;:]+$/g, "");
+      if (
+        !next ||
+        STRUCTURAL_STOP.has(next.toLowerCase()) ||
+        /^\d/.test(next) ||
+        !/^(sport|sports|line|pack|edition|series|class|amg|type)$/i.test(next)
+      ) {
+        break;
+      }
+    }
+  }
+  if (!parts.length) return undefined;
+  const joined = parts.join(" ");
+  if (modelNorm.toLowerCase().includes(joined.toLowerCase())) return undefined;
+
+  return parts
+    .map((p) => {
+      if (/^[A-Za-z]{1,4}\d{1,4}[A-Za-z]{0,3}$/i.test(p)) {
+        const m = p.match(/^([A-Za-z]+)(\d+)([A-Za-z]*)$/i);
+        if (!m) return p.toUpperCase();
+        return `${m[1].toUpperCase()}${m[2]}${m[3].toUpperCase()}`;
+      }
+      if (/^[a-z]{1,2}$/i.test(p)) return p.toUpperCase();
+      // Short letter-only badges (GTI, GTS, AMG, XLT) — keep uppercase.
+      // Longer words (Wildtrak, Raptor) stay title-case.
+      if (
+        /^[A-Za-z]{2,4}$/.test(p) &&
+        !/^(sport|sports|line|pack|type|edition|series|class)$/i.test(p)
+      ) {
+        return p.toUpperCase();
+      }
+      return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
 function formatVehicleModelToken(raw: string): string {
   const t = raw.replace(/\s+/g, " ").trim();
   if (/\bskyline\s*r[\s-]?34\b/i.test(t) || /^r[\s-]?34$/i.test(t)) return "Skyline R34";

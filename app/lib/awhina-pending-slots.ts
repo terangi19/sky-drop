@@ -35,6 +35,7 @@ import {
   parseListingCondition,
 } from "./awhina-listing-condition";
 import { extractSellerAuthoredText } from "./awhina-orchestration-boundary";
+import { extractVehicleVariantTrim } from "./sky-ai-find-routing";
 
 export type ListingMissingSlot =
   | "price"
@@ -1106,6 +1107,39 @@ export function extractCompoundListingFacts(
       filledSlots.push("variant");
       notes.push("variant GTT");
       residual = residual.replace(VARIANT_GTT_RE, " ").replace(/\s+/g, " ").trim();
+    } else if (
+      !getVariantExtra({ ...base, ...partial } as Partial<SkyAiListingFill>)
+    ) {
+      // Generic trim/variant after model (SR5, Wildtrak, GTI, M Sport…) — no catalogue.
+      const modelForVariant =
+        partial.vehicleModel || base.vehicleModel || undefined;
+      const variant =
+        extractVehicleVariantTrim(message, modelForVariant) ||
+        extractVehicleVariantTrim(residual, modelForVariant);
+      if (variant) {
+        partial.extras = withVariantExtra(
+          mergeExtras(base.extras, partial.extras),
+          variant
+        );
+        if (partial.vehicleModel || base.vehicleModel) {
+          const model = partial.vehicleModel || base.vehicleModel || "";
+          const make = partial.vehicleMake || base.vehicleMake || "";
+          partial.title = composeListingIdentity({
+            brand: make,
+            product: model,
+            generation: partial.vehicleGeneration || base.vehicleGeneration,
+            variant,
+            year: partial.vehicleYear || base.vehicleYear,
+          });
+        }
+        filledSlots.push("variant");
+        notes.push(`variant ${variant}`);
+        const variantEsc = variant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        residual = residual
+          .replace(new RegExp(`\\b${variantEsc}\\b`, "i"), " ")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
     }
   }
 
@@ -1237,13 +1271,16 @@ export function extractCompoundListingFacts(
     missingFromBase.includes("service_rate") ||
     (!base.price && !partial.price);
 
-  // Card "numbered 25" — consume before bare price so 300 remains the price
-  const numberedMatch = residual.match(/\bnumbered\s+(\d{1,4})\b/i);
+  // Card "numbered 14/25" or "numbered 25" — consume before bare price so 300 remains the price
+  const numberedMatch = residual.match(
+    /\bnumbered\s+(\d{1,4}\s*\/\s*\d{1,4}|\d{1,4})\b/i
+  );
   if (numberedMatch) {
+    const numbered = numberedMatch[1].replace(/\s+/g, "");
     partial.extras = mergeExtras(partial.extras || base.extras, [
-      `numbered:${numberedMatch[1]}`,
+      `numbered:${numbered}`,
     ]);
-    notes.push(`numbered ${numberedMatch[1]}`);
+    notes.push(`numbered ${numbered}`);
     residual = residual.replace(numberedMatch[0], " ").replace(/\s+/g, " ").trim();
   }
 
@@ -1402,7 +1439,7 @@ export function extractCompoundListingFacts(
     residual = residual.replace(locMatch[0], " ").replace(/\s+/g, " ").trim();
   }
 
-  // Transmission / fuel
+  // Transmission / fuel / body style
   if (/\b(manual|automatic|auto)\b/i.test(residual)) {
     const auto = /\bauto/i.test(residual);
     partial.vehicleTransmission = auto ? "Automatic" : "Manual";
@@ -1429,6 +1466,42 @@ export function extractCompoundListingFacts(
       .replace(/\b(petrol|diesel|hybrid|electric|ev)\b/gi, " ")
       .replace(/\s+/g, " ")
       .trim();
+  }
+  if (
+    (domain === "vehicle" || isVehicleListingFill(base as SkyAiListingFill)) &&
+    !partial.vehicleBodyType &&
+    !(base.vehicleBodyType || "").trim()
+  ) {
+    const bodyMatch = residual.match(
+      /\b(coupe|sedan|saloon|hatch(?:back)?|wagon|estate|suv|ute|van|convertible|cabrio|pick[\s-]?up)\b/i
+    );
+    if (bodyMatch?.[1]) {
+      const raw = bodyMatch[1].toLowerCase();
+      const bodyMap: Record<string, string> = {
+        coupe: "Coupe",
+        sedan: "Sedan",
+        saloon: "Sedan",
+        hatch: "Hatchback",
+        hatchback: "Hatchback",
+        wagon: "Wagon",
+        estate: "Wagon",
+        suv: "SUV",
+        ute: "Ute",
+        van: "Van",
+        convertible: "Convertible",
+        cabrio: "Convertible",
+        pickup: "Ute",
+        "pick-up": "Ute",
+        "pick up": "Ute",
+      };
+      const normalized = raw.replace(/\s+/g, " ");
+      partial.vehicleBodyType =
+        bodyMap[normalized] ||
+        bodyMap[normalized.replace(/\s+/g, "")] ||
+        raw.charAt(0).toUpperCase() + raw.slice(1);
+      notes.push(`body ${partial.vehicleBodyType}`);
+      residual = residual.replace(bodyMatch[0], " ").replace(/\s+/g, " ").trim();
+    }
   }
 
   // Preserve useful seller statements — positive classification only, after structured facts.
