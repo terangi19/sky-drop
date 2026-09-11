@@ -1334,7 +1334,7 @@ describe("adversarial NZ wave3 — semantic correction stress", () => {
   it.fails("FAIL: wait nah 2 pads and 3 games corrects prior 3 pads / 4 games", () => {
     const r = interpretSemanticTurn({
       message: "wait nah 2 pads and 3 games",
-      pendingSlot: "extras",
+      pendingSlot: "quantity",
       canonical: { title: "PS5 Disc", extras: ["included:3 pads", "included:4 games"] },
     });
     const blob = r.facts.map((f) => `${f.key}:${f.value}`).join(" | ");
