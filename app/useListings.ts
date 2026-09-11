@@ -5,6 +5,11 @@ import { collection, getDocs, limit, orderBy, query, where } from "firebase/fire
 import { db } from "./lib/firebase";
 import { Listing } from "../types/firestore";
 import { LISTINGS_POLL_MS, SEARCH_LISTINGS_LIMIT } from "./lib/firestore-query-limits";
+import {
+  BROWSE_SWR_TTL_MS,
+  dedupeAsync,
+  startVisibilityPolledFetch,
+} from "./lib/polled-firestore";
 
 /** Marketplace search / browse needs services + rentals, not only the newest physicals. */
 const GLOBAL_LISTINGS_LIMIT = SEARCH_LISTINGS_LIMIT;
@@ -16,7 +21,6 @@ export function useListings(sellerEmail?: string) {
 
   useEffect(() => {
     let mounted = true;
-    let inFlight: Promise<void> | null = null;
 
     const constraints: Array<ReturnType<typeof where> | ReturnType<typeof orderBy> | ReturnType<typeof limit>> = [];
     if (sellerEmail) {
@@ -28,44 +32,35 @@ export function useListings(sellerEmail?: string) {
 
     async function fetchListings() {
       if (!mounted) return;
-      if (inFlight) return inFlight;
-
-      inFlight = (async () => {
-        try {
-          const snapshot = await getDocs(listingsQuery);
-          if (!mounted) return;
-          const items = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...(docSnap.data() as Omit<Listing, "id">),
-          })) as Listing[];
-          setListings(items);
-          setError(false);
-          setLoading(false);
-        } catch (err) {
-          console.error("Listings fetch error:", err);
-          if (mounted) {
-            setError(true);
-            setLoading(false);
+      try {
+        const items = await dedupeAsync(
+          `search-listings:${sellerEmail || "all"}`,
+          BROWSE_SWR_TTL_MS,
+          async () => {
+            const snapshot = await getDocs(listingsQuery);
+            return snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...(docSnap.data() as Omit<Listing, "id">),
+            })) as Listing[];
           }
-        } finally {
-          inFlight = null;
+        );
+        if (!mounted) return;
+        setListings(items);
+        setError(false);
+        setLoading(false);
+      } catch (err) {
+        console.error("Listings fetch error:", err);
+        if (mounted) {
+          setError(true);
+          setLoading(false);
         }
-      })();
-
-      return inFlight;
+      }
     }
 
-    fetchListings();
-    const interval = setInterval(fetchListings, LISTINGS_POLL_MS);
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") void fetchListings();
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-
+    const stop = startVisibilityPolledFetch(fetchListings, LISTINGS_POLL_MS);
     return () => {
       mounted = false;
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisibility);
+      stop();
     };
   }, [sellerEmail]);
 

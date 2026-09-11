@@ -48,7 +48,12 @@ import HotThisWeek from "../components/HotThisWeek";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
-import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
+import {
+  BROWSE_POLL_MS,
+  BROWSE_SWR_TTL_MS,
+  dedupeAsync,
+  startVisibilityPolledFetch,
+} from "../lib/polled-firestore";
 import {
   emptyListBody,
   emptyListCtaLabel,
@@ -110,13 +115,19 @@ export default function WantedPage() {
     async function fetchListings() {
       if (!mounted) return;
       try {
-        const snap = await getDocs(q);
+        const items = await dedupeAsync(
+          "browse:type:wanted",
+          BROWSE_SWR_TTL_MS,
+          async () => {
+            const snap = await getDocs(q);
+            return snap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as any))
+              .filter((i: any) => isListingVisibleInMarketplace(i))
+              .sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0))
+              .slice(0, 60);
+          }
+        );
         if (!mounted) return;
-        const items: any[] = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as any))
-          .filter((i: any) => isListingVisibleInMarketplace(i))
-          .sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0))
-          .slice(0, 60);
         setListings(items);
         setLoadingListings(false);
       } catch (err) {

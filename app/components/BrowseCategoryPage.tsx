@@ -57,7 +57,12 @@ import {
 } from "../lib/nz-region-cities";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
-import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
+import {
+  BROWSE_POLL_MS,
+  BROWSE_SWR_TTL_MS,
+  dedupeAsync,
+  startVisibilityPolledFetch,
+} from "../lib/polled-firestore";
 import {
   formatMarketplaceListingCount,
   isAuthoritativeListingSnapshot,
@@ -170,19 +175,34 @@ export default function BrowseCategoryPage({ configKey }: Props) {
     async function fetchListings() {
       if (!mounted) return;
       try {
-        const snap = await getDocs(q);
-        if (!mounted) return;
-        if (!isAuthoritativeListingSnapshot(snap)) return;
-        const items: any[] = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as any))
-          .filter((i: any) => isListingVisibleInMarketplace(i));
-        items.sort(
-          (a: any, b: any) =>
-            (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+        const items = await dedupeAsync(
+          `browse:type:${config.listingType}`,
+          BROWSE_SWR_TTL_MS,
+          async () => {
+            const snap = await getDocs(q);
+            if (!isAuthoritativeListingSnapshot(snap)) {
+              throw new Error("listing-snapshot-not-authoritative");
+            }
+            const mapped: any[] = snap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as any))
+              .filter((i: any) => isListingVisibleInMarketplace(i));
+            mapped.sort(
+              (a: any, b: any) =>
+                (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+            );
+            return mapped;
+          }
         );
+        if (!mounted) return;
         setListings(items);
         setLoading(false);
       } catch (err) {
+        if (
+          err instanceof Error &&
+          err.message === "listing-snapshot-not-authoritative"
+        ) {
+          return;
+        }
         console.error(`Failed to load ${config.listingType} listings:`, err);
         if (mounted) setLoading(false);
       }

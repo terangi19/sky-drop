@@ -51,7 +51,12 @@ import {
   formatListingPriceMeta,
 } from "../lib/listing-price-display";
 import { LoadingCard } from "../components/LoadingSpinner";
-import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
+import {
+  BROWSE_POLL_MS,
+  BROWSE_SWR_TTL_MS,
+  dedupeAsync,
+  startVisibilityPolledFetch,
+} from "../lib/polled-firestore";
 
 const CATEGORIES = browseFilterCategories("service");
 
@@ -113,15 +118,22 @@ export default function ServicesPage() {
     async function fetchListings() {
       if (!mounted) return;
       try {
-        const snap = await getDocs(q);
-        if (!mounted) return;
-        const items: any[] = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as any))
-          .filter((i: any) => isListingVisibleInMarketplace(i));
-        items.sort(
-          (a: any, b: any) =>
-            (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+        const items = await dedupeAsync(
+          "browse:type:service",
+          BROWSE_SWR_TTL_MS,
+          async () => {
+            const snap = await getDocs(q);
+            const mapped: any[] = snap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as any))
+              .filter((i: any) => isListingVisibleInMarketplace(i));
+            mapped.sort(
+              (a: any, b: any) =>
+                (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+            );
+            return mapped;
+          }
         );
+        if (!mounted) return;
         setListings(items);
         setLoading(false);
       } catch (err) {
