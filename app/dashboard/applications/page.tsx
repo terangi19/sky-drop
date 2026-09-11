@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import Background from "../../components/Background";
-import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { AuthGatePlaceholder, useRequireAuth } from "../../lib/use-require-auth";
 import type { JobApplication } from "../../lib/jobApplications";
+import { DASHBOARD_APPLICATIONS_LIMIT } from "../../lib/firestore-query-limits";
+import { DASHBOARD_POLL_MS, startVisibilityPolledFetch } from "../../lib/polled-firestore";
 
 type Filter = "all" | "pending" | "reviewed" | "accepted" | "rejected";
 
@@ -18,20 +20,39 @@ export default function EmployerApplicationsPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(true);
   const [notesInput, setNotesInput] = useState<Record<string, string>>({});
+  const reloadApplications = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     if (!user?.email) return;
+    const employerEmail = user.email;
+    let mounted = true;
     setLoading(true);
     const q = query(
       collection(db, "jobApplications"),
-      where("employerEmail", "==", user.email),
-      orderBy("createdAt", "desc")
+      where("employerEmail", "==", employerEmail),
+      orderBy("createdAt", "desc"),
+      limit(DASHBOARD_APPLICATIONS_LIMIT)
     );
-    const unsub = onSnapshot(q, (snap) => {
-      setApplications(snap.docs.map((d) => ({ id: d.id, ...d.data() } as JobApplication)));
-      setLoading(false);
-    });
-    return () => unsub();
+
+    async function fetchApplications() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
+        setApplications(snap.docs.map((d) => ({ id: d.id, ...d.data() } as JobApplication)));
+        setLoading(false);
+      } catch (err) {
+        console.error("Failed to load applications:", err);
+        if (mounted) setLoading(false);
+      }
+    }
+
+    reloadApplications.current = fetchApplications;
+    const stop = startVisibilityPolledFetch(fetchApplications, DASHBOARD_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, [user]);
 
   async function handleStatusChange(id: string, status: "pending" | "reviewed" | "accepted" | "rejected") {
@@ -42,6 +63,7 @@ export default function EmployerApplicationsPage() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ applicationId: id, status }),
     });
+    void reloadApplications.current();
   }
 
   async function handleSaveNotes(id: string) {
@@ -54,6 +76,7 @@ export default function EmployerApplicationsPage() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ applicationId: id, employerNotes: notes }),
     });
+    void reloadApplications.current();
   }
 
   const filtered = filter === "all" ? applications : applications.filter((a) => a.status === filter);

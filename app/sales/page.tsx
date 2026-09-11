@@ -5,7 +5,7 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
-import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { AuthGatePlaceholder, useRequireAuth } from "../lib/use-require-auth";
 import { getFreshIdToken } from "../lib/api-auth";
@@ -29,6 +29,8 @@ import OrderReviewModal from "../components/OrderReviewModal";
 import { canSellerReview } from "../lib/order-reviews";
 import HistoricalOrdersNotice from "../components/HistoricalOrdersNotice";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
+import { DASHBOARD_ORDERS_LIMIT } from "../lib/firestore-query-limits";
+import { DASHBOARD_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 interface Purchase {
   id: string;
@@ -123,6 +125,7 @@ export default function SalesPage() {
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
   const [reviewSending, setReviewSending] = useState(false);
+  const reloadSales = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     userEmailRef.current = user?.email || null;
@@ -150,24 +153,46 @@ export default function SalesPage() {
 
   useEffect(() => {
     if (!user?.email) return;
-    const q = query(collection(db, "purchases"), where("sellerEmail", "==", user.email), orderBy("createdAt", "desc"), limit(100));
-    const unsub = onSnapshot(q, (snap) => {
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Purchase));
-      items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
-      setSales(items);
-      setLoading(false);
-    }, (err) => {
-      console.error("Failed to load sales:", err);
-      if (err.code === "permission-denied") {
-        setError("You don't have permission to view sales. Please sign in again.");
-      } else if (err.code === "unavailable") {
-        setError("Service temporarily unavailable. Please try again.");
-      } else {
-        setError(`Could not load sales: ${err.message || "Check your connection."}`);
+    const sellerEmail = user.email;
+    let mounted = true;
+    const q = query(
+      collection(db, "purchases"),
+      where("sellerEmail", "==", sellerEmail),
+      orderBy("createdAt", "desc"),
+      limit(DASHBOARD_ORDERS_LIMIT)
+    );
+
+    async function fetchSales() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Purchase));
+        items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+        setSales(items);
+        setError("");
+        setLoading(false);
+      } catch (err: unknown) {
+        console.error("Failed to load sales:", err);
+        const code = (err as { code?: string })?.code;
+        const message = (err as { message?: string })?.message;
+        if (code === "permission-denied") {
+          setError("You don't have permission to view sales. Please sign in again.");
+        } else if (code === "unavailable") {
+          setError("Service temporarily unavailable. Please try again.");
+        } else {
+          setError(`Could not load sales: ${message || "Check your connection."}`);
+        }
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
-    });
-    return () => unsub();
+    }
+
+    reloadSales.current = fetchSales;
+    const stop = startVisibilityPolledFetch(fetchSales, DASHBOARD_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, [user?.email]);
 
   const salesInsight = useMemo(
@@ -217,6 +242,7 @@ export default function SalesPage() {
         return;
       }
       showToast("Marked as sold. Listing updated.", "success");
+      void reloadSales.current();
     } catch {
       showToast("Could not confirm sale", "error");
     } finally {
@@ -253,6 +279,7 @@ export default function SalesPage() {
       showToast(msg, "error");
       throw new Error(msg);
     }
+    void reloadSales.current();
 
     const purchase = sales.find((s) => s.id === purchaseId);
     if (!purchase) return;
@@ -655,6 +682,7 @@ export default function SalesPage() {
             setReviewModal(null);
             setReviewRating(0);
             setReviewText("");
+            void reloadSales.current();
           } catch {
             showToast("Failed to submit review", "error");
           }

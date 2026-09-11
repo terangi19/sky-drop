@@ -84,6 +84,47 @@ describe("P0 Firestore listener cost guards", () => {
     expect(src).toMatch(/listingQuestions/);
   });
 
+  it("seller dashboard, purchases, sales, and disputes poll instead of live snapshots", () => {
+    for (const path of [
+      "app/dashboard/page.tsx",
+      "app/dashboard/applications/page.tsx",
+      "app/purchases/page.tsx",
+      "app/sales/page.tsx",
+      "app/disputes/page.tsx",
+    ]) {
+      const src = readSrc(path);
+      expect(src, path).not.toMatch(/\bonSnapshot\s*\(/);
+      expect(src, path).toMatch(/getDocs/);
+      expect(src, path).toMatch(/startVisibilityPolledFetch/);
+      expect(src, path).toMatch(/limit\(/);
+    }
+  });
+
+  it("admin disputes and verification poll instead of live snapshots", () => {
+    for (const path of [
+      "app/admin/disputes/page.tsx",
+      "app/admin/verification/page.tsx",
+    ]) {
+      const src = readSrc(path);
+      expect(src, path).not.toMatch(/\bonSnapshot\s*\(/);
+      expect(src, path).toMatch(/getDocs/);
+      expect(src, path).toMatch(/startVisibilityPolledFetch/);
+      expect(src, path).toMatch(/limit\(/);
+    }
+  });
+
+  it("funnelEvents client writes are gated behind the beta-off flag", () => {
+    const src = readSrc("app/lib/funnel-events.ts");
+    expect(src).toContain("isFunnelEventsEnabled");
+    expect(src).toMatch(/if\s*\(\s*!isFunnelEventsEnabled\(\)\s*\)\s*return/);
+    expect(src).toContain('collection(db, "funnelEvents")');
+    const flags = readSrc("app/lib/funnel-events-flags.ts");
+    expect(flags).toContain("NEXT_PUBLIC_FUNNEL_EVENTS_ENABLED");
+    const nextConfig = readSrc("next.config.ts");
+    expect(nextConfig).toContain("NEXT_PUBLIC_FUNNEL_EVENTS_ENABLED");
+    expect(nextConfig).toContain("FUNNEL_EVENTS_ENABLED");
+  });
+
   it("onListingUpdated skips view-only writes", () => {
     const src = readSrc("functions/src/index.ts");
     expect(src).toContain("isViewsOnlyListingUpdate");
