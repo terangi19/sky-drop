@@ -2,6 +2,8 @@
 
 **Launch-readiness: NOT SAFE TO LAUNCH**
 
+Independent re-score of production-fix PR #28 (`cursor/awhina-listing-understanding-8c64`) is in **Re-score vs PR #28** below. Verdict unchanged: **NOT SAFE TO LAUNCH**.
+
 Highest-severity current-main failures:
 
 1. **Seller commands become the public title/description** (MacBook “title it bargain don't say damaged”) and **defects are mangled** (“the don't say is damaged”).
@@ -847,3 +849,456 @@ Safe-ish additions vs Wave 2: **real city names** on short physical (Queenstown 
 Still unsafe, and newly unsafe: digital products, mixed sell/rent/wanted/service-in-one-message, `neg` / nearest offer / starting-bid, `dunners` / `wellie` on services, lot/x2/set-of bundles, Brand New vs smashed, prompt/instruction leaks, and **any 4+ turn undo** (identity, qty, location slang).
 
 Do not delete these `it.fails` to fake green. Do not patch individual Wave 3 strings in production. Wave 1 and Wave 2 FAIL markers were not weakened.
+
+---
+
+# Wave 4
+
+**Launch-readiness: still NOT SAFE TO LAUNCH.** Wave 1–3 gaps are not gone. Wave 4 shows they deepen on ≥5–8 turn undo/re-change, Wanted (WTB/ISO/looking-for + around/max/under + “no scams”), and Rentals (property vs equipment vs vehicle hire, bond weeks vs $, dual rates, hire-or-sell).
+
+Coverage added (sibling `app/lib/awhina-adversarial-wave-4.test.ts`, same `processCanonicalAwhina` harness):
+
+- **≥5–8 turn chains:** Pixel 7→8 undo→8 again + crack/chargers/westie; iPad maybe→firm→nah→final (7 turns); PS4 pad/game qty walk; MacBook M1→M2 pending-slot + “dont put m1”; Mazda Demio→3 undo→3 re-change; Wanted Xbox budget/pads; trailer hire rate+bond+westie; ISO mower then “not selling mine”
+- **Wanted:** WTB Xbox around 450 wellie; ISO MacBook max + no scams; post-ad double pram palmy; ISO Switch “not selling mine”; `wtb gopro 11 akl max 250`; long iPad budget walk; bike serious-only / dont-mention-desperate; looking-for Dyson around vs paid history
+- **Rentals:** Wellie 2-bed bond **weeks**; Honda generator hire≠sale; Transit van hire-or-sell (hire wins); scaffold daily **and** weekly; Tauranga room `280pw` vs bond `$1120`; Triton “just hiring / not selling”; marquee dual-rate hammers; dented trailer not-for-sale
+- **Pending-slot traps:** pending price must not eat “pixel 8 pro” as $8; pending colour must not eat `256gb`; pending extras qty; live 2-turn Pixel / iPad checks
+- **NZ places:** wellie / dunners / hammers / palmy / chch / akl / westie / queenstown / tauranga kept at normalize
+- **VERIFY:** no instruction leak (`dont put my max`, `dont mention I'm desperate`, `title it tidy 2bedder`); no paid/was in public ad; defects preserved (dent, scratch, rust, crack) once
+
+Vitest evidence (`./node_modules/.bin/vitest run app/lib/awhina-adversarial-wave-4.test.ts`, v4.1.8):
+
+- First run against current main (expected semantics vs production): **4 passed, 35 failed, 12 expected fail** (51 tests). Six of those “failures” were `it.fails` that actually passed (pending-slot 2-turn traps, fact-model hire/defect, weak dual-rate parser) and were converted to live `it()`.
+- After recording breaks with `it.fails` / `FAIL:`: **11 passed | 38 expected fail (49)** — Test Files 1 passed, Duration ~2.0s, vitest v4.1.8. Combined Wave 1+2+3+4 (`npm run test:awhina:adversarial`): **68 passed | 150 expected fail (218)**.
+
+## Wave 4 — what passed on current main
+
+- Parser: `pixel 8 pro` / `gopro 11` / `macbook air m2` are not asking $8 / $11 / $2. Scaffold `90 a day or 400 a week` is not qty `$6`.
+- Input normalize keeps wellie / dunners / hammers / palmy / chch / akl / westie / queenstown / tauranga.
+- Semantic fact model: “not selling / just hiring” stay out of `publicFacts` on a hire generator; **dented guard** is harvested as `negativeCondition` (fill still types the trailer as a **sale** — see failures).
+- Semantic layer: pending **location** + `nah 380 firm that's it` is a price correction, not suburb `380`.
+- **Live 2-turn pending-slot traps:** sparse Pixel draft + `wait it's a pixel 8 pro not 7` does **not** become $8 or wipe “Pixel”; iPad $350 + `nah 380 firm` keeps iPad identity and sets **$380**.
+- **multi7-price-maybe-firm-nah-final-ipad:** 7-turn `380 → maybe 350 → 350 firm → nah 380 → maybe 360 → nah 370 → nah 380 firm` keeps **iPad Air $380 Hamilton**. Short price-only follow-ups on a clean identity can stick. Same-item **identity** undo/re-change and accessory-qty still fail.
+
+## Wave 4 — failures (locked expected semantics)
+
+Each item: input → actual → expected → what failed → likely subsystem.
+
+### P1. FAIL: `"around 450 wellie"` wanted budget → 450
+
+- **Input:** `WTB xbox series x around 450 wellie`
+- **Actual:** `parseListingPriceFromMessage` → `null`
+- **Expected:** `"450"` (`around` = budget cap, not missing)
+- **Subsystem:** listing-facts / `extractPriceFromMessage`
+
+### P2. FAIL: `"max 250"` / `"under 150 palmy"` wanted caps
+
+- **Actual:** `null` (GoPro `11` also not taken as price — model-as-price pass — but the cap is dropped)
+- **Expected:** `250` / `150`
+- **Subsystem:** price extract / wanted-budget
+
+### P3. FAIL: hammers / wellie / dunners drop asking on Pixel / iPad / PS4
+
+- **Actual:** `ipad air 64gb hammers 380` / `pixel 7 128gb black wellie 450` / `ps4 slim dunners 180` → `null`
+- **Expected:** `380` / `450` / `180` (Wave 3 `iphone 11 64gb 90 wellie` still works)
+- **Subsystem:** price extract / input-normalize (slang location next to asking)
+
+### P4. FAIL: `"520 a week bond 3 weeks"` / `"280pw bond $1120"`
+
+- **Actual:** weekly line `null`; room+bond → **1120** (bond dollars beat weekly)
+- **Expected:** weekly `520` / `280`; not `3` / `1120`
+- **Subsystem:** price extract / rental bond vs rent
+
+### P5. FAIL: `"just hiring 150 a day"` vs 18000 / 2017
+
+- **Actual:** `null` on the mixed hire-or-sell Transit line
+- **Expected:** daily `150` not year/sale
+- **Subsystem:** price extract / hire-or-sell
+
+### W4-1. FAIL: wanted-wtb-xbox-around-budget — **critical**
+
+- **Input:** `WTB xbox series x around 450 wellie no timewasters serious only`
+- **Actual:** **physical** Xbox Series X **$450**, reply asks for **asking price** (sale voice)
+- **Expected:** wanted, budget 450, Wellington; instructions stripped; Wanted≠sale
+- **Failed:** WTB routed as sell
+- **Subsystem:** semantic-intent / find-vs-wanted
+
+### W4-2. FAIL: wanted-iso-macbook-max-no-scams — **critical**
+
+- **Input:** `ISO macbook air m2 under 900 chch preferably 16gb no scams serious only`
+- **Actual:** intent **education**, scam-safety lecture, **no listingFill**
+- **Expected:** wanted MacBook Air M2, budget 900, Christchurch, 16GB
+- **Failed:** ISO + “no scams” hijacked (same class as Wave 1/2)
+- **Subsystem:** semantic-intent / find-vs-wanted routing
+
+### W4-3. FAIL: wanted-looking-for-pram-post-ad — **critical**
+
+- **Input:** `post a wanted ad looking for a double pram under 150 palmy no scams`
+- **Actual:** education lecture, no listing
+- **Expected:** wanted pram, budget 150, Palmerston North
+- **Failed:** explicit “post a wanted ad” still lost to “no scams”
+- **Subsystem:** semantic-intent
+
+### W4-4. FAIL: wanted-iso-switch-not-selling-mine
+
+- **Input:** `ISO nintendo switch oled under 350 dunners not selling mine looking to buy no timewasters`
+- **Actual:** **physical** Nintendo Switch $350, sale voice (“What's the asking price?”)
+- **Expected:** wanted, Switch OLED, budget 350, Dunedin; not a sale
+- **Failed:** ISO as sell; Wanted≠sale; `dunners`
+- **Subsystem:** semantic-intent / composer
+
+### W4-5. FAIL: wanted-wtb-gopro-max-akl
+
+- **Input:** `wtb gopro 11 akl max 250`
+- **Actual:** **physical** title `Wtb Gopro 11 Akl Max 250`, no budget
+- **Expected:** wanted GoPro, Auckland, budget 250; not model-as-title residue
+- **Subsystem:** semantic-intent / input-normalize / composer
+
+### W4-6. FAIL: wanted-long-ipad-budget-walk — **critical**
+
+- **Input:** long looking-for iPad ramble, final budget **360**, westie, no scams / dont put my max
+- **Actual:** education lecture, no listing
+- **Expected:** wanted iPad Air, $360 not 400/350/380, West Auckland, instructions stripped
+- **Failed:** “no scams” education hijack on a long wanted post
+- **Subsystem:** semantic-intent / listing-facts merge
+
+### W4-7. FAIL: wanted-bike-serious-only-not-desperate
+
+- **Input:** `ISO bike under 200 wellie serious only no timewasters dont mention I'm desperate no rust please`
+- **Actual:** **physical** title dumps `Iso Bike Under 200 Wellie Serious Only NO Timewasters Dont Mention`, $200
+- **Expected:** wanted bike, budget 200, Wellington, rust requirement; commands stripped
+- **Failed:** ISO as sell; instruction leak into title; `wellie`
+- **Subsystem:** semantic-intent / orchestration-boundary / composer
+
+### W4-8. FAIL: wanted-around-vs-paid-history
+
+- **Input:** `looking for a dyson v11 around 180 hammers paid 400 last time dont put what i paid no scams`
+- **Actual:** education lecture, no listing
+- **Expected:** wanted Dyson, budget 180 not 400, Hamilton; no paid leak
+- **Failed:** “no scams” hijack; historical paid never classified because no fill
+- **Subsystem:** semantic-intent / price classes
+
+### W4-9. FAIL: rental-2bed-wellie-bond-weeks — **critical**
+
+- **Input:** Wellie 2-bed ramble, 520 a week, bond 3 weeks, dont put daily rate / bond weeks as dollars
+- **Actual:** rental **property**, title `Flat`, daily **and** weekly 520, deposit **3**, extras dump the command blob including `dont put`
+- **Expected:** property, weekly 520, **no daily**, bond not `$3`, Wellington, instructions stripped
+- **Failed:** bond weeks as dollars; daily invented; instruction leak; `wellie`
+- **Subsystem:** domain-knowledge / pending-slots / description-writer
+
+### W4-10. FAIL: rental-generator-hire-not-sale — **critical**
+
+- **Input:** `hire my honda generator 70 a day bond 200 palmy not selling just hiring`
+- **Actual:** **vehicle** titled `Honda`, price **70** (looks like a $70 car)
+- **Expected:** equipment rental, $70/day, bond 200, Palmerston North
+- **Failed:** Honda make hijack; hire vs sale
+- **Subsystem:** semantic-intent / domain-knowledge / vehicle identity
+
+### W4-11. FAIL: rental-van-hire-or-sell-hire-wins — **critical**
+
+- **Input:** `might sell or hire my 2017 transit van 150 a day or 18000 queenstown wait just hiring 150 a day not for sale bond 400`
+- **Actual:** **physical** waffle title including “Might Sell OR Hire…”, price 150
+- **Expected:** vehicle **hire**, $150/day, bond 400, Queenstown, not a sale
+- **Failed:** mixed sell/hire; confirmed hire ignored
+- **Subsystem:** semantic-intent / domain-knowledge
+
+### W4-12. FAIL: rental-scaffold-daily-and-weekly
+
+- **Input:** `scaffold hire 90 a day or 400 a week chch bond 250 not for sale`
+- **Actual:** rental equipment, title `Listing`, daily 90, **weekly also 90** (daily copied), bond 250, no Christchurch
+- **Expected:** Scaffold identity, daily 90 **and** weekly 400, Chch
+- **Failed:** dual-rate; title; `chch`
+- **Subsystem:** listing-facts merge / rental rate inference / composer
+
+### W4-13. FAIL: rental-room-bond-dollars-not-weekly — **critical**
+
+- **Input:** `room for rent tauranga 280pw bond $1120 avail now furnished not selling`
+- **Actual:** rental, title `Listing`, **equipment**, price/daily **1120** (bond), weekly **7840** (invented)
+- **Expected:** property, weekly 280, bond 1120, no daily, Tauranga
+- **Failed:** bond beats weekly; property vs equipment; daily invented
+- **Subsystem:** semantic-intent / price extract / domain-knowledge
+
+### W4-14. FAIL: rental-triton-just-hiring-not-sale — **critical**
+
+- **Input:** `not selling my 2019 triton just hiring it 140 a day dunners bond 500`
+- **Actual:** **vehicle sale** `2019 Mitsubishi Triton Just`, price 140, generation `JUST`
+- **Expected:** vehicle **hire**, $140/day, bond 500, Dunedin
+- **Failed:** “not selling / just hiring” ignored; “just” glued into identity (same class as Wave 2 Ranger `JUST`)
+- **Subsystem:** semantic-intent / domain-knowledge / composer
+
+### W4-15. FAIL: rental-marquee-just-hiring-dual-rate
+
+- **Actual:** rental equipment, title `Listing`, daily **and** weekly 120 (500 lost), extras dump “just hiring… hammers”
+- **Expected:** Marquee, daily 120 **and** weekly 500, Hamilton (`hammers`)
+- **Subsystem:** composer / rental rate inference / input-normalize
+
+### W4-16. FAIL: rental-trailer-dented-not-for-sale — **critical**
+
+- **Input:** `renting out my trailer 55 a day bond 80 pickup only westie not for sale dented guard still works`
+- **Actual:** **physical** title includes “Not For Sale”, extras `the for sale is dented`
+- **Expected:** equipment rental, $55/day, bond 80, West Auckland, dent as defect (not “the for sale is dented”)
+- **Failed:** type; mangled defect; westie
+- **Subsystem:** semantic-intent / seller-evidence / description-writer
+
+### W4-17. FAIL: multi8-identity-change-undo-rechange-pixel — **critical**
+
+- **Transcript:** Pixel 7 450 wellie → 8 pro 256 700 → undo 7 → re-change 8 pro 256 → 650 → crack → 2 chargers → pickup westie
+- **Actual:** **new listing** titled `Pickup Westie Not Cbd`
+- **Expected:** Pixel 8 Pro, 256GB, $650, West Auckland, crack + 2 chargers; Pixel 7/450 gone
+- **Failed:** later location slang starts a new draft; identity undo/re-change not held across 8 turns
+- **Subsystem:** draft-transition / authority / pending-slots
+
+### W4-18. FAIL: multi6-accessory-qty-walk-ps4
+
+- **Transcript:** PS4 slim dunners 180 → 2 pads → 3 pads 5 games → 4 pads 2 games → nah 2 pads 3 games → scratched disc drive
+- **Actual:** new listing `Scratched Disc Drive Tho`
+- **Expected:** same PS4, $180, Dunedin, 2 pads + 3 games, scratch
+- **Subsystem:** draft-transition / pending-slots / seller-evidence
+
+### W4-19. FAIL: multi8-pending-slot-must-not-overwrite-identity — **critical**
+
+- **Transcript:** MacBook Air M1 akl → wait M2 16/512 → 800 → space grey → scratched lid → pickup chch → dont put m1 → nah still 800 firm
+- **Actual:** title **`Dont Put M1 IN AD`**, identity gone (price 800 happens to stick on the *new* junk draft)
+- **Expected:** MacBook Air M2, $800, Christchurch, scratch; M1/instruction stripped
+- **Failed:** “dont put m1” follow-up treated as a new item (2-turn pending-slot trap *does* pass; 8-turn + instruction does not)
+- **Subsystem:** draft-transition / orchestration-boundary / pending-slots
+
+### W4-20. FAIL: multi7-vehicle-identity-undo-then-rechange — **critical**
+
+- **Transcript:** 2014 Demio palmy 6500 → 2016 Mazda 3 → undo Demio → nah it is Mazda 3 2016 110k → rust → 7200 → still palmy pickup
+- **Actual:** new **physical** `Still Palmy Pickup`
+- **Expected:** Mazda 3 2016, 110000 km, $7200, Palmerston North, rust; Demio gone
+- **Subsystem:** draft-transition / listing-identity-conflict
+
+### W4-21. FAIL: multi6-wanted-budget-pads-requirements
+
+- **Transcript:** wanted Xbox Series S hammers under 400 no scams → around 350 → max 320 → 2 pads → 1 pad + 2 games → pickup westie
+- **Actual:** turn 1 education; later **physical** `Pickup Westie OK`
+- **Expected:** wanted Xbox Series S, budget 320, 1 pad + 2 games, West Auckland
+- **Failed:** no-scams hijack then follow-ups have no wanted draft
+- **Subsystem:** semantic-intent / pending-slots
+
+### W4-22. FAIL: multi6-rental-trailer-rate-bond-location
+
+- **Transcript:** trailer 50/day manukau not for sale → 40 → nah 45 → also 200 a week → bond 100 → pickup westie
+- **Actual:** after `pickup westie`, **physical** `Pickup Westie`
+- **Expected:** same equipment rental, $45/day **and** $200/week, bond 100, West Auckland
+- **Failed:** short location slang as new listing (Wave 2 trailer nah already lost the rental draft)
+- **Subsystem:** draft-transition / authority / pending-slots
+
+### W4-23. FAIL: multi5-wanted-iso-then-not-a-sale
+
+- **Transcript:** ISO lawn mower palmy → around 180 → max 150 → not selling mine looking to buy → no rust no scams serious only
+- **Actual:** last turn **education** lecture, no wanted listing
+- **Expected:** wanted mower, budget 150, palmy, rust requirement; not a sale
+- **Subsystem:** semantic-intent / find-vs-wanted / draft-transition
+
+### Semantic / correction layer
+
+- **no scams / serious only / no timewasters** still not `sellerInstructions` on WTB Xbox; they never become public-fact exclusions.
+- **dont put my max** on the long iPad wanted ramble is not an instruction; historical 400/380 not classified.
+- **pending price** + `wait it's a pixel 8 pro not 7` is **not** understood as identity correction at `interpretSemanticTurn` (live 2-turn *fill* happens not to set $8 — the semantic layer still misses the 8-pro fact).
+- **pending colour** + `256gb actually` still not storage.
+- **actually wait it IS the 8 pro 256** is not an identity re-change.
+- **wait 1 pad is fine but need 2 games** is not a qty correction (risk of price:1 / price:2).
+
+## Wave 4 launch notes
+
+Safe-ish additions vs Wave 3: **2-turn** pending-slot replies that are a clean identity phrase or `nah N firm` (Pixel not eaten as $8; iPad 350→380); **7-turn price-only** walk on a punctuated iPad that never changes identity; model-as-price traps on Pixel 8 / GoPro 11 / M2; hire dual-rate not `$6`; dent harvested at the fact-model even when fill types a sale.
+
+Still unsafe, and newly unsafe at depth: **any ≥5 turn that changes identity, qty, or location slang**; every WTB/ISO/looking-for + “no scams” path; Wanted still becomes a **sale** or a **scam lecture**; hire-or-sell still sells (Honda generator as a $70 car, Triton `JUST`, Transit waffle); property bond **weeks as dollars** and `$bond` beating weekly rent; daily copied onto weekly.
+
+Do not delete these `it.fails` to fake green. Do not patch individual Wave 4 strings in production. Wave 1, Wave 2, and Wave 3 FAIL markers were not weakened.
+No production code was changed.
+
+---
+
+# Re-score vs PR #28
+
+**1. NOT SAFE TO LAUNCH**
+
+Independent Awhina Breaker re-score of production-fix PR https://github.com/terangi19/sky-drop/pull/28 (`cursor/awhina-listing-understanding-8c64`, HEAD `c289aa8`). Tests + docs only. No production patches. Wave 1–3 FAIL markers were **not** weakened. Wave 4 test file + docs + `package.json` wiring brought from PR #32 (`cursor/awhina-adversarial-wave-4-4cdf` @ `4610674`) — no Wave 4 production. Wave-R is a new short attack battery (`app/lib/awhina-adversarial-rescore-w28.test.ts`).
+
+## 2. Critical classes 1–7 (original Wave-1 severities)
+
+| # | Class | On PR #28 |
+|---|---|---|
+| 1 | Seller commands become public title/description / defect mangled | **PASS** — Wave-1 MacBook `title it bargain don't say damaged` is green. Residual WRITE dirt remains on Ranger extras / some Wave-3 strings (listed below), but the original severity is fixed. |
+| 2 | Historical/tentative prices beat confirmed asking | **PASS** — `was $450 now 280` → 280; `askin 9k … nah 9k` → 9000; Ranger ramble asking **38900** not 45000. |
+| 3 | Wanted ads misrouted (education lecture / for-sale) | **FAIL** — Wave-1 PS5/ISO-puppy routing is better, but W2/W3/W4/WR still leak instructions, drop locations, ignore budget+pads, or mash wanted+sale. |
+| 4 | Rentals classified as sales | **FAIL** — Wave-1 trailer/Hilux hire no longer sell as cars, but Ranger/Triton/van hire, dual-rate collapse, CX-5 Brand New equipment, mixer/caravan still fail the rental contract. |
+| 5 | Follow-up corrections wipe identity | **FAIL** — `And Cracked Screen Tho` / `And Cracked Back Tho`; TV 55inch leftover; Wave 4 iPad 7-turn **regressed** to title `OR`. |
+| 6 | Voice transcription unusable (UH Twenty class) | **PASS** — Wave-1 Hilux `UH Twenty` is gone. Residual: parser `eleven five hundred` → 11500 still `it.fails`. |
+| 7 | Contradictions keep first fact / model-as-price in corrections | **FAIL** — iPhone one-shot still **128GB** (not 256); follow-up still Black/128; storage/colour flip-flops still `it.fails`. |
+
+A class is **PASS** only if the original Wave-1 exemplar is green. Classes 3/4/5/7 still fail on this branch.
+
+## 3. Exact failing `it.fails` titles still red on PR #28
+
+After converting Wave 4 unexpected-passes only. These remain expected-fail (CI green; contract still broken).
+
+### Wave 1
+- `FAIL: physical-iphone-contradiction-one-shot [physical/contradictory+faults_with_positive_condition+model_as_price]`
+- `FAIL: vehicle-ranger-extremely-long [vehicle/extremely_long+repeated_info+modifications+faults_with_positive_condition+historical_vs_confirmed_price+seller_commands+contradictory+accessories_quantities]`
+- `FAIL: rental-house-no-daily-rate [rental/seller_commands+missing_punctuation]`
+- `FAIL: physical-tv-size-price-correction [physical/mid_conversation_change+followup_correction]`
+- `FAIL: physical-iphone-followup-correction [physical/followup_correction+contradictory+faults_with_positive_condition]`
+- `FAIL: service-add-hedge-followup [service/followup_correction]`
+- `FAIL: wanted-budget-correction [wanted/followup_correction+mid_conversation_change]`
+
+### Wave 2
+- `FAIL: "gtr 50k akl" → 50000 (slang 50k asking is dropped at parser)`
+- `FAIL: "eleven five hundred" voice asking → 11500`
+- `FAIL: no scams / serious only are seller instructions not public facts`
+- `FAIL: nah bro max 550 plus 2 pads is a budget+accessory correction`
+- `FAIL: wanted-wtb-axela-budget-cap`, `wanted-iso-hilux-westie-no-scams`, `wanted-looking-for-post-ad-dunedin`, `wanted-mower-hammers-short`, `wanted-wtb-gtr-extremely-short`, `wanted-long-hilux-budget-walk`, `wanted-budget-pads-nah-bro`
+- `FAIL: rental-chch-unit-bond-weeks`, `rental-property-long-chch-commands`, `rental-studio-bond-dollars`, `rental-mixer-equipment-not-sale`, `rental-trailer-daily-or-weekly`, `rental-ranger-hire-not-sale`, `rental-caravan-weekly`, `rental-trailer-rate-flipflop`
+- `FAIL: service-plumbing-westie-quote-plus-drain`, `service-mechanic-chch-hourly-wof`, `service-mow-hammers-quote-gardens`, `service-painting-quote-required-palmy`, `service-cleaning-chch-secondary-oven`, `service-mow-short-westie`, `service-add-secondary-followup`
+- `FAIL: physical-ipad-instruction-historical-defect`, `physical-iphone-exaggerated-new-with-crack`, `physical-ps4-historical-paid-leak`, `physical-identity-iphone-13-to-15`, `physical-storage-colour-flipflops`, `vehicle-gtr-short-model-not-price`
+
+### Wave 3
+- `FAIL: "air max 90 size 10 80" → 80 (model 90 is not asking)`
+- `FAIL: "xbox controllers lot of 3 60 dunners" → 60`
+- `FAIL: ono/neg are offer language not public title copy`
+- `FAIL: nah forget that it's the 14 again undoes the 15 pro swap`
+- `FAIL: wait nah 2 pads and 3 games corrects prior 3 pads / 4 games`
+- `FAIL: mixed-wanted-ps5-plus-xbox-for-sale`
+- `FAIL: digital-ebook-not-physical-book`, `digital-canva-template-pack`, `digital-course-videos-not-usb`
+- `FAIL: physical-dyson-ono-defect`, `physical-macbook-neg-worn`, `physical-3ds-starting-bid-vs-buynow`, `physical-jersey-offers-only-no-price`, `physical-ps4-dunners-pads`, `physical-drill-x2-pair`, `physical-controllers-lot-of-3`, `physical-brand-new-but-smashed-iphone`, `physical-mint-scratched-everywhere-tv`, `physical-like-new-water-damaged-command`, `physical-dont-put-paid-toaster`, `physical-crack-repeated-once`
+- `FAIL: vehicle-perfect-except-engine-knock`
+- `FAIL: multi4-identity-swap-then-undo-iphone`, `multi4-accessory-add-then-correct-qty`, `multi4-vehicle-identity-swap-undo`, `multi5-price-identity-qty-location`
+
+### Wave 4 (still red after converting 12 genuine passes)
+- `FAIL: "around 450 wellie" wanted budget is 450 not null`
+- `FAIL: "max 250" wanted cap is 250 not model 11`
+- `FAIL: "under 150 palmy" wanted cap is 150`
+- `FAIL: "280pw bond $1120" weekly 280 beats bond dollars`
+- `FAIL: no scams / serious only / no timewasters are instructions on a WTB xbox`
+- `FAIL: dont put my max / just say wanted ipad are instructions not public facts`
+- `FAIL: pending price must NOT eat 'wait it's a pixel 8 pro not 7' as $8`
+- `FAIL: nah forget pixel 7 then actually 8 pro is identity re-change not a new listing`
+- `FAIL: wait 1 pad is fine but need 2 games corrects qty, not price 1/2`
+- `FAIL: wanted-wtb-xbox-around-budget`, `wanted-wtb-gopro-max-akl`, `wanted-long-ipad-budget-walk`, `wanted-bike-serious-only-not-desperate`, `wanted-around-vs-paid-history`
+- `FAIL: rental-van-hire-or-sell-hire-wins`, `rental-scaffold-daily-and-weekly`, `rental-triton-just-hiring-not-sale`, `rental-marquee-just-hiring-dual-rate`, `rental-trailer-dented-not-for-sale`
+- `FAIL: multi8-identity-change-undo-rechange-pixel`, `multi6-accessory-qty-walk-ps4`, `multi8-pending-slot-must-not-overwrite-identity`, `multi7-vehicle-identity-undo-then-rechange`, `multi6-wanted-budget-pads-requirements`, `multi6-rental-trailer-rate-bond-location`, `multi5-wanted-iso-then-not-a-sale`
+- `FAIL: multi7-price-maybe-firm-nah-final-ipad` — **new regression** vs Wave 4-on-main (title `OR`)
+
+### Wave-R
+- `FAIL: "under 220 napier" wanted budget is 220 not karcher k5`
+- `FAIL: "max 170" wanted cap is 170 not v8`
+- `FAIL: no scams / serious only on a WTB karcher are instructions not public facts`
+- `FAIL: nah forget a55 it's the a54 again is identity undo not a new listing`
+- `FAIL: actually max 170 and i need the wand is budget+accessory correction`
+- `FAIL: wanted-wtb-karcher-napier`, `wanted-iso-cot-timaru-no-scams`, `wanted-dyson-budget-wand-correction`
+- `FAIL: rental-spa-dual-rate-rotorua`, `rental-cx5-just-hiring-npl`, `rental-4bed-timaru-no-daily`
+- `FAIL: digital-instagram-templates-gisborne`, `digital-guitar-course-invercargill`, `digital-gardening-ebook-napier`
+- `FAIL: multi-yaris-identity-size-wipe`, `multi-galaxy-a54-undo-wipes-identity`, `service-add-window-wash-followup`
+
+**92** Wave 1–4 titles still `it.fails` (matches 92 expected-fail). Wave-R adds 17 more, not in the W1–4 scoreboard.
+
+## 4. Measured vitest scoreboard Waves 1–4 on `cursor/awhina-listing-understanding-8c64`
+
+| Suite | Pre-fix baseline | Fixer claimed | **Measured on PR #28** |
+|---|---|---|---|
+| Waves 1+2+3 | **57 \| 112** (169) | **104 \| 65** (169) | **104 passed \| 65 expected-fail (169)** |
+| Wave 4 (PR #32 file, first run) | 11 \| 38 (49) on main | n/a | 12 unexpected pass + 1 regression (`multi7` title `OR`) |
+| Wave 4 after converting genuine passes | — | n/a | **22 passed \| 27 expected-fail (49)** |
+| **Waves 1–4 combined** | 68 \| 150 (218) on main | n/a | **126 passed \| 92 expected-fail (218)** |
+| Wave-R (new, not in W1–4) | — | n/a | **7 passed \| 17 expected-fail (24)** |
+| Combined W1–4 + Wave-R | — | n/a | **133 passed \| 109 expected-fail (242)** |
+
+Vitest v4.1.8. Fixer's 104\|65 on Waves 1–3 is **true**.
+
+## Classes now green (concrete)
+
+### Required v1 (confirmed)
+
+1. **Seller commands off public copy; defects kept** — MacBook `title it bargain don't say damaged` still passes on this branch (Wave 1 converted by Fixer). Wave-R `physical-smashed-s21-invercargill-command` (`brand new still boxed but smashed screen samsung s21 … dont say smashed title it mint`) **passes**: S21 identity, $150, smash kept, commands not in title.
+2. **Confirmed ask beats history** — `was $450 now 280` → 280; `askin 9k maybe 8500 … nah 9k` → 9000. Ranger ramble now extracts **38900** (not 45000).
+
+### Wave 4 cases converted `it.fails` → `it()` on this branch (genuinely passed)
+
+Parser: hammers+380, wellie+450 Pixel, dunners+180, `520 a week bond 3 weeks` ≠ $3, hire-or-sell 150 vs 18000. Semantic: pending colour does not eat `256gb actually`.
+
+Listing fill:
+
+- `wanted-iso-macbook-max-no-scams`, `wanted-looking-for-pram-post-ad`, `wanted-iso-switch-not-selling-mine`
+- `rental-2bed-wellie-bond-weeks`, `rental-generator-hire-not-sale`, `rental-room-bond-dollars-not-weekly`
+
+### Wave-R cases that already pass as `it()`
+
+- `wanted-post-ad-generator-gisborne` — explicit “post a wanted ad” Honda generator, Gisborne, $900, not a sale
+- `rental-1bed-nelson-bond-weeks` — property, weekly 390, no daily, deposit not `$3`
+- smashed S21 fill (above)
+- NZ place tokens napier/nelson/timaru/gisborne/rotorua/invercargill/new plymouth at normalize
+- smash vs `title it mint` at the fact-model
+
+## Remaining critical failing classes (concrete)
+
+Each: input → actual (this branch) → expected → subsystem.
+
+### Wanted ≠ sale / instruction leak / budget walk
+
+| ID | Input (abbrev) | Actual | Expected | Subsystem |
+|---|---|---|---|---|
+| W1 wanted-budget-correction | wanted PS5 under 600 → max 550 + 2 pads | wanted, **$550 OK**, **pads missing** | budget 550 + 2 controllers | pending-slots |
+| W2 wanted-wtb-axela | WTB axela under 8k wellington no timewasters | wanted Mazda Axela $8000 Wellington; extras **`No timewasters serious only`** | instructions out of extras/public | orchestration-boundary |
+| WR wanted-wtb-karcher-napier | WTB karcher k5 under 220 napier no timewasters | wanted, $220, Napier; extras **`No timewasters serious only`**; reply “What's the asking price?” | instructions stripped; wanted voice | orchestration-boundary |
+| WR wanted-iso-cot-timaru | ISO baby cot under 120 timaru no scams + mattress | wanted Baby Cot $120 + mattress; **Timaru missing** | Timaru | input-normalize |
+| WR wanted-dyson-budget-wand | wanted Dyson V8 under 200 → max 170 + wand | wanted, **price stays 200**, wand missing | 170 + wand | authority / pending-slots |
+| W3 mixed-wanted-ps5-plus-xbox | wanted PS5 under 500 wellie + Xbox for sale 280 | still expected-fail | wanted PS5, not Xbox sale | find-vs-wanted |
+| W4 wanted-wtb-xbox-around / gopro / long-ipad / bike / paid-history / multi6-wanted | WTB/ISO/around/max + no scams | still expected-fail | wanted, budget, instructions stripped | find-vs-wanted |
+
+Parser still null on Wave-R `under 220 napier` and `max 170` (budget language). Wave 4 `around 450` / `max 250` / `under 150 palmy` / `280pw bond $1120` still `it.fails`.
+
+### Rentals ≠ sale / dual-rate / bond / location
+
+| ID | Input (abbrev) | Actual | Expected | Subsystem |
+|---|---|---|---|---|
+| W1 rental-house-no-daily-rate | 3bed Hamilton 650/week bond 4 weeks | **property**, weekly 650, deposit **2600**, title `3 Bedroom House` — still fails remaining contract (unfurnished/pets/instruction extras) | weekly 650, no daily, no command extras | domain-knowledge |
+| WR rental-spa-dual-rate-rotorua | spa 90/day or 400/week rotorua | equipment, **daily=weekly=400**, title Inflatable Spa | daily 90 **and** weekly 400 | rental rate merge |
+| WR rental-cx5-just-hiring-npl | not selling 2016 CX-5 just hiring 95/day new plymouth | rental **equipment** (not vehicle), **Brand New**, invented weekly **665**, **NPL missing** | vehicle hire $95/day, Used, New Plymouth | domain-knowledge / composer |
+| WR rental-4bed-timaru | 4bed 720/week bond 4 weeks | property, weekly 720, deposit 2880, 4 bed; **Timaru missing** | Timaru kept | input-normalize |
+| W2/W4 remaining | mixer/trailer dual/ranger hire/caravan/scaffold/triton/marquee/dented trailer | still expected-fail | hire ≠ sale; dual rates; dent once | semantic-intent |
+
+### Digital never digital
+
+| ID | Input (abbrev) | Actual | Expected | Subsystem |
+|---|---|---|---|---|
+| W3 digital-ebook / canva / course | ebook / Canva pack / Photoshop course | **physical**, raw titles (`Ebook NZ Gst Guide Pdf Instant Download`, pack priced 25 OK) | listingType **digital** | type set / domain |
+| WR digital-instagram-templates-gisborne | canva templates instant download 12 gisborne not printed, 30 templates | **physical** | digital $12 not $30 | type set |
+| WR digital-guitar-course-invercargill | online guitar course 35 not dvd/usb | **physical** | digital; USB/DVD exclusion | type / negation |
+| WR digital-gardening-ebook-napier | kindle ebook pdf 8 napier not paperback | **physical** | digital | type set |
+
+### Identity wipe on follow-up / undo
+
+| ID | Input (abbrev) | Actual | Expected | Subsystem |
+|---|---|---|---|---|
+| W1 physical-tv-size-price-correction | Samsung 55" $280 → wait nah 65" $320 scratch | title **Samsung 65 inch Tv**, $320, Hamilton kept; extras still **`size:55 inch`** | 65 only, scratch kept | listing-facts merge |
+| W1 physical-iphone-followup | 15 pro 128 black 1100 → 256 blue 950 cracked | **$950 OK**; colour **Black**, storage **128GB**, title still `128gb Black 1100` | 256 / blue / 950 | authority |
+| W1 physical-iphone-contradiction-one-shot | 128 wait no 256 black actually blue … 950 | **$950 OK**; title `iPhone 15 Pro 128gb`; storage **128GB**; colour Blue applied; leftover “though cracked” | 256GB blue | listing-facts merge |
+| W1 service-add-hedge-followup | lawn 40 → also hedge trimmin quote | **same service Lawn Mowing $40** (not a new listing) but **hedge dropped** | hedge + quote | pending-slots |
+| WR service-add-window-wash-followup | house cleaning palmy 80 → also window washing quote | House Cleaning $80 Palmerston North; **window dropped** | window + quote | pending-slots |
+| WR multi-galaxy-a54-undo | A54 → A55 420 → undo A54 280 → cracked back | **new listing titled `And Cracked Back Tho`** | A54 128 black $280 Nelson + crack | draft-transition |
+| W3 multi4-identity-swap-then-undo-iphone | 14 → 15 → undo 14 → cracked | **`And Cracked Screen Tho`** | iPhone 14 kept | draft-transition |
+| W4 multi7-price-maybe-firm-nah-final-ipad | 7-turn iPad price walk | **REGRESSION vs Wave 4-on-main**: title **`OR`**, location Hamilton, reply “storage 380GB”. Recorded as new `it.fails`. | iPad Air $380 Hamilton | composer / pending-slots |
+| WR multi-yaris-identity-size-wipe | 2014 Yaris 90k $6500 → 2015 110k $5800 rust | identity **kept** (2015 Toyota Yaris $5800 Napier) but odo **90000** not 110000; **rust missing** | 110k + rust | pending-slots / evidence |
+
+### Smashed / exaggerated fill still dirty on Wave 3 string
+
+- `physical-brand-new-but-smashed-iphone`: **price now 90** (not 11), condition **Used - Fair** (not New), smash in extras — but title is **`But Smashed iPhone 11 64gb 90`**, extras `the new but is smashed`. Wave-R S21 variant **does** pass. Do not treat the Wave 3 case as green.
+
+### Ranger ramble still not public-ready
+
+- Price **38900** (v1 win) and title `2019 Ford Ranger Wildtrak`, but extras still `the kays auckland is cracked` / `was dent`; description starts “Right selling me the wildtrak 3.” Commands/history still pollute WRITE.
+
+## Wave 4 conversion log (this PR)
+
+Converted `it.fails` → `it()` only after unexpected-pass on this branch (listed above). Newly recorded FAIL: `multi7-price-maybe-firm-nah-final-ipad` (identity wiped to title `OR`). Remaining Wave 4 `it.fails` kept.
+
+## Launch call
+
+v1 (commands off listings, confirmed ask) is real. Wanted routing is **better** (many WTB/ISO no longer become vehicle sales or scam lectures). Several property rentals now classify as property with weekly rent.
+
+Still **NOT SAFE TO LAUNCH**: digital type is absent, dual-rate hire collapses, vehicle-hire subtype/Brand New, follow-up undo still starts a new draft (`And Cracked … Tho`), hedge/window add-on dropped, wanted budget+accessory corrections ignored, instruction extras (`no timewasters`) leak, some NZ towns (Timaru) dropped, Wave 4 iPad 7-turn **regressed**.
+
+Do not delete remaining `it.fails`. Do not patch individual Wave-R strings in production. Failures are for Fixer.
