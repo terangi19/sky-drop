@@ -45,7 +45,7 @@ describe("auth redirect and verification safeguards", () => {
   it("messages page reuses the login return-URL gate instead of rendering the inbox logged out", () => {
     const src = readFileSync(path.join(process.cwd(), "app/messages/page.tsx"), "utf8");
     expect(src).toContain("loginRedirectHref");
-    expect(src).toContain("router.replace");
+    expect(src).toContain("window.location.replace");
     expect(src).toMatch(/if\s*\(\s*!authReady\s*\|\|\s*!user\s*\)/);
     expect(src).toContain("Sign in to view your messages");
   });

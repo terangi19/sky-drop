@@ -1566,8 +1566,8 @@ function MessagesPage() {
   useEffect(() => {
     if (!authReady || user) return;
     const returnPath = `${window.location.pathname}${window.location.search}` || "/messages";
-    router.replace(loginRedirectHref(returnPath));
-  }, [authReady, user, router]);
+    window.location.replace(loginRedirectHref(returnPath));
+  }, [authReady, user]);
   // —— Render ——
   if (!authReady || !user) {
     const signInHref = loginRedirectHref(
