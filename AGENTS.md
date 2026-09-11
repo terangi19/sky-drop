@@ -263,7 +263,7 @@ Layer 3 (Rules) — Firebase custom claims + Firestore config/adminEmails doc
 | `app/lib/admin-roles.ts` | Role types, `isSuperAdminEmail()` — env var only |
 | `app/lib/admin-request.ts` | `requireAdminFromRequest()` — all admin API routes |
 | `app/lib/admin-alerts.ts` | Admin notifications via Firestore config, no hardcoded emails |
-| `app/lib/rate-limit.ts` | Upstash Redis → Firestore → in-memory fallback |
+| `app/lib/rate-limit.ts` | Upstash Redis → in-memory fallback (no Firestore `rateLimits` writes) |
 | `app/lib/rate-limit-upstash.ts` | Upstash Redis sliding window rate limiter |
 | `app/lib/rate-limit-config.ts` | Centralized rate limit rules for all endpoints |
 | `app/lib/security-log.ts` | Security event logging (console + Firestore + Sentry) |
@@ -271,10 +271,11 @@ Layer 3 (Rules) — Firebase custom claims + Firestore config/adminEmails doc
 ## Rate Limiting Layers
 
 1. **Upstash Redis** (when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are set) — distributed, production
-2. **Firestore** (`rateLimits` collection) — cross-instance fallback
-3. **In-memory** (`Map`) — per-instance, dev/edge fallback
+2. **In-memory** (`Map`) — per-instance fallback when Upstash is unset, misconfigured, or unreachable. Edge proxy uses `app/lib/rate-limit-edge.ts` (also in-memory).
 
-**Current status: FALLBACK MODE** — `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are not set in any env file (`.env.local`, `.env.vercel`, Vercel dashboard). Rate limiting uses Firestore + in-memory. To enable distributed rate limiting, set these vars in the Vercel project dashboard.
+Do **not** write to Firestore `rateLimits` on the fallback path — that 1 read + 1 write per limited API call amplifies cost. Limits still apply per instance.
+
+**Current status:** If Upstash env vars are unset or Redis errors, rate limiting stays in-memory only. Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in the Vercel project dashboard for distributed limits.
 
 A startup log (`[rate-limit]`) confirms the active mode on first request.
 
@@ -367,7 +368,7 @@ Client → Rate Limit (Upstash) → Turnstile (probabilistic) → Abuse Decision
 | Messaging | **FAIL CLOSED** | send-message API denies when engine degraded |
 | Reports | **FAIL CLOSED** | Deny submission if engine unavailable |
 | Disputes | **FAIL CLOSED** | Deny creation if engine unavailable |
-| Rate limiting (Upstash) | **FAIL CLOSED** in production | deny when Redis unreachable |
+| Rate limiting (Upstash) | **ENFORCE IN-MEMORY** when Redis unset/unreachable | still limit per instance; never Firestore `rateLimits` |
 | Graph system | **FAIL OPEN** | score=0 if unavailable (observational only) |
 | Audit logging | **FAIL OPEN** | best-effort, non-blocking |
 

@@ -26,127 +26,68 @@ export type { FrictionInput };
 
 const BLOCKED_KEY_CACHE = new Map<string, number>();
 
+/**
+ * Compatibility with `/api/sky-ai/status` (#49). Unset/degraded/circuit-open
+ * Upstash always uses in-memory now — never Firestore — so `fallback` is a no-op.
+ */
 export type RateLimitOptions = {
-  /**
-   * When Upstash is missing or the circuit is open, skip the Firestore GET+SET.
-   * Use for cheap public probes such as `/api/sky-ai/status`.
-   */
   fallback?: "firestore" | "memory";
 };
 
-function takeMemorySlot(
-  key: string,
-  maxRequests: number,
-  windowMs: number,
-  now: number
-): RateLimitResult {
-  const freshEntry = store.get(key);
-  if (!freshEntry || now > freshEntry.resetAt) {
+function logRateLimitHit(key: string, maxRequests: number, windowMs: number, suffix = "") {
+  const now = Date.now();
+  const lastLogged = BLOCKED_KEY_CACHE.get(key) || 0;
+  if (now - lastLogged > 60_000) {
+    BLOCKED_KEY_CACHE.set(key, now);
+    logSecurityWarning("rate_limit_exceeded", `Rate limit hit for ${key}${suffix}`, {
+      metadata: { key, maxRequests, windowMs },
+    });
+  }
+}
+
+/**
+ * Per-instance in-memory limiter.
+ * Used when Upstash is unset, misconfigured, unreachable, or the circuit is open.
+ * Intentionally does not touch Firestore — rateLimits writes amplify cost.
+ */
+function rateLimitMemory(key: string, maxRequests: number, windowMs: number): RateLimitResult {
+  const now = Date.now();
+  const entry = store.get(key);
+
+  if (!entry || now > entry.resetAt) {
     store.set(key, { count: 1, resetAt: now + windowMs });
-    return { allowed: true, remaining: maxRequests - 1, limit: maxRequests };
+    return { allowed: true, remaining: Math.max(0, maxRequests - 1), limit: maxRequests };
   }
 
-  freshEntry.count++;
-  if (freshEntry.count > maxRequests) {
-    const lastLogged = BLOCKED_KEY_CACHE.get(key) || 0;
-    if (now - lastLogged > 60_000) {
-      BLOCKED_KEY_CACHE.set(key, now);
-      logSecurityWarning("rate_limit_exceeded", `Rate limit hit for ${key} (in-memory fallback)`, {
-        metadata: { key, maxRequests, windowMs },
-      });
-    }
+  if (entry.count >= maxRequests) {
+    logRateLimitHit(key, maxRequests, windowMs, " (in-memory fallback)");
     return { allowed: false, remaining: 0, limit: maxRequests };
   }
-  return { allowed: true, remaining: maxRequests - freshEntry.count, limit: maxRequests };
+
+  entry.count += 1;
+  return { allowed: true, remaining: maxRequests - entry.count, limit: maxRequests };
 }
 
 export async function rateLimit(
   key: string,
   maxRequests: number,
   windowMs: number,
-  options?: RateLimitOptions
+  _options?: RateLimitOptions
 ): Promise<RateLimitResult> {
-  const now = Date.now();
-  const memoryFallback = options?.fallback === "memory";
-
   // Layer 1: Upstash Redis (distributed, production)
   if (isUpstashEnabled()) {
     const result = await rateLimitUpstash(key, maxRequests, windowMs);
-    if (result.degraded) {
-      if (memoryFallback) {
-        return takeMemorySlot(key, maxRequests, windowMs, now);
-      }
-      // Redis misconfigured or unreachable — fall through to Firestore/in-memory.
-    } else if (!result.allowed) {
-      const lastLogged = BLOCKED_KEY_CACHE.get(key) || 0;
-      if (now - lastLogged > 60_000) {
-        BLOCKED_KEY_CACHE.set(key, now);
-        logSecurityWarning("rate_limit_exceeded", `Rate limit hit for ${key}`, {
-          metadata: { key, maxRequests, windowMs },
-        });
+    if (!result.degraded) {
+      if (!result.allowed) {
+        logRateLimitHit(key, maxRequests, windowMs);
       }
       return result;
-    } else {
-      store.set(key, { count: 1, resetAt: now + windowMs });
-      return result;
     }
-  } else if (memoryFallback) {
-    return takeMemorySlot(key, maxRequests, windowMs, now);
+    // Redis unreachable/error/circuit open — skip Firestore. Enforce in-memory only.
   }
 
-  // Layer 2: Fast in-memory check (dev / fallback)
-  const memEntry = store.get(key);
-  if (memEntry && now > memEntry.resetAt) {
-    store.delete(key);
-  } else if (memEntry && memEntry.count >= maxRequests) {
-    const lastLogged = BLOCKED_KEY_CACHE.get(key) || 0;
-    if (now - lastLogged > 60_000) {
-      BLOCKED_KEY_CACHE.set(key, now);
-      logSecurityWarning("rate_limit_exceeded", `Rate limit hit for ${key}`, {
-        metadata: { key, maxRequests, windowMs },
-      });
-    }
-    return { allowed: false, remaining: 0, limit: maxRequests };
-  }
-
-  // Layer 3: Firestore-backed check (cross-instance fallback when no Upstash)
-  // Ops: this is a billed read+write on every limited request per instance.
-  // Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN in Vercel (see .env.template).
-  try {
-    const { getAdminDb, isAdminInitialized } = await import("./firebase-admin");
-    if (isAdminInitialized()) {
-      const db = getAdminDb();
-      const fsKey = key.replace(/[^a-zA-Z0-9_-]/g, "_");
-      const ref = db.collection("rateLimits").doc(fsKey);
-      const snap = await ref.get();
-      let data = snap.data();
-      let count = 1;
-      let resetAt = now + windowMs;
-
-      if (data && now < data.resetAt?.toMillis?.()) {
-        count = (data.count || 0) + 1;
-        resetAt = data.resetAt.toMillis();
-        if (count > maxRequests) {
-          store.set(key, { count, resetAt });
-          const lastLogged = BLOCKED_KEY_CACHE.get(key) || 0;
-          if (now - lastLogged > 60_000) {
-            BLOCKED_KEY_CACHE.set(key, now);
-            logSecurityWarning("rate_limit_exceeded", `Rate limit hit for ${key}`, {
-              metadata: { key, maxRequests, windowMs },
-            });
-          }
-          return { allowed: false, remaining: 0, limit: maxRequests };
-        }
-      }
-
-      await ref.set({ count, resetAt: new Date(resetAt), key }, { merge: true });
-      store.set(key, { count, resetAt });
-      return { allowed: true, remaining: maxRequests - count, limit: maxRequests };
-    }
-  } catch {}
-
-  // Layer 4: In-memory fallback (used when Upstash + Firestore both unavailable)
-  return takeMemorySlot(key, maxRequests, windowMs, now);
+  // Layer 2: in-memory only (dev, missing Upstash, degraded Upstash, or circuit open)
+  return rateLimitMemory(key, maxRequests, windowMs);
 }
 
 /**
@@ -197,9 +138,10 @@ export async function frictionLimit(
 export { shouldSkipCaptcha, shouldWaste };
 
 // Clean up stale in-memory entries every 5 minutes
-setInterval(() => {
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of store) {
     if (now > entry.resetAt) store.delete(key);
   }
 }, 5 * 60 * 1000);
+cleanupTimer.unref?.();
