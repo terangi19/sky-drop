@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseIpFromRequest } from "../../../lib/geo-check";
 import { rateLimit } from "../../../lib/rate-limit";
-import { checkOpenAiHealth, openAiIssueHint } from "../../../lib/openai-health";
+import { checkOpenAiHealth } from "../../../lib/openai-health";
 
 /** Confirms server env + whether OpenAI accepts requests (never returns the key). */
 export async function GET(req: NextRequest) {
@@ -15,8 +15,5 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     openaiConfigured: health.configured,
     openaiReady: health.ready,
-    openaiIssue: health.issue ?? null,
-    hint: health.ready ? null : openAiIssueHint(health.issue),
-    model: health.model,
   });
 }

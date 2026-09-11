@@ -140,14 +140,13 @@ async function submitKycDirect(user: User, photoFile: File): Promise<void> {
   const ts = Date.now();
   const ext = photoFile.name.split(".").pop() || "jpg";
 
-  const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
+  const { ref, uploadBytes } = await import("firebase/storage");
   const { storage } = await import("./firebase");
-  const photoRef = ref(storage, `kyc/${user.uid}/${ts}_photo.${ext}`);
+  const objectPath = `kyc/${user.uid}/${ts}_photo.${ext}`;
+  const photoRef = ref(storage, objectPath);
 
-  let photoUrl: string;
   try {
     await uploadBytes(photoRef, photoFile);
-    photoUrl = await getDownloadURL(photoRef);
   } catch (e) {
     throw new KycSubmitError(kycSubmitErrorMessage(e, "storage"), "storage", firebaseErrorCode(e));
   }
@@ -159,8 +158,7 @@ async function submitKycDirect(user: User, photoFile: File): Promise<void> {
   try {
     if (kycSnap.exists()) {
       await updateDoc(kycRef, {
-        idImageUrl: photoUrl,
-        selfieImageUrl: photoUrl,
+        storagePath: objectPath,
         status: "pending",
         submittedAt,
       });
@@ -168,8 +166,7 @@ async function submitKycDirect(user: User, photoFile: File): Promise<void> {
       await setDoc(kycRef, {
         uid: user.uid,
         email,
-        idImageUrl: photoUrl,
-        selfieImageUrl: photoUrl,
+        storagePath: objectPath,
         status: "pending",
         submittedAt,
       });

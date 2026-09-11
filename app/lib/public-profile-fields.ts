@@ -76,6 +76,12 @@ export async function resolvePublicProfileUid(
   const direct = await db.collection("profiles").doc(normalized).get();
   if (direct.exists) return direct.id;
 
+  // Public lookup is username or UID only. Never resolve by email — that is
+  // an account-enumeration oracle for anyone who can guess an address.
+  if (normalized.includes("@")) {
+    return "";
+  }
+
   const unameSnap = await db.collection("usernames").doc(lower).get();
   if (unameSnap.exists && unameSnap.data()?.uid) {
     return String(unameSnap.data()!.uid);
@@ -96,13 +102,6 @@ export async function resolvePublicProfileUid(
       .get();
     if (!snap.empty) return snap.docs[0].id;
   }
-
-  const emailSnap = await db
-    .collection("profiles")
-    .where("email", "==", normalized)
-    .limit(1)
-    .get();
-  if (!emailSnap.empty) return emailSnap.docs[0].id;
 
   const listingSnap = await db
     .collection("listings")

@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid recipient email" }, { status: 400 });
     }
 
-    if (to !== decoded.email && !isAdminEmail(decoded.email)) {
+    if (!isAdminEmail(decoded.email)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

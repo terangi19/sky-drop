@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
   } catch (e: unknown) {
     console.error("[upload-listing-image]", e);
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Upload failed" },
+      { error: "Upload failed" },
       { status: 500 }
     );
   }

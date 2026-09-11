@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import {
@@ -10,15 +9,12 @@ import {
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
 import { notifyKycSubmittedToAdmins } from "../../lib/admin-alerts";
+import { getFirebaseStorageBucket } from "../../lib/firebase-storage-config";
 
 export const runtime = "nodejs";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
-
-function storageDownloadUrl(bucketName: string, objectPath: string, token: string): string {
-  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(objectPath)}?alt=media&token=${token}`;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -79,20 +75,16 @@ export async function POST(req: NextRequest) {
     const ext = contentType.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
     const objectPath = `kyc/${decoded.uid}/${Date.now()}_photo.${ext}`;
     const buffer = Buffer.from(await photo.arrayBuffer());
-    const downloadToken = randomUUID();
 
-    const bucket = getAdminStorage().bucket();
+    const bucket = getAdminStorage().bucket(getFirebaseStorageBucket());
     await bucket.file(objectPath).save(buffer, {
       resumable: false,
       metadata: {
         contentType,
-        metadata: {
-          firebaseStorageDownloadTokens: downloadToken,
-        },
+        cacheControl: "private, max-age=0, no-store",
       },
     });
 
-    const photoUrl = storageDownloadUrl(bucket.name, objectPath, downloadToken);
     const now = FieldValue.serverTimestamp();
     const db = getAdminDb();
 
@@ -100,8 +92,9 @@ export async function POST(req: NextRequest) {
       {
         uid: decoded.uid,
         email: decoded.email,
-        idImageUrl: photoUrl,
-        selfieImageUrl: photoUrl,
+        storagePath: objectPath,
+        idImageUrl: FieldValue.delete(),
+        selfieImageUrl: FieldValue.delete(),
         status: "pending",
         submittedAt: now,
       },
@@ -126,7 +119,7 @@ export async function POST(req: NextRequest) {
       username: typeof profileData?.username === "string" ? profileData.username : undefined,
     });
 
-    return NextResponse.json({ success: true, photoUrl });
+    return NextResponse.json({ success: true });
   } catch (e) {
     console.error("[submit-kyc]", e);
     return NextResponse.json({ error: "Upload failed. Try again." }, { status: 500 });

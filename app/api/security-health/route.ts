@@ -7,19 +7,16 @@ import { AdminAuthError, requireAdminFromRequest } from "../../lib/admin-request
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const integrity = await runIntegrityCheck();
-
   try {
     await requireAdminFromRequest(req);
   } catch (err) {
     if (err instanceof AdminAuthError) {
-      return NextResponse.json({
-        ok: integrity.overall !== "UNSAFE",
-        status: integrity.overall || "HEALTHY",
-      });
+      return NextResponse.json({ ok: true });
     }
     throw err;
   }
+
+  const integrity = await runIntegrityCheck();
 
   const metrics = getMetrics();
 

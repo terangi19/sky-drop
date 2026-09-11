@@ -77,8 +77,7 @@ export async function ensureProfileForAuthenticatedUser(identity: AuthProfileIde
       displayName: String(existingProfile?.displayName || ""),
       phone: String(existingProfile?.phone || ""),
       phoneVerified: existingProfile?.phoneVerified === true,
-      emailVerified:
-        identity.emailVerified === true || existingProfile?.emailVerified === true,
+      emailVerified: identity.emailVerified === true,
       referralCode:
         String(existingProfile?.referralCode || "") ||
         Math.random().toString(36).slice(2, 8).toUpperCase(),

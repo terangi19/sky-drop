@@ -65,6 +65,7 @@ test.describe("Security — Authentication & Authorization", () => {
       { method: "POST", path: "/api/mark-messages-read", data: { messageIds: ["test"] } },
       { method: "POST", path: "/api/update-purchase-status", data: { purchaseId: "test", status: "delivered" } },
       { method: "POST", path: "/api/claim-verified-phone", data: { phone: "0211111111" } },
+      { method: "POST", path: "/api/clear-verified-phone", data: {} },
       { method: "POST", path: "/api/submit-kyc", data: {} },
       { method: "POST", path: "/api/checkout-message", data: { listingId: "test", text: "hello" } },
       { method: "POST", path: "/api/arrange-purchase", data: { listingId: "test" } },
@@ -76,6 +77,8 @@ test.describe("Security — Authentication & Authorization", () => {
       { method: "POST", path: "/api/submit-job-application", data: { listingId: "test" } },
       { method: "POST", path: "/api/create-trade-post", data: { title: "test" } },
       { method: "POST", path: "/api/send-email", data: { to: "test@test.com", subject: "test", body: "test" } },
+      { method: "POST", path: "/api/send-notification-email", data: { to: "test@test.com", subject: "test", html: "<p>x</p>" } },
+      { method: "POST", path: "/api/send-push", data: { targetEmail: "test@test.com", title: "t", message: "m" } },
     ];
 
     for (const route of protectedRoutes) {
@@ -103,7 +106,52 @@ test.describe("Security — Authentication & Authorization", () => {
       expect(json.recentDecisions).toBeUndefined();
       expect(json.recentSecurityEvents).toBeUndefined();
       expect(json.metrics).toBeUndefined();
+      expect(json.integrity).toBeUndefined();
+      expect(json.status).toBeUndefined();
       expect(typeof json.ok).toBe("boolean");
+    });
+
+    test("GET /api/sky-ai/status does not leak model or issue details", async ({ request }) => {
+      const res = await apiGet(request, "/api/sky-ai/status");
+      expect([200, 429]).toContain(res.status());
+      if (res.status() !== 200) return;
+      const json = await res.json();
+      expect(json.openaiIssue).toBeUndefined();
+      expect(json.hint).toBeUndefined();
+      expect(json.model).toBeUndefined();
+      expect(json).not.toHaveProperty("apiKey");
+    });
+
+    test("GET /api/cron/expire-auctions without secret is unauthorized", async ({ request }) => {
+      const res = await apiGet(request, "/api/cron/expire-auctions");
+      expect([401, 500]).toContain(res.status());
+      const json = await res.json().catch(() => ({}));
+      expect(JSON.stringify(json)).not.toMatch(/sk-|AIza|BEGIN PRIVATE/);
+    });
+  });
+
+  test.describe("AI endpoints require auth or reject guests before model spend", () => {
+    const aiRoutes = [
+      "/api/awhina-intent",
+      "/api/awhina-vision",
+      "/api/ai-price-suggestion",
+      "/api/ai-search-intent",
+      "/api/import-listing",
+    ];
+
+    for (const path of aiRoutes) {
+      test(`POST ${path} without auth is 401`, async ({ request }) => {
+        const res = await apiPost(request, path, { message: "hello", query: "hello", url: "https://example.test" });
+        expect([401, 403, 429]).toContain(res.status());
+      });
+    }
+
+    test("POST /api/sky-ai photo analysis without auth is 401", async ({ request }) => {
+      const res = await apiPost(request, "/api/sky-ai", {
+        message: "",
+        images: ["data:image/png;base64,aaaa"],
+      });
+      expect([401, 403, 429]).toContain(res.status());
     });
   });
 
@@ -115,6 +163,12 @@ test.describe("Security — Authentication & Authorization", () => {
       { method: "GET", path: "/api/admin/listings" },
       { method: "GET", path: "/api/admin/analytics" },
       { method: "GET", path: "/api/admin/activity" },
+      { method: "GET", path: "/api/admin/settings" },
+      { method: "GET", path: "/api/admin/kyc-list" },
+      { method: "POST", path: "/api/admin/self-approve-kyc", data: {} },
+      { method: "GET", path: "/api/seed" },
+      { method: "POST", path: "/api/create-test-listing", data: {} },
+      { method: "GET", path: "/api/send-test-email" },
     ];
 
     for (const route of adminRoutes) {

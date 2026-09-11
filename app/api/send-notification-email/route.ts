@@ -45,7 +45,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid recipient email" }, { status: 400 });
     }
 
-    if (to !== decodedToken.email && !isAdminEmail(decodedToken.email)) {
+    if (typeof html !== "string" || html.length > 80_000) {
+      return NextResponse.json({ error: "Invalid email body" }, { status: 400 });
+    }
+
+    if (/<script[\s>]|javascript:/i.test(html)) {
+      return NextResponse.json({ error: "Invalid email body" }, { status: 400 });
+    }
+
+    const recipient = String(to).trim().toLowerCase();
+    const callerEmail = (decodedToken.email || "").toLowerCase();
+    if (recipient !== callerEmail && !isAdminEmail(decodedToken.email)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

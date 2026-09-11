@@ -8,11 +8,25 @@ const PROFILE_DATE_FIELDS = [
   "verifiedAt",
 ] as const;
 
+const PROFILE_SECRET_FIELDS = [
+  "idImageUrl",
+  "selfieImageUrl",
+  "kycDocumentUrl",
+  "storagePath",
+  "bankAccountNumber",
+  "bankAccountName",
+  "bankReference",
+  "stripeCustomerId",
+] as const;
+
 /** Convert Firestore timestamp fields to ISO strings for JSON API responses. */
 export function serializeProfileForClient(
   data: Record<string, unknown>
 ): Record<string, unknown> {
   const profile = { ...data };
+  for (const key of PROFILE_SECRET_FIELDS) {
+    delete profile[key];
+  }
   for (const key of PROFILE_DATE_FIELDS) {
     const value = profile[key];
     if (value == null) continue;

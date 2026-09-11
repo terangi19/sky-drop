@@ -28,7 +28,7 @@
     "test:evidence-pipeline": "vitest run app/lib/awhina-evidence-pipeline-regression.test.ts app/lib/awhina-bmw-extraction-regression.test.ts app/lib/awhina-new-listing-contamination.test.ts app/lib/awhina-seller-evidence.test.ts",
     "test:listing-session-ux": "vitest run app/lib/awhina-listing-session-ux.test.ts app/lib/awhina-new-listing-contamination.test.ts app/lib/awhina-cross-listing-contamination.test.ts",
     "test:awhina:live:compare": "cross-env SKY_AI_COMPARE_PRODUCTION=1 vitest run app/lib/sky-ai-live-eval.test.ts",
-    "test:rules": "vitest run tests/firestore-rules.test.ts tests/storage-rules.test.ts tests/security-launch-gates.test.ts",
+    "test:rules": "vitest run tests/firestore-rules.test.ts tests/storage-rules.test.ts tests/security-launch-gates.test.ts app/lib/profile-security.test.ts app/lib/kyc-storage.server.test.ts",
     "test:rules:emulator": "firebase emulators:exec --only firestore,storage \"npm run test:rules\"",
     "git:sync": "powershell -ExecutionPolicy Bypass -File scripts/git-sync.ps1"
   },

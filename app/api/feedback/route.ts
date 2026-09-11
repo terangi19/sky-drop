@@ -26,6 +26,12 @@ export async function POST(req: NextRequest) {
     if (!type || !message) {
       return NextResponse.json({ error: "Type and message are required" }, { status: 400 });
     }
+    if (typeof message !== "string" || message.length > 4000) {
+      return NextResponse.json({ error: "Message too long" }, { status: 400 });
+    }
+    if (typeof screenshot === "string" && screenshot.length > 200_000) {
+      return NextResponse.json({ error: "Screenshot too large" }, { status: 400 });
+    }
 
     const authHeader = req.headers.get("authorization");
     let userId = null;

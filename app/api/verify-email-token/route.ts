@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "../../lib/firebase-admin";
 import { verifiedFlagAfterUpdate } from "../../lib/seller-verified";
+import { parseIpFromRequest } from "../../lib/geo-check";
+import { rateLimit } from "../../lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = parseIpFromRequest(req.headers);
+    const { allowed } = await rateLimit(`verify-email-token:${ip}`, 10, 60_000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const { token } = await req.json();
 
     if (!token) {

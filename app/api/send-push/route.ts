@@ -48,7 +48,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    if (targetEmail !== decoded.email && !isAdminEmail(decoded.email)) {
+    const target = String(targetEmail).trim().toLowerCase();
+    const callerEmail = (decoded.email || "").toLowerCase();
+    if (target !== callerEmail && !isAdminEmail(decoded.email)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -65,7 +67,7 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getFirestore();
-    const tokensSnap = await db.collection("fcmTokens").where("email", "==", targetEmail).get();
+        const tokensSnap = await db.collection("fcmTokens").where("email", "==", targetEmail).get();
     const tokens: string[] = [];
 
     tokensSnap.forEach((doc) => {
