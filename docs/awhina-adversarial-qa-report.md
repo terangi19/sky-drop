@@ -890,6 +890,8 @@ Class 4 production (generic — no Wave 5 string hardcoding):
 - Dual-rate hire titles keep identity, not leftover `180 a day or 750 a week`.
 - Bond `$` does not beat weekly `pw`. Hire-or-sell last-wins stays hire. Defect phrases like `scratched hull` harvest as negative condition, not a whole-message extras dump.
 
+**Wave 5 vitest:** `48 passed | 20 expected fail (68)` — **Class 4 Rentals PASS** (all rental corpus cases live `it()`, including hire Hiace/Jimny/Navara, dual-rate mixer/cherry picker, NPL room, Hastings 5bed, tinnie scratch, mixer multi-turn). Remaining expected-fail are Wanted/identity/contradiction. Overall still **NOT SAFE TO LAUNCH**. PR #28 HOLD.
+
 ## Still FAIL (expected-fail, not weakened)
 
 Priority remaining matches Breaker:

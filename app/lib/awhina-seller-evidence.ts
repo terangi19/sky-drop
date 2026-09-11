@@ -697,8 +697,17 @@ function classifyEvidenceFragment(
     const isolatedPart = text.match(
       /\b((?:dent|crack|scratch|smash)(?:ed)?(?:\s+on)?(?:\s+the)?\s+[a-z][\w'-]*)\b/i
     );
-    if (isolatedPart && text.split(/\s+/).length > 5) {
-      pushUnique(items, { kind: "conditionDetail", text: isolatedPart[1] });
+    // Full hire/sale sentences must not dump as one extras blob; isolate defects only.
+    if (
+      isolatedPart &&
+      text.split(/\s+/).length > 5 &&
+      /\b(?:hir(?:e|ing)|rent(?:ing)?|not\s+for\s+sale|a\s+day|per\s+day)\b/i.test(text)
+    ) {
+      for (const hit of text.matchAll(
+        /\b((?:dent|crack|scratch|smash)(?:ed)?(?:\s+on)?(?:\s+the)?\s+[a-z][\w'-]*)\b/gi
+      )) {
+        pushUnique(items, { kind: "conditionDetail", text: hit[1] });
+      }
       return items;
     }
     const atoms = splitJammedConditionAtoms(text);

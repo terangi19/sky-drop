@@ -1252,27 +1252,17 @@ function assertCase(c: CorpusCase) {
  * Converted genuine passes stay `it()`. Remaining corpus IDs below stay FAIL.
  */
 const KNOWN_FAILURE_IDS = new Set<string>([
-  "wanted-wtb-canon-nelson-no-scams",
-  "wanted-iso-camping-fridge-invercargill",
   "wanted-drone-around-vs-max-rotorua",
-  "wanted-ebike-not-selling-mine-npl",
-  "wanted-long-marshall-amp-budget-walk",
-  "wanted-iso-chainsaw-westie-extra-chain",
-  "wanted-iso-highchair-whangarei-serious-only",
-  "wanted-around-vs-paid-history-lens",
   "multi8-identity-change-undo-rechange-s22",
   "multi6-switch-lite-oled-undo-rechange",
   "multi7-civic-type-r-accord-undo",
   "multi8-pending-slot-must-not-eat-a7iv",
   "multi4-followup-crack-must-not-wipe-s23",
-  "multi6-wanted-canon-budget-battery",
   "multi5-wanted-iso-fridge-then-not-a-sale",
   "physical-s23-ultra-contradiction-one-shot",
   "physical-storage-colour-flipflops-s23",
-  "physical-last-confirmed-storage-wins-iphone14",
   "physical-series-s-1tb-colour-flip",
   "physical-air-max-90-infrared-not-price",
-  "vehicle-sti-50k-slang-asking",
 ]);
 
 function registerCorpus(name: string, cases: CorpusCase[]) {
@@ -1338,7 +1328,7 @@ describe("adversarial NZ wave5 — price/budget traps (parseListingPriceFromMess
     expect(parseListingPriceFromMessage("selling google pixel 8 128gb 620 hastings")).not.toBe("8");
   });
 
-  it.fails('FAIL: "gopro hero 11 280 palmy" → 280 (11 is model)', () => {
+  it('"gopro hero 11 280 palmy" → 280 (11 is model)', () => {
     expect(parseListingPriceFromMessage("selling gopro hero 11 280 palmy")).toBe("280");
     expect(parseListingPriceFromMessage("selling gopro hero 11 280 palmy")).not.toBe("11");
   });
@@ -1348,7 +1338,7 @@ describe("adversarial NZ wave5 — price/budget traps (parseListingPriceFromMess
     expect(parseListingPriceFromMessage("air max 90 infrared size 9 95 greymouth")).not.toBe("90");
   });
 
-  it.fails('FAIL: "jordan 1 chicago size 11 140 wellie" → 140 (11 is size)', () => {
+  it('"jordan 1 chicago size 11 140 wellie" → 140 (11 is size)', () => {
     expect(parseListingPriceFromMessage("jordan 1 chicago size 11 140 wellie")).toBe("140");
     expect(parseListingPriceFromMessage("jordan 1 chicago size 11 140 wellie")).not.toBe("11");
   });
@@ -1438,7 +1428,7 @@ describe("adversarial NZ wave5 — input normalize NZ places", () => {
 });
 
 describe("adversarial NZ wave5 — semantic fact model", () => {
-  it.fails("FAIL: no scams / serious only / no timewasters are instructions on a WTB canon", () => {
+  it("no scams / serious only / no timewasters are instructions on a WTB canon", () => {
     const model = parseSellerMessageToFactModel(
       "WTB canon 5d mark iii under 900 nelson no timewasters serious only no scams",
       { title: "Canon 5D Mark III", listingType: "wanted" }
@@ -1449,7 +1439,7 @@ describe("adversarial NZ wave5 — semantic fact model", () => {
     );
   });
 
-  it.fails("FAIL: dont put my max / just say wanted marshall are instructions not public facts", () => {
+  it("dont put my max / just say wanted marshall are instructions not public facts", () => {
     const model = parseSellerMessageToFactModel(LONG_WANTED_AMP, {
       title: "Marshall DSL40",
       listingType: "wanted",

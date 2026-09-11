@@ -675,6 +675,7 @@ export function cleanRentalItemName(raw: string): string {
   );
   s = s.replace(/\bbond\b.*$/i, " ");
   s = s.replace(NZ_PLACE_TAIL_RE, " ");
+  s = s.replace(/\s+/g, " ").trim();
   s = s.replace(/^(?:for|out|my|a|an|the|or|not)\s+/i, "");
   s = s.replace(/\s+(?:for|out|my|a|an|the|or|not)$/i, "");
   s = s.replace(/\s+/g, " ").trim();
