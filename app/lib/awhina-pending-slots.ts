@@ -1379,8 +1379,8 @@ export function extractCompoundListingFacts(
       notes.push(`price $${budget}`);
     }
   }
+  const weeklyRate = residual.match(/\b([\d,]+)\s*(?:a\s+week|per\s+week|\/\s*week|\bpw\b)\b/i);
   const dailyRate = residual.match(/\b([\d,]+)\s*(?:a\s+day|per\s+day|\/\s*day)\b/i);
-  const weeklyRate = residual.match(/\b([\d,]+)\s*(?:a\s+week|per\s+week|\/\s*week|pw)\b/i);
   const calloutRate = residual.match(/\bcallout\s+\$?\s*([\d,]+)\b/i);
   const rentalLike =
     domain === "rental" ||
@@ -1392,7 +1392,11 @@ export function extractCompoundListingFacts(
   }
   if (weeklyRate && rentalLike) {
     partial.rentalPriceWeekly = weeklyRate[1].replace(/,/g, "");
-    if (!partial.price && partial.rentalPriceDaily) {
+    const keepDaily = String(partial.rentalPriceDaily || base.rentalPriceDaily || "").replace(/,/g, "");
+    if (keepDaily && keepDaily !== partial.rentalPriceWeekly) {
+      partial.rentalPriceDaily = keepDaily;
+      partial.price = keepDaily;
+    } else if (!partial.price && partial.rentalPriceDaily) {
       partial.price = partial.rentalPriceDaily;
     }
   }
@@ -1429,7 +1433,7 @@ export function extractCompoundListingFacts(
     filledSlots.push("condition");
     notes.push("engine knocks");
   }
-  const bondHit = residual.match(/\bbond\s+\$?\s*([\d,]+)\b/i);
+  const bondHit = residual.match(/\bbond\s+\$?\s*([\d,]+)(?!\s+weeks?)\b/i);
   if (
     bondHit &&
     (domain === "rental" ||
@@ -1737,7 +1741,7 @@ export function extractCompoundListingFacts(
       !isNonConfirmedAskingPrice(message, String(Math.round(n)))
     ) {
       const weeklyLike =
-        /\b(?:\/\s*week|a\s+week|per\s+week|weekly(?:\s+rent)?)\b/i.test(message);
+        /\b(?:\/\s*week|a\s+week|per\s+week|weekly(?:\s+rent)?|\bpw\b)\b/i.test(message);
       const dailyLike =
         /\b(?:\/\s*day|a\s+day|per\s+day|\/day)\b/i.test(message);
       const rateLike = domain === "rental" || weeklyLike || dailyLike;
@@ -1750,6 +1754,14 @@ export function extractCompoundListingFacts(
         } else if (weeklyLike) {
           partial.rentalPriceWeekly = String(Math.round(n));
           // Do not copy weekly onto price — protected normalize treats price as daily.
+          const keepDaily = String(partial.rentalPriceDaily || base.rentalPriceDaily || "").replace(
+            /,/g,
+            ""
+          );
+          if (keepDaily && keepDaily !== String(Math.round(n))) {
+            partial.rentalPriceDaily = keepDaily;
+            partial.price = keepDaily;
+          }
         } else {
           partial.rentalPriceDaily = String(Math.round(n));
           partial.price = String(Math.round(n));
@@ -1781,8 +1793,21 @@ export function extractCompoundListingFacts(
       n <= 16 &&
       /\b(?:iphone|pixel|galaxy|it'?s|its)\b/i.test(message);
     if (Number.isFinite(n) && n >= 1 && !storageCap && !phoneGen) {
-      partial.price = classifiedAsking.confirmed;
-      if (!filledSlots.includes("price")) filledSlots.push("price");
+      const weeklyOnly =
+        /\b(?:a\s+week|per\s+week|\/\s*week|\bpw\b|weekly)\b/i.test(message) &&
+        !/\b(?:a\s+day|per\s+day|\/\s*day)\b/i.test(message);
+      const existingDaily = String(partial.rentalPriceDaily || base.rentalPriceDaily || "").replace(
+        /,/g,
+        ""
+      );
+      if (weeklyOnly && existingDaily && existingDaily !== classifiedAsking.confirmed) {
+        partial.rentalPriceWeekly = classifiedAsking.confirmed;
+        partial.rentalPriceDaily = existingDaily;
+        partial.price = existingDaily;
+      } else {
+        partial.price = classifiedAsking.confirmed;
+        if (!filledSlots.includes("price")) filledSlots.push("price");
+      }
       notes.push(`$${classifiedAsking.confirmed}`);
     }
   }

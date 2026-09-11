@@ -419,6 +419,23 @@ function applyPendingSlotFill(opts: {
   if (baseHydrated.vehicleYear && !partial.vehicleYear) {
     merged.vehicleYear = baseHydrated.vehicleYear;
   }
+  if (
+    String(merged.listingType || baseHydrated.listingType || "").toLowerCase() === "rental" &&
+    String(merged.rentalSubType || baseHydrated.rentalSubType || "").toLowerCase() !== "property"
+  ) {
+    const baseDaily = String(baseHydrated.rentalPriceDaily || "").replace(/,/g, "");
+    const newWeekly = String(partial.rentalPriceWeekly || "").replace(/,/g, "");
+    const weeklyOnlyFollowUp =
+      /\b(?:a\s+week|per\s+week|\/\s*week|\bpw\b|weekly)\b/i.test(message) &&
+      !/\b(?:a\s+day|per\s+day|\/\s*day)\b/i.test(message);
+    if (baseDaily && newWeekly && weeklyOnlyFollowUp && baseDaily !== newWeekly) {
+      merged.rentalPriceDaily = baseDaily;
+      merged.rentalPriceWeekly = newWeekly;
+      merged.price = baseDaily;
+    } else if (baseHydrated.rentalPriceDaily && !partial.rentalPriceDaily) {
+      merged.rentalPriceDaily = baseHydrated.rentalPriceDaily;
+    }
+  }
   if (baseHydrated.vehicleOdometer && !partial.vehicleOdometer) {
     merged.vehicleOdometer = baseHydrated.vehicleOdometer;
   }

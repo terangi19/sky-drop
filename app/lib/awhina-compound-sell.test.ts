@@ -150,6 +150,35 @@ describe("compound sell turns — generalized domains", () => {
     ).toBe(true);
   });
 
+  it("rental: adding weekly keeps daily + harvests bond/location", () => {
+    const id = "compound-rental-dual-rate";
+    wipe(id);
+    const t1 = processCanonicalAwhina("renting trailer 50 a day manukau not for sale", {
+      conversationId: id,
+      pathname: "/post/ai",
+    });
+    expect(t1.listingFill?.listingType).toBe("rental");
+    expect(String(t1.listingFill?.rentalPriceDaily || t1.listingFill?.price || "")).toBe("50");
+
+    let prev = t1;
+    for (const msg of ["actually 40 a day", "nah 45 a day", "also 200 a week", "bond 100", "pickup westie"]) {
+      prev = processCanonicalAwhina(msg, {
+        conversationId: id,
+        pathname: "/post/ai",
+        listingContext: prev.listingFill as never,
+        clientTask: prev.sessionState?.task,
+      });
+    }
+    expect(prev.listingFill?.listingType).toBe("rental");
+    expect(String(prev.listingFill?.rentalSubType || "")).toBe("equipment");
+    expect(String(prev.listingFill?.rentalPriceDaily || "")).toBe("45");
+    expect(String(prev.listingFill?.rentalPriceWeekly || "")).toBe("200");
+    expect(String(prev.listingFill?.rentalDeposit || "")).toBe("100");
+    expect(String(prev.listingFill?.location || "")).toMatch(/west|auckland|manukau/i);
+    expect(String(prev.listingFill?.title || "")).toMatch(/trailer/i);
+    expect(String(prev.listingFill?.description || "")).not.toMatch(/\bfor sale\b/i);
+  });
+
   it("service: 50 per lawn Auckland make the description better", () => {
     const id = "compound-service-e2e";
     wipe(id);

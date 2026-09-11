@@ -245,7 +245,9 @@ function priceClassFromLocalCues(
     return "excluded";
   }
   if (/\b(?:under|below|up\s+to|max(?:imum)?|budget)\s*$/i.test(left)) return "skip";
-  if (/\bbond\s*\$?\s*$/i.test(left)) return "skip";
+  // Bond / deposit cash is never the asking / weekly rent.
+  if (/\bbond\s*\$?\s*$/i.test(left)) return "excluded";
+  if (/^\s*bond\b/i.test(after)) return "excluded";
   if (/\b(?:lot|set)\s+of\s*$/i.test(left)) return "skip";
   if (/\b(?:starting\s+)?bid\s*$/i.test(left)) return "skip";
   if (/\bbuy\s+now\s*$/i.test(left)) return "confirmed";
@@ -262,6 +264,10 @@ function priceClassFromLocalCues(
     return "confirmed";
   }
   if (/^\s*(?:a|an|per|\/)\s*(?:day|week|hour|hr|lawn|visit|job|night|section)\b/i.test(after)) {
+    return "confirmed";
+  }
+  // NZ rental shorthand: 280pw / 420 p/w is weekly rent, not a missing ask.
+  if (/^\s*(?:pw|p\/w)\b/i.test(after)) {
     return "confirmed";
   }
   if (
@@ -372,6 +378,10 @@ export function classifySellerPrices(message: string): SellerPriceModel {
     if (isNotPriceSpan(before, after, n)) continue;
     if (/\b(?:under|below|up\s+to|max(?:imum)?|budget)\s*$/i.test(before)) continue;
     if (/\b(?:bond|deposit)\s*$/i.test(before) && /\bweeks?\b/i.test(after)) continue;
+    if (/\b(?:bond|deposit)\s*$/i.test(before) && !/\bweeks?\b/i.test(after)) {
+      mentions.push({ amount, klass: "excluded", raw: match[0] });
+      continue;
+    }
     if (/^\s*(?:gb|tb|bed|bath|inch|controllers?|pads?|games?|keys?|%|percent)\b/i.test(after)) {
       continue;
     }

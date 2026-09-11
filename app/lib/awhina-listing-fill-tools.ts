@@ -426,9 +426,24 @@ export function validateListingFillFields(
     const daily = Number(fillOut.rentalPriceDaily);
     const weekly = Number(fillOut.rentalPriceWeekly);
     const monthly = Number(fillOut.rentalPriceMonthly);
+    const incomingDaily = Number(String(fill.rentalPriceDaily || "").replace(/,/g, ""));
+    const incomingWeekly = Number(String(fill.rentalPriceWeekly || "").replace(/,/g, ""));
+    const dualStated =
+      String(fillOut.rentalSubType || "").toLowerCase() !== "property" &&
+      incomingDaily > 0 &&
+      incomingWeekly > 0 &&
+      incomingDaily !== incomingWeekly;
     if (fillOut.rentalSubType === "property") {
       delete fillOut.rentalPriceDaily;
       if (fillOut.rentalPriceWeekly) fillOut.price = fillOut.rentalPriceWeekly;
+    } else if (dualStated) {
+      // Protected normalize copies price onto daily and can collapse dual rates.
+      fillOut.rentalPriceDaily = String(Math.round(incomingDaily));
+      fillOut.rentalPriceWeekly = String(Math.round(incomingWeekly));
+      fillOut.price = fillOut.rentalPriceDaily;
+      if (monthly === incomingDaily * 28 || monthly === incomingWeekly * 4) {
+        delete fillOut.rentalPriceMonthly;
+      }
     } else if (daily > 0 && weekly > 0 && daily === weekly) {
       delete fillOut.rentalPriceDaily;
       fillOut.price = fillOut.rentalPriceWeekly;
@@ -511,9 +526,17 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
 
   const classified = classifySellerPrices(message);
   if (classified.confirmed) {
-    const check = validatePriceString(classified.confirmed);
-    if (check.ok && !isStorageOrSizeToken(check.price, message)) {
-      return check.price;
+    const isBondAsk =
+      classified.excluded.includes(classified.confirmed) ||
+      new RegExp(
+        `\\bbond\\s*\\$?\\s*${classified.confirmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+        "i"
+      ).test(message);
+    if (!isBondAsk) {
+      const check = validatePriceString(classified.confirmed);
+      if (check.ok && !isStorageOrSizeToken(check.price, message)) {
+        return check.price;
+      }
     }
   }
 
@@ -532,9 +555,29 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     return check.price;
   };
 
-  // Explicit dollar amounts always win (still reject storage-as-price / historical)
+  // Stated rental rates beat bond dollars. 280pw / 80 a day must win over bond $1120.
+  const weeklyAsk = message.match(
+    /\b([\d,]+(?:\.\d{1,2})?)\s*(?:pw|p\/w|a\s+week|per\s+week|\/\s*week|weekly)\b/i
+  );
+  const dailyAsk = message.match(
+    /\b([\d,]+(?:\.\d{1,2})?)\s*(?:a\s+day|per\s+day|\/\s*day)\b/i
+  );
+  if (weeklyAsk) {
+    const raw = finalize(weeklyAsk[1]);
+    if (raw && raw !== "malformed") return raw;
+  }
+  if (dailyAsk) {
+    const raw = finalize(dailyAsk[1]);
+    if (raw && raw !== "malformed") return raw;
+  }
+
+  // Explicit dollar amounts always win (still reject storage-as-price / historical / bond)
   const dollarAll = [...message.matchAll(/\$\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\b/gi)];
   for (const dollar of dollarAll) {
+    const idx = dollar.index ?? 0;
+    const beforeDol = message.slice(Math.max(0, idx - 16), idx);
+    const afterDol = message.slice(idx + dollar[0].length, idx + dollar[0].length + 12);
+    if (/\bbond\s*$/i.test(beforeDol) || /^\s*bond\b/i.test(afterDol)) continue;
     const got = finalize(dollar[1], dollar[2]);
     if (got && got !== "malformed") return got;
   }
