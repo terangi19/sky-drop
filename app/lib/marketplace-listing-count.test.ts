@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatMarketplaceListingCount,
   isAuthoritativeListingSnapshot,
+  listingCountSequenceFlashedZero,
   resolvedMarketplaceListingCount,
 } from "./marketplace-listing-count";
 
@@ -84,5 +85,24 @@ describe("isAuthoritativeListingSnapshot", () => {
         metadata: { fromCache: true },
       })
     ).toBe(true);
+  });
+});
+
+describe("listingCountSequenceFlashedZero", () => {
+  it("flags the pre-fix homepage animation 0 → N", () => {
+    expect(listingCountSequenceFlashedZero(["0", "12", "42"])).toBe(true);
+    expect(listingCountSequenceFlashedZero(["0", "42"])).toBe(true);
+  });
+
+  it("allows loading then the real count", () => {
+    expect(listingCountSequenceFlashedZero(["loading", "42"])).toBe(false);
+  });
+
+  it("allows a genuine empty marketplace after load", () => {
+    expect(listingCountSequenceFlashedZero(["loading", "0"])).toBe(false);
+  });
+
+  it("allows Cars filter changing a known count without passing through 0", () => {
+    expect(listingCountSequenceFlashedZero(["loading", "40", "8"])).toBe(false);
   });
 });

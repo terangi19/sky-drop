@@ -45,3 +45,18 @@ export function formatMarketplaceListingCount(
   const plural = labels.plural ?? "listings";
   return `${count} ${count === 1 ? singular : plural}`;
 }
+
+/**
+ * True when a recorded count sequence showed 0 and then a later positive
+ * number — the homepage / Cars flash this change is meant to prevent.
+ */
+export function listingCountSequenceFlashedZero(
+  log: Array<string | number | null | undefined>
+): boolean {
+  const values = log.map((v) => (v == null ? null : String(v)));
+  const idx0 = values.indexOf("0");
+  if (idx0 === -1) return false;
+  return values
+    .slice(idx0 + 1)
+    .some((v) => v != null && /^\d+$/.test(v) && Number(v) > 0);
+}
