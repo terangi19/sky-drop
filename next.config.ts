@@ -43,6 +43,13 @@ const nextConfig = {
       process.env.NEXT_PUBLIC_AWHINA_VISION_LISTING_ENABLED === "true"
         ? "true"
         : "false",
+    // Funnel analytics writes default OFF for closed beta.
+    // Set FUNNEL_EVENTS_ENABLED=true or NEXT_PUBLIC_FUNNEL_EVENTS_ENABLED=true and redeploy.
+    NEXT_PUBLIC_FUNNEL_EVENTS_ENABLED:
+      process.env.NEXT_PUBLIC_FUNNEL_EVENTS_ENABLED === "true" ||
+      process.env.FUNNEL_EVENTS_ENABLED === "true"
+        ? "true"
+        : "false",
   },
 
   images: {

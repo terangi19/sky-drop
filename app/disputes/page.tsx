@@ -5,11 +5,13 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
-import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { AuthGatePlaceholder, useRequireAuth } from "../lib/use-require-auth";
 import { sellerMessagesUrl, sellerProfileDisplayName } from "../lib/public-display";
 import HistoricalOrdersNotice from "../components/HistoricalOrdersNotice";
+import { DASHBOARD_DISPUTES_LIMIT } from "../lib/firestore-query-limits";
+import { DASHBOARD_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 const DISPUTE_LABELS: Record<string, string> = {
   open: "Open",
@@ -44,19 +46,33 @@ export default function DisputesPage() {
 
   useEffect(() => {
     if (!user?.email) return;
+    const buyerEmail = user.email;
+    let mounted = true;
     const q = query(
       collection(db, "disputes"),
-      where("buyerEmail", "==", user.email),
-      orderBy("createdAt", "desc")
+      where("buyerEmail", "==", buyerEmail),
+      orderBy("createdAt", "desc"),
+      limit(DASHBOARD_DISPUTES_LIMIT)
     );
-    const unsub = onSnapshot(q, (snap) => {
-      setDisputes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    }, (err) => {
-      console.error("Failed to load disputes:", err);
-      setLoading(false);
-    });
-    return () => unsub();
+
+    async function fetchDisputes() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
+        setDisputes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      } catch (err) {
+        console.error("Failed to load disputes:", err);
+        if (mounted) setLoading(false);
+      }
+    }
+
+    const stop = startVisibilityPolledFetch(fetchDisputes, DASHBOARD_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, [user?.email]);
 
   if (!authReady || !user) {
