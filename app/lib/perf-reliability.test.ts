@@ -200,4 +200,21 @@ describe("performance reliability locks", () => {
     expect(file).toContain("const profilesPromise = fetchSellerProfilesByListing(snapshot)");
     expect(file).toContain("await profilesPromise");
   });
+
+  it("allows a short CDN cache on the homepage shell only", () => {
+    const file = src("next.config.ts");
+    expect(file).toContain('source: "/"');
+    expect(file).toContain(
+      "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
+    );
+    expect(file).toContain(
+      'source: "/((?!api|_next/static|_next/image|favicon|manifest).+)"'
+    );
+    expect(file).toContain(
+      "private, no-cache, no-store, max-age=0, must-revalidate"
+    );
+    expect(file).not.toContain(
+      'source: "/((?!api|_next/static|_next/image|favicon|manifest).*)"'
+    );
+  });
 });
