@@ -201,7 +201,8 @@ function isRejectedPublicCopy(description: string | undefined | null, fill: SkyA
         hasSemanticFactDuplication(description) ||
         UNSUPPORTED_ABSENCE_COPY_RE.test(description) ||
         containsInternalOrchestration(description) ||
-        hasCategoryIncompatibleDescription(description, fill))
+        hasCategoryIncompatibleDescription(description, fill) ||
+        !validateDescriptionQualityContract(description, fill).ok)
   );
 }
 
@@ -519,7 +520,8 @@ export async function finalizeAwhinaListingDescriptionAsync(
     writerDesc &&
     !isRejectedPublicCopy(writerDesc, fill) &&
     !containsGenericMarketplaceFiller(writerDesc) &&
-    !hasSemanticFactDuplication(writerDesc)
+    !hasSemanticFactDuplication(writerDesc) &&
+    validateDescriptionQualityContract(writerDesc, fill).ok
   ) {
     const result = { ...fill, description: writerDesc, descriptionSource: "ai" as const };
     logAsyncDescriptionOutcome(attempt, false, result.description);

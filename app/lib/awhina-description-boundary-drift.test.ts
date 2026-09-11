@@ -74,4 +74,22 @@ describe("description boundary drift", () => {
     const src = readFileSync(join(APP_LIB, "awhina-vision-compound.ts"), "utf8");
     expect(src).not.toMatch(/listingFill\.description\s*=\s*composed/);
   });
+
+  it("API writer failures fall back through deterministic enforcement", () => {
+    const src = readFileSync(
+      join(ROOT, "app", "api", "sky-ai", "route.ts"),
+      "utf8"
+    );
+    expect(src).toMatch(
+      /catch\s*\{[\s\S]{0,300}return enforcePublicListingDescription\(fill/
+    );
+    expect(src).not.toMatch(/catch\s*\{\s*return fill;\s*\}/);
+  });
+
+  it("post/ai hydration re-finalizes all AI-owned persisted descriptions", () => {
+    const src = readFileSync(join(ROOT, "app", "post", "ai", "page.tsx"), "utf8");
+    expect(src).toMatch(
+      /!isUserLockedProvenance\(restoredProvenance\.description\)[\s\S]{0,300}enforcePublicListingDescription/
+    );
+  });
 });

@@ -24,6 +24,60 @@ export const INTERNAL_ORCHESTRATION_PATTERNS: RegExp[] = [
   /\bprompt\s+wrapper\b/i,
 ];
 
+/**
+ * Seller-authored requests about how Āwhina should prepare the listing are
+ * commands, not buyer-facing facts. Keep this structural and product-agnostic.
+ */
+export const SELLER_META_INSTRUCTION_PATTERNS: RegExp[] = [
+  /\b(?:but\s+)?i\s+want\s+(?:the|this|my)\s+listing\s+to\s+(?:sound|read|look|be)\b/i,
+  /\b(?:please\s+)?help\s+me\s+(?:choose|pick|write|create|decide|suggest|price)\b/i,
+  /\b(?:please\s+)?(?:write|create|generate)\s+(?:me\s+)?(?:the|a|an|my)?\s*(?:title|description|listing)\b/i,
+  /\b(?:please\s+)?suggest\s+(?:me\s+)?(?:a\s+)?(?:fair\s+)?(?:nz\s+)?price\b/i,
+  /\b(?:please\s+)?tell\s+me\s+what\s+(?:details?|information)\s+i\s+should\s+add\b/i,
+  /\b(?:choose|pick)\s+the\s+best\s+category\b/i,
+];
+
+export function containsSellerMetaInstruction(
+  text: string | undefined | null
+): boolean {
+  const raw = String(text || "");
+  return SELLER_META_INSTRUCTION_PATTERNS.some((re) => re.test(raw));
+}
+
+function stripSellerMetaInstructions(text: string): string {
+  let out = String(text || "");
+  // Remove command clauses up to punctuation. The clauses may be prefixed by
+  // speech-transcript filler articles ("a help me...", "a write...").
+  const commandStarts = [
+    String.raw`(?:but\s+)?i\s+want\s+(?:the|this|my)\s+listing\s+to\s+(?:sound|read|look|be)`,
+    String.raw`(?:please\s+)?help\s+me\s+(?:choose|pick|write|create|decide|suggest|price)`,
+    String.raw`(?:please\s+)?(?:write|create|generate)\s+(?:me\s+)?(?:the|a|an|my)?\s*(?:title|description|listing)`,
+    String.raw`(?:please\s+)?suggest\s+(?:me\s+)?(?:a\s+)?(?:fair\s+)?(?:nz\s+)?price`,
+    String.raw`(?:please\s+)?tell\s+me\s+what\s+(?:details?|information)\s+i\s+should\s+add`,
+    String.raw`(?:choose|pick)\s+the\s+best\s+category`,
+  ].join("|");
+  const clause = new RegExp(
+    String.raw`(?:^|(?<=[,.;!?])\s*)(?:a\s+|an\s+)?(?:${commandStarts})[^,.;!?]*(?:[,.;!?]|$)`,
+    "gi"
+  );
+  out = out.replace(clause, " ");
+  return out
+    .replace(
+      /(?:^|(?<=[,;]))\s*(?:a|an|the)?\s*(?:title|description|category|price)\s*(?=,|;|\.|$)/gi,
+      " "
+    )
+    .replace(/(?:^|(?<=[,;]))\s*(?:a|an)\s*(?=,|;|\.|$)/gi, " ")
+    .replace(
+      /([,;])\s*(?:a|an)\s+(?=(?:but|help|write|suggest|tell|runs?|drives?|works?|starts?)\b)/gi,
+      "$1 "
+    )
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;!?])/g, "$1")
+    .replace(/(?:,\s*){2,}/g, ", ")
+    .replace(/^[,.;:\s-]+|[,;:\s-]+$/g, "")
+    .trim();
+}
+
 const DIRECTIVE_LINE_RE =
   /^(?:the user is on the sell page|parse everything below|respond only with|generate a complete listing|do not give general chat advice)\b/i;
 
@@ -98,7 +152,7 @@ export function stripInternalOrchestrationFragments(text: string): string {
     .replace(/\s+([.,!?])/g, "$1")
     .trim();
 
-  return out;
+  return stripSellerMetaInstructions(out);
 }
 
 /**

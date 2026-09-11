@@ -142,6 +142,15 @@ function cleanFragment(raw: string): string {
     .trim();
 }
 
+function cleanModificationFragment(raw: string): string {
+  return cleanFragment(raw)
+    .replace(/^(?:a|an|the)\s+(?=\S)/i, "")
+    .replace(/^(?:it\s+has|it'?s\s+got|has)\s+/i, "")
+    .replace(/^(?:a|an|the)\s+(?=\S)/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normalize(value: string): string {
   return value.toLowerCase().replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -218,10 +227,12 @@ export function isCompositeStructuredExtra(
 }
 
 export function extractModificationClause(text: string): string | null {
-  const source = String(text || "").replace(/\s+/g, " ").trim();
+  const source = extractSellerAuthoredText(String(text || ""))
+    .replace(/\s+/g, " ")
+    .trim();
   if (!source) return null;
   const withTail = source.match(
-    /\b(?:modified|upgraded|fitted with)\s+(?:with\s+)?(.+?)(?=\s*,\s*(?:cars?\s+in\b|and\s+it'?s\b|located\b|based\b|its\s+in\b|in\s+(?:auckland|wellington|christchurch|hamilton|tauranga|dunedin)|$)|$)/i
+    /\b(?:modified|upgraded|fitted with)\s+(?:with\s+)?(.+?)(?=[.!?](?:\s|$)|\s*,\s*(?:cars?\s+in\b|and\s+it'?s\b|located\b|based\b|its\s+in\b|in\s+(?:auckland|wellington|christchurch|hamilton|tauranga|dunedin)|$)|$)/i
   );
   if (withTail?.[1]) {
     const tail = cleanFragment(withTail[1])
@@ -388,13 +399,18 @@ export function fragmentOverlapsStructuredFacts(
 }
 
 function splitModificationParts(tail: string): string[] {
-  const fromList = splitList(tail);
+  const fromList = tail
+    .split(
+      /\s*(?:,|;|\band\b|\b(?:an?|the)\s+(?=it\s+has\b)|\bit\s+has\b|\bit'?s\s+got\b)\s*/i
+    )
+    .map(cleanModificationFragment)
+    .filter((part) => part.length >= 2);
   if (fromList.length > 1) return fromList;
   const split = tail
     .split(
       /\s+(?=(?:intercooler|downpipes?|intakes?|coilovers?|exhaust|intake|wheels?|brakes?|suspension|18-?inch|20-?inch)\b)/i
     )
-    .map(cleanFragment)
+    .map(cleanModificationFragment)
     .filter(Boolean);
   return split.length > 1 ? split : [tail];
 }
@@ -792,7 +808,44 @@ function dedupeExtras(extras: string[]): string[] {
   const out: string[] = [];
   for (const extra of extras) {
     const key = extra.toLowerCase();
-    if (!out.some((existing) => existing.toLowerCase() === key)) out.push(extra);
+    if (out.some((existing) => existing.toLowerCase() === key)) continue;
+
+    const modification = extra.match(/^modification\s*:\s*(.+)$/i);
+    if (modification) {
+      const incoming = cleanModificationFragment(modification[1]);
+      const incomingTokens = new Set(normalizedModificationTokens(incoming));
+      const duplicateIndex = out.findIndex((existing) => {
+        const match = existing.match(/^modification\s*:\s*(.+)$/i);
+        if (!match) return false;
+        const existingTokens = new Set(normalizedModificationTokens(match[1]));
+        const smaller = Math.min(incomingTokens.size, existingTokens.size);
+        if (!smaller) return false;
+        let overlap = 0;
+        for (const token of incomingTokens) {
+          if (existingTokens.has(token)) overlap += 1;
+        }
+        return overlap / smaller >= 0.85;
+      });
+      if (duplicateIndex >= 0) {
+        const existingValue = out[duplicateIndex].replace(
+          /^modification\s*:\s*/i,
+          ""
+        );
+        const incomingScore =
+          incoming.length + (/\bupgraded\b/i.test(incoming) ? 20 : 0);
+        const existingScore =
+          existingValue.length +
+          (/\bupgraded\b/i.test(existingValue) ? 20 : 0);
+        if (incomingScore > existingScore) {
+          out[duplicateIndex] = `modification:${incoming}`;
+        }
+        continue;
+      }
+      out.push(`modification:${incoming}`);
+      continue;
+    }
+
+    out.push(extra);
   }
   return out.slice(0, 48);
 }
@@ -999,6 +1052,9 @@ function collapseOverlappingPhrases(list: string[]): string[] {
 }
 
 function foldOverlappingEvidence(grouped: GroupedSellerEvidence): GroupedSellerEvidence {
+  grouped.modifications = collapseSemanticModificationPhrases(
+    grouped.modifications
+  );
   grouped.mechanical = collapseOverlappingPhrases(grouped.mechanical);
   grouped.conditionDetails = collapseOverlappingPhrases(grouped.conditionDetails);
   grouped.included = collapseOverlappingPhrases(grouped.included);
@@ -1011,6 +1067,60 @@ function foldOverlappingEvidence(grouped: GroupedSellerEvidence): GroupedSellerE
   });
   grouped.mechanical = collapseOverlappingPhrases(grouped.mechanical);
   return grouped;
+}
+
+function normalizedModificationTokens(text: string): string[] {
+  return normalize(text)
+    .replace(
+      /^(?:a|an|the|it has|has|with|fitted with|modified with|upgraded with)\s+/,
+      ""
+    )
+    .replace(/\bupgraded\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 1);
+}
+
+function collapseSemanticModificationPhrases(list: string[]): string[] {
+  const out: string[] = [];
+  for (const raw of list) {
+    const item = cleanModificationFragment(raw);
+    if (!item || /^(?:a|an|the)$/i.test(item)) continue;
+    const tokens = normalizedModificationTokens(item);
+    if (!tokens.length) continue;
+    const duplicateIndex = out.findIndex((existing) => {
+      const a = new Set(tokens);
+      const b = new Set(normalizedModificationTokens(existing));
+      const smaller = Math.min(a.size, b.size);
+      if (!smaller) return false;
+      let overlap = 0;
+      for (const token of a) if (b.has(token)) overlap += 1;
+      return overlap / smaller >= 0.85;
+    });
+    if (duplicateIndex < 0) {
+      out.push(item);
+      continue;
+    }
+    // Keep the richer wording, preferring an explicit "upgraded" qualifier.
+    const existing = out[duplicateIndex];
+    const itemScore = item.length + (/\bupgraded\b/i.test(item) ? 20 : 0);
+    const existingScore =
+      existing.length + (/\bupgraded\b/i.test(existing) ? 20 : 0);
+    if (itemScore > existingScore) out[duplicateIndex] = item;
+  }
+  // A later richer replacement can subsume another earlier entry
+  // ("wheels" + "19-inch staggered wheels"). Remove those after selection.
+  return out.filter((item, index, all) => {
+    const itemTokens = new Set(normalizedModificationTokens(item));
+    return !all.some((other, otherIndex) => {
+      if (index === otherIndex || other.length <= item.length) return false;
+      const otherTokens = new Set(normalizedModificationTokens(other));
+      if (!itemTokens.size) return false;
+      let overlap = 0;
+      for (const token of itemTokens) if (otherTokens.has(token)) overlap += 1;
+      return overlap / itemTokens.size >= 0.85;
+    });
+  });
 }
 
 export function groupedSellerEvidenceFromExtras(

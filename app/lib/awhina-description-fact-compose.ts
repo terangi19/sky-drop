@@ -13,7 +13,7 @@ function clean(raw: string): string {
 
 function lowerLead(text: string): string {
   if (!text) return text;
-  if (/^[A-Z]{2,}(\s|$)/.test(text) || /^\d/.test(text)) return text;
+  if (/^(?:[A-Z]{2,}|[A-Z]\d)(?:\s|$)/.test(text) || /^\d/.test(text)) return text;
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
@@ -233,14 +233,28 @@ export function composeNaturalIncludedProse(
 }
 
 export function composeNaturalModificationProse(items: string[]): string {
-  const cleaned = items.map(clean).filter(Boolean);
+  const cleaned = items
+    .map((item) =>
+      clean(item)
+        .replace(/^(?:a|an|the)\s+(?=\S)/i, "")
+        .replace(/^(?:it\s+has|it'?s\s+got|has)\s+/i, "")
+        .replace(/^(?:a|an|the)\s+(?=\S)/i, "")
+        .trim()
+    )
+    .filter((item) => item && !/^(?:a|an|the)$/i.test(item));
   if (!cleaned.length) return "";
   const nouned = cleaned.map((item) =>
     item.replace(/^(?:fitted with|modified with|upgraded with|has|with)\s+/i, "")
   );
-  const withArticles = nouned.map((item, i) => {
-    const base = /^upgraded\b/i.test(item) ? item : withIndefiniteArticle(item);
-    return i === 0 ? lowerLead(base) : lowerLead(withIndefiniteArticle(item.replace(/^upgraded\s+/i, "upgraded ")));
+  const withArticles = nouned.map((item) => {
+    const last = item.split(/\s+/).pop() || "";
+    const noArticle =
+      /^(?:\d|[A-Z0-9-]{2,}\b)/.test(item) ||
+      /[/]/.test(item) ||
+      (last.endsWith("s") && !last.endsWith("ss")) ||
+      /\b(?:and|with)\b/i.test(item);
+    if (noArticle) return lowerLead(item);
+    return lowerLead(withIndefiniteArticle(item));
   });
   // Prefer "Modified with" for upgrade lists
   const body =

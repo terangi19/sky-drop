@@ -5,7 +5,10 @@
 
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import { hasCategoryIncompatibleDescription } from "./awhina-category-copy-guard";
-import { containsInternalOrchestration } from "./awhina-orchestration-boundary";
+import {
+  containsInternalOrchestration,
+  containsSellerMetaInstruction,
+} from "./awhina-orchestration-boundary";
 import {
   composeDomainAwareEvidenceProse,
   normalizeSemanticFactText,
@@ -183,7 +186,9 @@ export type DescriptionQualityViolation =
   | "invented_collectible_hype"
   | "stale_prior_listing"
   | "identity_mismatch"
-  | "uncomposed_fact_dump";
+  | "uncomposed_fact_dump"
+  | "seller_instruction_leak"
+  | "orphan_filler_token";
 
 const INVENTED_COLLECTIBLE_HYPE_RE =
   /\b(?:rare(?:ly)?|highly sought[- ]after|investment potential|sure to appreciate|iconic status|legendary status|valuable addition)\b/i;
@@ -235,6 +240,20 @@ export function validateDescriptionQualityContract(
   if (hasUncomposedFactDump(text)) violations.push("uncomposed_fact_dump");
   if (hasCategoryIncompatibleDescription(text, fill)) violations.push("category_incompatible");
   if (containsInternalOrchestration(text)) violations.push("orchestration_leak");
+  if (containsSellerMetaInstruction(text)) {
+    violations.push("seller_instruction_leak");
+  }
+  if (
+    /(?:^|[,.!?;]\s+)(?:a|an)(?=\s*(?:[,.!?;]|$))/i.test(text) ||
+    /(?:^|[,;]\s+)(?:a|an)\s+(?:it\s+has|but\s+i|help\s+me|write\s+the|suggest\s+a|tell\s+me)\b/i.test(
+      text
+    ) ||
+    /\b(?:with|includes?|modified with|fitted with)\s+(?:a|an)\s+(?:it\s+has|but\s+i|help\s+me|write\s+the|suggest\s+a)\b/i.test(
+      text
+    )
+  ) {
+    violations.push("orphan_filler_token");
+  }
 
   const domain = listingDomain(fill);
   if (domain === "service") {

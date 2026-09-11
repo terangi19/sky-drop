@@ -1383,13 +1383,31 @@ export function extractCompoundListingFacts(
     // Compound / missing-price: bare "200" / "900" (not year-like alone)
     (priceNeeded
       ? residual.match(
-          /\b([\d,]+(?:\.\d{1,2})?)\b(?!%|\s*(?:%|percent|battery|gb|tb|k\b|km|miles?|mi)\b)/i
+          /\b([\d,]+(?:\.\d{1,2})?)\b(?!%|\s*[- ]?\s*(?:%|percent|battery|gb|tb|k\b|km|miles?|mi|inch(?:es)?|in\b|cm|mm|m|ft|volt(?:s)?|v\b|watt(?:s)?|w\b)\b)/i
         )
       : null);
   if (priceMatch) {
     let n = Number(String(priceMatch[1]).replace(/,/g, ""));
     const kFlag = priceMatch[2];
     if (kFlag && /^k$/i.test(String(kFlag))) n *= 1000;
+    const beforePrice = residual.slice(
+      Math.max(0, (priceMatch.index || 0) - 24),
+      priceMatch.index || 0
+    );
+    const afterPrice = residual.slice(
+      (priceMatch.index || 0) + priceMatch[0].length,
+      (priceMatch.index || 0) + priceMatch[0].length + 24
+    );
+    // Bare numbers attached to named stages/indexes/specs are attributes, not
+    // asking prices (e.g. "Stage 2 LPFP", "Index 12 injectors").
+    const labeledAttributeNumber =
+      !/^\s*\$/.test(priceMatch[0]) &&
+      (/\b(?:stage|index|series|model|mark|mk|version|grade|size)\s*$/i.test(
+        beforePrice
+      ) ||
+        /^\s*(?:lpft?|lpfp|injectors?|tune|turbo|speed|inch|gb|tb|volt|watt)\b/i.test(
+          afterPrice
+        ));
     // Don't treat a lone year as price when year slot just filled or still pending
     const yearLike =
       !kFlag &&
@@ -1398,7 +1416,13 @@ export function extractCompoundListingFacts(
       (filledSlots.includes("year") ||
         missingFromBase.includes("year") ||
         opts?.activeSlot === "year");
-    if (!yearLike && Number.isFinite(n) && n >= 1 && n <= 10_000_000) {
+    if (
+      !yearLike &&
+      !labeledAttributeNumber &&
+      Number.isFinite(n) &&
+      n >= 1 &&
+      n <= 10_000_000
+    ) {
       const weeklyLike =
         /\b(?:\/\s*week|a\s+week|per\s+week|weekly(?:\s+rent)?)\b/i.test(message);
       const dailyLike =

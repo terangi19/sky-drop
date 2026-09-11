@@ -943,18 +943,15 @@ export default function AIPostPage() {
       if (stored.title) setTitle(String(stored.title));
       if (stored.description) {
         const rawDescription = String(stored.description);
-        // Zombie drafts from before the price-free boundary can still contain
-        // "asking $…". Re-finalize AI-owned copy once on hydrate; never touch
-        // USER-locked seller prose.
-        if (
-          !isUserLockedProvenance(restoredProvenance.description) &&
-          /asking\s+\$/i.test(rawDescription)
-        ) {
+        // Re-finalize every AI-owned persisted description on hydrate. Older
+        // drafts may predate instruction, dedupe, grammar, or price boundaries.
+        // Explicit seller-edited prose remains USER-locked and untouched.
+        if (!isUserLockedProvenance(restoredProvenance.description)) {
           const cleaned = enforcePublicListingDescription({
             ...stored,
             description: rawDescription,
             descriptionSource: "ai",
-          } as SkyAiListingFill);
+          } as SkyAiListingFill, { force: true });
           setDescription(cleaned.description || "");
         } else {
           setDescription(rawDescription);

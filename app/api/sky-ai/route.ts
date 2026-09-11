@@ -133,7 +133,12 @@ async function enhanceAiOwnedDescription(
       force: rewriteRequested || !stillValid,
     });
   } catch {
-    return fill;
+    // Never return model-provided prose around the universal boundary when the
+    // async writer fails. Deterministic enforcement remains available.
+    return enforcePublicListingDescription(fill, {
+      force: true,
+      priorDescription: prior?.description,
+    });
   }
 }
 
