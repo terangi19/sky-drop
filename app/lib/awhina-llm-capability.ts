@@ -6,6 +6,8 @@
  * Single model call (no separate intent classifier) to avoid duplicate latency/tokens.
  */
 
+import "server-only";
+
 import type OpenAI from "openai";
 import { createGatedOpenAI } from "./openai-spend-guard";
 import {

@@ -2,6 +2,7 @@
  * Āwhina AI Server — thin wrapper around free-form capability (single model call).
  * Prefer importing from awhina-freeform-capability / awhina-llm-capability directly.
  */
+import "server-only";
 
 import { runLlmCapability } from "./awhina-llm-capability";
 import type { AwhinaToolCall, AwhinaToolResult } from "./awhina-types";

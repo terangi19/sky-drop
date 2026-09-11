@@ -61,6 +61,7 @@ test.describe("Tier 2 — Core Flows", () => {
 
   test("category page buttons link with correct type param", async ({ page }) => {
     const checks = [
+      { url: "/physical", linkText: "List an item", expected: "/post/ai?type=physical" },
       { url: "/services", linkText: "Offer a Service", expected: "/post/ai?type=service" },
       { url: "/rentals", linkText: "List a Rental", expected: "/post/ai?type=rental" },
       { url: "/vehicles", linkText: "List a Vehicle", expected: "/post/ai?type=vehicle" },

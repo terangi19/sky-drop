@@ -6,7 +6,7 @@ import { test, expect } from "@playwright/test";
  */
 test.describe("V1 messaging-first surface", () => {
   test("canonical browse routes load", async ({ page }) => {
-    for (const path of ["/", "/vehicles", "/services", "/rentals", "/wanted", "/digital"]) {
+    for (const path of ["/", "/physical", "/vehicles", "/services", "/rentals", "/wanted", "/digital"]) {
       const res = await page.goto(path, { waitUntil: "domcontentloaded" });
       expect(res?.status() ?? 500, `${path} status`).toBeLessThan(400);
       await expect(page.locator("body")).toBeAttached();
@@ -38,6 +38,13 @@ test.describe("V1 messaging-first surface", () => {
 
   test("/digital is not 404", async ({ page }) => {
     const res = await page.goto("/digital", { waitUntil: "domcontentloaded" });
+    expect(res?.status()).not.toBe(404);
+    expect(res?.status() ?? 500).toBeLessThan(400);
+    await expect(page.locator("body")).toBeAttached();
+  });
+
+  test("/physical is not 404", async ({ page }) => {
+    const res = await page.goto("/physical", { waitUntil: "domcontentloaded" });
     expect(res?.status()).not.toBe(404);
     expect(res?.status() ?? 500).toBeLessThan(400);
     await expect(page.locator("body")).toBeAttached();

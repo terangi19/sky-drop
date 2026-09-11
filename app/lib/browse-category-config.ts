@@ -1,3 +1,5 @@
+import { PHYSICAL_LISTING_CATEGORIES } from "./listing-type-config";
+
 /** Shared Sky Drop marketplace theme — matches the homepage (`/`). */
 export const HOME_MARKETPLACE_THEME = {
   accentRgb: "14, 165, 233",
@@ -220,6 +222,31 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
       "Browse by region",
       "Contact agents & sellers",
       "Secure messaging on Sky Drop",
+    ],
+  },
+  physical: {
+    listingType: "physical",
+    emoji: "G",
+    pageTitle: "Physical Marketplace",
+    subtitle:
+      "Local listings across New Zealand. Buy and sell goods — message the seller to arrange pickup or delivery.",
+    searchPlaceholder: "Search listings...",
+    listCtaShort: "List",
+    listCtaLong: "List an item",
+    sellCta: "List an item",
+    postAiType: "physical",
+    trendingFallback: "Trending listings across New Zealand",
+    itemSingular: "item",
+    itemPlural: "listings",
+    listingsHeading: "Latest listings",
+    emptyTitle: "No listings yet",
+    emptySubtitle: "Be the first to list something for sale.",
+    filterMode: "category",
+    categories: ["All", ...PHYSICAL_LISTING_CATEGORIES],
+    trustRow: [
+      "Browse by category",
+      "Message sellers directly",
+      "Arrange pickup in chat",
     ],
   },
   /** Legacy vertical — browse-only; not in CANONICAL_LISTING_TYPES sell chips. */

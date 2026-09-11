@@ -7,7 +7,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("V1 truth gaps — unauthenticated surface", () => {
   test("canonical browse + digital load", async ({ page }) => {
-    for (const path of ["/", "/vehicles", "/services", "/rentals", "/wanted", "/digital", "/search"]) {
+    for (const path of ["/", "/physical", "/vehicles", "/services", "/rentals", "/wanted", "/digital", "/search"]) {
       const res = await page.goto(path, { waitUntil: "domcontentloaded" });
       expect(res?.status() ?? 500, `${path} status`).toBeLessThan(400);
     }

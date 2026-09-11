@@ -10,6 +10,8 @@
  * Corrections: conversational partial updates only ("digital edition", "controller isn't included").
  */
 
+import "server-only";
+
 import type OpenAI from "openai";
 import { createGatedOpenAI } from "./openai-spend-guard";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";

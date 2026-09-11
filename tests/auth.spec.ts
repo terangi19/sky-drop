@@ -11,6 +11,33 @@ test.describe("Authentication", () => {
     await expect(page.getByRole("heading", { name: "Join Sky Drop" })).toBeVisible({ timeout: 10000 });
   });
 
+  test("signup blocks invalid email and short password before Join free", async ({ page }) => {
+    await page.goto("/signup");
+    const email = page.getByLabel("Email address");
+    const password = page.getByLabel("Password", { exact: true });
+    const submit = page.getByRole("button", { name: "Join free" });
+
+    await expect(email).toBeVisible({ timeout: 10000 });
+    await expect(submit).toBeDisabled();
+
+    const terms = page.getByRole("main").getByRole("checkbox");
+    await expect(terms).toBeVisible();
+    await terms.setChecked(true, { force: true });
+    await expect(submit).toBeDisabled();
+
+    await email.fill("not-an-email");
+    await password.fill("short");
+    await expect(page.getByText("Enter a valid email address.")).toBeVisible();
+    await expect(page.getByText(/Password must be at least 8 characters/)).toBeVisible();
+    await expect(submit).toBeDisabled();
+
+    await email.fill("you@example.com");
+    await password.fill("password1");
+    await expect(page.getByText("Enter a valid email address.")).toHaveCount(0);
+    await expect(page.getByText(/Password must be at least 8 characters/)).toHaveCount(0);
+    await expect(submit).toBeEnabled();
+  });
+
   test("homepage loads without auth", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("body")).toBeVisible({ timeout: 10000 });
@@ -42,6 +69,21 @@ test.describe("Authentication", () => {
       await page.goto(route);
       await expect(page.locator("main")).toBeVisible({ timeout: 10000 });
     }
+  });
+
+  test("unauthenticated /messages redirects to login with return URL", async ({ page }) => {
+    await page.goto("/messages");
+    await expect(page).toHaveURL(/\/login\?redirect=/, { timeout: 15000 });
+    const redirect = new URL(page.url()).searchParams.get("redirect") || "";
+    expect(decodeURIComponent(redirect)).toBe("/messages");
+    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible({ timeout: 10000 });
+  });
+
+  test("unauthenticated /messages deep link preserves conversation return URL", async ({ page }) => {
+    await page.goto("/messages?conversation=abc123");
+    await expect(page).toHaveURL(/\/login\?redirect=/, { timeout: 15000 });
+    const redirect = new URL(page.url()).searchParams.get("redirect") || "";
+    expect(decodeURIComponent(redirect)).toBe("/messages?conversation=abc123");
   });
 
   test("login validates and exposes accessible credentials controls", async ({ page }) => {

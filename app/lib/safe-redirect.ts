@@ -38,3 +38,10 @@ export function sanitizeRedirectPath(raw: string | null | undefined): string {
   const query = queryParts.length ? `?${queryParts.join("?")}` : "";
   return `${normalizedPath}${query}`;
 }
+
+/** Login URL that returns the user to a sanitized in-app path after sign-in. */
+export function loginRedirectHref(returnPath: string): string {
+  const safe = sanitizeRedirectPath(returnPath);
+  if (!safe) return "/login";
+  return `/login?redirect=${encodeURIComponent(safe)}`;
+}
