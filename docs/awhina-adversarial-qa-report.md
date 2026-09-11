@@ -2,6 +2,8 @@
 
 **Launch-readiness: NOT SAFE TO LAUNCH**
 
+Independent re-score of production-fix PR #28 (`cursor/awhina-listing-understanding-8c64`) is in **Re-score vs PR #28** below. Verdict unchanged: **NOT SAFE TO LAUNCH**.
+
 Highest-severity current-main failures:
 
 1. **Seller commands become the public title/description** (MacBook “title it bargain don't say damaged”) and **defects are mangled** (“the don't say is damaged”).
@@ -847,3 +849,123 @@ Safe-ish additions vs Wave 2: **real city names** on short physical (Queenstown 
 Still unsafe, and newly unsafe: digital products, mixed sell/rent/wanted/service-in-one-message, `neg` / nearest offer / starting-bid, `dunners` / `wellie` on services, lot/x2/set-of bundles, Brand New vs smashed, prompt/instruction leaks, and **any 4+ turn undo** (identity, qty, location slang).
 
 Do not delete these `it.fails` to fake green. Do not patch individual Wave 3 strings in production. Wave 1 and Wave 2 FAIL markers were not weakened.
+
+---
+
+# Re-score vs PR #28
+
+**Verdict: NOT SAFE TO LAUNCH**
+
+Independent Awhina Breaker re-score of production-fix PR https://github.com/terangi19/sky-drop/pull/28 (`cursor/awhina-listing-understanding-8c64`, HEAD `c289aa8`). Tests + docs only. No production patches. Wave 1–3 FAIL markers were **not** weakened. Wave 4 was fetched from PR #32 (`cursor/awhina-adversarial-wave-4-4cdf`) and run on this branch. Wave-R is a new short attack battery (`app/lib/awhina-adversarial-rescore-w28.test.ts`).
+
+## Scoreboard
+
+| Suite | Pre-fix baseline (Wave 3 contract) | Fixer claimed | **Measured on PR #28** |
+|---|---|---|---|
+| Waves 1+2+3 | 57 pass \| 112 expected-fail (169) | 104 pass \| 65 expected-fail (169) | **104 passed \| 65 expected-fail (169)** — matches Fixer; 0 unexpected pass, 0 unexpected fail |
+| Wave 4 (from PR #32, first run *before* marker conversion) | 11 pass \| 38 expected-fail (49) on main | n/a | 10 pass \| 26 expected-fail \| **13 failed** (12 unexpected pass + 1 regression) |
+| Wave 4 after converting genuine passes | — | n/a | **22 passed \| 27 expected-fail (49)** — suite green |
+| Wave-R (new) first run | — | n/a | **7 passed \| 17 failed (24)** |
+| Wave-R after `it.fails` recording | — | n/a | **7 passed \| 17 expected-fail (24)** |
+| **Combined Waves 1–4 + Wave-R** | — | n/a | **133 passed \| 109 expected-fail (242)** — Test Files 5 passed, 0 unexpected fail |
+
+Vitest v4.1.8, `npx vitest run` of the four corpus files + Wave-R. JSON reporter: `numPassedTests=242`, `numFailedTests=0` (expected-fail counted as pass).
+
+Vitest v4.1.8, `npx vitest run` of the four corpus files + Wave-R.
+
+Fixer's 104\|65 claim on Waves 1–3 is **true**. It is not enough to launch.
+
+## Classes now green (concrete)
+
+### Required v1 (confirmed)
+
+1. **Seller commands off public copy; defects kept** — MacBook `title it bargain don't say damaged` still passes on this branch (Wave 1 converted by Fixer). Wave-R `physical-smashed-s21-invercargill-command` (`brand new still boxed but smashed screen samsung s21 … dont say smashed title it mint`) **passes**: S21 identity, $150, smash kept, commands not in title.
+2. **Confirmed ask beats history** — `was $450 now 280` → 280; `askin 9k maybe 8500 … nah 9k` → 9000. Ranger ramble now extracts **38900** (not 45000).
+
+### Wave 4 cases converted `it.fails` → `it()` on this branch (genuinely passed)
+
+Parser: hammers+380, wellie+450 Pixel, dunners+180, `520 a week bond 3 weeks` ≠ $3, hire-or-sell 150 vs 18000. Semantic: pending colour does not eat `256gb actually`.
+
+Listing fill:
+
+- `wanted-iso-macbook-max-no-scams`, `wanted-looking-for-pram-post-ad`, `wanted-iso-switch-not-selling-mine`
+- `rental-2bed-wellie-bond-weeks`, `rental-generator-hire-not-sale`, `rental-room-bond-dollars-not-weekly`
+
+### Wave-R cases that already pass as `it()`
+
+- `wanted-post-ad-generator-gisborne` — explicit “post a wanted ad” Honda generator, Gisborne, $900, not a sale
+- `rental-1bed-nelson-bond-weeks` — property, weekly 390, no daily, deposit not `$3`
+- smashed S21 fill (above)
+- NZ place tokens napier/nelson/timaru/gisborne/rotorua/invercargill/new plymouth at normalize
+- smash vs `title it mint` at the fact-model
+
+## Remaining critical failing classes (concrete)
+
+Each: input → actual (this branch) → expected → subsystem.
+
+### Wanted ≠ sale / instruction leak / budget walk
+
+| ID | Input (abbrev) | Actual | Expected | Subsystem |
+|---|---|---|---|---|
+| W1 wanted-budget-correction | wanted PS5 under 600 → max 550 + 2 pads | wanted, **$550 OK**, **pads missing** | budget 550 + 2 controllers | pending-slots |
+| W2 wanted-wtb-axela | WTB axela under 8k wellington no timewasters | wanted Mazda Axela $8000 Wellington; extras **`No timewasters serious only`** | instructions out of extras/public | orchestration-boundary |
+| WR wanted-wtb-karcher-napier | WTB karcher k5 under 220 napier no timewasters | wanted, $220, Napier; extras **`No timewasters serious only`**; reply “What's the asking price?” | instructions stripped; wanted voice | orchestration-boundary |
+| WR wanted-iso-cot-timaru | ISO baby cot under 120 timaru no scams + mattress | wanted Baby Cot $120 + mattress; **Timaru missing** | Timaru | input-normalize |
+| WR wanted-dyson-budget-wand | wanted Dyson V8 under 200 → max 170 + wand | wanted, **price stays 200**, wand missing | 170 + wand | authority / pending-slots |
+| W3 mixed-wanted-ps5-plus-xbox | wanted PS5 under 500 wellie + Xbox for sale 280 | still expected-fail | wanted PS5, not Xbox sale | find-vs-wanted |
+| W4 wanted-wtb-xbox-around / gopro / long-ipad / bike / paid-history / multi6-wanted | WTB/ISO/around/max + no scams | still expected-fail | wanted, budget, instructions stripped | find-vs-wanted |
+
+Parser still null on Wave-R `under 220 napier` and `max 170` (budget language). Wave 4 `around 450` / `max 250` / `under 150 palmy` / `280pw bond $1120` still `it.fails`.
+
+### Rentals ≠ sale / dual-rate / bond / location
+
+| ID | Input (abbrev) | Actual | Expected | Subsystem |
+|---|---|---|---|---|
+| W1 rental-house-no-daily-rate | 3bed Hamilton 650/week bond 4 weeks | **property**, weekly 650, deposit **2600**, title `3 Bedroom House` — still fails remaining contract (unfurnished/pets/instruction extras) | weekly 650, no daily, no command extras | domain-knowledge |
+| WR rental-spa-dual-rate-rotorua | spa 90/day or 400/week rotorua | equipment, **daily=weekly=400**, title Inflatable Spa | daily 90 **and** weekly 400 | rental rate merge |
+| WR rental-cx5-just-hiring-npl | not selling 2016 CX-5 just hiring 95/day new plymouth | rental **equipment** (not vehicle), **Brand New**, invented weekly **665**, **NPL missing** | vehicle hire $95/day, Used, New Plymouth | domain-knowledge / composer |
+| WR rental-4bed-timaru | 4bed 720/week bond 4 weeks | property, weekly 720, deposit 2880, 4 bed; **Timaru missing** | Timaru kept | input-normalize |
+| W2/W4 remaining | mixer/trailer dual/ranger hire/caravan/scaffold/triton/marquee/dented trailer | still expected-fail | hire ≠ sale; dual rates; dent once | semantic-intent |
+
+### Digital never digital
+
+| ID | Input (abbrev) | Actual | Expected | Subsystem |
+|---|---|---|---|---|
+| W3 digital-ebook / canva / course | ebook / Canva pack / Photoshop course | **physical**, raw titles (`Ebook NZ Gst Guide Pdf Instant Download`, pack priced 25 OK) | listingType **digital** | type set / domain |
+| WR digital-instagram-templates-gisborne | canva templates instant download 12 gisborne not printed, 30 templates | **physical** | digital $12 not $30 | type set |
+| WR digital-guitar-course-invercargill | online guitar course 35 not dvd/usb | **physical** | digital; USB/DVD exclusion | type / negation |
+| WR digital-gardening-ebook-napier | kindle ebook pdf 8 napier not paperback | **physical** | digital | type set |
+
+### Identity wipe on follow-up / undo
+
+| ID | Input (abbrev) | Actual | Expected | Subsystem |
+|---|---|---|---|---|
+| W1 physical-tv-size-price-correction | Samsung 55" $280 → wait nah 65" $320 scratch | title **Samsung 65 inch Tv**, $320, Hamilton kept; extras still **`size:55 inch`** | 65 only, scratch kept | listing-facts merge |
+| W1 physical-iphone-followup | 15 pro 128 black 1100 → 256 blue 950 cracked | **$950 OK**; colour **Black**, storage **128GB**, title still `128gb Black 1100` | 256 / blue / 950 | authority |
+| W1 physical-iphone-contradiction-one-shot | 128 wait no 256 black actually blue … 950 | **$950 OK**; title `iPhone 15 Pro 128gb`; storage **128GB**; colour Blue applied; leftover “though cracked” | 256GB blue | listing-facts merge |
+| W1 service-add-hedge-followup | lawn 40 → also hedge trimmin quote | **same service Lawn Mowing $40** (not a new listing) but **hedge dropped** | hedge + quote | pending-slots |
+| WR service-add-window-wash-followup | house cleaning palmy 80 → also window washing quote | House Cleaning $80 Palmerston North; **window dropped** | window + quote | pending-slots |
+| WR multi-galaxy-a54-undo | A54 → A55 420 → undo A54 280 → cracked back | **new listing titled `And Cracked Back Tho`** | A54 128 black $280 Nelson + crack | draft-transition |
+| W3 multi4-identity-swap-then-undo-iphone | 14 → 15 → undo 14 → cracked | **`And Cracked Screen Tho`** | iPhone 14 kept | draft-transition |
+| W4 multi7-price-maybe-firm-nah-final-ipad | 7-turn iPad price walk | **REGRESSION vs Wave 4-on-main**: title **`OR`**, location Hamilton, reply “storage 380GB”. Recorded as new `it.fails`. | iPad Air $380 Hamilton | composer / pending-slots |
+| WR multi-yaris-identity-size-wipe | 2014 Yaris 90k $6500 → 2015 110k $5800 rust | identity **kept** (2015 Toyota Yaris $5800 Napier) but odo **90000** not 110000; **rust missing** | 110k + rust | pending-slots / evidence |
+
+### Smashed / exaggerated fill still dirty on Wave 3 string
+
+- `physical-brand-new-but-smashed-iphone`: **price now 90** (not 11), condition **Used - Fair** (not New), smash in extras — but title is **`But Smashed iPhone 11 64gb 90`**, extras `the new but is smashed`. Wave-R S21 variant **does** pass. Do not treat the Wave 3 case as green.
+
+### Ranger ramble still not public-ready
+
+- Price **38900** (v1 win) and title `2019 Ford Ranger Wildtrak`, but extras still `the kays auckland is cracked` / `was dent`; description starts “Right selling me the wildtrak 3.” Commands/history still pollute WRITE.
+
+## Wave 4 conversion log (this PR)
+
+Converted `it.fails` → `it()` only after unexpected-pass on this branch (listed above). Newly recorded FAIL: `multi7-price-maybe-firm-nah-final-ipad` (identity wiped to title `OR`). Remaining Wave 4 `it.fails` kept.
+
+## Launch call
+
+v1 (commands off listings, confirmed ask) is real. Wanted routing is **better** (many WTB/ISO no longer become vehicle sales or scam lectures). Several property rentals now classify as property with weekly rent.
+
+Still **NOT SAFE TO LAUNCH**: digital type is absent, dual-rate hire collapses, vehicle-hire subtype/Brand New, follow-up undo still starts a new draft (`And Cracked … Tho`), hedge/window add-on dropped, wanted budget+accessory corrections ignored, instruction extras (`no timewasters`) leak, some NZ towns (Timaru) dropped, Wave 4 iPad 7-turn **regressed**.
+
+Do not delete remaining `it.fails`. Do not patch individual Wave-R strings in production. Failures are for Fixer.
