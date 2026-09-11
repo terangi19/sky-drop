@@ -5,11 +5,12 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
 import Background from "../components/Background";
-import { collection, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { LISTING_GRID, PAGE_SHELL_WIDE } from "../lib/page-layout";
 import { sellerProfileDisplayName } from "../lib/public-display";
 import { BROWSE_LISTINGS_LIMIT } from "../lib/firestore-query-limits";
+import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 const CATEGORIES = ["All", "IT & Tech", "Sales & Marketing", "Accounting & Finance", "Construction & Trades", "Healthcare & Education", "Hospitality & Tourism", "Other"];
 
@@ -18,18 +19,31 @@ export default function JobsPage() {
   const [category, setCategory] = useState("All");
 
   useEffect(() => {
+    let mounted = true;
     const q = query(
       collection(db, "listings"),
       where("type", "==", "job"),
       orderBy("createdAt", "desc"),
       limit(BROWSE_LISTINGS_LIMIT)
     );
-    const unsub = onSnapshot(q, (snap) => {
-      const items: any[] = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any)).filter((i: any) => i.status === "live");
-      items.sort((a: any, b: any) => ((b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)));
-      setListings(items);
-    }, (err) => { console.error("Failed to load jobs:", err); });
-    return () => unsub();
+
+    async function fetchListings() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
+        const items: any[] = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any)).filter((i: any) => i.status === "live");
+        setListings(items);
+      } catch (err) {
+        console.error("Failed to load jobs:", err);
+      }
+    }
+
+    const stop = startVisibilityPolledFetch(fetchListings, BROWSE_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, []);
 
   const filtered = category === "All" ? listings : listings.filter((l) => l.category === category);

@@ -13,8 +13,8 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   limit,
-  onSnapshot,
   orderBy,
   query,
   setDoc,
@@ -49,6 +49,7 @@ import HotThisWeek from "../components/HotThisWeek";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
+import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 const OPPORTUNITY_CATEGORIES = ["All", "Items", "Services", "Rentals", "Vehicles"];
 
@@ -98,20 +99,33 @@ export default function OpportunitiesPage() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     const q = query(
       collection(db, "listings"),
       where("type", "==", "wanted"),
       orderBy("createdAt", "desc"),
       limit(BROWSE_LISTINGS_LIMIT)
     );
-    const unsub = onSnapshot(q, (snap) => {
-      const items: any[] = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() } as any))
-        .filter((i: any) => isListingVisibleInMarketplace(i));
-      items.sort((a: any, b: any) => ((b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)));
-      setListings(items);
-    }, (err) => { console.error("Failed to load opportunities:", err); });
-    return () => unsub();
+
+    async function fetchListings() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
+        const items: any[] = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as any))
+          .filter((i: any) => isListingVisibleInMarketplace(i));
+        setListings(items);
+      } catch (err) {
+        console.error("Failed to load opportunities:", err);
+      }
+    }
+
+    const stop = startVisibilityPolledFetch(fetchListings, BROWSE_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, []);
 
   function handleBuyNow(item: any) {

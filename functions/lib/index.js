@@ -38,6 +38,7 @@ const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const v2_1 = require("firebase-functions/v2");
 const admin = __importStar(require("firebase-admin"));
+const listing_update_filter_1 = require("./listing-update-filter");
 (0, v2_1.setGlobalOptions)({ region: "asia-southeast1" });
 admin.initializeApp();
 const db = admin.firestore();
@@ -62,6 +63,9 @@ exports.onListingUpdated = (0, firestore_1.onDocumentUpdated)("listings/{listing
     const after = (_d = (_c = event.data) === null || _c === void 0 ? void 0 : _c.after) === null || _d === void 0 ? void 0 : _d.data();
     const listingId = event.params.listingId;
     if (!before || !after)
+        return;
+    // View-count increments must not scan watchlist or send price-drop notifications.
+    if ((0, listing_update_filter_1.isViewsOnlyListingUpdate)(before, after))
         return;
     const oldPrice = Number(before.price) || 0;
     const newPrice = Number(after.price) || 0;

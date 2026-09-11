@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import { User } from "firebase/auth";
-import { collection, deleteDoc, doc, getDoc, limit, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
@@ -17,6 +17,8 @@ import { listingMessageSellerHref } from "../lib/listing-message-href";
 import { formatListingPriceDisplay, listingPrimaryCtaLabel } from "../lib/listing-price-display";
 import { isMessagingOnlyListingType } from "../lib/listing-type-config";
 import { getComparableListingPrice } from "../lib/listing-search-filters";
+import { WATCHLIST_LIMIT } from "../lib/firestore-query-limits";
+import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 interface WatchlistItem {
   id: string;
@@ -68,14 +70,32 @@ export default function WatchlistPage() {
 
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(collection(db, "users", user.uid, "watchlist"), orderBy("savedAt", "desc"), limit(100));
-    const unsubWatch = onSnapshot(q, (snap) => {
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as WatchlistItem));
-      setWatchlist(items);
-      try { localStorage.setItem("watchlist", JSON.stringify(items)); } catch (e) { console.error("Failed to save watchlist:", e); }
-      setLoading(false);
-    }, () => setLoading(false));
-    return () => unsubWatch();
+    let mounted = true;
+    const q = query(
+      collection(db, "users", user.uid, "watchlist"),
+      orderBy("savedAt", "desc"),
+      limit(WATCHLIST_LIMIT)
+    );
+
+    async function fetchWatchlist() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as WatchlistItem));
+        setWatchlist(items);
+        try { localStorage.setItem("watchlist", JSON.stringify(items)); } catch (e) { console.error("Failed to save watchlist:", e); }
+        setLoading(false);
+      } catch {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    const stop = startVisibilityPolledFetch(fetchWatchlist, BROWSE_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, [user?.uid]);
 
   useEffect(() => {

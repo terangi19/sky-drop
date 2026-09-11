@@ -2,6 +2,7 @@ import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/fire
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
+import { isViewsOnlyListingUpdate } from "./listing-update-filter";
 
 setGlobalOptions({ region: "asia-southeast1" });
 
@@ -45,6 +46,9 @@ export const onListingUpdated = onDocumentUpdated("listings/{listingId}", async 
   const after = event.data?.after?.data();
   const listingId = event.params.listingId;
   if (!before || !after) return;
+
+  // View-count increments must not scan watchlist or send price-drop notifications.
+  if (isViewsOnlyListingUpdate(before, after)) return;
 
   const oldPrice = Number(before.price) || 0;
   const newPrice = Number(after.price) || 0;

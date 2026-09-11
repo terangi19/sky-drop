@@ -26,6 +26,7 @@ import {
   resolveSellerCardProfileSlug,
 } from "../lib/public-display";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
+import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 const CheckoutModal = dynamic(() => import("../components/CheckoutModal"), { ssr: false });
 const PromoteModal = dynamic(() => import("../components/PromoteModal"), { ssr: false });
@@ -184,15 +185,27 @@ export default function TradeFeedPage() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     const q = query(collection(db, "tradePosts"), orderBy("createdAt", "desc"), limit(100));
-    const unsub = onSnapshot(q, (snap) => {
-      setPosts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setPostsLoaded(true);
-    }, (err) => {
-      console.error("Trade posts error:", err);
-      setPostsLoaded(true);
-    });
-    return () => unsub();
+
+    async function fetchPosts() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
+        setPosts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setPostsLoaded(true);
+      } catch (err) {
+        console.error("Trade posts error:", err);
+        if (mounted) setPostsLoaded(true);
+      }
+    }
+
+    const stop = startVisibilityPolledFetch(fetchPosts, BROWSE_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, []);
 
   // Fetch seller review stats - optimized to batch fetch
