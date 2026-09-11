@@ -26,17 +26,56 @@ export type { FrictionInput };
 
 const BLOCKED_KEY_CACHE = new Map<string, number>();
 
+export type RateLimitOptions = {
+  /**
+   * When Upstash is missing or the circuit is open, skip the Firestore GET+SET.
+   * Use for cheap public probes such as `/api/sky-ai/status`.
+   */
+  fallback?: "firestore" | "memory";
+};
+
+function takeMemorySlot(
+  key: string,
+  maxRequests: number,
+  windowMs: number,
+  now: number
+): RateLimitResult {
+  const freshEntry = store.get(key);
+  if (!freshEntry || now > freshEntry.resetAt) {
+    store.set(key, { count: 1, resetAt: now + windowMs });
+    return { allowed: true, remaining: maxRequests - 1, limit: maxRequests };
+  }
+
+  freshEntry.count++;
+  if (freshEntry.count > maxRequests) {
+    const lastLogged = BLOCKED_KEY_CACHE.get(key) || 0;
+    if (now - lastLogged > 60_000) {
+      BLOCKED_KEY_CACHE.set(key, now);
+      logSecurityWarning("rate_limit_exceeded", `Rate limit hit for ${key} (in-memory fallback)`, {
+        metadata: { key, maxRequests, windowMs },
+      });
+    }
+    return { allowed: false, remaining: 0, limit: maxRequests };
+  }
+  return { allowed: true, remaining: maxRequests - freshEntry.count, limit: maxRequests };
+}
+
 export async function rateLimit(
   key: string,
   maxRequests: number,
-  windowMs: number
+  windowMs: number,
+  options?: RateLimitOptions
 ): Promise<RateLimitResult> {
   const now = Date.now();
+  const memoryFallback = options?.fallback === "memory";
 
   // Layer 1: Upstash Redis (distributed, production)
   if (isUpstashEnabled()) {
     const result = await rateLimitUpstash(key, maxRequests, windowMs);
     if (result.degraded) {
+      if (memoryFallback) {
+        return takeMemorySlot(key, maxRequests, windowMs, now);
+      }
       // Redis misconfigured or unreachable — fall through to Firestore/in-memory.
     } else if (!result.allowed) {
       const lastLogged = BLOCKED_KEY_CACHE.get(key) || 0;
@@ -51,6 +90,8 @@ export async function rateLimit(
       store.set(key, { count: 1, resetAt: now + windowMs });
       return result;
     }
+  } else if (memoryFallback) {
+    return takeMemorySlot(key, maxRequests, windowMs, now);
   }
 
   // Layer 2: Fast in-memory check (dev / fallback)
@@ -105,24 +146,7 @@ export async function rateLimit(
   } catch {}
 
   // Layer 4: In-memory fallback (used when Upstash + Firestore both unavailable)
-  const freshEntry = store.get(key);
-  if (!freshEntry || now > freshEntry.resetAt) {
-    store.set(key, { count: 1, resetAt: now + windowMs });
-    return { allowed: true, remaining: maxRequests - 1, limit: maxRequests };
-  }
-
-  freshEntry.count++;
-  if (freshEntry.count > maxRequests) {
-    const lastLogged = BLOCKED_KEY_CACHE.get(key) || 0;
-    if (now - lastLogged > 60_000) {
-      BLOCKED_KEY_CACHE.set(key, now);
-      logSecurityWarning("rate_limit_exceeded", `Rate limit hit for ${key} (in-memory fallback)`, {
-        metadata: { key, maxRequests, windowMs },
-      });
-    }
-    return { allowed: false, remaining: 0, limit: maxRequests };
-  }
-  return { allowed: true, remaining: maxRequests - freshEntry.count, limit: maxRequests };
+  return takeMemorySlot(key, maxRequests, windowMs, now);
 }
 
 /**
