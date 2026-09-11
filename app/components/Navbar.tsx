@@ -17,10 +17,8 @@ import {
 import {
   collection,
   query,
-  where,
-  onSnapshot,
   limit,
-  orderBy,
+  getDocs,
 } from "firebase/firestore";
 
 import {
@@ -33,13 +31,13 @@ import SkyDropLogo from "./SkyDropLogo";
 import { useAuth } from "../contexts/AuthContext";
 import { useProfile } from "../contexts/ProfileContext";
 import { isAdminEmail } from "../lib/admin-check";
-import {
-  blockedEmailsFromDocs,
-  countInboxUnreadMessages,
-} from "../lib/messages-unread";
+import { blockedEmailsFromDocs } from "../lib/messages-unread";
 import { useFeedback } from "../contexts/FeedbackContext";
 import AccountMenuContent from "./AccountMenu";
 import { AppMenuPanel } from "./ui/AppMenu";
+
+/** Badge polls — not realtime. Avoids duplicate messages/notifications snapshots vs /messages. */
+const UNREAD_COUNTS_POLL_MS = 30_000;
 
 const BROWSE_LINKS = [
   { href: "/", label: "All Items", desc: "Browse the full marketplace" },
@@ -107,9 +105,6 @@ export default function Navbar() {
 
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [activityUnreadCount, setActivityUnreadCount] = useState(0);
-  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
-  const blockedUsersRef = useRef<string[]>([]);
-  blockedUsersRef.current = blockedUsers;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -158,102 +153,98 @@ export default function Navbar() {
     return pathname.startsWith(path);
   }
 
-  function loadDismissed(): Set<string> {
-    try {
-      let raw = null;
-      try { raw = localStorage.getItem("dismissedNotifications"); } catch (e) { console.error("Failed to read dismissed notifications:", e); }
-      return new Set<string>(raw ? JSON.parse(raw) : []);
-    } catch { return new Set<string>(); }
-  }
-
-  useEffect(() => {
-    try {
-      setBlockedUsers(JSON.parse(localStorage.getItem("blockedUsers") || "[]"));
-    } catch {}
-    const onBlockedChanged = () => {
-      try {
-        setBlockedUsers(JSON.parse(localStorage.getItem("blockedUsers") || "[]"));
-      } catch {}
-    };
-    window.addEventListener("blocked-users-changed", onBlockedChanged);
-    return () => window.removeEventListener("blocked-users-changed", onBlockedChanged);
-  }, []);
-
+  // Session fetch for block-list cache (messages page still has realtime). No full-collection listener.
   useEffect(() => {
     if (!user?.uid) return;
-    const blockedQ = query(collection(db, "users", user.uid, "blocked"), limit(100));
-    const unsub = onSnapshot(
-      blockedQ,
-      (snap) => {
+    const uid = user.uid;
+    let mounted = true;
+
+    async function fetchBlockedUsers() {
+      try {
+        const snap = await getDocs(
+          query(collection(db, "users", uid, "blocked"), limit(100))
+        );
+        if (!mounted) return;
         const emails = blockedEmailsFromDocs(snap.docs);
-        setBlockedUsers(emails);
-        localStorage.setItem("blockedUsers", JSON.stringify(emails));
-      },
-      (err) => console.error("Failed to sync blocked users:", err)
-    );
-    return () => unsub();
+        try {
+          localStorage.setItem("blockedUsers", JSON.stringify(emails));
+        } catch (e) {
+          console.error("Failed to cache blocked users:", e);
+        }
+      } catch (err) {
+        console.error("Failed to sync blocked users:", err);
+      }
+    }
+
+    fetchBlockedUsers();
+    return () => {
+      mounted = false;
+    };
   }, [user?.uid]);
 
-  function firestoreErrorCode(error: unknown): string {
-    if (error && typeof error === "object" && "code" in error) {
-      return String((error as { code: string }).code);
-    }
-    return "";
-  }
-
   useEffect(() => {
-    if (!user?.email) return;
-
-    const dismissed = loadDismissed();
-    const msgQ = query(
-      collection(db, "messages"),
-      where("participants", "array-contains", user.email),
-      orderBy("createdAt", "desc"),
-      limit(100)
-    );
-    const unsub1 = onSnapshot(msgQ, (snap) => {
-      const allMsgs = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Array<
-        Record<string, unknown> & { id: string }
-      >;
-      setInboxUnreadCount(countInboxUnreadMessages(allMsgs, user.email!, blockedUsersRef.current, dismissed));
-    }, (err) => {
-      const code = firestoreErrorCode(err);
-      if (code === "failed-precondition") {
-        console.warn("Messages index building or missing — inbox badge paused:", err);
-      } else {
-        console.error("Msg notification error:", err);
-      }
+    if (!user) {
       setInboxUnreadCount(0);
-    });
-
-    const purchaseQ = query(
-      collection(db, "notifications"),
-      where("targetEmail", "==", user.email),
-      orderBy("createdAt", "desc"),
-      limit(50)
-    );
-    const unsub2 = onSnapshot(purchaseQ, (snap) => {
-      let unreadActivity = 0;
-      for (const d of snap.docs) {
-        const data = d.data();
-        if (data.read !== false) continue;
-        const nType = (data.type as string) || "purchase";
-        if (nType === "message" || nType === "offer") continue;
-        unreadActivity += 1;
-      }
-      setActivityUnreadCount(unreadActivity);
-    }, (err) => {
-      const code = firestoreErrorCode(err);
-      if (code === "failed-precondition") {
-        console.warn("Notifications index building or missing — activity badge paused:", err);
-      } else {
-        console.error("Purchase notification error:", err);
-      }
       setActivityUnreadCount(0);
-    });
+      return;
+    }
 
-    return () => { unsub1(); unsub2(); };
-  }, [user?.email, user?.uid]);
+    const currentUser = user;
+    let mounted = true;
+    let inFlight: Promise<void> | null = null;
+
+    async function fetchUnreadCounts() {
+      if (!mounted) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      if (inFlight) return inFlight;
+
+      inFlight = (async () => {
+        try {
+          const token = await currentUser.getIdToken();
+          const res = await fetch("/api/unread-counts", {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          });
+          if (!mounted) return;
+          if (!res.ok) {
+            if (res.status === 401) {
+              setInboxUnreadCount(0);
+              setActivityUnreadCount(0);
+            } else {
+              console.error("Unread counts request failed:", res.status);
+            }
+            return;
+          }
+          const data = (await res.json()) as {
+            inboxUnread?: number;
+            activityUnread?: number;
+          };
+          if (!mounted) return;
+          setInboxUnreadCount(Math.max(0, Number(data.inboxUnread) || 0));
+          setActivityUnreadCount(Math.max(0, Number(data.activityUnread) || 0));
+        } catch (e) {
+          console.error("Failed to fetch unread counts:", e);
+        } finally {
+          inFlight = null;
+        }
+      })();
+
+      return inFlight;
+    }
+
+    fetchUnreadCounts();
+    const interval = setInterval(fetchUnreadCounts, UNREAD_COUNTS_POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void fetchUnreadCounts();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;

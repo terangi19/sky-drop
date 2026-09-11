@@ -13,8 +13,8 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   limit,
-  onSnapshot,
   orderBy,
   query,
   setDoc,
@@ -77,37 +77,45 @@ export default function ListingPage() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     const listingsQuery = query(
       collection(db, "listings"),
       orderBy("createdAt", "desc"),
       limit(50)
     );
 
-    const unsubscribe =
-      onSnapshot(
-        listingsQuery,
-        (snapshot) => {
+    async function fetchListings() {
+      if (!mounted) return;
+      try {
+        const snapshot = await getDocs(listingsQuery);
+        if (!mounted) return;
 
-          const items =
-            snapshot.docs
-              .map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-              } as any))
-              .filter((l: any) => l.sellerEmail !== user?.email);
+        const items =
+          snapshot.docs
+            .map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            } as any))
+            .filter((l: any) => l.sellerEmail !== user?.email);
 
-          setListings(items as any);
+        setListings(items as any);
+        setLoading(false);
+      } catch (error) {
+        console.error(error);
+        if (!mounted) return;
+        setLoading(false);
+        const message = error instanceof Error ? error.message : "Unknown error";
+        showToast("Failed to load listings: " + message, "error");
+      }
+    }
 
-          setLoading(false);
-        },
-        (error) => {
-          console.error(error);
-          setLoading(false);
-          showToast("Failed to load listings: " + error.message, "error");
-        }
-      );
+    fetchListings();
+    const interval = setInterval(fetchListings, 60_000);
 
-    return () => unsubscribe();
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -116,6 +124,7 @@ export default function ListingPage() {
       return;
     }
 
+    let mounted = true;
     const favoritesRef =
       collection(
         db,
@@ -124,25 +133,26 @@ export default function ListingPage() {
         "favorites"
       );
 
-    const unsubscribe =
-      onSnapshot(
-        favoritesRef,
-        (snapshot) => {
+    async function fetchFavorites() {
+      if (!mounted) return;
+      try {
+        const snapshot = await getDocs(favoritesRef);
+        if (!mounted) return;
+        setFavorites(snapshot.docs.map((doc) => doc.id));
+      } catch (error) {
+        console.error(error);
+        const message = error instanceof Error ? error.message : "Unknown error";
+        showToast("Failed to load favorites: " + message, "error");
+      }
+    }
 
-          const saved =
-            snapshot.docs.map(
-              (doc) => doc.id
-            );
+    fetchFavorites();
+    const interval = setInterval(fetchFavorites, 60_000);
 
-          setFavorites(saved);
-        },
-        (error) => {
-          console.error(error);
-          showToast("Failed to load favorites: " + error.message, "error");
-        }
-      );
-
-    return () => unsubscribe();
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [user]);
 
   async function toggleFavorite(
@@ -161,46 +171,48 @@ export default function ListingPage() {
       item.id
     );
 
-    if (
-      favorites.includes(item.id)
-    ) {
+    const isFavorite = favorites.includes(item.id);
 
-      await deleteDoc(
-        favoriteRef
-      );
+    try {
+      if (isFavorite) {
+        await deleteDoc(favoriteRef);
+        setFavorites((prev) => prev.filter((id) => id !== item.id));
+      } else {
+        await setDoc(
+          favoriteRef,
+          {
+            listingId: item.id,
 
-    } else {
+            title:
+              item.title || "",
 
-      await setDoc(
-        favoriteRef,
-        {
-          listingId: item.id,
+            price:
+              item.price || "",
 
-          title:
-            item.title || "",
+            location:
+              item.location || "",
 
-          price:
-            item.price || "",
+            category:
+              item.category || "Other",
 
-          location:
-            item.location || "",
+            description:
+              item.description || "",
 
-          category:
-            item.category || "Other",
+            sellerEmail:
+              item.sellerEmail || "",
 
-          description:
-            item.description || "",
+            imageUrl:
+              item.imageUrl || "",
 
-          sellerEmail:
-            item.sellerEmail || "",
-
-          imageUrl:
-            item.imageUrl || "",
-
-          savedAt:
-            new Date(),
-        }
-      );
+            savedAt:
+              new Date(),
+          }
+        );
+        setFavorites((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]));
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to update favorite. Please try again.", "error");
     }
   }
 
@@ -229,6 +241,7 @@ export default function ListingPage() {
           id
         )
       );
+      setListings((prev) => prev.filter((l) => l.id !== id));
 
     } catch (error) {
 

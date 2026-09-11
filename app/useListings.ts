@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { db } from "./lib/firebase";
 import { Listing } from "../types/firestore";
 
 /** Marketplace search / browse needs services + rentals, not only the newest physicals. */
 const GLOBAL_LISTINGS_LIMIT = 400;
+/** Search does not need live snapshots — poll instead of a realtime listener. */
+const LISTINGS_POLL_MS = 60_000;
 
 export function useListings(sellerEmail?: string) {
   const [listings, setListings] = useState<Listing[]>([]);
@@ -14,6 +16,9 @@ export function useListings(sellerEmail?: string) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
+    let inFlight: Promise<void> | null = null;
+
     const constraints: Array<ReturnType<typeof where> | ReturnType<typeof orderBy> | ReturnType<typeof limit>> = [];
     if (sellerEmail) {
       constraints.push(where("sellerEmail", "==", sellerEmail));
@@ -23,21 +28,42 @@ export function useListings(sellerEmail?: string) {
 
     const listingsQuery = query(collection(db, "listings"), ...constraints);
 
-    const unsubscribe = onSnapshot(listingsQuery, (snapshot) => {
-      const items = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<Listing, "id">),
-      })) as Listing[];
-      setListings(items);
-      setError(false);
-      setLoading(false);
-    }, (err) => {
-      console.error("Listings snapshot error:", err);
-      setError(true);
-      setLoading(false);
-    });
+    async function fetchListings() {
+      if (!mounted) return;
+      if (inFlight) return inFlight;
 
-    return () => unsubscribe();
+      inFlight = (async () => {
+        try {
+          const snapshot = await getDocs(listingsQuery);
+          if (!mounted) return;
+          const items = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...(doc.data() as Omit<Listing, "id">),
+          })) as Listing[];
+          setListings(items);
+          setError(false);
+          setLoading(false);
+        } catch (err) {
+          console.error("Listings fetch error:", err);
+          if (mounted) {
+            setError(true);
+            setLoading(false);
+          }
+        } finally {
+          inFlight = null;
+        }
+      })();
+
+      return inFlight;
+    }
+
+    fetchListings();
+    const interval = setInterval(fetchListings, LISTINGS_POLL_MS);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [sellerEmail]);
 
   return { listings, loading, error };
