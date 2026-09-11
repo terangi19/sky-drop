@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb, isAdminInitialized, verifyIdToken } from "../../lib/firebase-admin";
+import { blockedEmailsFromDocs } from "../../lib/messages-unread";
 import { rateLimit } from "../../lib/rate-limit";
 
 /**
  * Authenticated unread counts for the signed-in user (not admin-only).
- * Navbar currently uses Firestore snapshots; this route is the server-side poll path.
+ * Navbar polls this instead of holding messages/notifications onSnapshot listeners.
  * Uses simple equality queries (no not-in/orderBy composites) to avoid index 500s.
+ * Blocked senders are excluded from the inbox badge without a full messages fan-out.
  */
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
@@ -43,22 +45,39 @@ export async function GET(req: NextRequest) {
 
     const db = getAdminDb();
 
-    const inboxSnap = await db
-      .collection("messages")
-      .where("receiver", "==", email)
-      .where("read", "==", false)
-      .count()
-      .get();
+    const [blockedSnap, inboxCountSnap, activitySnap] = await Promise.all([
+      db.collection("users").doc(decoded.uid).collection("blocked").limit(100).get(),
+      db
+        .collection("messages")
+        .where("receiver", "==", email)
+        .where("read", "==", false)
+        .count()
+        .get(),
+      db
+        .collection("notifications")
+        .where("targetEmail", "==", email)
+        .where("read", "==", false)
+        .limit(50)
+        .get(),
+    ]);
 
-    const inboxUnread = inboxSnap.data().count;
+    const blockedEmails = new Set(blockedEmailsFromDocs(blockedSnap.docs));
+    let inboxUnread = inboxCountSnap.data().count;
+
+    if (blockedEmails.size > 0 && inboxUnread > 0) {
+      const inboxSnap = await db
+        .collection("messages")
+        .where("receiver", "==", email)
+        .where("read", "==", false)
+        .limit(100)
+        .get();
+      inboxUnread = inboxSnap.docs.filter((d) => {
+        const sender = String(d.data()?.sender || "").trim().toLowerCase();
+        return !!sender && !blockedEmails.has(sender);
+      }).length;
+    }
+
     const inboxReadTime = Date.now() - startTime;
-
-    const activitySnap = await db
-      .collection("notifications")
-      .where("targetEmail", "==", email)
-      .where("read", "==", false)
-      .limit(50)
-      .get();
 
     const activityUnread = activitySnap.docs.filter((d) => {
       const type = String(d.data()?.type || "");
