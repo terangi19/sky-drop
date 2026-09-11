@@ -31,6 +31,7 @@ export default async function sitemap() {
     { url: `${BASE_URL}/terms`, lastModified: new Date(), changeFrequency: "monthly" as const, priority: 0.1 },
     { url: `${BASE_URL}/privacy`, lastModified: new Date(), changeFrequency: "monthly" as const, priority: 0.1 },
     { url: `${BASE_URL}/digital`, lastModified: new Date(), changeFrequency: "daily" as const, priority: 0.6 },
+    { url: `${BASE_URL}/physical`, lastModified: new Date(), changeFrequency: "daily" as const, priority: 0.6 },
     { url: `${BASE_URL}/services`, lastModified: new Date(), changeFrequency: "daily" as const, priority: 0.6 },
     { url: `${BASE_URL}/rentals`, lastModified: new Date(), changeFrequency: "daily" as const, priority: 0.6 },
     { url: `${BASE_URL}/vehicles`, lastModified: new Date(), changeFrequency: "daily" as const, priority: 0.6 },
