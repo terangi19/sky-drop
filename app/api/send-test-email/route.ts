@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
 
         results.push({ type, status: "sent" });
       } catch (e: any) {
-        results.push({ type, status: `failed: ${e?.message || "unknown"}` });
+        results.push({ type, status: "failed" });
       }
     }
 
@@ -159,6 +159,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, sent, failed, details: results });
   } catch (e: any) {
     console.error(e);
-    return NextResponse.json({ error: e?.message || "Failed" }, { status: 500 });
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

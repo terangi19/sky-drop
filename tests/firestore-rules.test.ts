@@ -769,6 +769,222 @@ describe("Firestore Security Rules", () => {
       );
     });
 
+    it("profile owner cannot self-assign verification or KYC on update", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("profiles").doc("profile-update-alice").set({
+          email: "profile-update-alice@test.com",
+          kycStatus: "pending",
+          phoneVerified: false,
+        });
+      });
+
+      const alice = testEnv
+        .authenticatedContext("profile-update-alice", {
+          email: "profile-update-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+
+      await assertFails(
+        alice.collection("profiles").doc("profile-update-alice").update({
+          phoneVerified: true,
+        })
+      );
+      await assertFails(
+        alice.collection("profiles").doc("profile-update-alice").update({
+          emailVerified: true,
+        })
+      );
+      await assertFails(
+        alice.collection("profiles").doc("profile-update-alice").update({
+          kycApproved: true,
+        })
+      );
+      await assertFails(
+        alice.collection("profiles").doc("profile-update-alice").update({
+          kycStatus: "approved",
+        })
+      );
+      await assertFails(
+        alice.collection("profiles").doc("profile-update-alice").update({
+          stripeAccountId: "acct_fake",
+        })
+      );
+    });
+
+    it("listing create cannot impersonate another sellerId", async () => {
+      const alice = testEnv
+        .authenticatedContext("listing-spoof-alice", {
+          email: "listing-spoof-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        alice.collection("listings").doc("spoofed-seller").set({
+          title: "Not Bob's item",
+          sellerEmail: "listing-spoof-alice@test.com",
+          sellerId: "listing-spoof-bob",
+        })
+      );
+      await assertSucceeds(
+        alice.collection("listings").doc("own-seller").set({
+          title: "Alice item",
+          sellerEmail: "listing-spoof-alice@test.com",
+          sellerId: "listing-spoof-alice",
+        })
+      );
+    });
+
+    it("listing owner cannot self-promote or rewrite auction/payment fields", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("listings").doc("promo-listing").set({
+          title: "Camera",
+          sellerId: "promo-alice",
+          sellerEmail: "promo-alice@test.com",
+          featured: false,
+          views: 3,
+          currentBid: 10,
+        });
+      });
+      const alice = testEnv
+        .authenticatedContext("promo-alice", {
+          email: "promo-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        alice.collection("listings").doc("promo-listing").update({ featured: true })
+      );
+      await assertFails(
+        alice.collection("listings").doc("promo-listing").update({ visibilityRank: "boosted" })
+      );
+      await assertFails(
+        alice.collection("listings").doc("promo-listing").update({ currentBid: 9999 })
+      );
+      await assertFails(
+        alice.collection("listings").doc("promo-listing").update({ views: 100 })
+      );
+      await assertSucceeds(
+        alice.collection("listings").doc("promo-listing").update({ title: "Camera (updated)" })
+      );
+    });
+
+    it("profile create cannot include verification keys even when false", async () => {
+      const alice = testEnv
+        .authenticatedContext("profile-create-alice", {
+          email: "profile-create-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertSucceeds(
+        alice.collection("profiles").doc("profile-create-alice").set({
+          email: "profile-create-alice@test.com",
+          username: "profilecreatealice",
+        })
+      );
+      await assertFails(
+        alice.collection("profiles").doc("profile-create-alice").set(
+          {
+            email: "profile-create-alice@test.com",
+            username: "profilecreatealice",
+            phoneVerified: false,
+          },
+          { merge: true }
+        )
+      );
+      const bob = testEnv
+        .authenticatedContext("profile-create-bob", {
+          email: "profile-create-bob@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        bob.collection("profiles").doc("profile-create-bob").set({
+          email: "profile-create-bob@test.com",
+          username: "profilecreatebob",
+          phoneVerified: false,
+        })
+      );
+    });
+
+    it("trade post owner cannot self-promote or rewrite seller identity", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("tradePosts").doc("promo-post").set({
+          title: "Post",
+          sellerId: "promo-alice",
+          sellerEmail: "promo-alice@test.com",
+          featured: false,
+        });
+      });
+      const alice = testEnv
+        .authenticatedContext("promo-alice", {
+          email: "promo-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        alice.collection("tradePosts").doc("promo-post").update({ featured: true })
+      );
+      await assertFails(
+        alice.collection("tradePosts").doc("promo-post").update({
+          sellerEmail: "bob@test.com",
+        })
+      );
+      await assertSucceeds(
+        alice.collection("tradePosts").doc("promo-post").update({ title: "Post (updated)" })
+      );
+    });
+
+    it("clients cannot mint hustler commissions or read every hustler click", async () => {
+      const alice = testEnv
+        .authenticatedContext("hustler-alice", {
+          email: "hustler-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        alice.collection("hustlerCommissions").doc("fake-payout").set({
+          promoterId: "hustler-alice",
+          amount: 500,
+        })
+      );
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("hustlerClicks").doc("click-1").set({
+          click: true,
+        });
+      });
+      await assertFails(alice.collection("hustlerClicks").doc("click-1").get());
+    });
+
+    it("clients cannot fabricate bid history or steal drop tokens", async () => {
+      const alice = testEnv
+        .authenticatedContext("token-alice", {
+          email: "token-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        alice.collection("bidHistory").doc("fake-bid").set({
+          bidderEmail: "token-alice@test.com",
+          listingId: "listing-1",
+          amount: 50,
+        })
+      );
+
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("dropTokens").doc("token-1").set({
+          ownerId: "token-alice",
+          status: "available",
+        });
+      });
+      await assertSucceeds(
+        alice.collection("dropTokens").doc("token-1").update({ status: "used" })
+      );
+      await assertFails(
+        alice.collection("dropTokens").doc("token-1").update({ ownerId: "token-bob" })
+      );
+    });
+
     it("clients cannot fabricate follower relationships", async () => {
       const alice = testEnv
         .authenticatedContext("follow-alice", {

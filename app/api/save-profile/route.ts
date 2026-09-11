@@ -5,6 +5,8 @@ import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
 import { verifiedFlagAfterUpdate } from "../../lib/seller-verified";
+import { resolveProfilePhoneUpdate } from "../../lib/profile-phone-update";
+import { deletePhoneRegistryForUser } from "../../lib/phone-registry.server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,6 +68,7 @@ export async function POST(req: NextRequest) {
       notifQuietHoursEnd,
       notifDigest,
       phone,
+      clearPhone,
       bankAccountName,
       bankAccountNumber,
       bankReference,
@@ -98,7 +101,14 @@ export async function POST(req: NextRequest) {
 
     // Phone verification is an authoritative server-side state. This profile
     // endpoint must never elevate it from client-provided request data.
-    const nextPhoneVerified = existingData?.phoneVerified === true;
+    const existingPhone = String(existingData?.phone || existingData?.phoneNumber || "");
+    const phoneUpdate = resolveProfilePhoneUpdate({
+      incomingPhone: typeof phone === "string" ? phone : undefined,
+      clearPhone: clearPhone === true,
+      existingPhone,
+      existingPhoneVerified: existingData?.phoneVerified === true,
+    });
+    const nextPhoneVerified = phoneUpdate.phoneVerified;
     const nextEmailVerified = !!decodedToken.email_verified;
 
     const profileData = {
@@ -137,16 +147,8 @@ export async function POST(req: NextRequest) {
       notifQuietHoursStart: notifQuietHoursStart || "22:00",
       notifQuietHoursEnd: notifQuietHoursEnd || "08:00",
       notifDigest: !!notifDigest,
-      phone:
-        (typeof phone === "string" && phone.trim()) ||
-        existingData?.phone ||
-        existingData?.phoneNumber ||
-        "",
-      phoneNumber:
-        (typeof phone === "string" && phone.trim()) ||
-        existingData?.phoneNumber ||
-        existingData?.phone ||
-        "",
+      phone: phoneUpdate.phone,
+      phoneNumber: phoneUpdate.phoneNumber,
       phoneVerified: nextPhoneVerified,
       verified: verifiedFlagAfterUpdate(existingData, {
         phoneVerified: nextPhoneVerified,
@@ -199,6 +201,14 @@ export async function POST(req: NextRequest) {
     }
 
     await profileRef.set(profileData, { merge: true });
+
+    if (phoneUpdate.releasePrevious) {
+      try {
+        await deletePhoneRegistryForUser(decodedToken.uid);
+      } catch (releaseErr) {
+        console.warn("save-profile: phone registry release failed:", releaseErr);
+      }
+    }
 
     try {
       await usernameRef.set({ uid: decodedToken.uid }, { merge: true });

@@ -189,7 +189,6 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<C
       user.email || email,
       {
         phone: "",
-        phoneVerified: false,
         referralCode,
         memberSince: Timestamp.now(),
         lastActive: Timestamp.now(),

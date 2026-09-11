@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      return NextResponse.json({ success: true, id: ref.id, sellerEmail });
+      return NextResponse.json({ success: true, id: ref.id });
     }
 
     const questionId = typeof body.questionId === "string" ? body.questionId.trim() : "";

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { isPublicHttpUrl } from "../../lib/http-url";
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,10 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
-    // Validate URL format
-    try {
-      new URL(url);
-    } catch {
+    if (!isPublicHttpUrl(url) || url.length > 2000) {
       return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
     }
 

@@ -104,3 +104,44 @@ export async function claimVerifiedPhoneForUser(opts: {
 
   return { ok: true, phone: formatted };
 }
+
+/** Remove this user's numbers from the uniqueness registry. Does not touch the profile. */
+export async function deletePhoneRegistryForUser(uid: string): Promise<void> {
+  const db = getAdminDb();
+  const prior = await db.collection(COLLECTION).where("uid", "==", uid).get();
+  if (prior.empty) return;
+  const batch = db.batch();
+  for (const doc of prior.docs) {
+    batch.delete(doc.ref);
+  }
+  await batch.commit();
+}
+
+/** Unlink every registry number for this user and clear profile verification. */
+export async function releaseVerifiedPhoneForUser(uid: string): Promise<void> {
+  const db = getAdminDb();
+  const profileRef = db.collection("profiles").doc(uid);
+  const prior = await db.collection(COLLECTION).where("uid", "==", uid).get();
+
+  await db.runTransaction(async (tx) => {
+    const profileSnap = await tx.get(profileRef);
+    const existingProfile = profileSnap.data();
+    const phonePatch = {
+      phone: "",
+      phoneNumber: "",
+      phoneVerified: false,
+      phoneVerifiedAt: null,
+    };
+    tx.set(
+      profileRef,
+      {
+        ...phonePatch,
+        verified: verifiedFlagAfterUpdate(existingProfile, phonePatch),
+      },
+      { merge: true }
+    );
+    for (const doc of prior.docs) {
+      tx.delete(doc.ref);
+    }
+  });
+}

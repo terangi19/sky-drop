@@ -70,7 +70,15 @@ service cloud.firestore {
 
         && isEmailVerified()
 
-        && request.resource.data.sellerEmail == request.auth.token.email;
+        && request.resource.data.sellerEmail == request.auth.token.email
+
+        && (!('sellerId' in request.resource.data)
+
+          || request.resource.data.sellerId == request.auth.uid)
+
+        && (!('sellerUid' in request.resource.data)
+
+          || request.resource.data.sellerUid == request.auth.uid);
 
       allow update: if request.auth != null
 
@@ -78,7 +86,12 @@ service cloud.firestore {
           && !request.resource.data.diff(resource.data).affectedKeys()
             .hasAny([
               'sellerId', 'sellerEmail', 'sellerName', 'sellerUid', 'sellerPhotoURL',
-              'ownerId', 'userId', 'createdBy'
+              'ownerId', 'userId', 'createdBy',
+              'featured', 'boosted', 'promoted', 'bumpExpiresAt', 'visibilityRank',
+              'verified', 'adminVerified', 'isDemo', 'demo',
+              'currentBid', 'highestBidder', 'highestBidderId', 'bidCount',
+              'paymentReleased', 'stripePaymentIntentId', 'stripeAccountId',
+              'soldAt', 'views'
             ])
 
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'updatedAt'])
@@ -108,7 +121,10 @@ service cloud.firestore {
           'kycApproved', 'kycReviewedAt', 'kycReviewedBy', 'kycBannedReason',
           'trustedSeller', 'verified', 'topTrader', 'profileBadge', 'fastReply', 'riskFlag',
           'badges', 'xp', 'level', 'salesCount', 'averageRating', 'reviewCount',
-          'followers', 'following', 'totalSales'
+          'followers', 'following', 'totalSales',
+          'phoneVerified', 'emailVerified',
+          'stripeAccountId', 'stripeCustomerId',
+          'restricted', 'bannedAt', 'banReason'
         ])
         && (!('kycStatus' in request.resource.data)
           || request.resource.data.kycStatus == 'pending'
@@ -136,10 +152,15 @@ service cloud.firestore {
         && (!request.resource.data.diff(resource.data).affectedKeys()
 
           .hasAny(['kycStatus', 'kycReviewedAt', 'kycReviewedBy', 'kycBannedReason',
+            'kycApproved',
 
             'trustedSeller', 'verified', 'topTrader', 'profileBadge', 'fastReply', 'riskFlag',
 
-            'badges', 'xp', 'level', 'salesCount', 'averageRating', 'reviewCount'])
+            'badges', 'xp', 'level', 'salesCount', 'averageRating', 'reviewCount',
+            'followers', 'following', 'totalSales',
+            'phoneVerified', 'emailVerified',
+            'stripeAccountId', 'stripeCustomerId',
+            'restricted', 'bannedAt', 'banReason'])
 
           || isKycPendingSelfSubmit());
 
@@ -193,7 +214,7 @@ service cloud.firestore {
 
         && request.resource.data.diff(resource.data).affectedKeys()
 
-          .hasOnly(['idImageUrl', 'selfieImageUrl', 'submittedAt', 'status'])
+          .hasOnly(['idImageUrl', 'selfieImageUrl', 'storagePath', 'submittedAt', 'status'])
 
         && request.resource.data.status == 'pending'
 
@@ -348,10 +369,18 @@ service cloud.firestore {
 
       allow create: if false;
 
-      // Checkout reservations are Admin SDK only (/api/create-payment-intent) — not client-writable.
       allow update: if request.auth != null
 
-        && (resource.data.sellerEmail == request.auth.token.email
+        && ((resource.data.sellerEmail == request.auth.token.email
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny([
+              'sellerId', 'sellerEmail', 'sellerName', 'sellerUid',
+              'featured', 'boosted', 'promoted', 'bumpExpiresAt', 'visibilityRank',
+              'verified', 'adminVerified', 'isDemo', 'demo',
+              'currentBid', 'highestBidder', 'highestBidderId', 'bidCount',
+              'paymentReleased', 'stripePaymentIntentId', 'stripeAccountId',
+              'soldAt'
+            ]))
 
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']));
 
@@ -421,7 +450,10 @@ service cloud.firestore {
 
       allow update: if request.auth != null
 
-        && resource.data.sellerEmail == request.auth.token.email;
+        && resource.data.sellerEmail == request.auth.token.email
+        && request.resource.data.sellerEmail == request.auth.token.email
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['sellerEmail', 'sellerId', 'featured', 'boosted', 'visibilityRank']);
 
     }
 
@@ -461,7 +493,11 @@ service cloud.firestore {
 
       allow create: if false;
 
-      allow update: if request.auth != null && resource.data.ownerId == request.auth.uid;
+      allow update: if request.auth != null
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'usedAt', 'updatedAt']);
 
     }
 
@@ -548,9 +584,7 @@ service cloud.firestore {
 
         && resource.data.referrerEmail == request.auth.token.email;
 
-      allow create: if request.auth != null
-
-        && request.resource.data.referrerEmail == request.auth.token.email;
+      allow create, update, delete: if false;
 
     }
 
@@ -653,13 +687,7 @@ service cloud.firestore {
 
           || resource.data.sellerEmail == request.auth.token.email);
 
-      allow create: if request.auth != null
-
-        && request.resource.data.bidderEmail == request.auth.token.email
-
-        && request.resource.data.listingId is string;
-
-      allow update, delete: if false; // immutable once written
+      allow create, update, delete: if false; // server-only via /api/place-bid
 
     }
 
@@ -677,7 +705,8 @@ service cloud.firestore {
 
       allow update: if request.auth != null
 
-        && resource.data.sellerEmail == request.auth.token.email;
+        && resource.data.sellerEmail == request.auth.token.email
+        && request.resource.data.sellerEmail == request.auth.token.email;
 
       allow delete: if request.auth != null
 
@@ -697,7 +726,8 @@ service cloud.firestore {
 
       allow update: if request.auth != null
 
-        && resource.data.promoterId == request.auth.uid;
+        && resource.data.promoterId == request.auth.uid
+        && request.resource.data.promoterId == request.auth.uid;
 
     }
 
@@ -707,7 +737,7 @@ service cloud.firestore {
 
       allow create: if request.auth != null;
 
-      allow read: if request.auth != null;
+      allow read, update, delete: if false;
 
     }
 
@@ -721,13 +751,7 @@ service cloud.firestore {
 
           || resource.data.sellerId == request.auth.uid);
 
-      allow create: if request.auth != null
-
-        && request.resource.data.promoterId == request.auth.uid;
-
-      allow update: if request.auth != null
-
-        && resource.data.promoterId == request.auth.uid;
+      allow create, update, delete: if false;
 
     }
 

@@ -32,8 +32,11 @@ export async function GET(req: NextRequest) {
       announcement,
     });
   } catch (e) {
+    if (e instanceof AdminAuthError) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    }
     console.error("[admin/settings GET]", e);
-    return NextResponse.json({ settings: DEFAULTS, features: {}, announcement: {} });
+    return NextResponse.json({ error: "Failed to load settings" }, { status: 500 });
   }
 }
 
