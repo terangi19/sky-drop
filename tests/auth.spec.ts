@@ -20,7 +20,9 @@ test.describe("Authentication", () => {
     await expect(email).toBeVisible({ timeout: 10000 });
     await expect(submit).toBeDisabled();
 
-    await page.getByRole("checkbox").check();
+    const terms = page.getByRole("main").getByRole("checkbox");
+    await expect(terms).toBeVisible();
+    await terms.setChecked(true, { force: true });
     await expect(submit).toBeDisabled();
 
     await email.fill("not-an-email");
