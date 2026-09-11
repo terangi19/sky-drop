@@ -262,4 +262,47 @@ describe("OpenAI spend guards", () => {
     expect(health.ready).toBe(false);
     expect(health.issue).toBe("budget_exceeded");
   });
+
+  it("does not re-check spend while the success cache is warm", async () => {
+    __setOpenAiSpendingForTests({ dailySpendUSD: 0 });
+    const first = await checkOpenAiHealth();
+    expect(first.ready).toBe(true);
+
+    __setOpenAiSpendingForTests({ dailySpendUSD: 50 });
+    process.env.OPENAI_DAILY_LIMIT_USD = "50";
+    const t0 = Date.now();
+    const cached = await checkOpenAiHealth();
+    expect(cached.ready).toBe(true);
+    expect(Date.now() - t0).toBeLessThan(20);
+  });
+
+  it("honors OPENAI_ENABLED=false even when a ready result is cached", async () => {
+    __setOpenAiSpendingForTests({ dailySpendUSD: 0 });
+    expect((await checkOpenAiHealth()).ready).toBe(true);
+
+    process.env.OPENAI_ENABLED = "false";
+    const health = await checkOpenAiHealth();
+    expect(health.ready).toBe(false);
+    expect(health.issue).toBe("disabled");
+  });
+
+  it("keeps openaiReady global: per-IP caps still block billed calls only", async () => {
+    process.env.OPENAI_PER_IP_DAILY_REQUESTS = "1";
+    __setOpenAiSpendingForTests({
+      dailySpendUSD: 0,
+      ipDailyRequests: { "203.0.113.10": 1 },
+    });
+
+    const health = await withOpenAiSpendContext({ uid: null, ip: "203.0.113.10" }, () =>
+      checkOpenAiHealth()
+    );
+    expect(health.ready).toBe(true);
+
+    const gate = await withOpenAiSpendContext({ uid: null, ip: "203.0.113.10" }, () =>
+      checkOpenAiSpendGate()
+    );
+    expect(gate.allowed).toBe(false);
+    expect(gate.code).toBe(OPENAI_BUDGET_EXCEEDED_CODE);
+  });
 });
+
