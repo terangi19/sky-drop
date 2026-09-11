@@ -1132,19 +1132,6 @@ Independent Awhina Breaker re-score of production-fix PR https://github.com/tera
 
 A class is **PASS** only if the original Wave-1 exemplar is green. Classes 3/4/5/7 still fail on this branch.
 
-## 4. Measured vitest scoreboard Waves 1–4 on `cursor/awhina-listing-understanding-8c64`
-
-| Suite | Pre-fix baseline | Fixer claimed | **Measured on PR #28** |
-|---|---|---|---|
-| Waves 1+2+3 | **57 \| 112** (169) | **104 \| 65** (169) | **104 passed \| 65 expected-fail (169)** |
-| Wave 4 (PR #32 file, first run) | 11 \| 38 (49) on main | n/a | 12 unexpected pass + 1 regression (`multi7` title `OR`) |
-| Wave 4 after converting genuine passes | — | n/a | **22 passed \| 27 expected-fail (49)** |
-| **Waves 1–4 combined** | 68 \| 150 (218) on main | n/a | **126 passed \| 92 expected-fail (218)** |
-| Wave-R (new, not in W1–4) | — | n/a | **7 passed \| 17 expected-fail (24)** |
-| Combined W1–4 + Wave-R | — | n/a | **133 passed \| 109 expected-fail (242)** |
-
-Vitest v4.1.8. Fixer's 104\|65 on Waves 1–3 is **true**.
-
 ## 3. Exact failing `it.fails` titles still red on PR #28
 
 After converting Wave 4 unexpected-passes only. These remain expected-fail (CI green; contract still broken).
@@ -1205,6 +1192,21 @@ After converting Wave 4 unexpected-passes only. These remain expected-fail (CI g
 - `FAIL: rental-spa-dual-rate-rotorua`, `rental-cx5-just-hiring-npl`, `rental-4bed-timaru-no-daily`
 - `FAIL: digital-instagram-templates-gisborne`, `digital-guitar-course-invercargill`, `digital-gardening-ebook-napier`
 - `FAIL: multi-yaris-identity-size-wipe`, `multi-galaxy-a54-undo-wipes-identity`, `service-add-window-wash-followup`
+
+**92** Wave 1–4 titles still `it.fails` (matches 92 expected-fail). Wave-R adds 17 more, not in the W1–4 scoreboard.
+
+## 4. Measured vitest scoreboard Waves 1–4 on `cursor/awhina-listing-understanding-8c64`
+
+| Suite | Pre-fix baseline | Fixer claimed | **Measured on PR #28** |
+|---|---|---|---|
+| Waves 1+2+3 | **57 \| 112** (169) | **104 \| 65** (169) | **104 passed \| 65 expected-fail (169)** |
+| Wave 4 (PR #32 file, first run) | 11 \| 38 (49) on main | n/a | 12 unexpected pass + 1 regression (`multi7` title `OR`) |
+| Wave 4 after converting genuine passes | — | n/a | **22 passed \| 27 expected-fail (49)** |
+| **Waves 1–4 combined** | 68 \| 150 (218) on main | n/a | **126 passed \| 92 expected-fail (218)** |
+| Wave-R (new, not in W1–4) | — | n/a | **7 passed \| 17 expected-fail (24)** |
+| Combined W1–4 + Wave-R | — | n/a | **133 passed \| 109 expected-fail (242)** |
+
+Vitest v4.1.8. Fixer's 104\|65 on Waves 1–3 is **true**.
 
 ## Classes now green (concrete)
 
