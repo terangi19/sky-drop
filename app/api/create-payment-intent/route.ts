@@ -99,10 +99,8 @@ export async function POST(req: NextRequest) {
     let decodedToken;
     try {
       decodedToken = await verifyIdToken(authHeader.slice(7));
-    } catch (authErr: unknown) {
-      const message =
-        authErr instanceof Error ? authErr.message : "Invalid or expired token";
-      return NextResponse.json({ error: message }, { status: 401 });
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
     const verified = requireVerifiedEmail(decodedToken, "making a purchase");

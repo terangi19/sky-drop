@@ -137,10 +137,8 @@ export async function POST(req: NextRequest) {
     let token;
     try {
       token = await verifyIdToken(idToken);
-    } catch (authErr: unknown) {
-      const message =
-        authErr instanceof Error ? authErr.message : "Invalid or expired token";
-      return NextResponse.json({ error: message }, { status: 401 });
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
     const decisionInput: DecisionInput = {

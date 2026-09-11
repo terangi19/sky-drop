@@ -6,6 +6,7 @@ import { formatNZPhone, isValidNzMobile } from "../../lib/phone-format";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
+import { resolvePhoneAvailabilityExcludeUid } from "../../lib/phone-availability-uid";
 
 async function isPhoneOnProfile(phone: string, excludeUid?: string): Promise<boolean> {
   if (!isAdminInitialized()) return false;
@@ -47,14 +48,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    let uid = typeof bodyUid === "string" ? bodyUid : "";
+    let tokenUid = "";
     const authHeader = req.headers.get("authorization");
     if (authHeader?.startsWith("Bearer ") && isAdminInitialized()) {
       try {
         const decoded = await verifyIdToken(authHeader.slice(7));
-        uid = decoded.uid;
+        tokenUid = decoded.uid;
       } catch {}
     }
+    const uid = resolvePhoneAvailabilityExcludeUid({ tokenUid, bodyUid });
 
     const registryTaken = await isPhoneRegisteredToOtherUser(
       formatted,

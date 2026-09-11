@@ -74,6 +74,8 @@ test.describe("Security — Authentication & Authorization", () => {
       { method: "POST", path: "/api/create-notification", data: { targetEmail: "a@b.com", fromEmail: "a@b.com", type: "message", title: "t", message: "m" } },
       { method: "POST", path: "/api/confirm-sponsor-drop", data: { paymentIntentId: "pi_test" } },
       { method: "POST", path: "/api/listing-question", data: { action: "ask", listingId: "test", question: "q" } },
+      { method: "POST", path: "/api/listing-watchlist-count", data: { listingId: "test", delta: 1 } },
+      { method: "GET", path: "/api/seller-insights", data: {} },
       { method: "POST", path: "/api/submit-job-application", data: { listingId: "test" } },
       { method: "POST", path: "/api/create-trade-post", data: { title: "test" } },
       { method: "POST", path: "/api/send-email", data: { to: "test@test.com", subject: "test", body: "test" } },
@@ -120,6 +122,18 @@ test.describe("Security — Authentication & Authorization", () => {
       expect(json.hint).toBeUndefined();
       expect(json.model).toBeUndefined();
       expect(json).not.toHaveProperty("apiKey");
+    });
+
+    test("POST /api/public-profiles without auth ignores email lookups", async ({ request }) => {
+      const res = await apiPost(request, "/api/public-profiles", {
+        emails: ["exists@example.test"],
+        uids: [],
+      });
+      expect([200, 429, 500]).toContain(res.status());
+      if (res.status() !== 200) return;
+      const json = await res.json();
+      expect(json.emailToUid).toEqual({});
+      expect(json.profiles).toEqual({});
     });
 
     test("GET /api/cron/expire-auctions without secret is unauthorized", async ({ request }) => {

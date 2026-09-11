@@ -219,6 +219,18 @@ describe("Firestore Security Rules", () => {
         ref.set({ userId: "user2", userEmail: "user2@test.com", listingId: "listing1", createdAt: new Date() })
       );
     });
+
+    it("clients cannot write watchlist count votes", async () => {
+      const db = testEnv
+        .authenticatedContext("user1", { email: "user1@test.com" })
+        .firestore();
+      await assertFails(
+        db.collection("watchlistCountVotes").doc("user1:listing1").set({
+          uid: "user1",
+          listingId: "listing1",
+        })
+      );
+    });
   });
 
   describe("SavedSearches", () => {

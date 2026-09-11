@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "fs";
+import path from "path";
 import { pickPublicProfileFields } from "../app/lib/public-profile-fields";
 import { serializeProfileForClient, stripPublicListingFields } from "../app/lib/firestore-serialize";
 import { parseKycStoragePath } from "../app/lib/kyc-storage.server";
@@ -84,5 +86,41 @@ describe("KYC object-path allowlist", () => {
         "https://firebasestorage.googleapis.com/v0/b/bucket/o/listings%2Fuid%2Fphoto.jpg?alt=media&token=abc"
       )
     ).toBeNull();
+  });
+});
+
+describe("Leftover API authz launch gates", () => {
+  it("does not resolve public-profile emails without auth", () => {
+    const file = readFileSync(path.join(process.cwd(), "app/api/public-profiles/route.ts"), "utf8");
+    expect(file).toContain("selectPublicProfileLookups");
+    expect(file).toContain("verifyIdToken");
+  });
+
+  it("does not trust client uid on phone availability", () => {
+    const file = readFileSync(
+      path.join(process.cwd(), "app/api/check-phone-availability/route.ts"),
+      "utf8"
+    );
+    expect(file).toContain("resolvePhoneAvailabilityExcludeUid");
+    expect(file).not.toMatch(/let uid = typeof bodyUid === "string"/);
+  });
+
+  it("disables /api/seed in production unless ALLOW_ADMIN_SEED is set", () => {
+    const file = readFileSync(path.join(process.cwd(), "app/api/seed/route.ts"), "utf8");
+    expect(file).toContain("ALLOW_ADMIN_SEED");
+    expect(file).toContain("Seed is disabled in production.");
+  });
+});
+
+describe("Security headers launch gate", () => {
+  it("sets CSP frame-ancestors, object-src, base-uri, HSTS, and COOP", () => {
+    const config = readFileSync(path.join(process.cwd(), "next.config.ts"), "utf8");
+    expect(config).toContain("frame-ancestors 'self'");
+    expect(config).toContain("object-src 'none'");
+    expect(config).toContain("base-uri 'self'");
+    expect(config).toContain("Strict-Transport-Security");
+    expect(config).toContain("X-Content-Type-Options");
+    expect(config).toContain("Cross-Origin-Opener-Policy");
+    expect(config).toContain("X-Permitted-Cross-Domain-Policies");
   });
 });
