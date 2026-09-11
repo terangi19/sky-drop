@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import { showToast } from "../../components/Toast";
 import { adminFetch } from "../../lib/admin-fetch.client";
 import {
   collection,
-  onSnapshot,
+  getDocs,
+  limit,
   orderBy,
   query,
 } from "firebase/firestore";
@@ -21,6 +22,8 @@ import {
 } from "../../lib/firebase";
 
 import { isAdminEmail } from "../../lib/admin-check";
+import { ADMIN_DISPUTES_LIMIT } from "../../lib/firestore-query-limits";
+import { DASHBOARD_POLL_MS, startVisibilityPolledFetch } from "../../lib/polled-firestore";
 
 const DISPUTE_REASON_LABELS: Record<string, string> = {
   not_received: "Not Received",
@@ -47,6 +50,7 @@ export default function AdminDisputesPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [refundModal, setRefundModal] = useState<any | null>(null);
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
+  const reloadDisputes = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
@@ -54,15 +58,32 @@ export default function AdminDisputesPage() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "disputes"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, (snap) => {
-      setDisputes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    }, (err) => {
-      console.error("Failed to load disputes:", err);
-      setLoading(false);
-    });
-    return () => unsub();
+    let mounted = true;
+    const q = query(
+      collection(db, "disputes"),
+      orderBy("createdAt", "desc"),
+      limit(ADMIN_DISPUTES_LIMIT)
+    );
+
+    async function fetchDisputes() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
+        setDisputes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      } catch (err) {
+        console.error("Failed to load disputes:", err);
+        if (mounted) setLoading(false);
+      }
+    }
+
+    reloadDisputes.current = fetchDisputes;
+    const stop = startVisibilityPolledFetch(fetchDisputes, DASHBOARD_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, []);
 
   const isAdmin = isAdminEmail(user?.email);
@@ -80,6 +101,7 @@ export default function AdminDisputesPage() {
       });
       setAdminNotes((prev) => { const n = { ...prev }; delete n[disputeId]; return n; });
       showToast("Marked as under review.", "success");
+      void reloadDisputes.current();
     } catch (e) {
       console.error(e);
       showToast(e instanceof Error ? e.message : "Action failed", "error");
@@ -100,6 +122,7 @@ export default function AdminDisputesPage() {
       });
       setAdminNotes((prev) => { const n = { ...prev }; delete n[disputeId]; return n; });
       showToast("Resolved in seller's favor.", "success");
+      void reloadDisputes.current();
     } catch (e) {
       console.error(e);
       showToast(e instanceof Error ? e.message : "Action failed", "error");
@@ -127,6 +150,7 @@ export default function AdminDisputesPage() {
       }
       setRefundModal(null);
       setAdminNotes((prev) => { const n = { ...prev }; delete n[dispute.id]; return n; });
+      void reloadDisputes.current();
     } catch (e) {
       console.error(e);
       showToast(e instanceof Error ? e.message : "Refund processing failed.", "error");

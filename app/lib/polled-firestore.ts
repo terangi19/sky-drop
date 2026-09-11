@@ -4,6 +4,8 @@
  */
 export const BROWSE_POLL_MS = 60_000;
 export const DETAIL_POLL_MS = 30_000;
+/** Seller/admin dashboards, orders, disputes — not chat. */
+export const DASHBOARD_POLL_MS = 30_000;
 
 export function startVisibilityPolledFetch(
   fetchFn: () => void | Promise<void>,
