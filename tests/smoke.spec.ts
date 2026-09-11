@@ -28,6 +28,11 @@ test.describe("Tier 1 — Smoke Tests", () => {
     await expect(page.getByText("Login").first()).toBeVisible();
   });
 
+  test("category page — physical marketplace loads", async ({ page }) => {
+    await expectOk(page, "/physical");
+    await expect(page.getByRole("heading", { name: /Physical/i }).first()).toBeVisible();
+  });
+
   test("category page — digital store loads", async ({ page }) => {
     await expectOk(page, "/digital");
     await expect(page.getByRole("heading", { name: /Digital/i }).first()).toBeVisible();
@@ -64,7 +69,7 @@ test.describe("Tier 1 — Smoke Tests", () => {
   });
 
   test("nav renders on canonical category pages", async ({ page }) => {
-    for (const route of ["/", "/digital", "/services", "/rentals", "/vehicles", "/wanted"]) {
+    for (const route of ["/", "/physical", "/digital", "/services", "/rentals", "/vehicles", "/wanted"]) {
       await expectOk(page, route);
       await expect(page.getByRole("link", { name: "Sky Drop home" }).nth(1)).toBeVisible();
     }
@@ -79,7 +84,7 @@ test.describe("Tier 1 — Smoke Tests", () => {
 
   test("mobile — category pages render without errors", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    for (const route of ["/digital", "/services", "/rentals", "/vehicles", "/wanted"]) {
+    for (const route of ["/physical", "/digital", "/services", "/rentals", "/vehicles", "/wanted"]) {
       await expectOk(page, route);
       await expect(page.locator("body")).toBeAttached();
     }

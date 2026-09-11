@@ -15,6 +15,7 @@ This checklist ensures all listing types route correctly from all locations.
 ## Locations to Test From
 - Home page (`/`)
 - Search page (`/search`)
+- Physical page (`/physical`)
 - Services page (`/services`)
 - Digital page (`/digital`)
 - Rentals page (`/rentals`)
