@@ -13,7 +13,7 @@ function logStatus() {
     console.log("[rate-limit] Upstash Redis ACTIVE — distributed rate limiting across all Vercel instances");
   } else {
     const env = process.env.NODE_ENV || "development";
-    console.log(`[rate-limit] WARNING: running in fallback mode (per-instance in-memory + Firestore) — ${env}`);
+    console.log(`[rate-limit] WARNING: running in fallback mode (per-instance in-memory only) — ${env}`);
     console.log("[rate-limit] Upstash Redis not configured. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN in production.");
     console.log("[rate-limit] Covered endpoints: signup, login, create-listing, messaging, reports, disputes, KYC, payments, offers, reviews");
   }
@@ -23,7 +23,7 @@ export type UpstashRateLimitResult = {
   allowed: boolean;
   remaining: number;
   limit: number;
-  /** Upstash unreachable — caller should fall back to Firestore/in-memory. */
+  /** Upstash unreachable — caller should fall back to in-memory (never Firestore). */
   degraded?: boolean;
 };
 
@@ -57,7 +57,7 @@ export async function rateLimitUpstash(
 ): Promise<UpstashRateLimitResult> {
   const redis = getUpstashRedis();
   if (!redis) {
-    // Fall back to Firestore/in-memory — do not block user-facing routes when Redis is misconfigured.
+    // Fall back to in-memory — do not block user-facing routes when Redis is misconfigured.
     return {
       allowed: true,
       remaining: maxRequests,
@@ -82,7 +82,7 @@ export async function rateLimitUpstash(
     };
   } catch (err) {
     console.warn(
-      `[rate-limit] Upstash error, falling back to Firestore: ${formatUpstashErrorForLog(err)}`
+      `[rate-limit] Upstash error, falling back to in-memory: ${formatUpstashErrorForLog(err)}`
     );
     return {
       allowed: true,
