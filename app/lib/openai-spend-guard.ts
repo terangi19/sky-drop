@@ -4,6 +4,9 @@
  * Every billed OpenAI call must go through `gateOpenAiCall` / `createGatedOpenAI`.
  * Do not use `openai-spend-caps.ts` (client localStorage stub).
  * Never import this module from Client Components.
+ *
+ * Tracker/admin/Firestore errors fail CLOSED (no billed OpenAI).
+ * Healthy + under-budget traffic is unchanged.
  */
 
 import "server-only";
@@ -12,11 +15,13 @@ import OpenAI from "openai";
 import { checkSpendingLimits, recordSpending } from "./openai-spending";
 
 export const OPENAI_BUDGET_EXCEEDED_CODE = "openai_budget_exceeded" as const;
+export const OPENAI_BUDGET_UNAVAILABLE_CODE = "openai_budget_unavailable" as const;
 export const OPENAI_DISABLED_CODE = "openai_disabled" as const;
 export const OPENAI_SPEND_BLOCKED_STATUS = 503;
 
 export type OpenAiSpendBlockCode =
   | typeof OPENAI_BUDGET_EXCEEDED_CODE
+  | typeof OPENAI_BUDGET_UNAVAILABLE_CODE
   | typeof OPENAI_DISABLED_CODE;
 
 export type OpenAiSpendContext = {
@@ -35,6 +40,8 @@ const spendAls = new AsyncLocalStorage<OpenAiSpendContext>();
 
 const BUDGET_USER_MESSAGE =
   "Āwhina AI is in limited mode because the OpenAI budget has been reached. You can keep using the app without AI.";
+const TRACKER_UNAVAILABLE_USER_MESSAGE =
+  "Āwhina AI is in limited mode because spend tracking is unavailable. You can keep using the app without AI.";
 const DISABLED_USER_MESSAGE = "Āwhina AI is temporarily paused.";
 
 export class OpenAiSpendBlockedError extends Error {
@@ -56,7 +63,11 @@ export function isOpenAiSpendBlockedError(err: unknown): err is OpenAiSpendBlock
   if (err instanceof OpenAiSpendBlockedError) return true;
   if (!err || typeof err !== "object") return false;
   const code = (err as { code?: string }).code;
-  return code === OPENAI_BUDGET_EXCEEDED_CODE || code === OPENAI_DISABLED_CODE;
+  return (
+    code === OPENAI_BUDGET_EXCEEDED_CODE ||
+    code === OPENAI_BUDGET_UNAVAILABLE_CODE ||
+    code === OPENAI_DISABLED_CODE
+  );
 }
 
 /** Kill switch. Unset / empty = enabled. `false` / `0` / `off` / `no` disables billed calls. */
@@ -120,10 +131,14 @@ export async function checkOpenAiSpendGate(
     }
     return { allowed: true, userMessage: "" };
   } catch (err) {
-    // Fail open on tracker errors so Āwhina stays intelligent when under budget
-    // and Firestore is briefly unavailable. Caps still enforce when readable.
-    console.warn("[openai-spend] check failed; allowing request", err);
-    return { allowed: true, userMessage: "" };
+    // Fail closed: a tracker/admin/Firestore error must not authorize billed OpenAI.
+    console.warn("[openai-spend] check failed; blocking billed OpenAI", err);
+    return {
+      allowed: false,
+      code: OPENAI_BUDGET_UNAVAILABLE_CODE,
+      reason: "OpenAI spend tracker unavailable",
+      userMessage: TRACKER_UNAVAILABLE_USER_MESSAGE,
+    };
   }
 }
 
@@ -152,6 +167,8 @@ export async function recordOpenAiCallUsage(usage: {
       usage.model || "gpt-4o-mini"
     );
   } catch (err) {
+    // Do not fail the already-completed billed call. The next gate check
+    // fail-closes if the tracker is still unreadable.
     console.warn("[openai-spend] record failed", err);
   }
 }

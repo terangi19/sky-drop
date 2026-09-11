@@ -85,13 +85,33 @@ export type OpenAiSpendingTestState = {
 };
 
 let spendingTestState: OpenAiSpendingTestState | null = null;
+let spendingTestFailure: Error | null = null;
 
 export function __setOpenAiSpendingForTests(state: OpenAiSpendingTestState | null): void {
+  spendingTestFailure = null;
   spendingTestState = state ? { ...state } : null;
+}
+
+/** Simulate Firestore/admin tracker failure so spend-guard tests can assert fail-closed. */
+export function __failOpenAiSpendingForTests(error?: Error): void {
+  spendingTestState = null;
+  spendingTestFailure =
+    error || new Error("simulated OpenAI spend tracker error");
 }
 
 export function __resetOpenAiSpendingForTests(): void {
   spendingTestState = null;
+  spendingTestFailure = null;
+}
+
+function assertTrackerAvailableForCheck(): void {
+  if (spendingTestFailure) {
+    throw spendingTestFailure;
+  }
+  if (spendingTestState) return;
+  if (!isAdminInitialized()) {
+    throw new Error("OpenAI spend tracker unavailable (admin not initialized)");
+  }
 }
 
 // OpenAI pricing (gpt-4o-mini as of 2024)
@@ -438,6 +458,7 @@ export async function checkSpendingLimits(
   uid: string | null,
   ip: string
 ): Promise<{ allowed: boolean; reason?: string }> {
+  assertTrackerAvailableForCheck();
   const config = getConfig();
   const spending = await getSpendingRecord();
 
@@ -492,6 +513,9 @@ export async function recordSpending(
 ): Promise<void> {
   // Persist immediately so serverless requests cannot skip the flush timer,
   // and so the next checkSpendingLimits call on this instance sees the cost.
+  if (spendingTestFailure) {
+    throw spendingTestFailure;
+  }
   if (spendingTestState) {
     const cost = calculateCost(model, inputTokens, outputTokens);
     spendingTestState.dailySpendUSD = (spendingTestState.dailySpendUSD || 0) + cost;
