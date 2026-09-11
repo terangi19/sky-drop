@@ -105,4 +105,57 @@ describe("performance reliability locks", () => {
     expect(file).toContain("Promise.all");
     expect(file).toMatch(/unameSnap[\s\S]*listingSnap[\s\S]*userRec/);
   });
+
+  it("does not block Āwhina SSE/JSON on Firestore conversation persist", () => {
+    const file = src("app/api/sky-ai/route.ts");
+    expect(file).toContain('import { NextRequest, NextResponse, after } from "next/server"');
+    expect(file).toContain("after(run)");
+    expect(file).not.toMatch(/await safePersist\(/);
+    expect(file).toContain("function safePersist(fn: () => Promise<void>): void");
+  });
+
+  it("does not insert fixed SSE sleeps after the Āwhina reply is computed", () => {
+    const file = src("app/api/sky-ai/route.ts");
+    expect(file).toContain('sseLine({ type: "progress", state })');
+    expect(file).toContain('sseLine({ type: "delta", text: part })');
+    expect(file).not.toMatch(/setTimeout\(\s*r\s*,\s*40\s*\)/);
+    expect(file).not.toMatch(/setTimeout\(\s*r\s*,\s*12\s*\)/);
+    expect(file).not.toMatch(/sleep\(\s*40\s*\)/);
+    expect(file).not.toMatch(/sleep\(\s*12\s*\)/);
+  });
+
+  it("dynamically imports unused Āwhina branch arms on /api/sky-ai", () => {
+    const file = src("app/api/sky-ai/route.ts");
+    expect(file).not.toMatch(
+      /import \{[^}]*runVisionListing[^}]*\} from ["']\.\.\/\.\.\/lib\/awhina-vision-listing["']/
+    );
+    expect(file).not.toMatch(
+      /import \{[^}]*runVisionCapability[^}]*\} from ["']\.\.\/\.\.\/lib\/awhina-vision-capability["']/
+    );
+    expect(file).not.toMatch(
+      /import \{[^}]*runFreeformCapability[^}]*\} from ["']\.\.\/\.\.\/lib\/awhina-freeform-capability["']/
+    );
+    expect(file).not.toMatch(
+      /import \{[^}]*fetchListingFactsForCompare[^}]*\} from ["']\.\.\/\.\.\/lib\/awhina-listing-compare\.server["']/
+    );
+    expect(file).toContain('import("../../lib/awhina-vision-listing")');
+    expect(file).toContain('import("../../lib/awhina-vision-capability")');
+    expect(file).toContain('import("../../lib/awhina-freeform-capability")');
+    expect(file).toMatch(
+      /import\(\s*["']\.\.\/\.\.\/lib\/awhina-listing-compare\.server["']\s*\)/
+    );
+    expect(file).toMatch(
+      /import\(\s*["']\.\.\/\.\.\/lib\/awhina-listing-composer\.server["']\s*\)/
+    );
+  });
+
+  it("dedupes Āwhina status probes on chat mount", () => {
+    const panel = src("app/components/SkyAiChatPanel.tsx");
+    expect(panel).toContain("fetchSkyAiStatus");
+    expect(panel).not.toMatch(/fetch\(["']\/api\/sky-ai\/status["']/);
+    const client = src("app/lib/sky-ai-status-client.ts");
+    expect(client).toContain('fetchImpl("/api/sky-ai/status")');
+    expect(client).toContain("SKY_AI_STATUS_TTL_MS");
+    expect(client).toContain("if (inflight) return inflight");
+  });
 });
