@@ -3,11 +3,12 @@ import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { isAdminUser } from "../../lib/admin-check.server";
+import { classifyIntentWithOpenAI, type AwhinaIntentContext } from "../../lib/awhina-intent-router-server";
 import {
-  classifyIntentWithOpenAI,
-  type AwhinaIntentContext,
-  type AwhinaIntentResult,
-} from "../../lib/awhina-intent-router-server";
+  checkOpenAiSpendGate,
+  spendBlockedPayload,
+  withOpenAiSpendContext,
+} from "../../lib/openai-spend-guard";
 
 async function checkRateLimit(req: NextRequest) {
   const ip = parseIpFromRequest(req.headers);
@@ -31,6 +32,7 @@ async function checkRateLimit(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = parseIpFromRequest(req.headers);
   try {
     const { uid, email, allowed } = await checkRateLimit(req);
     if (!uid) {
@@ -43,6 +45,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Too many classification requests — please try again later." },
         { status: 429 }
+      );
+    }
+
+    return await withOpenAiSpendContext({ uid, ip }, async () => {
+    const gate = await checkOpenAiSpendGate(uid, ip);
+    if (!gate.allowed) {
+      return NextResponse.json(
+        {
+          intent: "unknown",
+          confidence: "low",
+          entities: [],
+          reasoning: gate.reason || "AI classification unavailable",
+          ...spendBlockedPayload(gate),
+        },
+        { status: 200 }
       );
     }
 
@@ -77,6 +94,7 @@ export async function POST(req: NextRequest) {
       ...result,
       uid: uid || undefined,
       timestamp: Date.now(),
+    });
     });
   } catch (error) {
     console.error("Intent classification error:", error);

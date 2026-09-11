@@ -19,6 +19,9 @@ import {
 } from "../../lib/awhina-task-scope";
 import type { ClientSearchContext } from "../../lib/awhina-search-memory";
 import type { AwhinaPendingAction } from "../../lib/awhina-pending-action";
+import {
+  withOpenAiSpendContext,
+} from "../../lib/openai-spend-guard";
 
 async function checkRateLimit(req: NextRequest) {
   const ip = parseIpFromRequest(req.headers);
@@ -130,6 +133,7 @@ function listingFactsChanged(
 }
 
 export async function POST(req: NextRequest) {
+  const ip = parseIpFromRequest(req.headers);
   try {
     const { uid, email, allowed } = await checkRateLimit(req);
     if (!allowed) {
@@ -139,6 +143,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    return await withOpenAiSpendContext({ uid, ip }, async () => {
     const body = (await req.json()) as Record<string, unknown>;
     const message = typeof body.message === "string" ? body.message.trim() : "";
     const pathname = typeof body.pathname === "string" ? body.pathname : "/";
@@ -264,6 +269,7 @@ export async function POST(req: NextRequest) {
         timestamp: Date.now(),
       });
     }
+    });
   } catch (error) {
     console.error("Awhina AI error:", error);
     return NextResponse.json(

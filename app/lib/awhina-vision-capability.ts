@@ -10,7 +10,8 @@
  * Corrections: conversational partial updates only ("digital edition", "controller isn't included").
  */
 
-import OpenAI from "openai";
+import type OpenAI from "openai";
+import { createGatedOpenAI } from "./openai-spend-guard";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import { validateListingFillFields } from "./awhina-listing-fill-tools";
@@ -422,7 +423,7 @@ export async function runVisionCapability(
     };
   }
 
-  const openai = new OpenAI({ apiKey });
+  const openai = createGatedOpenAI({ apiKey });
   const model =
     process.env.OPENAI_VISION_MODEL || "gpt-4o";
 

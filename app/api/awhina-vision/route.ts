@@ -10,6 +10,13 @@ import { rateLimit } from "../../lib/rate-limit";
 import { isAwhinaVisionListingEnabledServer } from "../../lib/awhina-vision-listing-flags";
 import { runVisionListing } from "../../lib/awhina-vision-listing";
 import type { SkyAiListingContext } from "../../lib/sky-ai-types";
+import {
+  OPENAI_SPEND_BLOCKED_STATUS,
+  checkOpenAiSpendGate,
+  spendBlockedPayload,
+  withOpenAiSpendContext,
+} from "../../lib/openai-spend-guard";
+import { parseIpFromRequest } from "../../lib/geo-check";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -62,6 +69,23 @@ export async function POST(req: NextRequest) {
         { status: 429 }
       );
     }
+
+    const ip = parseIpFromRequest(req.headers);
+    return await withOpenAiSpendContext({ uid, ip }, async () => {
+    const gate = await checkOpenAiSpendGate(uid, ip);
+    if (!gate.allowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          enabled: true,
+          degraded: true,
+          ...spendBlockedPayload(gate),
+          reply:
+            "I can't analyse photos right now. Describe what you're selling and I'll fill the form.",
+        },
+        { status: OPENAI_SPEND_BLOCKED_STATUS }
+      );
+    }
     const body = await req.json();
 
     const images = Array.isArray(body.images)
@@ -92,6 +116,9 @@ export async function POST(req: NextRequest) {
         ? 503
         : result.errorCode === "missing_openai_key"
           ? 503
+          : result.errorCode === "openai_budget_exceeded" ||
+              result.errorCode === "openai_disabled"
+            ? 503
           : result.errorCode === "no_images"
             ? 400
             : 200;
@@ -129,6 +156,7 @@ export async function POST(req: NextRequest) {
       },
       { status }
     );
+    });
   } catch (err) {
     console.error("[awhina-vision]", err);
     return NextResponse.json(

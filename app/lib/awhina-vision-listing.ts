@@ -6,7 +6,7 @@
  *   IMAGE → structured perception → knowledge enrich → adapter → public copy gate
  */
 
-import OpenAI from "openai";
+import { createGatedOpenAI } from "./openai-spend-guard";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import { openaiErrorResponse } from "./openai-errors";
 import {
@@ -219,7 +219,7 @@ export async function runVisionListing(
   const model =
     process.env.OPENAI_VISION_MODEL?.trim() || AWHINA_VISION_DEFAULT_MODEL;
 
-  const openai = new OpenAI({ apiKey });
+  const openai = createGatedOpenAI({ apiKey });
 
   // CRITICAL: never inject prior draft title into the vision prompt —
   // that biases OCR toward stale brands (Panini leak). USER locks apply in adapter.

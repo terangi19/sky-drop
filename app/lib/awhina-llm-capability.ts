@@ -6,7 +6,8 @@
  * Single model call (no separate intent classifier) to avoid duplicate latency/tokens.
  */
 
-import OpenAI from "openai";
+import type OpenAI from "openai";
+import { createGatedOpenAI } from "./openai-spend-guard";
 import {
   type AwhinaToolCall,
   type AwhinaToolName,
@@ -263,7 +264,7 @@ export async function runLlmCapability(
     };
   }
 
-  const openai = new OpenAI({ apiKey });
+  const openai = createGatedOpenAI({ apiKey });
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
   try {

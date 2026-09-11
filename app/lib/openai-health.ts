@@ -1,16 +1,17 @@
-import OpenAI from "openai";
-import { openaiErrorResponse } from "./openai-errors";
 import { SKY_AI_GENERIC_FALLBACK, getGuideReply } from "./guide-assistant";
 import {
   isSkyAiGeneralQuestion,
   skyAiCapabilitiesReply,
 } from "./sky-ai-prompts";
+import { checkOpenAiSpendGate, isOpenAiEnabled } from "./openai-spend-guard";
 
 export type OpenAiHealthIssue =
   | "not_configured"
   | "auth_failed"
   | "quota_exceeded"
   | "rate_limit"
+  | "budget_exceeded"
+  | "disabled"
   | "error";
 
 export type OpenAiHealth = {
@@ -24,7 +25,6 @@ let successCache: { at: number; result: OpenAiHealth } | null = null;
 let failureCache: { at: number; result: OpenAiHealth } | null = null;
 const SUCCESS_CACHE_MS = 5 * 60_000;
 const FAILURE_CACHE_MS = 20_000;
-const OPENAI_PING_TIMEOUT_MS = 12_000;
 
 export function isCriticalOpenAiIssue(issue: OpenAiHealthIssue | undefined): boolean {
   return (
@@ -65,11 +65,27 @@ export function skyAiRuleFallbackText(
   return { text: plain, navigateTo: rule.navigateTo };
 }
 
+export function __resetOpenAiHealthCacheForTests(): void {
+  successCache = null;
+  failureCache = null;
+}
+
 export async function checkOpenAiHealth(): Promise<OpenAiHealth> {
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) {
     return { configured: false, ready: false, issue: "not_configured", model };
+  }
+
+  if (!isOpenAiEnabled()) {
+    return { configured: true, ready: false, issue: "disabled", model };
+  }
+
+  const gate = await checkOpenAiSpendGate();
+  if (!gate.allowed) {
+    const issue: OpenAiHealthIssue =
+      gate.code === "openai_disabled" ? "disabled" : "budget_exceeded";
+    return { configured: true, ready: false, issue, model };
   }
 
   const now = Date.now();
@@ -80,36 +96,11 @@ export async function checkOpenAiHealth(): Promise<OpenAiHealth> {
     return failureCache.result;
   }
 
-  const base: OpenAiHealth = { configured: true, ready: false, model };
-  try {
-    const openai = new OpenAI({ apiKey: key, timeout: OPENAI_PING_TIMEOUT_MS });
-    await openai.chat.completions.create({
-      model,
-      max_tokens: 1,
-      messages: [{ role: "user", content: "ping" }],
-    });
-    const result: OpenAiHealth = { ...base, ready: true };
-    successCache = { at: now, result };
-    failureCache = null;
-    return result;
-  } catch (err: unknown) {
-    const mapped = openaiErrorResponse(err);
-    let issue: OpenAiHealthIssue = "error";
-    if (mapped.code === "openai_auth_failed") issue = "auth_failed";
-    else if (mapped.code === "openai_quota_exceeded") issue = "quota_exceeded";
-    else if (mapped.code === "openai_rate_limit") issue = "rate_limit";
-
-    // Transient ping failures (timeout, rate limit) — assume ChatGPT works; chat will surface real errors.
-    if (issue === "rate_limit" || issue === "error") {
-      const optimistic: OpenAiHealth = { ...base, ready: true };
-      successCache = { at: now, result: optimistic };
-      return optimistic;
-    }
-
-    const result: OpenAiHealth = { ...base, ready: false, issue };
-    failureCache = { at: now, result };
-    return result;
-  }
+  // Non-billing health check: key present + spend allowed. Chat surfaces auth/quota errors.
+  const result: OpenAiHealth = { configured: true, ready: true, model };
+  successCache = { at: now, result };
+  failureCache = null;
+  return result;
 }
 
 export function openAiIssueHint(issue: OpenAiHealthIssue | undefined): string {
@@ -120,6 +111,10 @@ export function openAiIssueHint(issue: OpenAiHealthIssue | undefined): string {
       return "OpenAI rejected the API key — create a new key at platform.openai.com/api-keys.";
     case "quota_exceeded":
       return "Sky AI needs OpenAI billing — add payment at platform.openai.com/account/billing.";
+    case "budget_exceeded":
+      return "Āwhina AI is in limited mode because the OpenAI budget has been reached.";
+    case "disabled":
+      return "Āwhina AI is temporarily paused.";
     case "rate_limit":
       return "OpenAI rate limit — wait a minute and try again.";
     default:
