@@ -60,6 +60,10 @@ import { isListingVisibleInMarketplace } from "./lib/listing-availability";
 import ListingImage, { listingHasImage } from "./components/ListingImage";
 import { isHomeBrowseListing, isPhysicalHomeCategoryListing } from "./lib/listing-types";
 import { isDemoListing } from "./lib/marketplace-display";
+import {
+  formatMarketplaceListingCount,
+  resolvedMarketplaceListingCount,
+} from "./lib/marketplace-listing-count";
 import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
 import { useSellerListingMeta } from "./lib/useSellerListingMeta";
 import { sellerMessagesUrl } from "./lib/public-display";
@@ -258,7 +262,6 @@ export default function Home() {
     }
     return trendingCategories.filter((c) => top3.has(c.name) || (counts[c.name] || 0) > 0);
   }, [listings]);
-  const [animatedCount, setAnimatedCount] = useState(0);
   const [showAttentionModal, setShowAttentionModal] = useState(false);
   const [showAttentionBanner, setShowAttentionBanner] = useState(true);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -833,21 +836,12 @@ export default function Home() {
       sortBy,
     ]);
 
-  // Animate listing count
-  useEffect(() => {
-    const target = filteredListings.length;
-    const start = animatedCount;
-    const diff = target - start;
-    if (diff === 0) return;
-    const duration = 300;
-    const startTime = performance.now();
-    const tick = () => {
-      const pct = Math.min((performance.now() - startTime) / duration, 1);
-      setAnimatedCount(Math.round(start + diff * pct));
-      if (pct < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }, [filteredListings.length]);
+  const knownListingCount = resolvedMarketplaceListingCount({
+    loading,
+    count: filteredListings.length,
+    previousKnownCount: listings.length > 0 ? filteredListings.length : null,
+  });
+  const listingCountLabel = formatMarketplaceListingCount(knownListingCount);
 
   const submitOffer = async () => {
     if (!offerAmount || !offerListing || !user?.email) return;
@@ -1127,15 +1121,36 @@ export default function Home() {
             <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)] sm:text-xl">
               {selectedCategory !== "All" ? selectedCategory : "Latest listings"}
             </h2>
-            {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) ? (
+            {loadError ? null : (selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) ? (
               <div className="flex items-center gap-2 rounded-md bg-[var(--soft-card)] px-2.5 py-1 border border-[var(--card-border)]">
                 <span className="text-[10px] font-semibold text-[var(--muted)] uppercase tracking-wider">Results</span>
-                <span className="text-sm font-semibold text-[var(--foreground)]">{animatedCount}</span>
+                {knownListingCount == null ? (
+                  <span
+                    className="inline-block h-3.5 w-6 animate-pulse rounded bg-[var(--card-border)]"
+                    aria-busy="true"
+                    aria-label="Loading listing count"
+                    data-listing-count="loading"
+                  />
+                ) : (
+                  <span
+                    className="text-sm font-semibold text-[var(--foreground)]"
+                    data-listing-count={knownListingCount}
+                  >
+                    {knownListingCount}
+                  </span>
+                )}
               </div>
-            ) : (
-              <p className="text-[12px] text-[var(--muted)]">
-                {animatedCount} listing{animatedCount !== 1 ? "s" : ""}
+            ) : listingCountLabel ? (
+              <p className="text-[12px] text-[var(--muted)]" data-listing-count={knownListingCount}>
+                {listingCountLabel}
               </p>
+            ) : (
+              <span
+                className="inline-block h-3 w-16 animate-pulse rounded bg-[var(--card-border)]"
+                aria-busy="true"
+                aria-label="Loading listing count"
+                data-listing-count="loading"
+              />
             )}
             <Link
               href={user ? "/post/ai" : "/signup"}
