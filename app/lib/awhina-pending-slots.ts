@@ -1407,7 +1407,10 @@ export function extractCompoundListingFacts(
       ) ||
         /^\s*(?:lpft?|lpfp|injectors?|tune|turbo|speed|inch|gb|tb|volt|watt)\b/i.test(
           afterPrice
-        ));
+        ) ||
+        // Small bare numbers followed by a noun are quantities/specs, not
+        // confirmed prices ("2 controllers", "4 chairs", "12 blades").
+        (n <= 20 && /^\s+[a-z][\w'-]*/i.test(afterPrice)));
     // Don't treat a lone year as price when year slot just filled or still pending
     const yearLike =
       !kFlag &&

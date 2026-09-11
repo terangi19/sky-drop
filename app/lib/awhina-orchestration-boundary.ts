@@ -35,6 +35,8 @@ export const SELLER_META_INSTRUCTION_PATTERNS: RegExp[] = [
   /\b(?:please\s+)?suggest\s+(?:me\s+)?(?:a\s+)?(?:fair\s+)?(?:nz\s+)?price\b/i,
   /\b(?:please\s+)?tell\s+me\s+what\s+(?:details?|information)\s+i\s+should\s+add\b/i,
   /\b(?:choose|pick)\s+the\s+best\s+category\b/i,
+  /\b(?:can|could|would)\s+you\s+(?:please\s+)?(?:make|write|create|generate|suggest|tell)\b/i,
+  /\btell\s+me\s+what\s+price\s+i\s+should\s+(?:put|use|ask|list)\b/i,
 ];
 
 export function containsSellerMetaInstruction(
@@ -55,13 +57,28 @@ function stripSellerMetaInstructions(text: string): string {
     String.raw`(?:please\s+)?suggest\s+(?:me\s+)?(?:a\s+)?(?:fair\s+)?(?:nz\s+)?price`,
     String.raw`(?:please\s+)?tell\s+me\s+what\s+(?:details?|information)\s+i\s+should\s+add`,
     String.raw`(?:choose|pick)\s+the\s+best\s+category`,
+    String.raw`(?:can|could|would)\s+you\s+(?:please\s+)?(?:make|write|create|generate|suggest|tell)`,
+    String.raw`tell\s+me\s+what\s+price\s+i\s+should\s+(?:put|use|ask|list)`,
   ].join("|");
   const clause = new RegExp(
     String.raw`(?:^|(?<=[,.;!?])\s*)(?:a\s+|an\s+)?(?:${commandStarts})[^,.;!?]*(?:[,.;!?]|$)`,
     "gi"
   );
   out = out.replace(clause, " ");
+  // Unpunctuated speech often ends with a command. Remove from the command
+  // boundary onward, while retaining every item fact before it.
+  out = out.replace(
+    new RegExp(
+      String.raw`\b(?:${commandStarts})\b[\s\S]*$`,
+      "i"
+    ),
+    " "
+  );
   return out
+    .replace(/\bpaid\s+(?:heaps|a\s+lot|lots)\s+for\s+it\b/gi, " ")
+    .replace(/\bjust\s+want\s+(?:it\s+)?gone\b/gi, " ")
+    .replace(/\b(?:i\s+don'?t\s+know|idk)\s+what\s+(?:it'?s|they(?:'re|\s+are))\s+worth\b/gi, " ")
+    .replace(/\bmaybe\s+\$?\s*\d[\d,]*(?:\.\d{1,2})?\b/gi, " ")
     .replace(
       /(?:^|(?<=[,;]))\s*(?:a|an|the)?\s*(?:title|description|category|price)\s*(?=,|;|\.|$)/gi,
       " "

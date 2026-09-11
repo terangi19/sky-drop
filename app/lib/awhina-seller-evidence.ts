@@ -109,9 +109,9 @@ const USE_HISTORY_RE =
   /\b(always used with|used with a case|screen protector|case and screen)\b/i;
 /** Bundle/accessory nouns often listed without “comes with” (phones, consoles). */
 const PACKAGE_INCLUDED_RE =
-  /\b(original\s+box|(?:the\s+)?box(?:\s+and\s+charger)?|usb-?c(?:\s+cable)?|hdmi(?:\s+cable)?|power\s+cable|charger|one\s+controller|controllers?|screen\s+protector|(?:phone\s+)?case)\b/gi;
+  /\b(original\s+box|(?:the\s+)?box(?:\s+and\s+charger)?|usb-?c(?:\s+cable)?|hdmi(?:\s+cable)?|power\s+cable|charger|(?:(?:one|two|three|\d+)\s+)?controllers?|screen\s+protector|(?:phone\s+)?case|(?:[a-z0-9][\w'’-]*\s+){0,3}(?:disc|game|manual))\b/gi;
 const COND_DETAIL_RE =
-  /\b(scratch(?:es)?|stone chips?|marks?|dents?|dings?|scuffs?|chips?|cracks?|cracked|tidy|wear|worn twice|paint|interior|age-related|tiny scratch|small (?:scratch|mark|dent|scuff)|corner|oil\s+leak|needs?\s+(?:new\s+)?(?:repair|work|clutch)|doesn'?t\s+start|missing\s+\w+)\b/i;
+  /\b(scratch(?:es)?|stone chips?|marks?|dents?|dings?|scuffs?|chips?|cracks?|cracked|tidy|wear|worn twice|barely\s+use(?:d)?(?:\s+(?:it|them))?|only\s+used\s+[^,.;]+|paint|interior|age-related|tiny scratch|small (?:scratch|mark|dent|scuff)|corner|oil\s+leak|needs?\s+(?:new\s+)?(?:repair|work|clutch)|doesn'?t\s+start|missing\s+\w+)\b/i;
 const LOGISTICS_RE = /\b(pickup only|pick-?up only|shipping only)\b/i;
 const PROVENANCE_RE =
   /\b(?:bought|purchased)\s+from\b|\bfrom\s+[A-Z][a-zA-Z0-9' -]{2,40}\b/;
@@ -149,6 +149,15 @@ function cleanModificationFragment(raw: string): string {
     .replace(/^(?:a|an|the)\s+(?=\S)/i, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function normalizeIncludedFragment(raw: string): string {
+  const text = cleanFragment(raw);
+  if (/^hdmi$/i.test(text)) return "HDMI cable";
+  if (/^usb-?c$/i.test(text)) return "USB-C cable";
+  return text
+    .replace(/^hdmi\b/i, "HDMI")
+    .replace(/^usb-?c\b/i, "USB-C");
 }
 
 function normalize(value: string): string {
@@ -349,7 +358,7 @@ export function splitEvidenceFragments(text: string): string[] {
     remainder = remainder.replace(/\s+/g, " ").trim();
   }
   const packageItems = [...remainder.matchAll(new RegExp(PACKAGE_INCLUDED_RE.source, "gi"))].map(
-    (m) => cleanFragment(m[0])
+    (m) => normalizeIncludedFragment(m[0])
   );
   if (packageItems.length) {
     spans.push(...packageItems);
@@ -610,7 +619,7 @@ function classifyEvidenceFragment(
   if (INCLUDED_RE.test(text) || USE_HISTORY_RE.test(text)) {
     const packageItems = [
       ...text.matchAll(new RegExp(PACKAGE_INCLUDED_RE.source, "gi")),
-    ].map((m) => cleanFragment(m[0]));
+    ].map((m) => normalizeIncludedFragment(m[0]));
     if (packageItems.length > 1) {
       for (const item of packageItems) {
         pushUnique(items, { kind: "included", text: item });
@@ -625,7 +634,7 @@ function classifyEvidenceFragment(
   {
     const barePackage = [
       ...text.matchAll(new RegExp(PACKAGE_INCLUDED_RE.source, "gi")),
-    ].map((m) => cleanFragment(m[0]));
+    ].map((m) => normalizeIncludedFragment(m[0]));
     if (
       barePackage.length &&
       barePackage.some((item) => normalize(item) === normalize(text))
@@ -723,6 +732,35 @@ export function harvestSellerEvidenceFromStructuredContext(
   const modClause = extractModificationClause(raw);
   const stripped = stripStructuredFactsFromText(raw, ctx);
   const items: SellerEvidenceItem[] = [];
+
+  // Preserve an arbitrary counted included item and a defect attached to one
+  // unit: "got 2 controllers but one got stick drift", "has 4 chairs but one
+  // has a torn seat". This relationship is semantic, not product-specific.
+  const countedItemDefect = raw.match(
+    /\b(?:got|has|with|includes?)\s+((?:one|two|three|four|five|\d+))\s+([a-z][\w'-]*s)\s+but\s+one\s+(?:got|has)\s+(.+?)(?=\b(?:comes?\s+with|includes?|located|i'?m\s+in|im\s+in|pickup|shipping|$))/i
+  );
+  if (countedItemDefect) {
+    const [, count, pluralNoun, defectRaw] = countedItemDefect;
+    const singularNoun = pluralNoun.replace(/ies$/i, "y").replace(/s$/i, "");
+    const defect = cleanFragment(defectRaw);
+    pushUnique(items, {
+      kind: "included",
+      text: `${count} ${pluralNoun}`,
+    });
+    if (defect) {
+      pushUnique(items, {
+        kind: "mechanical",
+        text: `one ${singularNoun} has ${defect}`,
+      });
+    }
+  }
+
+  const lowUse = raw.match(
+    /\b(?:barely\s+use(?:d)?(?:\s+(?:it|them))?|only\s+used\s+(?:once|twice|a\s+few\s+times))\b/i
+  );
+  if (lowUse) {
+    pushUnique(items, { kind: "conditionDetail", text: "barely used" });
+  }
 
   const sentenceParts = raw
     .split(/(?<=[.!?])\s+/)
@@ -865,8 +903,22 @@ export function sanitizeListingExtras(
     const match = extra.match(/^([a-z][a-z0-9_]*)\s*:\s*(.+)$/i);
     if (!match) continue;
     const key = match[1].toLowerCase().replace(/_/g, "");
-    const value = sanitizePublicListingCopy(match[2].trim());
+    let value = sanitizePublicListingCopy(match[2].trim());
     if (!value || containsInternalOrchestration(value)) continue;
+    if (ctx.location) {
+      const escapedLocation = escapeRegExp(ctx.location);
+      value = value
+        .replace(
+          new RegExp(
+            `\\b(?:i['’]?m|im|located|based)?\\s*(?:in|at)\\s+${escapedLocation}\\b`,
+            "gi"
+          ),
+          " "
+        )
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!value) continue;
+    }
 
     if (key === "colour" || key === "color") {
       // Vehicles already weave colour from vehicleColour — drop duplicate extras.
@@ -889,7 +941,14 @@ export function sanitizeListingExtras(
       key === "logistics" ||
       key === "note";
 
-    if (evidenceKind && isCompositeStructuredExtra(value, ctx)) {
+    const listLikeIncluded =
+      key === "included" &&
+      /^(?:comes?\s+with|includes?|with)\b/i.test(value) &&
+      value.split(/\s+/).length > 4;
+    if (
+      evidenceKind &&
+      (isCompositeStructuredExtra(value, ctx) || listLikeIncluded)
+    ) {
       const reparsed = reparsedItemsFromCompositeBlob(value, ctx);
       if (reparsed.length) cleaned.push(...sellerEvidenceToExtras(reparsed));
       continue;

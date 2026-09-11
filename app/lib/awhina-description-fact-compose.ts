@@ -138,9 +138,11 @@ function withIndefiniteArticle(nounPhrase: string): string {
   ) {
     return t;
   }
-  // Letter-named acronyms spoken with consonant onset (USB, HDMI, SSD, LED…)
-  if (/^(?:usb|hdmi|ssd|hdd|led|lcd|oem|abs|gps|nzd)\b/i.test(t)) {
-    return `a ${t}`;
+  // Initialisms beginning with a vowel-sound letter take "an" (HDMI, SSD,
+  // M3), while U-/Y-/W-style consonant sounds retain "a".
+  const initialism = t.match(/^([A-Z])[A-Z0-9-]*(?:\s|$)/);
+  if (initialism) {
+    return `${/^[AEFHILMNORSX]$/.test(initialism[1]) ? "an" : "a"} ${t}`;
   }
   const firstLetter = (t.match(/[a-z]/i) || ["a"])[0];
   const article = /^[aeiou]/i.test(firstLetter) ? "an" : "a";
@@ -153,6 +155,12 @@ function withIndefiniteArticle(nounPhrase: string): string {
 export function naturalizeConditionClause(atom: string): string {
   const t = clean(atom);
   if (!t) return "";
+
+  if (/^(?:barely used|lightly used|only used\b)/i.test(t)) {
+    return /^only used\b/i.test(t)
+      ? lowerLead(t)
+      : `has been ${lowerLead(t)}`;
+  }
 
   if (/^needs?\b/i.test(t)) {
     const rest = t.replace(/^needs?\s+/i, "").replace(/^(?:a|an|the)\s+/i, "");
