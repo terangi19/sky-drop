@@ -11,6 +11,31 @@ test.describe("Authentication", () => {
     await expect(page.getByRole("heading", { name: "Join Sky Drop" })).toBeVisible({ timeout: 10000 });
   });
 
+  test("signup blocks invalid email and short password before Join free", async ({ page }) => {
+    await page.goto("/signup");
+    const email = page.getByLabel("Email address");
+    const password = page.getByLabel("Password", { exact: true });
+    const submit = page.getByRole("button", { name: "Join free" });
+
+    await expect(email).toBeVisible({ timeout: 10000 });
+    await expect(submit).toBeDisabled();
+
+    await page.getByRole("checkbox").check();
+    await expect(submit).toBeDisabled();
+
+    await email.fill("not-an-email");
+    await password.fill("short");
+    await expect(page.getByText("Enter a valid email address.")).toBeVisible();
+    await expect(page.getByText(/Password must be at least 8 characters/)).toBeVisible();
+    await expect(submit).toBeDisabled();
+
+    await email.fill("you@example.com");
+    await password.fill("password1");
+    await expect(page.getByText("Enter a valid email address.")).toHaveCount(0);
+    await expect(page.getByText(/Password must be at least 8 characters/)).toHaveCount(0);
+    await expect(submit).toBeEnabled();
+  });
+
   test("homepage loads without auth", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("body")).toBeVisible({ timeout: 10000 });
