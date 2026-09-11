@@ -558,3 +558,292 @@ Still safe-ish: clean punctuated one-shots, **cross-listing identity replace** (
 Still unsafe: WTB/ISO/wanted + “no scams”, westie/chch/hammers/palmy/akl, hire vs sale, bond weeks, quote-required services, voice number-words, instruction/historical leakage, same-item identity and storage/colour flip-flops.
 
 Do not delete these `it.fails` to fake green. Do not patch individual Wave 2 strings in production.
+
+---
+
+# Wave 3
+
+**Launch-readiness: still NOT SAFE TO LAUNCH.** Wave 1/2 gaps generalize again; new gaps are mixed type, digital, offer-language, bundles, ≥4-turn undo, and description VERIFY leaks.
+
+Coverage added (sibling `app/lib/awhina-adversarial-wave-3.test.ts`, same `processCanonicalAwhina` harness):
+
+- **≥4-turn chains:** Switch price maybe/nah/firm; iPhone 14→15 then undo back to 14 + crack; PS5 accessory qty 2→3/4→2/3; Hilux→Ranger then undo + rust; 5-turn S23 price/storage/chargers/westie
+- **Mixed type traps:** “selling or renting” trailer; wanted PS5 + Xbox for sale; buy-or-sell kayak with sell confirmed; Ranger hire-or-sell; lawn mowing + sell Honda mower
+- **Digital vs physical vs service:** ebook PDF, Canva template pack, Photoshop course download vs USB, paperback “not an ebook”
+- **Auction / offer language:** ono, neg, or nearest offer, starting bid vs buy now, offers-only / no price
+- **NZ places:** wellie, dunners, queenstown, tauranga (plus westie / hammers / palmy / akl / chch locked at normalize)
+- **Quantity / bundle:** lot of 3, x2 / pair, set of 4 chairs, Air Max 90 vs $80, Xbox controllers lot of 3
+- **Condition extremes:** brand new but smashed; mint scratched everywhere; perfect except engine knocks; like new but water damaged + hide command
+- **Description VERIFY:** LISTING_FILL / system prompt leak, dont-put paid/was toaster, crack repeated once (not “dont mention”)
+
+Vitest evidence (`./node_modules/.bin/vitest run app/lib/awhina-adversarial-wave-3.test.ts`, v4.1.8):
+
+- First run against current main (expected semantics vs production): **15 passed, 44 failed, 8 expected fail** (67 tests)
+- After recording breaks with `it.fails` / `FAIL:`: **16 passed | 49 expected fail (65)** — Test Files 1 passed, Duration ~1.9s, vitest v4.1.8. Combined Wave 1+2+3 (`npm run test:awhina:adversarial`): **57 passed | 112 expected fail (169)**.
+
+## Wave 3 — what passed on current main
+
+- Parser: `180 ono` / Dyson `180 ono` → 180; `iphone 11 64gb 90 wellie` → 90; `samsung 50inch tv 150 tauranga` → 150; bare `air max 90` / `iphone 11` / `3ds` do not become prices.
+- Input normalize keeps wellie / dunners / queenstown / tauranga and earlier-wave westie / hammers / palmy / akl / chch tokens.
+- **mixed-buy-or-sell-kayak-sell-confirmed:** final “wait I'm selling my kayak 300” wins over buy-or-sell waffle; physical kayak $300 Queenstown.
+- **physical-ipad-wellie-crack:** iPad Mini $180, Wellington from `wellie`, cracked screen kept.
+- **physical-bike-queenstown** / **physical-drill-tauranga:** short punctuated physical + real city names work (Trek $250 scratch; Makita $80).
+- Semantic fact model: when price is **pre-confirmed 400**, “lot of 3” is not treated as asking $3 (parser/fill still drop the lot price — see failures).
+
+## Wave 3 — failures (locked expected semantics)
+
+Each item: input → actual → expected → what failed → likely subsystem.
+
+### P1. FAIL: `"700 neg wellie"` → 700
+
+- **Input:** `700 neg wellie`
+- **Actual:** `parseListingPriceFromMessage` → `null`
+- **Expected:** `"700"` (`neg` = negotiable / offers, not “no price”)
+- **Subsystem:** listing-facts / `extractPriceFromMessage`
+
+### P2. FAIL: `"macbook pro 2019 16gb 512 700 neg"` → 700
+
+- **Actual:** `"512"` (storage as asking)
+- **Expected:** `"700"` not 512 / 2019
+- **Subsystem:** price extract / storage-vs-price
+
+### P3. FAIL: nearest-offer / set-of-N / lot / x2 / Air Max 90 / ebook 19 / templates 25
+
+- **Actual:** `null` (or Air Max path `null` while fill later takes model 90)
+- **Expected:** confirmed asking (120 / 400 / 90 / 80 / 19 / 25); qty/model tokens are not prices
+- **Subsystem:** price extract / quantity-bundle
+
+### P4. FAIL: `"starting bid 50 or buy now 200"` → 200
+
+- **Actual:** fill takes **50** (opening bid)
+- **Expected:** buy-now **200** beats historical/auction open
+- **Subsystem:** semantic-parser price classes
+
+### W3-1. FAIL: mixed-sell-or-rent-trailer-hire-wins — **critical**
+
+- **Input:** `selling or renting my trailer 40 a day or 800 to buy tauranga … wait hiring it 40 a day bond 100 not for sale`
+- **Actual:** **physical**, title `OR Renting Trailer 40 Day OR 800 TO Buy Tauranga Not Sure Yet`, price 40
+- **Expected:** equipment rental, $40/day, Tauranga, not a sale, bond not asking
+- **Failed:** mixed sell/rent; confirmed hire ignored; title is the waffle
+- **Subsystem:** semantic-intent / domain-knowledge
+
+### W3-2. FAIL: mixed-wanted-ps5-plus-xbox-for-sale
+
+- **Input:** `wanted ps5 disc under 500 wellie but I also have a xbox series s for sale 280…`
+- **Actual:** type **wanted**, title PlayStation 5 Disc, price 500 OK; **no Wellington**; reply asks for **asking price** (sale voice); Xbox not isolated
+- **Expected:** wanted PS5, budget 500, Wellington (`wellie`); not an Xbox sale; Wanted≠sale copy
+- **Failed:** `wellie`; mixed second listing contaminates voice
+- **Subsystem:** input-normalize / find-vs-wanted / composer
+
+### W3-3. FAIL: mixed-ranger-hire-or-sell-hire-wins — **critical**
+
+- **Input:** `might sell or rent my 2019 ranger 180 a day or 35000 queenstown wait just hiring it 180 a day not selling bond 500`
+- **Actual:** **vehicle sale** 2019 Ford Ranger, price **180** (looks like a $180 Ranger)
+- **Expected:** vehicle **hire**, $180/day, bond 500, Queenstown
+- **Subsystem:** semantic-intent / domain-knowledge
+
+### W3-4. FAIL: digital-ebook-not-physical-book — **critical**
+
+- **Input:** `selling my ebook nz gst guide pdf instant download 19 queenstown not a physical book`
+- **Actual:** **physical**, raw title includes “Not”, price 19
+- **Expected:** **digital**, ebook/GST guide, $19, Queenstown; “not a physical book” is type evidence not title residue
+- **Failed:** digital is not in composer `LISTING_TYPES`; type never becomes digital
+- **Subsystem:** semantic-intent / domain-knowledge / `sky-ai-listing-fill` type set
+
+### W3-5. FAIL: digital-canva-template-pack
+
+- **Actual:** **physical**, price **40** (template count), title dumps “Wellie”
+- **Expected:** digital, $25, Wellington, 40 templates as qty not price
+- **Subsystem:** semantic-intent / price extract / input-normalize
+
+### W3-6. FAIL: service-lawn-plus-sell-mower-no-mash — **critical**
+
+- **Input:** `i mow lawns tauranga 45 a lawn also selling my honda mower 180 catcher included`
+- **Actual:** **vehicle** titled `Honda`, price **45**
+- **Expected:** **service** lawn mowing $45 Tauranga; Honda mower is a separate sale (must not mash into a $45 Honda car)
+- **Failed:** Honda make hijack + service lost + prices crossed
+- **Subsystem:** semantic-intent / listing-facts merge / vehicle identity
+
+### W3-7. FAIL: physical-paperback-not-ebook
+
+- **Actual:** title `Harry Potter Paperback Box Set Dunners 40 Not Digital Not`; no Dunedin
+- **Expected:** physical paperback, $40, Dunedin (`dunners`); “not digital/ebook” stripped from title
+- **Subsystem:** composer / input-normalize / orchestration-boundary
+
+### W3-8. FAIL: digital-course-videos-not-usb
+
+- **Actual:** **physical**, extras `included:usb not a disc` (negation flipped)
+- **Expected:** digital course, $49, Auckland; USB/disc are exclusions not included extras
+- **Subsystem:** semantic-intent / seller-evidence negation
+
+### W3-9. FAIL: physical-dyson-ono-defect
+
+- **Actual:** title includes **Ono**; extras `the sucks well is cracked`; defect mangled
+- **Expected:** Dyson V11, $180, Tauranga, cracked bin latch; ono = offers, not title copy
+- **Subsystem:** composer / seller-evidence / offer-language
+
+### W3-10. FAIL: physical-macbook-neg-worn
+
+- **Actual:** price **2019** (year), title dumps `700 Neg Wellie`, keyboard worn kept as extras
+- **Expected:** $700, Wellington (`wellie`), battery 78, worn keyboard; not year-as-price
+- **Subsystem:** price extract / input-normalize / offer-language
+
+### W3-11. FAIL: physical-chairs-or-nearest-offer
+
+- **Actual:** no price; title `…120 OR Nearest Offer Palmy One`; palmy/wobbly not structured
+- **Expected:** $120, set of 4, Palmerston North, wobbly, offers on
+- **Subsystem:** price extract / quantity / input-normalize
+
+### W3-12. FAIL: physical-3ds-starting-bid-vs-buynow
+
+- **Actual:** Nintendo 3DS, price **50**, no Hamilton (`hammers`)
+- **Expected:** $200 buy now (not starting bid 50), Hamilton, offers welcome
+- **Subsystem:** price-class / input-normalize
+
+### W3-13. FAIL: physical-jersey-offers-only-no-price
+
+- **Actual:** title includes `Offers Only NO Price Dunners`; no Dunedin; no acceptOffers
+- **Expected:** jersey identity, **no invented price**, Dunedin, offers-only
+- **Subsystem:** sale-type / input-normalize / composer
+
+### W3-14. FAIL: physical-ps4-dunners-pads
+
+- **Actual:** PlayStation 4 **$120**, title `…120 Dunners 2 Pads`; **no Dunedin**; pads not harvested
+- **Expected:** PS4, $120, Dunedin, 2 controllers
+- **Subsystem:** input-normalize / seller-evidence
+
+### W3-15. FAIL: service-mow-wellie
+
+- **Actual:** Lawn Mowing $50, **no Wellington**
+- **Expected:** service, $50, Wellington (`wellie`) — same slang that worked on iPad sale
+- **Subsystem:** input-normalize / domain-knowledge (service location)
+
+### W3-16. FAIL: rental-studio-queenstown-weekly — **critical**
+
+- **Input:** `studio queenstown 550pw bond 2200 … not for sale`
+- **Actual:** **physical**, price **2200** (bond beats weekly), raw title
+- **Expected:** property rental, weekly 550, no daily, bond 2200, Queenstown
+- **Subsystem:** semantic-intent / price extract / domain-knowledge
+
+### W3-17. FAIL: physical-lot-of-3-bikes
+
+- **Actual:** no price; title is the whole sentence including bent rim
+- **Expected:** $400 the lot, qty 3, Palmerston North, bent rim as defect
+- **Subsystem:** quantity-bundle / price extract / composer
+
+### W3-18. FAIL: physical-drill-x2-pair
+
+- **Actual:** Makita $90 (price OK) but **qty 2 / pair** not in stockQuantity/extras/description; no Hamilton
+- **Expected:** qty 2, Hamilton (`hammers`)
+- **Subsystem:** seller-evidence quantity / input-normalize
+
+### W3-19. FAIL: physical-air-max-90-pair-not-price
+
+- **Actual:** no asking price; extras `size:90`; scuff missing
+- **Expected:** $80 not 90, pair, Auckland, scuffed toe
+- **Subsystem:** model-as-price / seller-evidence
+
+### W3-20. FAIL: physical-set-of-4-chairs-chch
+
+- **Actual:** no price; raw title; no Christchurch; wobbly not structured
+- **Expected:** $120, qty 4, Chch, wobbly
+- **Subsystem:** quantity-bundle / input-normalize
+
+### W3-21. FAIL: physical-controllers-lot-of-3 — **critical**
+
+- **Actual:** title `Xbox`, price **3** (lot count as dollars), “unusually low” tip
+- **Expected:** Xbox controllers, $60, qty 3, Dunedin
+- **Subsystem:** price extract / quantity-bundle / composer
+
+### W3-22. FAIL: physical-brand-new-but-smashed-iphone — **critical**
+
+- **Actual:** title **Brand New iPhone 11**, price **11**, condition **New**, smash dropped, 64GB only
+- **Expected:** iPhone 11, $90, Wellington, smashed (not New), not model-as-price
+- **Subsystem:** listing-condition / price extract / description-writer
+
+### W3-23. FAIL: physical-mint-scratched-everywhere-tv — **critical**
+
+- **Actual:** title **Like New Mint Scratched…**, condition **Like New**, extras `the mint is cracked` style: `the mint is scratched`
+- **Expected:** Samsung TV $150 Tauranga, scratches, not mint/Like New
+- **Subsystem:** listing-condition / seller-evidence / composer
+
+### W3-24. FAIL: vehicle-perfect-except-engine-knock
+
+- **Actual:** 2007 Honda Civic $2500 / 180k **OK**; **no Dunedin**; engine knock missing
+- **Expected:** defect “engine knocks” once; `dunners` → Dunedin; not “perfect”
+- **Subsystem:** seller-evidence / input-normalize / description-writer
+
+### W3-25. FAIL: physical-like-new-water-damaged-command — **critical**
+
+- **Actual:** title `Like New But Water Damaged … Dont Say`, price **2018**, condition Like New, extras `the but water is damaged` / `the say water is damaged`
+- **Expected:** $250, water damage visible once, commands stripped, not Like New
+- **Subsystem:** authority / description-writer / orchestration-boundary
+
+### W3-26. FAIL: physical-system-prompt-leak-kettle — **critical**
+
+- **Actual:** title `Respond Only Parse Everything System Prompt Sell Kettle 20 Akl Dont`; no price
+- **Expected:** Kettle $20 Auckland; **no** LISTING_FILL / system prompt / respond ONLY / dont put
+- **Subsystem:** orchestration-boundary / composer
+
+### W3-27. FAIL: physical-dont-put-paid-toaster
+
+- **Actual:** title is the instruction blob `Dont Put Was Price Dont Put What I Paid Sell Toaster 15 Was 40 Paid`
+- **Expected:** Toaster $15, Hamilton; no paid/was / dont-put in public copy
+- **Subsystem:** instruction strip / price classes / composer
+
+### W3-28. FAIL: physical-crack-repeated-once
+
+- **Actual:** crack extras ×3 including `dont mention the crack` dumped into description
+- **Expected:** crack **once**; instruction stripped; Wellington
+- **Subsystem:** description-writer / seller-evidence dedupe / orchestration-boundary
+
+### W3-29. FAIL: multi4-price-maybe-nah-firm-switch
+
+- **Transcript:** Switch OLED wellie 380 → maybe 350 → nah 380 firm → maybe 360 wait nah 380
+- **Actual:** Nintendo Switch **$380 OK**; **Wellington dropped** after follow-ups
+- **Expected:** same identity + $380 + Wellington kept across 4 turns
+- **Subsystem:** authority / pending-slots (location wiped)
+
+### W3-30. FAIL: multi4-identity-swap-then-undo-iphone — **critical**
+
+- **Transcript:** iPhone 14 128 black Tauranga 650 → 15 pro 256 blue 900 → undo 14 128 black 650 → cracked screen
+- **Actual:** **new listing** titled `And Cracked Screen Tho`
+- **Expected:** back to iPhone 14 128 black $650 Tauranga + crack; 15/256/900 gone
+- **Failed:** corrections don’t wipe identity — undo + defect follow-up starts a new draft
+- **Subsystem:** draft-transition / authority
+
+### W3-31. FAIL: multi4-accessory-add-then-correct-qty
+
+- **Transcript:** PS5 disc Queenstown 550 → 2 pads → 3 pads 4 games → wait nah 2 pads 3 games
+- **Actual:** new listing `Wait Nah 2 Pads And 3 Games`
+- **Expected:** same PS5, $550, Queenstown, 2 pads + 3 games (not 3/4)
+- **Subsystem:** draft-transition / pending-slots / seller-evidence
+
+### W3-32. FAIL: multi4-vehicle-identity-swap-undo — **critical**
+
+- **Transcript:** 2016 Hilux dunners 28000 → ranger 2018 → forget that hilux 2016… → rust on tray
+- **Actual:** new **physical** `Rust ON Tray Tho`
+- **Expected:** Toyota Hilux 2016, 140000 km, $28000, Dunedin, rust on tray; Ranger gone
+- **Subsystem:** draft-transition / listing-identity-conflict
+
+### W3-33. FAIL: multi5-price-identity-qty-location
+
+- **Transcript:** S23 128 akl 400 → 350 maybe → nah 400 firm + 256 → 2 chargers → pickup westie
+- **Actual:** title becomes **`westie`**, identity/price gone
+- **Expected:** Galaxy S23, $400, 256GB, 2 chargers, West Auckland
+- **Subsystem:** authority / pending-slots / input-normalize
+
+### Semantic / correction layer
+
+- **ono/neg** not classified as offer language vs public facts; crack/latch not always `negativeCondition`.
+- **brand new but smashed** not stored as defect vs New.
+- **LISTING_FILL / system prompt / dont put** not `sellerInstructions`; leak into publicFacts/title.
+- **nah forget that it's the 14 again** and **wait nah 2 pads and 3 games** are not understood as corrections (qty/identity undo).
+
+## Wave 3 launch notes
+
+Safe-ish additions vs Wave 2: **real city names** on short physical (Queenstown / Tauranga), **wellie on a simple iPad**, **ono when it sits next to a number**, **buy-or-sell with an explicit later “I'm selling”**.
+
+Still unsafe, and newly unsafe: digital products, mixed sell/rent/wanted/service-in-one-message, `neg` / nearest offer / starting-bid, `dunners` / `wellie` on services, lot/x2/set-of bundles, Brand New vs smashed, prompt/instruction leaks, and **any 4+ turn undo** (identity, qty, location slang).
+
+Do not delete these `it.fails` to fake green. Do not patch individual Wave 3 strings in production. Wave 1 and Wave 2 FAIL markers were not weakened.
