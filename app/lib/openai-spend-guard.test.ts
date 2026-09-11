@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  __failOpenAiSpendingForTests,
   __resetOpenAiSpendingForTests,
   __setOpenAiSpendingForTests,
   getConfigLimits,
 } from "./openai-spending";
 import {
   OPENAI_BUDGET_EXCEEDED_CODE,
+  OPENAI_BUDGET_UNAVAILABLE_CODE,
   OPENAI_DISABLED_CODE,
   checkOpenAiSpendGate,
   gateOpenAiCall,
@@ -63,6 +65,38 @@ describe("OpenAI spend guards", () => {
   it("honors OPENAI_ENABLED=false kill switch without calling OpenAI", async () => {
     process.env.OPENAI_ENABLED = "false";
     expect(isOpenAiEnabled()).toBe(false);
+
+    let billed = false;
+    await expect(
+      withOpenAiSpendContext({ uid: "user-1", ip: "203.0.113.10" }, () =>
+        gateOpenAiCall(async () => {
+          billed = true;
+          return { ok: true };
+        })
+      )
+    ).rejects.toMatchObject({ code: OPENAI_DISABLED_CODE });
+    expect(billed).toBe(false);
+  });
+
+  it("keeps OPENAI_ENABLED=false ahead of a tracker error", async () => {
+    process.env.OPENAI_ENABLED = "false";
+    __failOpenAiSpendingForTests(new Error("Firestore unavailable"));
+
+    let billed = false;
+    await expect(
+      withOpenAiSpendContext({ uid: "user-1", ip: "203.0.113.10" }, () =>
+        gateOpenAiCall(async () => {
+          billed = true;
+          return { ok: true };
+        })
+      )
+    ).rejects.toMatchObject({ code: OPENAI_DISABLED_CODE });
+    expect(billed).toBe(false);
+  });
+
+  it("keeps OPENAI_ENABLED=false ahead of a tracker error", async () => {
+    process.env.OPENAI_ENABLED = "false";
+    __failOpenAiSpendingForTests(new Error("Firestore unavailable"));
 
     let billed = false;
     await expect(
@@ -173,6 +207,41 @@ describe("OpenAI spend guards", () => {
       checkOpenAiSpendGate()
     );
     expect(after.allowed).toBe(true);
+  });
+
+  it("blocks billed OpenAI when the spend tracker errors (fail-closed)", async () => {
+    __failOpenAiSpendingForTests(new Error("Firestore unavailable"));
+
+    const gate = await withOpenAiSpendContext({ uid: "user-1", ip: "203.0.113.10" }, () =>
+      checkOpenAiSpendGate()
+    );
+    expect(gate.allowed).toBe(false);
+    expect(gate.code).toBe(OPENAI_BUDGET_UNAVAILABLE_CODE);
+    expect(gate.reason).toMatch(/tracker unavailable/i);
+
+    let billed = false;
+    await expect(
+      withOpenAiSpendContext({ uid: "user-1", ip: "203.0.113.10" }, () =>
+        gateOpenAiCall(async () => {
+          billed = true;
+          return { text: "should never run" };
+        })
+      )
+    ).rejects.toMatchObject({
+      code: OPENAI_BUDGET_UNAVAILABLE_CODE,
+      status: 503,
+    });
+    expect(billed).toBe(false);
+  });
+
+  it("skips billed OpenAI health pings when the spend tracker errors", async () => {
+    __failOpenAiSpendingForTests(new Error("admin read failed"));
+    const health = await withOpenAiSpendContext({ uid: null, ip: "203.0.113.10" }, () =>
+      checkOpenAiHealth()
+    );
+    expect(health.configured).toBe(true);
+    expect(health.ready).toBe(false);
+    expect(health.issue).toBe("budget_exceeded");
   });
 
   it("skips billed OpenAI health pings when the budget is exceeded", async () => {
