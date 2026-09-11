@@ -20,6 +20,11 @@ const nextConfig = {
   outputFileTracingRoot: projectRoot,
   turbopack: {
     root: projectRoot,
+    resolveAlias: {
+      openai: {
+        browser: "./app/lib/openai-browser-stub.ts",
+      },
+    },
   },
 
   // Force Stripe UI flag to literal "true"|"false" at build time (default OFF).
@@ -101,6 +106,16 @@ const nextConfig = {
   },
   // Keep the OpenAI SDK out of browser chunks even if a server module is imported.
   serverExternalPackages: ["openai"],
+  webpack: (config: { resolve?: { alias?: Record<string, string | string[]> } }, { isServer }: { isServer: boolean }) => {
+    if (!isServer) {
+      config.resolve = config.resolve || {};
+      config.resolve.alias = {
+        ...(config.resolve.alias || {}),
+        openai: path.resolve(projectRoot, "app/lib/openai-browser-stub.ts"),
+      };
+    }
+    return config;
+  },
 
   async redirects() {
 

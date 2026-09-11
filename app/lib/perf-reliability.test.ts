@@ -25,6 +25,12 @@ describe("performance reliability locks", () => {
     expect(panel).not.toContain('from "../lib/openai-health"');
     const fallback = src("app/lib/sky-ai-rule-fallback.ts");
     expect(fallback).not.toMatch(/from ["']openai["']/);
+    const nextConfig = src("next.config.ts");
+    expect(nextConfig).toContain("openai-browser-stub");
+    const writer = src("app/lib/awhina-description-writer.ts");
+    expect(writer).not.toMatch(/from ["']openai["']/);
+    expect(writer).not.toMatch(/import\(["']openai["']\)/);
+    expect(src("app/lib/awhina-description-writer.server.ts")).toContain("server-only");
   });
 
   it("loads unread inbox and activity counts concurrently", () => {
