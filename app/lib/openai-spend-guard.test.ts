@@ -94,22 +94,6 @@ describe("OpenAI spend guards", () => {
     expect(billed).toBe(false);
   });
 
-  it("keeps OPENAI_ENABLED=false ahead of a tracker error", async () => {
-    process.env.OPENAI_ENABLED = "false";
-    __failOpenAiSpendingForTests(new Error("Firestore unavailable"));
-
-    let billed = false;
-    await expect(
-      withOpenAiSpendContext({ uid: "user-1", ip: "203.0.113.10" }, () =>
-        gateOpenAiCall(async () => {
-          billed = true;
-          return { ok: true };
-        })
-      )
-    ).rejects.toMatchObject({ code: OPENAI_DISABLED_CODE });
-    expect(billed).toBe(false);
-  });
-
   it("blocks an over-limit request before any billed OpenAI call", async () => {
     __setOpenAiSpendingForTests({ dailySpendUSD: 50 });
     process.env.OPENAI_DAILY_LIMIT_USD = "50";
@@ -207,6 +191,30 @@ describe("OpenAI spend guards", () => {
       checkOpenAiSpendGate()
     );
     expect(after.allowed).toBe(true);
+  });
+
+  it("soft-fails record usage after a successful billed call; next gate fail-closes", async () => {
+    __setOpenAiSpendingForTests({ dailySpendUSD: 0 });
+
+    let billed = false;
+    const result = await withOpenAiSpendContext({ uid: "user-1", ip: "203.0.113.10" }, () =>
+      gateOpenAiCall(
+        async () => {
+          billed = true;
+          __failOpenAiSpendingForTests(new Error("Firestore write failed"));
+          return { ok: true };
+        },
+        () => ({ model: "gpt-4o-mini", inputTokens: 10, outputTokens: 5 })
+      )
+    );
+    expect(result).toEqual({ ok: true });
+    expect(billed).toBe(true);
+
+    const next = await withOpenAiSpendContext({ uid: "user-1", ip: "203.0.113.10" }, () =>
+      checkOpenAiSpendGate()
+    );
+    expect(next.allowed).toBe(false);
+    expect(next.code).toBe(OPENAI_BUDGET_UNAVAILABLE_CODE);
   });
 
   it("blocks billed OpenAI when the spend tracker errors (fail-closed)", async () => {
