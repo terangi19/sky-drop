@@ -871,8 +871,6 @@ Independent Awhina Breaker re-score of production-fix PR https://github.com/tera
 
 Vitest v4.1.8, `npx vitest run` of the four corpus files + Wave-R. JSON reporter: `numPassedTests=242`, `numFailedTests=0` (expected-fail counted as pass).
 
-Vitest v4.1.8, `npx vitest run` of the four corpus files + Wave-R.
-
 Fixer's 104\|65 claim on Waves 1–3 is **true**. It is not enough to launch.
 
 ## Classes now green (concrete)
