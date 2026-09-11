@@ -40,6 +40,17 @@ test.describe("Email", () => {
     expect(res.status()).toBe(401);
   });
 
+  test("send-notification-email with script HTML still requires auth", async ({ request }) => {
+    const res = await request.post("/api/send-notification-email", {
+      data: {
+        to: "test@example.com",
+        subject: "Verify your account",
+        html: "<script>document.cookie</script><p>Click here</p>",
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
   test("buildEmailHtml produces valid HTML for all email types", async ({ request }) => {
     const res = await request.post("/api/admin/test-email-preview", {
       data: {},

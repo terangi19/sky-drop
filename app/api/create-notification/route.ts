@@ -2,18 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { RATE_LIMITS } from "../../lib/rate-limit-config";
 import { isAdminEmail } from "../../lib/admin-check";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
 import { assertNotificationAllowed } from "../../lib/notification-policy";
 import { profileAllowsNotificationDelivery } from "../../lib/notification-prefs";
+import {
+  applyDecisionDelay,
+  decide,
+  persistRiskFlag,
+  recordTurnstileAttempt,
+} from "../../lib/abuse-decision-engine";
+import { registerAction } from "../../lib/account-graph";
+import { isTurnstileConfigured, verifyTurnstileToken } from "../../lib/turnstile";
+import { isPublicHttpUrl } from "../../lib/http-url";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
   try {
     const ip = parseIpFromRequest(req.headers);
-    const { allowed } = await rateLimit(`create-notification:${ip}`, 30, 60_000);
+    const ipRule = RATE_LIMITS.createNotification;
+    const { allowed } = await rateLimit(`create-notification:${ip}`, ipRule.max, ipRule.windowMs);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
@@ -36,6 +47,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not determine sender email" }, { status: 400 });
     }
 
+    const { allowed: uidAllowed } = await rateLimit(
+      `create-notification:uid:${decoded.uid}`,
+      ipRule.max,
+      ipRule.windowMs
+    );
+    if (!uidAllowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     if (!isAdminInitialized()) {
       return NextResponse.json({ error: "Server not configured" }, { status: 500 });
     }
@@ -52,6 +72,7 @@ export async function POST(req: NextRequest) {
       listingImage,
       total,
       purchaseId,
+      turnstileToken,
     } = body;
 
     if (
@@ -80,6 +101,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const { allowed: pairAllowed } = await rateLimit(
+      `create-notification:pair:${decoded.uid}:${target}`,
+      8,
+      60 * 60 * 1000
+    );
+    if (!pairAllowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
+    const decision = await decide({
+      uid: decoded.uid,
+      ip,
+      email: senderEmail,
+      action: "message",
+      contentHash: `${type}:${target}:${message}`.toLowerCase().slice(0, 100),
+      accountAgeSec: decoded.auth_time
+        ? Math.floor(Date.now() / 1000 - decoded.auth_time)
+        : undefined,
+    });
+    await applyDecisionDelay(decision);
+
+    if (decision.captchaRequired && isTurnstileConfigured()) {
+      const token = typeof turnstileToken === "string" ? turnstileToken : "";
+      if (!token || !(await verifyTurnstileToken(token))) {
+        recordTurnstileAttempt(decoded.uid, false);
+        return NextResponse.json(
+          { error: "Security check required", captchaRequired: true },
+          { status: 403 }
+        );
+      }
+      recordTurnstileAttempt(decoded.uid, true);
+    }
+
+    if (decision.verdict === "block") {
+      await persistRiskFlag(decoded.uid, `notification_blocked:${decision.reason}`);
+      return NextResponse.json({ error: "Action could not be completed" }, { status: 403 });
+    }
+
+    if (decision.verdict === "shadow_degrade") {
+      registerAction(decoded.uid, ip, `${type}:${target}`);
+      return NextResponse.json({ success: true, id: "ok" });
+    }
+
     const db = getAdminDb();
     const policy = await assertNotificationAllowed(db, {
       senderEmail,
@@ -92,6 +156,9 @@ export async function POST(req: NextRequest) {
     if (policy.ok === false) {
       return NextResponse.json({ error: policy.reason }, { status: 403 });
     }
+
+    const safeListingImage =
+      typeof listingImage === "string" && isPublicHttpUrl(listingImage) ? listingImage : null;
 
     // Honour recipient notification preferences (profiles/* from save-profile)
     try {
@@ -118,7 +185,7 @@ export async function POST(req: NextRequest) {
       message: message.slice(0, 2000),
       listingId: typeof listingId === "string" ? listingId : null,
       listingTitle: typeof listingTitle === "string" ? listingTitle.slice(0, 200) : null,
-      listingImage: typeof listingImage === "string" ? listingImage : null,
+      listingImage: safeListingImage,
       total: typeof total === "number" && Number.isFinite(total) ? total : null,
       read: false,
       createdAt: FieldValue.serverTimestamp(),

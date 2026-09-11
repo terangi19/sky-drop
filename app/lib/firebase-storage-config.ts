@@ -1,6 +1,15 @@
 /** Default Firebase Storage bucket (must match Firebase Console). */
 export const DEFAULT_FIREBASE_STORAGE_BUCKET = "sky-drop-de459.firebasestorage.app";
 
+/** Legacy appspot bucket that may still hold KYC objects from older uploads. */
+export const LEGACY_FIREBASE_STORAGE_BUCKET = "sky-drop-de459.appspot.com";
+
+/** Buckets to scan when revoking KYC download tokens. */
+export const KYC_STORAGE_BUCKETS = [
+  DEFAULT_FIREBASE_STORAGE_BUCKET,
+  LEGACY_FIREBASE_STORAGE_BUCKET,
+] as const;
+
 export function getFirebaseStorageBucket(): string {
   return (
     process.env.FIREBASE_STORAGE_BUCKET?.trim() ||
@@ -20,5 +29,5 @@ export function buildStorageDownloadUrl(
 /** Known storage URL prefixes for CDN rewriting (legacy + current bucket). */
 export const FIREBASE_STORAGE_URL_PREFIXES = [
   `https://firebasestorage.googleapis.com/v0/b/${DEFAULT_FIREBASE_STORAGE_BUCKET}/o/`,
-  "https://firebasestorage.googleapis.com/v0/b/sky-drop-de459.appspot.com/o/",
+  `https://firebasestorage.googleapis.com/v0/b/${LEGACY_FIREBASE_STORAGE_BUCKET}/o/`,
 ];

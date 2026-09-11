@@ -19,6 +19,31 @@ const PROFILE_SECRET_FIELDS = [
   "stripeCustomerId",
 ] as const;
 
+const PUBLIC_LISTING_SECRET_FIELDS = [
+  "sellerEmail",
+  "buyerEmail",
+  "email",
+  "stripeAccountId",
+  "stripeCustomerId",
+  "bankAccountNumber",
+  "bankAccountName",
+  "bankReference",
+  "idImageUrl",
+  "selfieImageUrl",
+  "kycDocumentUrl",
+] as const;
+
+/** Strip PII / payment fields from listing payloads returned to non-admin clients. */
+export function stripPublicListingFields(
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  const listing = { ...data };
+  for (const key of PUBLIC_LISTING_SECRET_FIELDS) {
+    delete listing[key];
+  }
+  return listing;
+}
+
 /** Convert Firestore timestamp fields to ISO strings for JSON API responses. */
 export function serializeProfileForClient(
   data: Record<string, unknown>
