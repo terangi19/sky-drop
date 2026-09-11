@@ -10,6 +10,10 @@ import {
   dedupeAsync,
   startVisibilityPolledFetch,
 } from "./lib/polled-firestore";
+import {
+  assertAuthoritativeListingSnapshot,
+  isListingSnapshotNotAuthoritative,
+} from "./lib/marketplace-listing-count";
 
 /** Marketplace search / browse needs services + rentals, not only the newest physicals. */
 const GLOBAL_LISTINGS_LIMIT = SEARCH_LISTINGS_LIMIT;
@@ -38,6 +42,7 @@ export function useListings(sellerEmail?: string) {
           BROWSE_SWR_TTL_MS,
           async () => {
             const snapshot = await getDocs(listingsQuery);
+            assertAuthoritativeListingSnapshot(snapshot);
             return snapshot.docs.map((docSnap) => ({
               id: docSnap.id,
               ...(docSnap.data() as Omit<Listing, "id">),
@@ -49,6 +54,9 @@ export function useListings(sellerEmail?: string) {
         setError(false);
         setLoading(false);
       } catch (err) {
+        if (isListingSnapshotNotAuthoritative(err)) {
+          return;
+        }
         console.error("Listings fetch error:", err);
         if (mounted) {
           setError(true);

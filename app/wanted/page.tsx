@@ -55,6 +55,10 @@ import {
   startVisibilityPolledFetch,
 } from "../lib/polled-firestore";
 import {
+  assertAuthoritativeListingSnapshot,
+  isListingSnapshotNotAuthoritative,
+} from "../lib/marketplace-listing-count";
+import {
   emptyListBody,
   emptyListCtaLabel,
   emptyListHeadline,
@@ -120,6 +124,7 @@ export default function WantedPage() {
           BROWSE_SWR_TTL_MS,
           async () => {
             const snap = await getDocs(q);
+            assertAuthoritativeListingSnapshot(snap);
             return snap.docs
               .map((d) => ({ id: d.id, ...d.data() } as any))
               .filter((i: any) => isListingVisibleInMarketplace(i))
@@ -131,8 +136,10 @@ export default function WantedPage() {
         setListings(items);
         setLoadingListings(false);
       } catch (err) {
+        if (isListingSnapshotNotAuthoritative(err)) {
+          return;
+        }
         console.error("Failed to load wanted listings:", err);
-        if (mounted) setLoadingListings(false);
       }
     }
 

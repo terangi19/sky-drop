@@ -57,8 +57,11 @@ import ListingImage, { listingHasImage } from "./components/ListingImage";
 import { isHomeBrowseListing, isPhysicalHomeCategoryListing } from "./lib/listing-types";
 import { isDemoListing } from "./lib/marketplace-display";
 import {
+  assertAuthoritativeListingSnapshot,
   formatMarketplaceListingCount,
+  isListingSnapshotNotAuthoritative,
   resolvedMarketplaceListingCount,
+  shouldShowMarketplaceEmptyState,
 } from "./lib/marketplace-listing-count";
 import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
 import { useSellerListingMeta } from "./lib/useSellerListingMeta";
@@ -377,6 +380,8 @@ export default function Home() {
                 )
               ),
             ]);
+            assertAuthoritativeListingSnapshot(listingsSnap);
+            assertAuthoritativeListingSnapshot(tradePostsSnap);
 
             const listingItems = listingsSnap.docs.map((d) => {
               const data = d.data();
@@ -454,6 +459,9 @@ export default function Home() {
         setLoadError(false);
         setLoading(false);
       } catch (error) {
+        if (isListingSnapshotNotAuthoritative(error)) {
+          return;
+        }
         console.error("Failed to fetch listings:", error);
         if (mounted) {
           setLoadError(true);
@@ -1214,7 +1222,7 @@ export default function Home() {
           </div>
         )}
 
-        {!loading && !loadError && filteredListings.length === 0 && (
+        {!loading && !loadError && shouldShowMarketplaceEmptyState(knownListingCount) && (
           <div className="mx-auto mt-10 max-w-md">
             {listings.length === 0 ? (
               <EmptyState

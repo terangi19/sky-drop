@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "fs";
+import path from "path";
 import {
   formatMarketplaceListingCount,
   isAuthoritativeListingSnapshot,
   listingCountSequenceFlashedZero,
   resolvedMarketplaceListingCount,
+  shouldShowMarketplaceEmptyState,
+  assertAuthoritativeListingSnapshot,
+  isListingSnapshotNotAuthoritative,
+  LISTING_SNAPSHOT_NOT_AUTHORITATIVE,
 } from "./marketplace-listing-count";
 
 describe("resolvedMarketplaceListingCount", () => {
@@ -104,5 +110,54 @@ describe("listingCountSequenceFlashedZero", () => {
 
   it("allows Cars filter changing a known count without passing through 0", () => {
     expect(listingCountSequenceFlashedZero(["loading", "40", "8"])).toBe(false);
+  });
+});
+
+describe("shouldShowMarketplaceEmptyState", () => {
+  it("hides empty-category copy while the count is still unknown", () => {
+    expect(shouldShowMarketplaceEmptyState(null)).toBe(false);
+  });
+
+  it("shows empty-category copy only for a settled known zero", () => {
+    expect(shouldShowMarketplaceEmptyState(0)).toBe(true);
+    expect(shouldShowMarketplaceEmptyState(3)).toBe(false);
+  });
+});
+
+describe("assertAuthoritativeListingSnapshot", () => {
+  it("throws a stable error for cached empty so callers keep loading", () => {
+    expect(() =>
+      assertAuthoritativeListingSnapshot({
+        size: 0,
+        metadata: { fromCache: true },
+      })
+    ).toThrow(LISTING_SNAPSHOT_NOT_AUTHORITATIVE);
+    expect(
+      isListingSnapshotNotAuthoritative(new Error(LISTING_SNAPSHOT_NOT_AUTHORITATIVE))
+    ).toBe(true);
+  });
+
+  it("allows a server empty snapshot as a real zero", () => {
+    expect(() =>
+      assertAuthoritativeListingSnapshot({
+        size: 0,
+        metadata: { fromCache: false },
+      })
+    ).not.toThrow();
+  });
+});
+
+describe("marketplace fetch paths ignore cached-empty getDocs", () => {
+  it.each([
+    "app/page.tsx",
+    "app/components/BrowseCategoryPage.tsx",
+    "app/useListings.ts",
+    "app/rentals/page.tsx",
+    "app/services/page.tsx",
+    "app/wanted/page.tsx",
+  ])("%s does not treat a cached-empty snapshot as loaded", (file) => {
+    const src = readFileSync(path.join(process.cwd(), file), "utf8");
+    expect(src).toMatch(/assertAuthoritativeListingSnapshot|isAuthoritativeListingSnapshot/);
+    expect(src).toMatch(/isListingSnapshotNotAuthoritative|listing-snapshot-not-authoritative/);
   });
 });

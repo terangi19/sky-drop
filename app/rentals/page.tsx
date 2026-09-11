@@ -57,6 +57,10 @@ import {
   dedupeAsync,
   startVisibilityPolledFetch,
 } from "../lib/polled-firestore";
+import {
+  assertAuthoritativeListingSnapshot,
+  isListingSnapshotNotAuthoritative,
+} from "../lib/marketplace-listing-count";
 
 const CATEGORIES = browseFilterCategories("rental");
 
@@ -126,6 +130,7 @@ export default function RentalsPage() {
           BROWSE_SWR_TTL_MS,
           async () => {
             const snap = await getDocs(q);
+            assertAuthoritativeListingSnapshot(snap);
             const mapped: any[] = snap.docs
               .map((d) => ({ id: d.id, ...d.data() } as any))
               .filter((i: any) => isListingVisibleInMarketplace(i));
@@ -140,8 +145,10 @@ export default function RentalsPage() {
         setListings(items);
         setLoading(false);
       } catch (err) {
+        if (isListingSnapshotNotAuthoritative(err)) {
+          return;
+        }
         console.error("Failed to load rental listings:", err);
-        if (mounted) setLoading(false);
       }
     }
 

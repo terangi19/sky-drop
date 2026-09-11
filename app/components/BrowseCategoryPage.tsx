@@ -64,8 +64,9 @@ import {
   startVisibilityPolledFetch,
 } from "../lib/polled-firestore";
 import {
+  assertAuthoritativeListingSnapshot,
   formatMarketplaceListingCount,
-  isAuthoritativeListingSnapshot,
+  isListingSnapshotNotAuthoritative,
   resolvedMarketplaceListingCount,
 } from "../lib/marketplace-listing-count";
 
@@ -180,9 +181,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
           BROWSE_SWR_TTL_MS,
           async () => {
             const snap = await getDocs(q);
-            if (!isAuthoritativeListingSnapshot(snap)) {
-              throw new Error("listing-snapshot-not-authoritative");
-            }
+            assertAuthoritativeListingSnapshot(snap);
             const mapped: any[] = snap.docs
               .map((d) => ({ id: d.id, ...d.data() } as any))
               .filter((i: any) => isListingVisibleInMarketplace(i));
@@ -197,14 +196,11 @@ export default function BrowseCategoryPage({ configKey }: Props) {
         setListings(items);
         setLoading(false);
       } catch (err) {
-        if (
-          err instanceof Error &&
-          err.message === "listing-snapshot-not-authoritative"
-        ) {
+        if (isListingSnapshotNotAuthoritative(err)) {
           return;
         }
         console.error(`Failed to load ${config.listingType} listings:`, err);
-        if (mounted) setLoading(false);
+        // Stay in loading — a failed/unknown fetch is not a real empty category.
       }
     }
 

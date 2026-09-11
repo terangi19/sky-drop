@@ -12,6 +12,8 @@ export type ListingSnapshotLike = {
   metadata: { fromCache: boolean };
 };
 
+export const LISTING_SNAPSHOT_NOT_AUTHORITATIVE = "listing-snapshot-not-authoritative";
+
 /**
  * Whether a query snapshot is safe to treat as the real listing count / empty state.
  * Cached empty is not authoritative — wait for the server (or a non-empty cache).
@@ -19,6 +21,17 @@ export type ListingSnapshotLike = {
 export function isAuthoritativeListingSnapshot(snap: ListingSnapshotLike): boolean {
   if (snap.metadata.fromCache && snap.size === 0) return false;
   return true;
+}
+
+/** Throw so callers skip setState([]) / setLoading(false) on a cached-empty getDocs. */
+export function assertAuthoritativeListingSnapshot(snap: ListingSnapshotLike): void {
+  if (!isAuthoritativeListingSnapshot(snap)) {
+    throw new Error(LISTING_SNAPSHOT_NOT_AUTHORITATIVE);
+  }
+}
+
+export function isListingSnapshotNotAuthoritative(err: unknown): boolean {
+  return err instanceof Error && err.message === LISTING_SNAPSHOT_NOT_AUTHORITATIVE;
 }
 
 /**
@@ -45,6 +58,11 @@ export function formatMarketplaceListingCount(
   const singular = labels.singular ?? "listing";
   const plural = labels.plural ?? "listings";
   return `${count} ${count === 1 ? singular : plural}`;
+}
+
+/** Empty-category copy is only for a settled known zero — never while the count is unknown. */
+export function shouldShowMarketplaceEmptyState(count: number | null): boolean {
+  return count === 0;
 }
 
 /**
