@@ -217,4 +217,35 @@ describe("performance reliability locks", () => {
       'source: "/((?!api|_next/static|_next/image|favicon|manifest).*)"'
     );
   });
+
+  it("does not CDN-cache auth or geo-blocked HTML (catch-all requires a path segment)", () => {
+    // Mirrors next.config `source: "/((?!api|_next/static|_next/image|favicon|manifest).+)"`
+    const noStoreDoc = /^\/(?!api|_next\/static|_next\/image|favicon|manifest).+$/;
+    expect(noStoreDoc.test("/")).toBe(false);
+    for (const path of [
+      "/login",
+      "/signup",
+      "/profile",
+      "/messages",
+      "/list-list",
+      "/purchases",
+      "/about",
+      "/privacy",
+    ]) {
+      expect(noStoreDoc.test(path), path).toBe(true);
+    }
+  });
+
+  it("keeps Āwhina conversation create awaited so follow-ups share one id", () => {
+    const route = src("app/api/sky-ai/route.ts");
+    expect(route).toMatch(
+      /conversationId = await createSkyAiConversation\(uid, email\)/
+    );
+    expect(route).toContain("await loadSkyAiMessages(conversationId, uid, 30)");
+    const panel = src("app/components/SkyAiChatPanel.tsx");
+    expect(panel).toContain("history: user ? undefined : history");
+    expect(panel).toContain(
+      "conversationId: user ? conversationId || undefined : undefined"
+    );
+  });
 });
