@@ -36,9 +36,8 @@ export async function POST(req: NextRequest) {
     let decoded;
     try {
       decoded = await verifyIdToken(authHeader.slice(7));
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Invalid or expired token";
-      return NextResponse.json({ error: message }, { status: 401 });
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
     const userEmail = decoded.email || "";
@@ -155,8 +154,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, status, tracking: tracking || null });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Failed to update order";
-    console.error("[update-purchase-status]", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[update-purchase-status]", e);
+    return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
   }
 }

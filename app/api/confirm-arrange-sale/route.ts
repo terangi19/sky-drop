@@ -30,9 +30,8 @@ export async function POST(req: NextRequest) {
     let decoded;
     try {
       decoded = await verifyIdToken(authHeader.slice(7));
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Invalid or expired token";
-      return NextResponse.json({ error: message }, { status: 401 });
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
     const sellerEmail = decoded.email || "";

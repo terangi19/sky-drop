@@ -643,6 +643,16 @@ service cloud.firestore {
 
 
 
+    // Server-only vote lock so each uid can ±1 a listing watchlistCount at most once.
+
+    match /watchlistCountVotes/{voteId} {
+
+      allow read, write: if false;
+
+    }
+
+
+
     // Saved searches — per user, notify on new matching listings
 
     match /savedSearches/{docId} {
