@@ -65,6 +65,7 @@ import EmptyState from "../components/EmptyState";
 import { LISTING_GRID, PAGE_PADDING } from "../lib/page-layout";
 import { isInWatchlist as checkLocalWatchlist, saveRecentlyViewed } from "../lib/listing-card-utils";
 import { adjustListingWatchlistCount } from "../lib/listing-watchlist-count";
+import { requireWatchlistAccount } from "../lib/require-watchlist-account";
 import {
   consumePendingProfileFill,
   mergeProfileFill,
@@ -1303,10 +1304,13 @@ const tabGroups = [
 
   function isInWatchlist(id: string) {
     void watchlistTick;
+    if (!user?.uid) return false;
     return checkLocalWatchlist(id);
   }
 
   async function toggleWatchlist(item: Record<string, unknown> & { id: string }) {
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return;
     const adding = !isInWatchlist(item.id);
     try {
       const existing = JSON.parse(localStorage.getItem("watchlist") || "[]") as { id: string }[];
@@ -1316,15 +1320,13 @@ const tabGroups = [
       localStorage.setItem("watchlist", JSON.stringify(next));
       setWatchlistTick((n) => n + 1);
       adjustListingWatchlistCount(item.id, adding ? 1 : -1);
-      if (user?.uid) {
-        if (adding) {
-          await setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
-            listingId: item.id,
-            addedAt: serverTimestamp(),
-          });
-        } else {
-          await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id));
-        }
+      if (adding) {
+        await setDoc(doc(db, "users", uid, "watchlist", item.id), {
+          listingId: item.id,
+          addedAt: serverTimestamp(),
+        });
+      } else {
+        await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
       }
       showToast(adding ? "Saved to watchlist" : "Removed from watchlist", adding ? "success" : "info");
     } catch {

@@ -27,6 +27,7 @@ import {
 } from "../lib/public-display";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
+import { requireWatchlistAccount } from "../lib/require-watchlist-account";
 
 const CheckoutModal = dynamic(() => import("../components/CheckoutModal"), { ssr: false });
 const PromoteModal = dynamic(() => import("../components/PromoteModal"), { ssr: false });
@@ -535,8 +536,9 @@ export default function TradeFeedPage() {
   }
 
   async function toggleWatchlist(post: any) {
-    if (!user?.uid) { showToast("Sign in first", "info"); return; }
-      const ref_ = doc(db, "users", user?.uid, "watchlist", post?.id);
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return;
+      const ref_ = doc(db, "users", uid, "watchlist", post?.id);
     try {
       const snap = await getDoc(ref_);
       if (snap.exists()) { await deleteDoc(ref_); showToast("Removed from watchlist", "info"); }

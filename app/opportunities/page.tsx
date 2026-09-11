@@ -37,6 +37,7 @@ import {
   listingWatchlistCount,
   listingWatchlistGlowIntensity,
 } from "../lib/listing-watchlist-count";
+import { requireWatchlistAccount } from "../lib/require-watchlist-account";
 import {
   citiesForRegionFromListings,
   listingMatchesCity,
@@ -149,17 +150,17 @@ export default function OpportunitiesPage() {
   }
 
   async function toggleWatchlist(item: any) {
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return;
     const wasSaved = isInWatchlist(item.id);
 
-    if (user?.uid) {
-      try {
-        const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
-        if (snap.exists()) {
-          await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id));
-        }
-      } catch (e) {
-        console.error(e);
+    try {
+      const snap = await getDoc(doc(db, "users", uid, "watchlist", item.id));
+      if (snap.exists()) {
+        await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
       }
+    } catch (e) {
+      console.error(e);
     }
 
     const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
@@ -173,19 +174,17 @@ export default function OpportunitiesPage() {
     } else {
       existing.unshift(item);
       localStorage.setItem("watchlist", JSON.stringify(existing));
-      if (user?.uid) {
-        setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
-          id: item.id,
-          title: item.title,
-          price: item.price,
-          imageUrl: item.imageUrl || item.image || "",
-          savedPrice: item.price,
-          savedAt: new Date().toISOString(),
-        }).catch((e) => {
-          console.error("Watchlist save failed:", e);
-          showToast("Failed to save to watchlist", "error");
-        });
-      }
+      setDoc(doc(db, "users", uid, "watchlist", item.id), {
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        imageUrl: item.imageUrl || item.image || "",
+        savedPrice: item.price,
+        savedAt: new Date().toISOString(),
+      }).catch((e) => {
+        console.error("Watchlist save failed:", e);
+        showToast("Failed to save to watchlist", "error");
+      });
       showToast("Added to watchlist!");
       void adjustListingWatchlistCount(item.id, 1);
     }
