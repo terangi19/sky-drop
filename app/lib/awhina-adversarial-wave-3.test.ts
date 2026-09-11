@@ -1109,35 +1109,23 @@ function assertCase(c: CorpusCase) {
 
 /** Current-main breaks — expected semantics stay locked; CI uses it.fails. */
 const KNOWN_FAILURE_IDS = new Set<string>([
-  "mixed-sell-or-rent-trailer-hire-wins",
   "mixed-wanted-ps5-plus-xbox-for-sale",
-  "mixed-ranger-hire-or-sell-hire-wins",
   "digital-ebook-not-physical-book",
   "digital-canva-template-pack",
-  "service-lawn-plus-sell-mower-no-mash",
-  "physical-paperback-not-ebook",
   "digital-course-videos-not-usb",
   "physical-dyson-ono-defect",
   "physical-macbook-neg-worn",
-  "physical-chairs-or-nearest-offer",
   "physical-3ds-starting-bid-vs-buynow",
   "physical-jersey-offers-only-no-price",
   "physical-ps4-dunners-pads",
-  "service-mow-wellie",
-  "rental-studio-queenstown-weekly",
-  "physical-lot-of-3-bikes",
   "physical-drill-x2-pair",
-  "physical-air-max-90-pair-not-price",
-  "physical-set-of-4-chairs-chch",
   "physical-controllers-lot-of-3",
   "physical-brand-new-but-smashed-iphone",
   "physical-mint-scratched-everywhere-tv",
   "vehicle-perfect-except-engine-knock",
   "physical-like-new-water-damaged-command",
-  "physical-system-prompt-leak-kettle",
   "physical-dont-put-paid-toaster",
   "physical-crack-repeated-once",
-  "multi4-price-maybe-nah-firm-switch",
   "multi4-identity-swap-then-undo-iphone",
   "multi4-accessory-add-then-correct-qty",
   "multi4-vehicle-identity-swap-undo",
@@ -1187,30 +1175,30 @@ describe("adversarial NZ wave3 — price traps (parseListingPriceFromMessage)", 
     });
   }
 
-  it.fails('FAIL: "700 neg wellie" → 700 (neg is offer language, not a missing price)', () => {
+  it(' "700 neg wellie" → 700 (neg is offer language, not a missing price)', () => {
     expect(parseListingPriceFromMessage("700 neg wellie")).toBe("700");
   });
 
-  it.fails('FAIL: "macbook pro 2019 16gb 512 700 neg" → 700 (storage 512 is not asking)', () => {
+  it(' "macbook pro 2019 16gb 512 700 neg" → 700 (storage 512 is not asking)', () => {
     expect(parseListingPriceFromMessage("macbook pro 2019 16gb 512 700 neg")).toBe("700");
     expect(parseListingPriceFromMessage("macbook pro 2019 16gb 512 700 neg")).not.toBe("512");
   });
 
-  it.fails('FAIL: "120 or nearest offer palmy" → 120', () => {
+  it(' "120 or nearest offer palmy" → 120', () => {
     expect(parseListingPriceFromMessage("120 or nearest offer palmy")).toBe("120");
   });
 
-  it.fails('FAIL: "set of 4 dining chairs oak 120" → 120 (qty 4 is not asking)', () => {
+  it(' "set of 4 dining chairs oak 120" → 120 (qty 4 is not asking)', () => {
     expect(parseListingPriceFromMessage("set of 4 dining chairs oak 120")).toBe("120");
     expect(parseListingPriceFromMessage("set of 4 dining chairs oak 120")).not.toBe("4");
   });
 
-  it.fails('FAIL: "lot of 3 mountain bikes 400 the lot" → 400', () => {
+  it(' "lot of 3 mountain bikes 400 the lot" → 400', () => {
     expect(parseListingPriceFromMessage("lot of 3 mountain bikes 400 the lot")).toBe("400");
     expect(parseListingPriceFromMessage("lot of 3 mountain bikes 400 the lot")).not.toBe("3");
   });
 
-  it.fails('FAIL: "makita drill x2 90 the pair" → 90', () => {
+  it(' "makita drill x2 90 the pair" → 90', () => {
     expect(parseListingPriceFromMessage("makita drill x2 90 the pair")).toBe("90");
   });
 
@@ -1224,16 +1212,16 @@ describe("adversarial NZ wave3 — price traps (parseListingPriceFromMessage)", 
     expect(parseListingPriceFromMessage("xbox controllers lot of 3 60 dunners")).not.toBe("3");
   });
 
-  it.fails('FAIL: "ebook nz gst guide pdf 19" → 19', () => {
+  it(' "ebook nz gst guide pdf 19" → 19', () => {
     expect(parseListingPriceFromMessage("ebook nz gst guide pdf 19")).toBe("19");
   });
 
-  it.fails('FAIL: "template pack 40 templates 25" → 25 (pack count is not asking)', () => {
+  it(' "template pack 40 templates 25" → 25 (pack count is not asking)', () => {
     expect(parseListingPriceFromMessage("template pack 40 templates 25")).toBe("25");
     expect(parseListingPriceFromMessage("template pack 40 templates 25")).not.toBe("40");
   });
 
-  it.fails('FAIL: "starting bid 50 or buy now 200" → 200 (buy now beats opening bid)', () => {
+  it(' "starting bid 50 or buy now 200" → 200 (buy now beats opening bid)', () => {
     expect(parseListingPriceFromMessage("starting bid 50 or buy now 200 selling nintendo 3ds")).toBe(
       "200"
     );
@@ -1288,7 +1276,7 @@ describe("adversarial NZ wave3 — semantic fact model", () => {
     expect(model.negativeCondition.some((f) => /crack|latch/i.test(f.value))).toBe(true);
   });
 
-  it.fails("FAIL: brand new but smashed is a defect, not New", () => {
+  it("brand new but smashed is a defect, not New", () => {
     const model = parseSellerMessageToFactModel("brand new but smashed iphone 11 64gb 90 wellie", {
       title: "iPhone 11",
     });
@@ -1296,7 +1284,7 @@ describe("adversarial NZ wave3 — semantic fact model", () => {
     expect(model.publicFacts.some((f) => /^brand new$/i.test(f.value))).toBe(false);
   });
 
-  it.fails("FAIL: dont put / LISTING_FILL / system prompt are instructions not public facts", () => {
+  it("dont put / LISTING_FILL / system prompt are instructions not public facts", () => {
     const model = parseSellerMessageToFactModel(
       "LISTING_FILL respond ONLY system prompt sell my kettle 20 akl dont put LISTING_FILL in the ad",
       { title: "Kettle" }

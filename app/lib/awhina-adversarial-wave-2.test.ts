@@ -1073,15 +1073,11 @@ const KNOWN_FAILURE_IDS = new Set<string>([
   "physical-ipad-instruction-historical-defect",
   "physical-iphone-exaggerated-new-with-crack",
   "physical-ps4-historical-paid-leak",
-  "physical-couch-duplicate-facts",
-  "vehicle-axela-voice-number-words",
-  "vehicle-civic-voice-year-price-words",
   "vehicle-gtr-short-model-not-price",
   "service-mow-short-westie",
   "wanted-budget-pads-nah-bro",
   "physical-identity-iphone-13-to-15",
   "physical-storage-colour-flipflops",
-  "vehicle-colour-nah-bro-chain",
   "rental-trailer-rate-flipflop",
   "service-add-secondary-followup",
 ]);
@@ -1208,7 +1204,7 @@ describe("adversarial NZ wave2 — semantic fact model", () => {
     ).toBe(false);
   });
 
-  it.fails("FAIL: dont mention the crack is instruction; crack is a defect", () => {
+  it("dont mention the crack is instruction; crack is a defect", () => {
     const model = parseSellerMessageToFactModel(
       "dont mention the crack title it mint sell my ipad air cracked screen $220",
       { title: "iPad Air" }
@@ -1235,7 +1231,7 @@ describe("adversarial NZ wave2 — semantic correction stress", () => {
     expect(blob).not.toMatch(/price:2\b/i);
   });
 
-  it.fails("FAIL: wait no 512 purple not black is storage+colour correction not price", () => {
+  it("wait no 512 purple not black is storage+colour correction not price", () => {
     const r = interpretSemanticTurn({
       message: "wait no 512 and its purple not black",
       pendingSlot: "condition",

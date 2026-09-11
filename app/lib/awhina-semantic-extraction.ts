@@ -280,6 +280,7 @@ function isNotPriceSpan(before: string, after: string, amount: number): boolean 
   if (NON_PRICE_AFTER_RE.test(after)) return true;
   if (/\b(?:stage|index|lot\s+of|set\s+of|air\s+max|max)\s+$/i.test(before)) return true;
   if (/[a-zA-Z]$/.test(before)) return true;
+  if (/[a-zA-Z]-$/.test(before)) return true;
   if (/^\s*(?:i\b|inch(?:es)?|pro\b|max\b|plus\b|gb|tb|bed|bath|seater|controllers?|pads?|games?|keys?|templates?|%|percent|kays)\b/i.test(after)) {
     return true;
   }
@@ -370,10 +371,17 @@ export function classifySellerPrices(message: string): SellerPriceModel {
         !/\b(?:in\s+)?(?:auckland|wellington|christchurch|hamilton|tauranga|dunedin|manukau|henderson|west\s+auckland|queenstown|palmerston)\b/i.test(
           after
         ) &&
-        !/^\s*(?:ono|o\.n\.o|neg|or\s+nearest|the\s+lot|the\s+pair)\b/i.test(after) &&
-        after.trim()
+        !/^\s*(?:ono|o\.n\.o|neg|or\s+nearest|the\s+lot|the\s+pair)\b/i.test(after)
       ) {
-        continue;
+        if (
+          !after.trim() &&
+          (n >= 20 ||
+            /\b(?:sell(?:ing)?|asking|askin|pdf|download|ebook|template)\b/i.test(text))
+        ) {
+          klass = "confirmed";
+        } else {
+          continue;
+        }
       }
     }
     mentions.push({ amount, klass, raw: match[0] });
