@@ -118,6 +118,7 @@ test.describe("Authentication", () => {
     "/reports",
     "/dashboard/applications",
     "/wanted/create",
+    "/profile/settings",
   ] as const;
 
   for (const route of gatedPrivateRoutes) {
