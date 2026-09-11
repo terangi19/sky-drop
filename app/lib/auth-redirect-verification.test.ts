@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeRedirectPath } from "./safe-redirect";
+import { readFileSync } from "fs";
+import path from "path";
+import { loginRedirectHref, sanitizeRedirectPath } from "./safe-redirect";
 import { isVerifiedSignupUser } from "./signup-verification";
 
 describe("auth redirect and verification safeguards", () => {
@@ -29,5 +31,28 @@ describe("auth redirect and verification safeguards", () => {
     expect(isVerifiedSignupUser({ emailVerified: false })).toBe(false);
     expect(isVerifiedSignupUser({ emailVerified: true })).toBe(true);
     expect(isVerifiedSignupUser(null)).toBe(false);
+  });
+
+  it("builds login hrefs that preserve a safe return path", () => {
+    expect(loginRedirectHref("/profile")).toBe("/login?redirect=%2Fprofile");
+    expect(loginRedirectHref("/messages")).toBe("/login?redirect=%2Fmessages");
+    expect(loginRedirectHref("/messages?conversation=abc")).toBe(
+      "/login?redirect=%2Fmessages%3Fconversation%3Dabc"
+    );
+    expect(loginRedirectHref("https://evil.example")).toBe("/login");
+  });
+
+  it("messages page reuses the login return-URL gate instead of rendering the inbox logged out", () => {
+    const src = readFileSync(path.join(process.cwd(), "app/messages/page.tsx"), "utf8");
+    expect(src).toContain("loginRedirectHref");
+    expect(src).toContain("router.replace");
+    expect(src).toMatch(/if\s*\(\s*!authReady\s*\|\|\s*!user\s*\)/);
+    expect(src).toContain("Sign in to view your messages");
+  });
+
+  it("profile still gates logged-out users with a login return URL", () => {
+    const src = readFileSync(path.join(process.cwd(), "app/profile/ProfileAccountClient.tsx"), "utf8");
+    expect(src).toContain("/login?redirect=/profile");
+    expect(src).toMatch(/if\s*\(\s*!user\s*\)/);
   });
 });
