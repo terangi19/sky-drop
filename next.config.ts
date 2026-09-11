@@ -187,7 +187,29 @@ const nextConfig = {
 
       {
 
-        source: "/((?!api|_next/static|_next/image|favicon|manifest).*)",
+        // Prerendered anonymous shell (client Firebase auth). Browsers revalidate
+        // (max-age=0); CDN may hold 60s. `/` is not geo-blocked. CSRF is issued via
+        // Set-Cookie (typically uncached) or recovered from POST /api/csrf.
+        source: "/",
+
+        headers: [
+
+          {
+
+            key: "Cache-Control",
+
+            value: "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
+
+          },
+
+        ],
+
+      },
+
+      {
+
+        // `.+` so exact `/` is not also matched (would override the public CDN cache).
+        source: "/((?!api|_next/static|_next/image|favicon|manifest).+)",
 
         headers: [
 
