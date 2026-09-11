@@ -16,7 +16,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  onSnapshot,
+  getDocs,
   query,
   setDoc,
   where,
@@ -57,6 +57,7 @@ import {
 } from "../lib/nz-region-cities";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
+import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 function categoryExtraSearchFields(
   configKey: BrowseCategoryKey,
@@ -153,15 +154,19 @@ export default function BrowseCategoryPage({ configKey }: Props) {
 
   useEffect(() => {
     setLoading(true);
+    let mounted = true;
     const q = query(
       collection(db, "listings"),
       where("type", "==", config.listingType),
       orderBy("createdAt", "desc"),
       limit(120)
     );
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
+
+    async function fetchListings() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
         const items: any[] = snap.docs
           .map((d) => ({ id: d.id, ...d.data() } as any))
           .filter((i: any) => isListingVisibleInMarketplace(i));
@@ -171,13 +176,17 @@ export default function BrowseCategoryPage({ configKey }: Props) {
         );
         setListings(items);
         setLoading(false);
-      },
-      (err) => {
+      } catch (err) {
         console.error(`Failed to load ${config.listingType} listings:`, err);
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
-    );
-    return () => unsub();
+    }
+
+    const stop = startVisibilityPolledFetch(fetchListings, BROWSE_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, [config.listingType]);
 
   function handleBuyNow(item: any) {

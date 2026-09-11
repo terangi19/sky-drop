@@ -13,13 +13,13 @@ import ArrangePurchaseModal from "../../../components/ArrangePurchaseModal";
 import { showToast } from "../../../components/Toast";
 import { createNotification } from "../../../lib/notifications";
 import { User } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, increment, limit, onSnapshot, query, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, query, where, Timestamp, setDoc } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../../../lib/firebase";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
 import { isFullyVerifiedSeller, profileEmailVerified } from "../../../lib/seller-verified";
 import { detectSuspiciousPrice } from "../../../lib/pricedetection";
-import { safeGetDoc, safeOnSnapshot, parseFirestoreError, isOnline } from "../../../lib/firestore";
+import { safeGetDoc } from "../../../lib/firestore";
 import { getFreshIdToken } from "../../../lib/api-auth";
 import {
   LISTING_ORDERS_LIMIT,
@@ -72,6 +72,7 @@ import {
 } from "../../../lib/public-display";
 import { listingMessageSellerHref } from "../../../lib/listing-message-href";
 import { MOBILE_STICKY_CTA } from "../../../lib/page-layout";
+import { DETAIL_POLL_MS, startVisibilityPolledFetch } from "../../../lib/polled-firestore";
 import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
 import { V1_ARRANGE_SAFETY_ONE_LINER } from "../../../lib/conversation-safety";
 import EmptyState from "../../../components/EmptyState";
@@ -219,6 +220,7 @@ export default function ListingPage() {
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answerText, setAnswerText] = useState("");
   const prevHighestBidderRef = useRef<string | null>(null);
+  const refetchQuestionsRef = useRef<() => Promise<void>>(async () => {});
   const nativeActionsRef = useRef<HTMLDivElement | null>(null);
   const [stickyBarVisible, setStickyBarVisible] = useState(true);
   const [showArrangeModal, setShowArrangeModal] = useState(false);
@@ -540,9 +542,15 @@ export default function ListingPage() {
     let mounted = true;
     setSellerProfile(null);
     const docRef = doc(db, "listings", listingId);
-    const unsub = safeOnSnapshot(docRef, (snap) => {
-      if (!snap.exists()) { if (mounted) setLoading(false); return; }
+    let sellerHydrated = false;
+
+    async function fetchListing() {
+      const snap = await safeGetDoc(docRef);
       if (!mounted) return;
+      if (!snap?.exists()) {
+        setLoading(false);
+        return;
+      }
       const raw = snap.data();
       const snapPaymentType = raw?.paymentType;
       const authPt = authoritativePaymentTypeRef.current;
@@ -578,10 +586,9 @@ export default function ListingPage() {
         const image = data.images?.[0] || data.imageUrl || data.image || "";
         if (ogImage && image) ogImage.content = image;
       } catch {}
-    }, (parsed) => { console.error("[ListingPage] onSnapshot:", parsed); if (mounted) setLoading(false); });
 
-    safeGetDoc(docRef).then((snap) => {
-      if (!snap?.exists() || !mounted) return;
+      if (sellerHydrated) return;
+      sellerHydrated = true;
       const listingData = snap.data();
       const sellerEmail = listingData.sellerEmail as string | undefined;
       const sellerSlug = sellerProfileSlug({
@@ -607,29 +614,40 @@ export default function ListingPage() {
       getDocs(query(collection(db, "reports"), where("reportedUserEmail", "==", sellerEmail), where("status", "==", "pending"), limit(LISTING_REPORTS_LIMIT))).then((reportsSnap) => {
         if (mounted) setSellerReportsCount(reportsSnap.size);
       }).catch((e) => console.error("Failed to fetch reports:", e));
-    });
+    }
 
-    return () => { mounted = false; unsub(); };
+    const stop = startVisibilityPolledFetch(fetchListing, DETAIL_POLL_MS);
+    return () => { mounted = false; stop(); };
   }, [listingId]);
 
   useEffect(() => {
     if (!user?.email || !listingId) return;
+    let mounted = true;
     const q = query(
       collection(db, "purchases"),
       where("listingId", "==", listingId),
       where("buyerEmail", "==", user.email),
       limit(LISTING_ORDERS_LIMIT)
     );
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
+
+    async function fetchBuyerPurchases() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
         setBuyerPurchases(
           snap.docs.map((d) => ({ id: d.id, ...(d.data() as ListingOrderSlice) }))
         );
-      },
-      (e) => console.error("Buyer purchases snapshot:", e)
-    );
-    return () => unsub();
+      } catch (e) {
+        console.error("Buyer purchases fetch:", e);
+      }
+    }
+
+    const stop = startVisibilityPolledFetch(fetchBuyerPurchases, DETAIL_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, [user?.email, listingId]);
 
   useEffect(() => {
@@ -637,22 +655,32 @@ export default function ListingPage() {
       setSellerListingOrders([]);
       return;
     }
+    let mounted = true;
     const q = query(
       collection(db, "purchases"),
       where("listingId", "==", listingId),
       where("sellerEmail", "==", user.email),
       limit(LISTING_ORDERS_LIMIT)
     );
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
+
+    async function fetchSellerOrders() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
         setSellerListingOrders(
           snap.docs.map((d) => ({ id: d.id, ...(d.data() as ListingOrderSlice) }))
         );
-      },
-      (e) => console.error("Seller listing orders snapshot:", e)
-    );
-    return () => unsub();
+      } catch (e) {
+        console.error("Seller listing orders fetch:", e);
+      }
+    }
+
+    const stop = startVisibilityPolledFetch(fetchSellerOrders, DETAIL_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, [user?.email, user?.uid, listingId, listing?.sellerEmail, listing?.sellerId]);
 
   const buyerPurchasedQuantity = useMemo(
@@ -810,7 +838,11 @@ export default function ListingPage() {
     if (!listingId || viewedRef.current.has(listingId)) return;
     viewedRef.current.add(listingId);
     const timer = setTimeout(() => {
-      updateDoc(doc(db, "listings", listingId), { views: increment(1) }).catch((e) => console.error("Failed to increment view count:", e));
+      fetch("/api/listing-view", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listingId }),
+      }).catch((e) => console.error("Failed to increment view count:", e));
       if (user?.uid) {
         trackFunnelEvent({
           event: "listing_detail_viewed",
@@ -823,19 +855,36 @@ export default function ListingPage() {
     return () => clearTimeout(timer);
   }, [listingId, user?.uid, listing?.type]);
 
-  // Fetch Q&A
+  // Fetch Q&A (bounded, polled — not a live collection listener)
   useEffect(() => {
     if (!listingId) return;
-    const unsub = onSnapshot(
-      query(collection(db, "listingQuestions"), where("listingId", "==", listingId), limit(LISTING_QNA_LIMIT)),
-      (snap) => {
+    let mounted = true;
+    const q = query(
+      collection(db, "listingQuestions"),
+      where("listingId", "==", listingId),
+      limit(LISTING_QNA_LIMIT)
+    );
+
+    async function fetchQuestions() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
         const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         items.sort((a: any, b: any) => ((a.createdAt?.toDate?.() || 0) - (b.createdAt?.toDate?.() || 0)));
         setQuestions(items);
-      },
-      (err) => console.error("Q&A query error:", err)
-    );
-    return () => unsub();
+      } catch (err) {
+        console.error("Q&A query error:", err);
+      }
+    }
+
+    refetchQuestionsRef.current = fetchQuestions;
+    const stop = startVisibilityPolledFetch(fetchQuestions, DETAIL_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+      refetchQuestionsRef.current = async () => {};
+    };
   }, [listingId]);
 
   // OG meta tags
@@ -2599,6 +2648,7 @@ Service Status: 🟢 Inquiry Active`;
                                 });
                                 if (!res.ok) throw new Error("Failed");
                                 setAnswerText(""); setAnsweringId(null);
+                                void refetchQuestionsRef.current();
                               } catch {}
                             }} className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-sky-400">Answer</button>
                             <button onClick={() => { setAnsweringId(null); setAnswerText(""); }} className="text-[10px] text-[var(--muted)] hover:text-[var(--foreground)] px-1">✕</button>
@@ -2643,6 +2693,7 @@ Service Status: 🟢 Inquiry Active`;
                         if (!res.ok) throw new Error("Failed");
                         setNewQuestion("");
                         showToast("Question submitted", "success");
+                        void refetchQuestionsRef.current();
                       } catch (e) { console.error("Q&A submit error:", e); showToast("Failed to submit question", "error"); }
                       setSendingQuestion(false);
                       // Send notification to seller (outside main try/catch so failures don't mislead user)

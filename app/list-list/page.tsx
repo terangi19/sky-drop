@@ -20,9 +20,9 @@ import ListingImage, { listingHasImage } from "../components/ListingImage";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import {
   SELLER_LISTINGS_LIMIT,
-  SELLER_PAGE_POLL_MS,
   SELLER_TRADE_POSTS_LIMIT,
 } from "../lib/firestore-query-limits";
+import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 interface Listing {
   id: string;
@@ -62,52 +62,42 @@ export default function ListListPage() {
 
   useEffect(() => {
     if (!user) return;
-    let cancelled = false;
+    let mounted = true;
     const sellerEmail = user.email;
 
+    const q1 = query(
+      collection(db, "listings"),
+      where("sellerEmail", "==", sellerEmail),
+      limit(SELLER_LISTINGS_LIMIT)
+    );
+    const q2 = query(
+      collection(db, "tradePosts"),
+      where("sellerEmail", "==", sellerEmail),
+      limit(SELLER_TRADE_POSTS_LIMIT)
+    );
+
     async function fetchMine() {
-      if (cancelled || !sellerEmail) return;
+      if (!mounted || !sellerEmail) return;
       try {
-        const [listingsSnap, tradeSnap] = await Promise.all([
-          getDocs(
-            query(
-              collection(db, "listings"),
-              where("sellerEmail", "==", sellerEmail),
-              limit(SELLER_LISTINGS_LIMIT)
-            )
-          ),
-          getDocs(
-            query(
-              collection(db, "tradePosts"),
-              where("sellerEmail", "==", sellerEmail),
-              limit(SELLER_TRADE_POSTS_LIMIT)
-            )
-          ),
-        ]);
-        if (cancelled) return;
-        const physical = listingsSnap.docs.map(
-          (d) => ({ id: d.id, ...d.data(), _collection: "listings" } as Listing)
-        );
-        const digital = tradeSnap.docs.map(
-          (d) => ({ id: d.id, ...d.data(), _collection: "tradePosts" } as Listing)
-        );
+        const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+        if (!mounted) return;
+        const physical = snap1.docs.map((d) => ({ id: d.id, ...d.data(), _collection: "listings" } as Listing));
+        const digital = snap2.docs.map((d) => ({ id: d.id, ...d.data(), _collection: "tradePosts" } as Listing));
         setListings(mergeListings(physical, digital));
         setLoading(false);
       } catch (error) {
         console.error(error);
-        if (!cancelled) setLoading(false);
-        showToast(
-          "Failed to load listings: " + (error instanceof Error ? error.message : "unknown error"),
-          "error"
-        );
+        if (!mounted) return;
+        setLoading(false);
+        const message = error instanceof Error ? error.message : "Unknown error";
+        showToast("Failed to load listings: " + message, "error");
       }
     }
 
-    fetchMine();
-    const interval = setInterval(fetchMine, SELLER_PAGE_POLL_MS);
+    const stop = startVisibilityPolledFetch(fetchMine, BROWSE_POLL_MS);
     return () => {
-      cancelled = true;
-      clearInterval(interval);
+      mounted = false;
+      stop();
     };
   }, [user]);
 
@@ -138,6 +128,7 @@ export default function ListListPage() {
     const col = (listing as any)._collection === "tradePosts" ? "tradePosts" : "listings";
     try {
       await deleteDoc(doc(db, col, id));
+      setListings((prev) => prev.filter((l) => l.id !== id));
     } catch (error) {
       console.error(error);
       showToast("Failed to delete", "error");

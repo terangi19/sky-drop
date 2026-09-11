@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { collection, limit, onSnapshot, orderBy, query, Timestamp, where } from "firebase/firestore";
+import { collection, getDocs, limit, orderBy, query, Timestamp, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import Link from "next/link";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
+import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 interface WantedItem {
   id: string;
@@ -26,12 +27,12 @@ export default function WantedLiveFeed() {
   const [hidden, setHidden] = useState(true);
   useEffect(() => { setHidden(localStorage.getItem(HIDE_KEY) === "true"); }, []);
   const [notifications, setNotifications] = useState<FeedNotification[]>([]);
-  const readyRef = useRef(false);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
     const timers = timersRef.current;
-
+    const knownIds = new Set<string>();
+    let primed = false;
     const q = query(
       collection(db, "listings"),
       where("type", "==", "wanted"),
@@ -39,26 +40,29 @@ export default function WantedLiveFeed() {
       limit(50),
     );
 
-    const unsub = onSnapshot(q, (snap) => {
-      if (!readyRef.current) {
-        readyRef.current = true;
+    async function fetchWanted() {
+      const snap = await getDocs(q);
+      if (!primed) {
+        for (const d of snap.docs) knownIds.add(d.id);
+        primed = true;
         return;
       }
 
-      for (const change of snap.docChanges()) {
-        if (change.type !== "added") continue;
-        const data = change.doc.data() as Record<string, unknown>;
+      for (const d of snap.docs) {
+        if (knownIds.has(d.id)) continue;
+        knownIds.add(d.id);
+        const data = d.data() as Record<string, unknown>;
         if (!isListingVisibleInMarketplace(data)) continue;
 
         const item: WantedItem = {
-          id: change.doc.id,
+          id: d.id,
           title: (data.title as string) || "Untitled",
           price: data.price as string | undefined,
           location: data.location as string | undefined,
           createdAt: data.createdAt as Timestamp | undefined,
         };
 
-        const uid = `wanted-${change.doc.id}-${Date.now()}`;
+        const uid = `wanted-${d.id}-${Date.now()}`;
         setNotifications((prev) => [...prev, { uid, item, state: "entering" }]);
 
         requestAnimationFrame(() => {
@@ -78,12 +82,11 @@ export default function WantedLiveFeed() {
 
         timers.set(uid, dismissTimer);
       }
-    }, (err) => {
-      console.error("[WantedLiveFeed] Firestore error:", err);
-    });
+    }
 
+    const stop = startVisibilityPolledFetch(fetchWanted, BROWSE_POLL_MS);
     return () => {
-      unsub();
+      stop();
       timers.forEach((t) => clearTimeout(t));
     };
   }, []);

@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const before = Number(snap.data()?.views) || 0;
+    // Still writes listings.views for display; onListingUpdated no-ops when only views change.
     await ref.update({ views: FieldValue.increment(1) });
 
     return NextResponse.json({ views: before + 1 });

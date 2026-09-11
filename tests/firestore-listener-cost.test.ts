@@ -32,4 +32,61 @@ describe("P0 Firestore listener cost guards", () => {
     const src = readSrc("app/messages/page.tsx");
     expect(src).toMatch(/\bonSnapshot\b/);
   });
+
+  it("browse category pages poll listings instead of live snapshots", () => {
+    for (const path of [
+      "app/components/BrowseCategoryPage.tsx",
+      "app/rentals/page.tsx",
+      "app/services/page.tsx",
+      "app/jobs/page.tsx",
+      "app/events/page.tsx",
+      "app/opportunities/page.tsx",
+      "app/wanted/page.tsx",
+    ]) {
+      const src = readSrc(path);
+      expect(src, path).not.toMatch(/\bonSnapshot\s*\(/);
+      expect(src, path).toMatch(/getDocs/);
+      expect(src, path).toMatch(/startVisibilityPolledFetch/);
+      expect(src, path).toMatch(/limit\(/);
+    }
+  });
+
+  it("watchlist, seller list-list, and WantedLiveFeed do not hold collection snapshots", () => {
+    for (const path of [
+      "app/watchlist/page.tsx",
+      "app/list-list/page.tsx",
+      "app/components/WantedLiveFeed.tsx",
+    ]) {
+      const src = readSrc(path);
+      expect(src, path).not.toMatch(/\bonSnapshot\s*\(/);
+      expect(src, path).toMatch(/getDocs/);
+      expect(src, path).toMatch(/limit\(/);
+    }
+  });
+
+  it("trade-feed posts poll; shout chat stays realtime", () => {
+    const src = readSrc("app/trade-feed/page.tsx");
+    expect(src).toMatch(/getDocs\(q\)/);
+    expect(src).toMatch(/startVisibilityPolledFetch/);
+    expect(src).toMatch(/tradeShouts/);
+    expect(src).toMatch(/\bonSnapshot\s*\(/);
+  });
+
+  it("listing detail polls listing/purchases/Q&A and records views via API", () => {
+    const src = readSrc("app/post/listing/[id]/page.tsx");
+    expect(src).not.toMatch(/\bonSnapshot\s*\(/);
+    expect(src).not.toMatch(/updateDoc\([^)]*views/);
+    expect(src).toContain("/api/listing-view");
+    expect(src).toMatch(/startVisibilityPolledFetch/);
+    expect(src).toMatch(/LISTING_QNA_LIMIT/);
+    expect(src).toMatch(/LISTING_ORDERS_LIMIT/);
+    expect(src).toMatch(/SELLER_OTHER_LISTINGS_FETCH_LIMIT/);
+    expect(src).toMatch(/listingQuestions/);
+  });
+
+  it("onListingUpdated skips view-only writes", () => {
+    const src = readSrc("functions/src/index.ts");
+    expect(src).toContain("isViewsOnlyListingUpdate");
+    expect(src).toMatch(/if \(isViewsOnlyListingUpdate\(before, after\)\) return;/);
+  });
 });

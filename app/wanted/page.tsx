@@ -48,6 +48,7 @@ import HotThisWeek from "../components/HotThisWeek";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
+import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 import {
   emptyListBody,
   emptyListCtaLabel,
@@ -103,16 +104,32 @@ export default function WantedPage() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     const q = query(collection(db, "listings"), where("type", "==", "wanted"), limit(100));
-    getDocs(q).then((snap) => {
-      const items: any[] = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() } as any))
-        .filter((i: any) => isListingVisibleInMarketplace(i))
-        .sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0))
-        .slice(0, 60);
-      setListings(items);
-      setLoadingListings(false);
-    }).catch((err) => { console.error("Failed to load wanted listings:", err); setLoadingListings(false); });
+
+    async function fetchListings() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
+        const items: any[] = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as any))
+          .filter((i: any) => isListingVisibleInMarketplace(i))
+          .sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0))
+          .slice(0, 60);
+        setListings(items);
+        setLoadingListings(false);
+      } catch (err) {
+        console.error("Failed to load wanted listings:", err);
+        if (mounted) setLoadingListings(false);
+      }
+    }
+
+    const stop = startVisibilityPolledFetch(fetchListings, BROWSE_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, []);
 
   function handleBuyNow(item: any) {

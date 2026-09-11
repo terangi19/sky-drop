@@ -13,8 +13,8 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   limit,
-  onSnapshot,
   orderBy,
   query,
   setDoc,
@@ -51,6 +51,7 @@ import {
   formatListingPriceMeta,
 } from "../lib/listing-price-display";
 import { LoadingCard } from "../components/LoadingSpinner";
+import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 const CATEGORIES = browseFilterCategories("rental");
 
@@ -104,15 +105,19 @@ export default function RentalsPage() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     const q = query(
       collection(db, "listings"),
       where("type", "==", "rental"),
       orderBy("createdAt", "desc"),
       limit(BROWSE_LISTINGS_LIMIT)
     );
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
+
+    async function fetchListings() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
         const items: any[] = snap.docs
           .map((d) => ({ id: d.id, ...d.data() } as any))
           .filter((i: any) => isListingVisibleInMarketplace(i));
@@ -122,13 +127,17 @@ export default function RentalsPage() {
         );
         setListings(items);
         setLoading(false);
-      },
-      (err) => {
+      } catch (err) {
         console.error("Failed to load rental listings:", err);
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
-    );
-    return () => unsub();
+    }
+
+    const stop = startVisibilityPolledFetch(fetchListings, BROWSE_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, []);
 
   function handlePrimaryAction(item: any) {
