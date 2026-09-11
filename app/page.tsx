@@ -1121,7 +1121,7 @@ export default function Home() {
             <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)] sm:text-xl">
               {selectedCategory !== "All" ? selectedCategory : "Latest listings"}
             </h2>
-            {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) ? (
+            {loadError ? null : (selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) ? (
               <div className="flex items-center gap-2 rounded-md bg-[var(--soft-card)] px-2.5 py-1 border border-[var(--card-border)]">
                 <span className="text-[10px] font-semibold text-[var(--muted)] uppercase tracking-wider">Results</span>
                 {knownListingCount == null ? (

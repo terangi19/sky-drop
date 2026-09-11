@@ -593,7 +593,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
         />
 
         {loading ? (
-          <div className={`${LISTING_GRID_MT} mt-12`}>
+          <div className={`${LISTING_GRID_MT} mt-12`} data-listing-count="loading" aria-busy="true">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="h-64 animate-pulse rounded-2xl bg-white/[0.04]" />
             ))}
