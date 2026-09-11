@@ -1,3 +1,7 @@
+/**
+ * Client-safe rule fallback when OpenAI is unavailable.
+ * Kept out of openai-health.ts so the OpenAI SDK is not shipped to the browser.
+ */
 import { SKY_AI_GENERIC_FALLBACK, getGuideReply } from "./guide-assistant";
 import {
   isSkyAiGeneralQuestion,

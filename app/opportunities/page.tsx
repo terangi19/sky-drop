@@ -13,7 +13,9 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  limit,
   onSnapshot,
+  orderBy,
   query,
   setDoc,
   where,
@@ -23,6 +25,7 @@ import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { listingBuyHref } from "../lib/buy-listing-route";
 import { listingPrimaryActionHref } from "../lib/listing-message-href";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
+import { BROWSE_LISTINGS_LIMIT } from "../lib/firestore-query-limits";
 import {
   getRecentlyViewed,
   isInWatchlist,
@@ -95,7 +98,12 @@ export default function OpportunitiesPage() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "listings"), where("type", "==", "wanted"));
+    const q = query(
+      collection(db, "listings"),
+      where("type", "==", "wanted"),
+      orderBy("createdAt", "desc"),
+      limit(BROWSE_LISTINGS_LIMIT)
+    );
     const unsub = onSnapshot(q, (snap) => {
       const items: any[] = snap.docs
         .map((d) => ({ id: d.id, ...d.data() } as any))

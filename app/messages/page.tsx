@@ -279,7 +279,7 @@ function MessagesPage() {
   // Sync blocked users from Firestore when authenticated
   useEffect(() => {
     if (!user?.uid) return;
-    const blockedQ = collection(db, "users", user.uid, "blocked");
+    const blockedQ = query(collection(db, "users", user.uid, "blocked"), limit(100));
     const unsub = onSnapshot(
       blockedQ,
       (snap) => {
@@ -296,7 +296,7 @@ function MessagesPage() {
       setHiddenConversations(new Map());
       return;
     }
-    const hiddenQ = collection(db, "profiles", user.uid, "inboxHidden");
+    const hiddenQ = query(collection(db, "profiles", user.uid, "inboxHidden"), limit(100));
     const unsub = onSnapshot(
       hiddenQ,
       (snap) => {

@@ -7,7 +7,7 @@
 
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import type { SkyAiListingContext } from "./sky-ai-types";
-import { getFreshIdToken } from "./api-auth";
+import { fetchWithIdToken } from "./api-auth";
 import { prepareVisionListingImages } from "./awhina-vision-preprocess.client";
 import { isAwhinaVisionListingVisibleClient } from "./awhina-vision-listing-flags";
 
@@ -66,15 +66,6 @@ export function waitForVisionBridgeDone(timeoutMs = 60_000): Promise<AwhinaVisio
   });
 }
 
-async function authHeaders(): Promise<Record<string, string>> {
-  try {
-    const token = await getFreshIdToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  } catch {
-    return {};
-  }
-}
-
 /** Call vision API with already-prepared data URLs (chat attachments). */
 export async function fetchAwhinaVisionListing(opts: {
   images: string[];
@@ -122,9 +113,9 @@ export async function fetchAwhinaVisionListing(opts: {
   }
 
   try {
-    const res = await fetch("/api/awhina-vision", {
+    const res = await fetchWithIdToken("/api/awhina-vision", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         images,
         message: opts.message || "",

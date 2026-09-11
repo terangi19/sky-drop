@@ -21,6 +21,7 @@ import {
   setVisionCache,
   visionCacheKey,
 } from "./awhina-vision-cache";
+import { reuseCachedVisionListingFill } from "./awhina-vision-cache-reuse";
 import {
   VISION_LISTING_OBSERVATION_SCHEMA,
   VISION_LISTING_SYSTEM,
@@ -173,13 +174,18 @@ export async function runVisionListing(
           request.listingContext
         );
       }
+      const reused = reuseCachedVisionListingFill(adapted, hit.adapted);
+      adapted = reused.adapted;
+      if (!reused.skippedDescriptionWriter) {
+        const listingFill = await withGroundedListingDescription(adapted.listingFill);
+        if (listingFill) adapted = { ...adapted, listingFill };
+      }
       timing.mark("draftCompletedAt");
       logAwhinaTiming("vision_cache_hit", timing.snapshot(), {
         aiCalls: 0,
         fingerprint: fp.slice(0, 24),
+        skippedDescriptionWriter: reused.skippedDescriptionWriter,
       });
-      const listingFill = await withGroundedListingDescription(adapted.listingFill);
-      if (listingFill) adapted = { ...adapted, listingFill };
       return {
         ok: true,
         enabled: true,

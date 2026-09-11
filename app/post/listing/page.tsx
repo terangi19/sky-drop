@@ -126,11 +126,14 @@ export default function ListingPage() {
 
     let mounted = true;
     const favoritesRef =
-      collection(
-        db,
-        "users",
-        user.uid,
-        "favorites"
+      query(
+        collection(
+          db,
+          "users",
+          user.uid,
+          "favorites"
+        ),
+        limit(200)
       );
 
     async function fetchFavorites() {

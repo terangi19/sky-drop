@@ -128,7 +128,15 @@ export async function POST(req: NextRequest) {
     let resolvedReceiver = receiver;
     if (!receiver.includes("@")) {
       const lower = receiver.toLowerCase();
-      const unameSnap = await db.collection("usernames").doc(lower).get();
+      const [unameSnap, listingSnap, userRec] = await Promise.all([
+        db.collection("usernames").doc(lower).get(),
+        listingId
+          ? db.collection("listings").doc(listingId).get().catch(() => null)
+          : Promise.resolve(null),
+        getAdminAuth()
+          .getUser(receiver)
+          .catch(() => null),
+      ]);
       if (unameSnap.exists) {
         const uid = String(unameSnap.data()?.uid || "");
         if (uid) {
@@ -137,16 +145,10 @@ export async function POST(req: NextRequest) {
           if (email.includes("@")) resolvedReceiver = email;
         }
       }
-      if (!resolvedReceiver.includes("@")) {
-        try {
-          const userRec = await getAdminAuth().getUser(receiver);
-          if (userRec.email) resolvedReceiver = userRec.email;
-        } catch {
-          /* not a uid */
-        }
+      if (!resolvedReceiver.includes("@") && userRec?.email) {
+        resolvedReceiver = userRec.email;
       }
-      if (!resolvedReceiver.includes("@") && listingId) {
-        const listingSnap = await db.collection("listings").doc(listingId).get();
+      if (!resolvedReceiver.includes("@") && listingSnap?.exists) {
         const listing = listingSnap.data() || {};
         const listingEmail = String(listing.sellerEmail || "").trim();
         const listingUser = String(listing.sellerUsername || "").trim().toLowerCase();

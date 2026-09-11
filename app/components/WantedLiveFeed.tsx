@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { collection, onSnapshot, query, Timestamp, where } from "firebase/firestore";
+import { collection, limit, onSnapshot, orderBy, query, Timestamp, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import Link from "next/link";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
@@ -35,6 +35,8 @@ export default function WantedLiveFeed() {
     const q = query(
       collection(db, "listings"),
       where("type", "==", "wanted"),
+      orderBy("createdAt", "desc"),
+      limit(50),
     );
 
     const unsub = onSnapshot(q, (snap) => {

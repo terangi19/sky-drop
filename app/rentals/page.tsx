@@ -13,7 +13,9 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  limit,
   onSnapshot,
+  orderBy,
   query,
   setDoc,
   where,
@@ -21,6 +23,7 @@ import {
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { listingPrimaryActionHref } from "../lib/listing-message-href";
+import { BROWSE_LISTINGS_LIMIT } from "../lib/firestore-query-limits";
 import {
   getRecentlyViewed,
   isInWatchlist,
@@ -101,7 +104,12 @@ export default function RentalsPage() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "listings"), where("type", "==", "rental"));
+    const q = query(
+      collection(db, "listings"),
+      where("type", "==", "rental"),
+      orderBy("createdAt", "desc"),
+      limit(BROWSE_LISTINGS_LIMIT)
+    );
     const unsub = onSnapshot(
       q,
       (snap) => {

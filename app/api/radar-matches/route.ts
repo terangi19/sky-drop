@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
-import { getAdminApp } from "../../lib/firebase-admin";
+import { getAdminAuth, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { isSameMarketplaceUser } from "../../lib/sky-ai-matchmaking";
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuth(getAdminApp());
-    const db = getFirestore(getAdminApp());
+    if (!isAdminInitialized()) {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
+    }
+    const auth = getAdminAuth();
+    const db = getAdminDb();
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -31,19 +32,26 @@ export async function GET(req: NextRequest) {
     // Extract keywords from user's activity
     const keywords: string[] = [];
     
-    // Get titles from watchlist
-    for (const listingId of watchlist.slice(0, 20)) {
+    // Get titles from watchlist (batched getAll — not N+1)
+    const watchlistIds = (Array.isArray(watchlist) ? watchlist : [])
+      .slice(0, 20)
+      .map((id: unknown) => String(id || "").trim())
+      .filter(Boolean);
+    if (watchlistIds.length > 0) {
       try {
-        const listingDoc = await db.collection("listings").doc(listingId).get();
-        if (listingDoc.exists) {
+        const listingSnaps = await db.getAll(
+          ...watchlistIds.map((listingId: string) => db.collection("listings").doc(listingId))
+        );
+        for (const listingDoc of listingSnaps) {
+          if (!listingDoc.exists) continue;
           const data = listingDoc.data() || {};
           if (data.title) {
-            const words = data.title.split(/\s+/);
+            const words = String(data.title).split(/\s+/);
             keywords.push(...words.filter((w: string) => w.length > 3));
           }
         }
       } catch (e) {
-        console.error("Error fetching watchlist listing:", e);
+        console.error("Error fetching watchlist listings:", e);
       }
     }
 

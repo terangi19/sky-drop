@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import { User } from "firebase/auth";
-import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
@@ -68,7 +68,7 @@ export default function WatchlistPage() {
 
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(collection(db, "users", user.uid, "watchlist"), orderBy("savedAt", "desc"));
+    const q = query(collection(db, "users", user.uid, "watchlist"), orderBy("savedAt", "desc"), limit(100));
     const unsubWatch = onSnapshot(q, (snap) => {
       const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as WatchlistItem));
       setWatchlist(items);
