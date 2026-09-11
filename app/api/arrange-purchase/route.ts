@@ -185,7 +185,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         conversationId: String(existing.data().conversationId || convId),
-        sellerEmail,
         purchaseId: existing.id,
         existing: true,
       });
@@ -301,7 +300,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       conversationId,
-      sellerEmail,
       purchaseId,
       existing: isExisting,
     });

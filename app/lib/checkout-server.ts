@@ -71,6 +71,18 @@ export async function adminReserveListing(
   });
 }
 
+/** Seller email from the listing document — never trust a client-supplied address. */
+export async function adminResolveListingSellerEmail(listingId: string): Promise<string> {
+  requireAdminForCheckout();
+  const id = listingId.trim();
+  if (!id) throw new Error("Listing not found");
+  const snap = await getAdminDb().collection("listings").doc(id).get();
+  if (!snap.exists) throw new Error("Listing not found");
+  const seller = String(snap.data()?.sellerEmail || "").trim();
+  if (!seller) throw new Error("Listing has no seller");
+  return seller;
+}
+
 export async function adminCreateCheckoutMessage(data: {
   text: string;
   sender: string;

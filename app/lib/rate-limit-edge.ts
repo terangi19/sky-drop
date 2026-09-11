@@ -69,6 +69,7 @@ export const STRICT_API_ROUTES: StrictApiRoute[] = [
   { prefix: "/api/import-listing", key: "import-listing", max: 10, windowMs: 60_000 },
   { prefix: "/api/send-email", key: "send-email", max: 10, windowMs: 60_000 },
   { prefix: "/api/send-notification-email", key: "send-notif-email", max: 20, windowMs: 60_000 },
+  { prefix: "/api/create-notification", key: "create-notification", max: 20, windowMs: 60_000 },
   { prefix: "/api/clear-verified-phone", key: "clear-phone", max: 10, windowMs: 60_000 },
   { prefix: "/api/security-health", key: "security-health", max: 20, windowMs: 60_000 },
   { prefix: "/api/knowledge", key: "knowledge", max: 60, windowMs: 60_000 },

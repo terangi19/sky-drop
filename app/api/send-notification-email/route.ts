@@ -4,6 +4,7 @@ import { rateLimit } from "../../lib/rate-limit";
 import { RATE_LIMITS } from "../../lib/rate-limit-config";
 import { isAdminEmail } from "../../lib/admin-check";
 import { parseIpFromRequest } from "../../lib/geo-check";
+import { resolveNotificationEmailBody } from "../../lib/notification-email-body";
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,8 +37,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
-    const { to, subject, html } = await req.json();
-    if (!to || !subject || !html) {
+    const { to, subject, html, text } = await req.json();
+    if (!to || !subject) {
       return NextResponse.json({ error: "Missing to, subject, or html" }, { status: 400 });
     }
 
@@ -45,22 +46,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid recipient email" }, { status: 400 });
     }
 
-    if (typeof html !== "string" || html.length > 80_000) {
-      return NextResponse.json({ error: "Invalid email body" }, { status: 400 });
-    }
-
-    if (/<script[\s>]|javascript:/i.test(html)) {
-      return NextResponse.json({ error: "Invalid email body" }, { status: 400 });
-    }
-
     const recipient = String(to).trim().toLowerCase();
     const callerEmail = (decodedToken.email || "").toLowerCase();
-    if (recipient !== callerEmail && !isAdminEmail(decodedToken.email)) {
+    const isAdmin = isAdminEmail(decodedToken.email);
+    if (recipient !== callerEmail && !isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const body = resolveNotificationEmailBody({ isAdmin, html, text });
+    if (!body.ok) {
+      return NextResponse.json({ error: body.error }, { status: 400 });
+    }
+
     const { sendEmail } = await import("../../lib/email-transport");
-    await sendEmail({ to, subject, html });
+    await sendEmail({ to, subject, html: body.html });
 
     return NextResponse.json({ success: true });
   } catch (e: any) {

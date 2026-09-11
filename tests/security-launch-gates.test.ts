@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pickPublicProfileFields } from "../app/lib/public-profile-fields";
-import { serializeProfileForClient } from "../app/lib/firestore-serialize";
+import { serializeProfileForClient, stripPublicListingFields } from "../app/lib/firestore-serialize";
 import { parseKycStoragePath } from "../app/lib/kyc-storage.server";
 
 describe("Public profile allowlist launch gate", () => {
@@ -50,6 +50,30 @@ describe("Owner profile serialization strips KYC and bank secrets", () => {
     expect(result.storagePath).toBeUndefined();
     expect(result.bankAccountNumber).toBeUndefined();
     expect(result.bankAccountName).toBeUndefined();
+  });
+});
+
+describe("Public listing serialization strips sellerEmail", () => {
+  it("removes sellerEmail and other PII from a public listing payload", () => {
+    const result = stripPublicListingFields({
+      id: "listing-1",
+      title: "2015 Mazda Axela",
+      price: "11500",
+      sellerEmail: "seller@example.test",
+      buyerEmail: "buyer@example.test",
+      email: "seller@example.test",
+      stripeAccountId: "acct_123",
+      sellerId: "uid-abc",
+      sellerUsername: "mazda-seller",
+    });
+
+    expect(result.title).toBe("2015 Mazda Axela");
+    expect(result.sellerId).toBe("uid-abc");
+    expect(result.sellerUsername).toBe("mazda-seller");
+    expect(result.sellerEmail).toBeUndefined();
+    expect(result.buyerEmail).toBeUndefined();
+    expect(result.email).toBeUndefined();
+    expect(result.stripeAccountId).toBeUndefined();
   });
 });
 

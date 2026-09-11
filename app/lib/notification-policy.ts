@@ -1,7 +1,38 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { isAdminEmail } from "./admin-check";
 
-const BLOCKED_TYPES = new Set(["system", "admin_broadcast", "mass_message"]);
+/** Types that impersonate the platform. Client callers must not send these. */
+export const BLOCKED_NOTIFICATION_TYPES = new Set([
+  "system",
+  "admin_broadcast",
+  "mass_message",
+  "announcement",
+  "platform",
+  "platform_update",
+  "security",
+  "verification",
+  "kyc_submitted",
+  "openai_budget_alert",
+]);
+
+/** Stranger → listing seller (no purchase). Keep this tight so listingId is not an open mailer. */
+export const LISTING_CONTACT_TYPES = new Set([
+  "message",
+  "offer",
+  "offer_received",
+  "question",
+  "bid",
+  "outbid",
+]);
+
+const SYSTEM_FROM_RE = /^(system|noreply|no-reply|admin|support)@/i;
+
+export function isSystemLikeFromEmail(fromEmail: string): boolean {
+  const from = fromEmail.trim().toLowerCase();
+  if (!from) return false;
+  if (from === "system" || from === "admin") return true;
+  return SYSTEM_FROM_RE.test(from);
+}
 
 export type NotificationPolicyInput = {
   senderEmail: string;
@@ -29,7 +60,7 @@ export async function assertNotificationAllowed(
     return { ok: false, reason: "Cannot notify yourself" };
   }
 
-  if (BLOCKED_TYPES.has(type)) {
+  if (BLOCKED_NOTIFICATION_TYPES.has(type)) {
     return { ok: false, reason: "Notification type not allowed" };
   }
 
@@ -38,6 +69,10 @@ export async function assertNotificationAllowed(
   }
 
   if (from !== sender) {
+    return { ok: false, reason: "Forbidden" };
+  }
+
+  if (isSystemLikeFromEmail(from)) {
     return { ok: false, reason: "Forbidden" };
   }
 
@@ -85,25 +120,40 @@ export async function assertNotificationAllowed(
 
   if (listingId) {
     const listingSnap = await db.collection("listings").doc(listingId).get();
-    if (!listingSnap.exists) {
-      return { ok: false, reason: "Listing not found" };
-    }
-    const seller = String(listingSnap.data()?.sellerEmail || "").toLowerCase();
-    if (!seller) {
-      return { ok: false, reason: "Listing has no seller" };
-    }
-    if (sender !== seller && target === seller) {
-      return { ok: true };
-    }
-    if (sender === seller && target !== seller) {
-      const purchaseSnap = await db
-        .collection("purchases")
-        .where("listingId", "==", listingId)
-        .where("sellerEmail", "==", sender)
-        .where("buyerEmail", "==", target)
-        .limit(1)
-        .get();
-      if (!purchaseSnap.empty) return { ok: true };
+    if (listingSnap.exists) {
+      const seller = String(listingSnap.data()?.sellerEmail || "").toLowerCase();
+      if (!seller) {
+        return { ok: false, reason: "Listing has no seller" };
+      }
+      if (sender !== seller && target === seller) {
+        if (!LISTING_CONTACT_TYPES.has(type)) {
+          return { ok: false, reason: "Notification type not allowed for this listing" };
+        }
+        return { ok: true };
+      }
+      if (sender === seller && target !== seller) {
+        const purchaseSnap = await db
+          .collection("purchases")
+          .where("listingId", "==", listingId)
+          .where("sellerEmail", "==", sender)
+          .where("buyerEmail", "==", target)
+          .limit(1)
+          .get();
+        if (!purchaseSnap.empty) return { ok: true };
+      }
+    } else {
+      const tradeSnap = await db.collection("tradePosts").doc(listingId).get();
+      if (tradeSnap.exists) {
+        const seller = String(tradeSnap.data()?.sellerEmail || "").toLowerCase();
+        if (
+          seller &&
+          sender !== seller &&
+          target === seller &&
+          LISTING_CONTACT_TYPES.has(type)
+        ) {
+          return { ok: true };
+        }
+      }
     }
   }
 
