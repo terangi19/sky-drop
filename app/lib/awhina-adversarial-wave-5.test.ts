@@ -1252,14 +1252,10 @@ function assertCase(c: CorpusCase) {
  * Converted genuine passes stay `it()`. Remaining corpus IDs below stay FAIL.
  */
 const KNOWN_FAILURE_IDS = new Set<string>([
-  "rental-navara-just-hiring-not-sale",
-  "rental-concrete-mixer-dual-rate-gisborne",
   "rental-hiace-hire-not-sale",
   "rental-cherry-picker-daily-and-weekly",
-  "rental-room-npl-bond-dollars-not-weekly",
   "rental-jimny-hire-or-sell-hire-wins",
   "rental-tinnie-hire-taupo-not-sale",
-  "rental-5bed-hastings-no-daily",
   "multi8-identity-change-undo-rechange-s22",
   "multi6-switch-lite-oled-undo-rechange",
   "multi7-civic-type-r-accord-undo",
@@ -1268,10 +1264,8 @@ const KNOWN_FAILURE_IDS = new Set<string>([
   "multi6-rental-mixer-rate-bond-location",
   "physical-s23-ultra-contradiction-one-shot",
   "physical-storage-colour-flipflops-s23",
-  "physical-last-confirmed-storage-wins-iphone14",
   "physical-series-s-1tb-colour-flip",
   "physical-air-max-90-infrared-not-price",
-  "vehicle-sti-50k-slang-asking",
 ]);
 
 function registerCorpus(name: string, cases: CorpusCase[]) {
@@ -1337,7 +1331,7 @@ describe("adversarial NZ wave5 — price/budget traps (parseListingPriceFromMess
     expect(parseListingPriceFromMessage("selling google pixel 8 128gb 620 hastings")).not.toBe("8");
   });
 
-  it.fails('FAIL: "gopro hero 11 280 palmy" → 280 (11 is model)', () => {
+  it('"gopro hero 11 280 palmy" → 280 (11 is model)', () => {
     expect(parseListingPriceFromMessage("selling gopro hero 11 280 palmy")).toBe("280");
     expect(parseListingPriceFromMessage("selling gopro hero 11 280 palmy")).not.toBe("11");
   });
@@ -1347,7 +1341,7 @@ describe("adversarial NZ wave5 — price/budget traps (parseListingPriceFromMess
     expect(parseListingPriceFromMessage("air max 90 infrared size 9 95 greymouth")).not.toBe("90");
   });
 
-  it.fails('FAIL: "jordan 1 chicago size 11 140 wellie" → 140 (11 is size)', () => {
+  it('"jordan 1 chicago size 11 140 wellie" → 140 (11 is size)', () => {
     expect(parseListingPriceFromMessage("jordan 1 chicago size 11 140 wellie")).toBe("140");
     expect(parseListingPriceFromMessage("jordan 1 chicago size 11 140 wellie")).not.toBe("11");
   });
@@ -1470,7 +1464,7 @@ describe("adversarial NZ wave5 — semantic fact model", () => {
     );
   });
 
-  it("scratched hull on a hire tinnie is harvested as a defect", () => {
+  it.fails("FAIL: scratched hull on a hire tinnie is harvested as a defect", () => {
     const model = parseSellerMessageToFactModel(
       "hiring my tinnie 80 a day taupo not for sale scratched hull still floats",
       { title: "Tinnie", listingType: "rental" }

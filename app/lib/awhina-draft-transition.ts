@@ -12,6 +12,7 @@ import {
 } from "./awhina-active-draft-commands";
 import {
   hasListingSellIntent,
+  hasRentalOfferingIntent,
   hasWantedListingIntent,
   isExplicitNewSellListingMessage,
 } from "./sky-ai-intent";
@@ -171,7 +172,11 @@ export function assessTextObjectContinuity(
     return "SAME_OBJECT";
   }
   const priorIsRental = String(prior.listingType || "").toLowerCase() === "rental";
-  if (priorIsRental && isListingPatchFollowUp(message)) {
+  if (
+    priorIsRental &&
+    isListingPatchFollowUp(message) &&
+    !(hasListingSellIntent(message) && !hasWantedListingIntent(message) && !hasRentalOfferingIntent(message))
+  ) {
     return "SAME_OBJECT";
   }
   const priorIsService = String(prior.listingType || "").toLowerCase() === "service";
@@ -243,8 +248,15 @@ export function assessDraftTransition(opts: {
       message
     );
 
+  const rentalToSale =
+    priorType === "rental" &&
+    hasListingSellIntent(message) &&
+    !hasWantedListingIntent(message) &&
+    !hasRentalOfferingIntent(message);
+
   const shouldReplace =
     alsoSwitch ||
+    rentalToSale ||
     (continuity === "NEW_OBJECT" && isIdentityRichListingPaste(message)) ||
     (continuity === "NEW_OBJECT" && listingIdentitiesConflict(prior, message)) ||
     (explicitNew && (structured || isIdentityRichListingPaste(message) || continuity === "NEW_OBJECT" || domainShift)) ||
@@ -253,14 +265,14 @@ export function assessDraftTransition(opts: {
     (isIdentityRichListingPaste(message) && continuity === "NEW_OBJECT") ||
     (hasListingSellIntent(message) && continuity === "NEW_OBJECT" && !patchFollowUp);
 
-  if (shouldReplace && !patchFollowUp) {
+  if (shouldReplace && (!patchFollowUp || rentalToSale)) {
     return {
       mode: "REPLACE",
       replaceDraft: true,
       freshStart: true,
       reason: explicitNew
         ? "explicit_new_listing"
-        : domainShift
+        : rentalToSale || domainShift
           ? "domain_shift"
           : continuity === "NEW_OBJECT"
             ? "new_object"
@@ -268,7 +280,7 @@ export function assessDraftTransition(opts: {
     };
   }
 
-  if (patchFollowUp || continuity === "SAME_OBJECT") {
+  if ((patchFollowUp || continuity === "SAME_OBJECT") && !rentalToSale) {
     return {
       mode: "PATCH",
       replaceDraft: false,
@@ -304,7 +316,17 @@ export function isListingPatchFollowUp(message: string): boolean {
   }
   if (/^(wait\s+)?(nah|nope|no)\b/i.test(t)) return true;
   if (/\bwait\s+(?:nah|no)\b/i.test(t)) return true;
-  if (/^(actually|also|and also|plus)\b/i.test(t)) return true;
+  if (/^(actually|also|and also|plus)\b/i.test(t)) {
+    // "actually sell the trailer for $5000" is a sale confirmation, not a field patch.
+    if (
+      /\b(?:sell(?:ing)?|for\s+sale)\b/i.test(t) &&
+      !hasWantedListingIntent(t) &&
+      !/\b(?:hir(?:e|ing)|rent(?:ing)?|not\s+selling)\b/i.test(t)
+    ) {
+      return false;
+    }
+    return true;
+  }
   if (/^and\b/i.test(t) && t.split(/\s+/).length <= 12) return true;
   if (/\bforget\s+that\b/i.test(t) && !/\b(?:sell(?:ing)?|list(?:ing)?)\s+(?:my|a|an|the)\b/i.test(t)) {
     return true;
