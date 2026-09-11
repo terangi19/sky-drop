@@ -13,7 +13,7 @@ import {
   sanitizePublicListingCopy,
   stripInternalOrchestrationOnly,
 } from "./awhina-orchestration-boundary";
-import { sanitizeListingExtras } from "./awhina-seller-evidence";
+import { extraKeyIsMultiValue, sanitizeListingExtras } from "./awhina-seller-evidence";
 
 const NUMBER_WORDS: Record<string, number> = {
   one: 1,
@@ -434,6 +434,17 @@ function extractRelationalConditions(raw: string): {
     );
   }
   for (const match of raw.matchAll(
+    /\bbut\s+(smashed|cracked|dented|scratched|damaged|stained|torn|worn)\b/gi,
+  )) {
+    negative.push(
+      makeFact(
+        "negative_condition",
+        match[1].toLowerCase(),
+        provenanceFor(match[0], "seller_message", raw),
+      ),
+    );
+  }
+  for (const match of raw.matchAll(
     /\b([a-z][\w'-]*(?:\s+[a-z][\w'-]*)?)\s+(?:is\s+|pretty\s+|has\s+)?(scratched|cracked|damaged|stained|torn|dented|worn|smashed)\b/gi,
   )) {
     const subject = match[1].replace(/^anymore\s+/i, "").trim();
@@ -441,7 +452,10 @@ function extractRelationalConditions(raw: string): {
       /^(?:don'?t|dont|say|put|mention|title|bargain|the|a|an|it|its|this|that|not)\b/i.test(
         subject
       ) ||
-      /\b(?:don'?t|dont|say|put|mention|title it)\b/i.test(subject)
+      /\b(?:don'?t|dont|say|put|mention|title it|for\s+sale)\b/i.test(subject) ||
+      /^(?:new|used|brand(?:\s+new)?|like[\s-]*new|mint|good|fair|but|sale|for\s+sale)(?:\s+but)?$/i.test(
+        subject
+      )
     ) {
       continue;
     }
@@ -452,6 +466,20 @@ function extractRelationalConditions(raw: string): {
         provenanceFor(match[0], "seller_message", raw),
       ),
     );
+  }
+  for (const match of raw.matchAll(
+    /\b(dented|cracked|scratched|smashed|worn)\s+([a-z][\w'-]*)\b/gi,
+  )) {
+    const noun = match[2];
+    if (/^(?:screen|guard|lid|bin|latch|tray|sill|corner|frame|bumper|windscreen|windshield|disc|drive|keyboard)$/i.test(noun)) {
+      negative.push(
+        makeFact(
+          "negative_condition",
+          `${noun.toLowerCase()} ${match[1].toLowerCase()}`,
+          provenanceFor(match[0], "seller_message", raw),
+        ),
+      );
+    }
   }
   return { positive: dedupeFacts(positive), negative: dedupeFacts(negative) };
 }
@@ -840,6 +868,33 @@ export function parseSellerMessageToFactModel(
   };
 }
 
+function mergePublicExtras(
+  existing: string[] | undefined,
+  incoming: string[] | undefined
+): string[] {
+  if (!incoming?.length) return existing ? [...existing] : [];
+  const out = [...(existing || [])];
+  for (const raw of incoming) {
+    const extra = String(raw || "").trim();
+    if (!extra) continue;
+    const colon = extra.indexOf(":");
+    if (colon <= 0) {
+      if (!out.some((item) => item.toLowerCase() === extra.toLowerCase())) out.push(extra);
+      continue;
+    }
+    const key = extra.slice(0, colon);
+    if (extraKeyIsMultiValue(key)) {
+      if (!out.some((item) => item.toLowerCase() === extra.toLowerCase())) out.push(extra);
+      continue;
+    }
+    const prefix = extra.slice(0, colon + 1);
+    const idx = out.findIndex((item) => item.toLowerCase().startsWith(prefix.toLowerCase()));
+    if (idx >= 0) out[idx] = extra;
+    else out.push(extra);
+  }
+  return out.slice(0, 48);
+}
+
 export function semanticFactModelToPublicExtras(
   model: StructuredSellerFactModel,
 ): string[] {
@@ -954,18 +1009,21 @@ export function attachSellerFactModel(
   const hasUsageConflict = semanticFactModel.conflicts.some(
     (conflict) => conflict.key === "condition:usage",
   );
+  const fromModel = semanticFactModelToPublicExtras(semanticFactModel);
   return {
     ...fill,
     ...(sellerIdentity && titleLooksContaminated
       ? { title: sellerIdentity.value }
       : {}),
-    ...(fill.price && !hasConfirmedPrice ? { price: undefined } : {}),
+    // Keep canonical draft price unless this message confirmed a new ask.
+    // Wanted budget caps / storage corrections are not "no price".
+    ...(hasConfirmedPrice ? { price: semanticFactModel.price.confirmed?.value || fill.price } : {}),
     ...(resolvedCondition
       ? { condition: resolvedCondition }
       : operationalMintWasMisread || hasUsageConflict
         ? { condition: undefined }
         : {}),
-    extras: semanticFactModelToPublicExtras(semanticFactModel),
+    extras: mergePublicExtras(fill.extras, fromModel),
     semanticFactModel,
   };
 }

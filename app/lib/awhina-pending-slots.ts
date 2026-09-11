@@ -1149,21 +1149,32 @@ export function extractCompoundListingFacts(
   }
 
   // Electronics storage — last explicit size wins (wait no 256 after 128gb)
+  const STORAGE_CAPS = new Set(["64", "128", "256", "512", "1024"]);
   const storageMatches = [...residual.matchAll(/\b(\d+)\s?(gb|tb)\b/gi)];
   const correctionBare = residual.match(
     /\b(?:wait\s+)?(?:no|nah|actually)\s+(\d{2,4})\b(?!\s*(?:k\b|km|bucks|\$|a\s+day|per\s+day))/i
   );
+  const bareCaps = [...residual.matchAll(/\b(64|128|256|512|1024)\b/g)];
   const storageMatch = storageMatches.length
     ? storageMatches[storageMatches.length - 1]
     : null;
-  if (storageMatch || (correctionBare && Number(correctionBare[1]) >= 32)) {
-    const n = correctionBare && Number(correctionBare[1]) >= 32
-      ? correctionBare[1]
-      : storageMatch![1];
+  const capFromCorrection =
+    correctionBare && STORAGE_CAPS.has(correctionBare[1]) ? correctionBare[1] : null;
+  const capBare = bareCaps.length ? bareCaps[bareCaps.length - 1][1] : null;
+  const n =
+    capFromCorrection ||
+    (storageMatch ? storageMatch[1] : null) ||
+    (capBare &&
+    (/\b(?:wait|nah|actually|no)\b/i.test(message) ||
+      /\biphone|galaxy|pixel|ipad|samsung|phone\b/i.test(`${base.title || ""} ${message}`))
+      ? capBare
+      : null);
+  if (n && (storageMatch || STORAGE_CAPS.has(n))) {
     const unit = (storageMatch?.[2] || "gb").toUpperCase();
-    partial.extras = mergeExtras(partial.extras || base.extras, [
-      `storage:${n}${unit}`,
-    ]);
+    const withoutPriorStorage = (partial.extras || base.extras || []).filter(
+      (entry) => !/^storage:/i.test(entry) && !/\b(?:64|128|256|512|1024)\s*gb\b/i.test(entry)
+    );
+    partial.extras = mergeExtras(withoutPriorStorage, [`storage:${n}${unit}`]);
     filledSlots.push("storage");
     notes.push(`storage ${n}${unit}`);
     if (storageMatch) {
@@ -1193,7 +1204,7 @@ export function extractCompoundListingFacts(
   ];
   const affirmedColour = colourTokens.filter((hit) => {
     const before = residual.slice(Math.max(0, (hit.index || 0) - 8), hit.index || 0);
-    return !/\bnot\s+$/i.test(before);
+    return !/\b(?:not|no)\s+$/i.test(before);
   });
   const colourHit = (affirmedColour.length ? affirmedColour : colourTokens).at(-1);
   if (colourHit?.[1]) {
@@ -1240,20 +1251,83 @@ export function extractCompoundListingFacts(
     ]);
   }
 
-  if (/\b(?:also|plus)\s+(hedge\s*trimm(?:ing|in)?)|\bhedge\s*trimm(?:ing|in)?\b/i.test(message)) {
+  if (/\bhedge\s*trimm(?:ing|in)?\b/i.test(message)) {
     if (domain === "service" || /\b(?:also|plus|lawn|mow)\b/i.test(message) || domain === "unknown") {
       partial.extras = mergeExtras(partial.extras || base.extras, [
         "included:hedge trimming",
       ]);
-      filledSlots.push("extras");
       notes.push("hedge trimming");
+      filledSlots.push("service_rate");
+    }
+  }
+  if (
+    domain === "service" ||
+    /\b(?:plumb|mow|lawn|clean|handyman|paint|also|plus)\b/i.test(`${base.title || ""} ${message}`)
+  ) {
+    if (/\bdrain\b/i.test(message)) {
+      partial.extras = mergeExtras(partial.extras || base.extras, ["included:drain unblocking"]);
+      notes.push("drain unblocking");
+    }
+    if (/\bgardens?\b/i.test(message)) {
+      partial.extras = mergeExtras(partial.extras || base.extras, ["included:gardens"]);
+      notes.push("gardens");
+    }
+    if (/\boven\b/i.test(message)) {
+      partial.extras = mergeExtras(partial.extras || base.extras, ["included:oven"]);
+      notes.push("oven");
+    }
+    if (/\bcarpet\b/i.test(message)) {
+      partial.extras = mergeExtras(partial.extras || base.extras, ["included:carpet"]);
+      notes.push("carpet");
+    }
+    if (/\bweed(?:ing)?\b/i.test(message)) {
+      partial.extras = mergeExtras(partial.extras || base.extras, ["included:weeding"]);
+      notes.push("weeding");
+    }
+    if (/\bgarden\s+tidy\b/i.test(message)) {
+      partial.extras = mergeExtras(partial.extras || base.extras, ["included:garden tidy"]);
+      notes.push("garden tidy");
+    }
+    if (/\bwof\b/i.test(message)) {
+      partial.extras = mergeExtras(partial.extras || base.extras, ["included:WOF checks"]);
+      notes.push("wof");
+      filledSlots.push("service_rate");
     }
   }
   const padCount = message.match(/\b(\d+)\s+(pads?|controllers?)\b/i);
-  if (padCount && (domain === "unknown" || /\b(?:ps5|ps4|xbox|wanted|need|must\s+have|disc)\b/i.test(`${base.title || ""} ${message}`))) {
-    partial.extras = mergeExtras(partial.extras || base.extras, [
+  if (padCount && (domain === "unknown" || /\b(?:ps5|ps4|xbox|wanted|need|must\s+have|disc|pad|controller)\b/i.test(`${base.title || ""} ${message}`))) {
+    const withoutPriorPads = (partial.extras || base.extras || []).filter(
+      (entry) => !/^included:\d+\s+(pads?|controllers?)$/i.test(entry)
+    );
+    partial.extras = mergeExtras(withoutPriorPads, [
       `included:${padCount[1]} ${padCount[2].toLowerCase()}`,
     ]);
+    filledSlots.push("quantity");
+  }
+  const gameCount = message.match(/\b(\d+)\s+games?\b/i);
+  if (gameCount && /\b(?:ps5|ps4|xbox|switch|pad|controller|game)\b/i.test(`${base.title || ""} ${message}`)) {
+    const withoutPriorGames = (partial.extras || base.extras || []).filter(
+      (entry) => !/^included:\d+\s+games?$/i.test(entry)
+    );
+    partial.extras = mergeExtras(withoutPriorGames, [
+      `included:${gameCount[1]} games`,
+    ]);
+    filledSlots.push("quantity");
+  }
+  const chargerCount = message.match(/\b(\d+)\s+chargers?\b/i);
+  if (chargerCount) {
+    partial.extras = mergeExtras(partial.extras || base.extras, [
+      `included:${chargerCount[1]} chargers`,
+    ]);
+  }
+  const lotQty = message.match(/\b(?:lot|set)\s+of\s+(\d+)\b|\bx\s*(\d+)\b/i);
+  if (lotQty) {
+    const qty = lotQty[1] || lotQty[2];
+    if (qty && Number(qty) >= 2 && Number(qty) <= 20) {
+      partial.stockQuantity = qty;
+      partial.extras = mergeExtras(partial.extras || base.extras, [`quantity:${qty}`]);
+      notes.push(`qty ${qty}`);
+    }
   }
   if (/\bunlocked\b/i.test(message)) {
     partial.extras = mergeExtras(partial.extras || base.extras, ["note:unlocked"]);
@@ -1307,6 +1381,7 @@ export function extractCompoundListingFacts(
   }
   const dailyRate = residual.match(/\b([\d,]+)\s*(?:a\s+day|per\s+day|\/\s*day)\b/i);
   const weeklyRate = residual.match(/\b([\d,]+)\s*(?:a\s+week|per\s+week|\/\s*week|pw)\b/i);
+  const calloutRate = residual.match(/\bcallout\s+\$?\s*([\d,]+)\b/i);
   const rentalLike =
     domain === "rental" ||
     String(base.listingType || "").toLowerCase() === "rental" ||
@@ -1317,8 +1392,19 @@ export function extractCompoundListingFacts(
   }
   if (weeklyRate && rentalLike) {
     partial.rentalPriceWeekly = weeklyRate[1].replace(/,/g, "");
-    if (!partial.rentalPriceDaily) partial.price = partial.rentalPriceWeekly;
-    else if (!partial.price) partial.price = partial.rentalPriceDaily;
+    if (!partial.price && partial.rentalPriceDaily) {
+      partial.price = partial.rentalPriceDaily;
+    }
+  }
+  if (
+    calloutRate &&
+    (domain === "service" ||
+      String(base.listingType || "").toLowerCase() === "service" ||
+      /\b(?:plumb|mechanic|callout|handyman)\b/i.test(message))
+  ) {
+    partial.price = calloutRate[1].replace(/,/g, "");
+    filledSlots.push("service_rate");
+    notes.push(`callout $${partial.price}`);
   }
   const vehicleMod = [
     ...message.matchAll(/\b(lift(?:\s+kit)?|\d[\s-]*inch\s+lift|snorkel)\b/gi),
@@ -1335,6 +1421,24 @@ export function extractCompoundListingFacts(
         `modification:${hit[1].toLowerCase()}`,
       ]);
     }
+  }
+  if (/\bengine\s+knocks?\b/i.test(message)) {
+    partial.extras = mergeExtras(partial.extras || base.extras, [
+      "conditionDetail:engine knocks",
+    ]);
+    filledSlots.push("condition");
+    notes.push("engine knocks");
+  }
+  const bondHit = residual.match(/\bbond\s+\$?\s*([\d,]+)\b/i);
+  if (
+    bondHit &&
+    (domain === "rental" ||
+      String(base.listingType || "").toLowerCase() === "rental" ||
+      /\b(?:rent|hire|trailer|bond)\b/i.test(message))
+  ) {
+    partial.rentalDeposit = bondHit[1].replace(/,/g, "");
+    filledSlots.push("rental_rate");
+    notes.push(`bond ${partial.rentalDeposit}`);
   }
   if (domain === "service" || /\b(?:house\s*)?clean(?:ing)?\b/i.test(message)) {
     const rooms = [...message.matchAll(/\b(bathrooms?|kitchens?|bedrooms?|living\s*rooms?)\b/gi)].map(
@@ -1357,15 +1461,22 @@ export function extractCompoundListingFacts(
     residual = residual.replace(gradeMatch[0], " ").replace(/\s+/g, " ").trim();
   }
 
-  // Clothing size
-  const sizeMatch = residual.match(/\b(?:size\s*)?(\d{1,2}(?:\.\d)?|XS|S|M|L|XL|XXL)\b/i);
+  // Clothing size — require an explicit "size" cue so model numbers (Air Max 90) stay identity.
+  const sizeMatch =
+    residual.match(/\bsize\s*(\d{1,2}(?:\.\d)?|XS|S|M|L|XL|XXL)\b/i) ||
+    (opts?.activeSlot === "size"
+      ? residual.match(/\b(\d{1,2}(?:\.\d)?|XS|S|M|L|XL|XXL)\b/i)
+      : null);
   if (
     sizeMatch &&
     (opts?.activeSlot === "size" ||
       domain === "clothing" ||
-      /\b(size|uk|us|eu)\b/i.test(message))
+      /\bsize\b/i.test(message))
   ) {
-    partial.extras = mergeExtras(partial.extras || base.extras, [
+    const withoutPriorClothesSize = (partial.extras || base.extras || []).filter(
+      (entry) => !/^size:/i.test(entry) || /\binch\b/i.test(entry)
+    );
+    partial.extras = mergeExtras(withoutPriorClothesSize, [
       `size:${sizeMatch[1].toUpperCase()}`,
     ]);
     filledSlots.push("size");
@@ -1603,6 +1714,9 @@ export function extractCompoundListingFacts(
         /^\s*(?:lpft?|lpfp|injectors?|tune|turbo|speed|inch|gb|tb|volt|watt)\b/i.test(
           afterPrice
         ) ||
+        (/^(64|128|256|512|1024)$/.test(String(Math.round(n))) &&
+          (/\b(?:wait|nah|actually|no)\b/i.test(message) ||
+            filledSlots.includes("storage"))) ||
         // Small bare numbers followed by a noun are quantities/specs, not
         // confirmed prices ("2 controllers", "4 chairs", "12 blades").
         (n <= 20 && /^\s+[a-z][\w'-]*/i.test(afterPrice)));
@@ -1635,7 +1749,7 @@ export function extractCompoundListingFacts(
           // Dual daily/weekly rates were harvested from explicit spans above.
         } else if (weeklyLike) {
           partial.rentalPriceWeekly = String(Math.round(n));
-          if (!partial.rentalPriceDaily) partial.price = String(Math.round(n));
+          // Do not copy weekly onto price — protected normalize treats price as daily.
         } else {
           partial.rentalPriceDaily = String(Math.round(n));
           partial.price = String(Math.round(n));
@@ -1661,7 +1775,12 @@ export function extractCompoundListingFacts(
   const classifiedAsking = classifySellerPrices(message);
   if (classifiedAsking.confirmed && classifiedAsking.confirmed !== partial.price) {
     const n = Number(classifiedAsking.confirmed);
-    if (Number.isFinite(n) && n >= 1) {
+    const storageCap = /^(64|128|256|512|1024)$/.test(classifiedAsking.confirmed);
+    const phoneGen =
+      n >= 4 &&
+      n <= 16 &&
+      /\b(?:iphone|pixel|galaxy|it'?s|its)\b/i.test(message);
+    if (Number.isFinite(n) && n >= 1 && !storageCap && !phoneGen) {
       partial.price = classifiedAsking.confirmed;
       if (!filledSlots.includes("price")) filledSlots.push("price");
       notes.push(`$${classifiedAsking.confirmed}`);
@@ -1690,7 +1809,7 @@ export function extractCompoundListingFacts(
 
   // Location
   const locMatch = residual.match(
-    /\b(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|palmerston\s+north|mount\s+eden|mt\s+eden|grey\s*lynn|new\s+lynn|hibiscus\s+coast|lower\s+hutt|upper\s+hutt|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|waitakere|massey|petone|porirua|paraparaumu|epsom|onehunga|mangere|manurewa|papatoetoe|otahuhu|glenfield|birkenhead|devonport|orewa|pukekohe|frankton|hillcrest)\b/i
+    /\b(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|palmerston\s+north|mount\s+eden|mt\s+eden|grey\s*lynn|new\s+lynn|hibiscus\s+coast|lower\s+hutt|upper\s+hutt|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|waitakere|massey|petone|porirua|paraparaumu|epsom|onehunga|mangere|manurewa|papatoetoe|otahuhu|glenfield|birkenhead|devonport|orewa|pukekohe|frankton|hillcrest|taupo)\b/i
   );
   if (locMatch) {
     const city = locMatch[1]
@@ -1817,7 +1936,11 @@ export function extractCompoundListingFacts(
     /\b(?:wait\s+)?(?:no|nah)\s+(\d{2,4})\b(?!\s*(?:k\b|km|bucks|\$))/i
   );
   const lastSize = waitNoStorage?.[1] || lastStorage?.[1];
-  if (lastSize && Number(lastSize) >= 32) {
+  if (
+    lastSize &&
+    STORAGE_CAPS.has(lastSize) &&
+    !/\b(?:a\s+day|per\s+day|a\s+week|per\s+week|\/\s*day|callout)\b/i.test(message)
+  ) {
     const unit = (lastStorage?.[2] || "gb").toUpperCase();
     const kept = (partial.extras || []).filter(
       (entry) => !/^storage:/i.test(entry) && !/\b(?:64|128|256|512|1024)\s*gb\b/i.test(entry)
@@ -1849,6 +1972,15 @@ export function extractCompoundListingFacts(
       { ...base, ...partial } as SkyAiListingFill,
       partial.extras
     );
+    const extrasChanged =
+      (partial.extras || []).join("|") !== (base.extras || []).join("|");
+    if (extrasChanged && !filledSlots.length) {
+      filledSlots.push(
+        String(base.listingType || "").toLowerCase() === "service"
+          ? "service_rate"
+          : "condition"
+      );
+    }
   }
 
   return { partial, filledSlots, residual, notes };

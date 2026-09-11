@@ -1109,16 +1109,10 @@ function assertCase(c: CorpusCase) {
 
 /** Current-main breaks — expected semantics stay locked; CI uses it.fails. */
 const KNOWN_FAILURE_IDS = new Set<string>([
-  "mixed-wanted-ps5-plus-xbox-for-sale",
   "physical-dyson-ono-defect",
   "physical-macbook-neg-worn",
   "physical-3ds-starting-bid-vs-buynow",
   "physical-jersey-offers-only-no-price",
-  "physical-drill-x2-pair",
-  "physical-controllers-lot-of-3",
-  "physical-mint-scratched-everywhere-tv",
-  "vehicle-perfect-except-engine-knock",
-  "physical-dont-put-paid-toaster",
   "physical-crack-repeated-once",
   "multi4-identity-swap-then-undo-iphone",
   "multi4-accessory-add-then-correct-qty",
@@ -1196,12 +1190,12 @@ describe("adversarial NZ wave3 — price traps (parseListingPriceFromMessage)", 
     expect(parseListingPriceFromMessage("makita drill x2 90 the pair")).toBe("90");
   });
 
-  it.fails('FAIL: "air max 90 size 10 80" → 80 (model 90 is not asking)', () => {
+  it(' "air max 90 size 10 80" → 80 (model 90 is not asking)', () => {
     expect(parseListingPriceFromMessage("pair of nike air max 90 size 10 80 akl")).toBe("80");
     expect(parseListingPriceFromMessage("pair of nike air max 90 size 10 80 akl")).not.toBe("90");
   });
 
-  it.fails('FAIL: "xbox controllers lot of 3 60 dunners" → 60', () => {
+  it(' "xbox controllers lot of 3 60 dunners" → 60', () => {
     expect(parseListingPriceFromMessage("xbox controllers lot of 3 60 dunners")).toBe("60");
     expect(parseListingPriceFromMessage("xbox controllers lot of 3 60 dunners")).not.toBe("3");
   });

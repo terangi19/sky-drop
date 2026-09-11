@@ -45,6 +45,9 @@ const CARD_SET_LIKE =
 const PERSON_NAME_LIKE =
   /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}$|^[a-z]+(?:\s+[a-z]+){1,3}$/i;
 
+const COLOUR_OR_STORAGE =
+  /^(?:(?:natural|space|midnight|pearl|matte|metallic|starlight|graphite|alpine|gunmetal|navy|dark|light|forest|racing)\s+)?(?:black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy|titanium|graphite|starlight)$|^(?:64|128|256|512|1024)(?:\s*(?:gb|tb))?$/i;
+
 function stripItsPrefix(t: string): string {
   return t
     .replace(/^(?:it'?s|its|is|nah(?:\s+bro)?[,.]?|actually[,.]?)\s+/i, "")
@@ -109,6 +112,7 @@ function factsToPartial(
         break;
       case "cardSubject":
       case "itemIdentity": {
+        if (COLOUR_OR_STORAGE.test(f.value)) break;
         partial.extras = mergeExtras(partial.extras, [`subject:${f.value}`]);
         if (!partial.title || interpretation.isCorrection) {
           partial.title = f.value;
@@ -116,6 +120,23 @@ function factsToPartial(
         filledSlots.push("card_subject");
         break;
       }
+      case "storage":
+        partial.extras = mergeExtras(partial.extras, [`storage:${f.value}`]);
+        filledSlots.push("storage");
+        break;
+      case "colour":
+        partial.vehicleColour = f.value;
+        partial.extras = mergeExtras(partial.extras, [`colour:${f.value}`]);
+        filledSlots.push("colour");
+        break;
+      case "included":
+        partial.extras = mergeExtras(partial.extras, [`included:${f.value}`]);
+        if (f.slot) filledSlots.push(f.slot);
+        break;
+      case "conditionDetail":
+        partial.extras = mergeExtras(partial.extras, [`conditionDetail:${f.value}`]);
+        filledSlots.push("condition");
+        break;
       case "delivery":
         if (f.value === "pickup_only") {
           partial.extras = mergeExtras(partial.extras, ["delivery:pickup_only"]);

@@ -317,6 +317,36 @@ export function isListingPatchFollowUp(message: string): boolean {
     return true;
   }
   if (/^\s*[\d,]+\s*(km|kms)\s*$/i.test(t)) return true;
+  if (/^\d+\s+(pads?|controllers?|chargers?|games?|remotes?|keys?)\b/i.test(t)) {
+    return true;
+  }
+  if (
+    /^(?:rust|crack(?:ed)?|scratch(?:ed)?|dent(?:ed)?|chip(?:ped)?|scuff(?:ed)?)\b/i.test(t) &&
+    t.split(/\s+/).length <= 8
+  ) {
+    return true;
+  }
+  if (/^pickup\b/i.test(t) && t.split(/\s+/).length <= 8) return true;
+  if (/^still\b/i.test(t) && t.split(/\s+/).length <= 8) return true;
+  if (/^bond\b/i.test(t) && t.split(/\s+/).length <= 6) return true;
+  if (/^(?:space\s+)?(?:grey|gray|black|white|blue|red|purple|silver|green|gold|pink)\b/i.test(t) && t.split(/\s+/).length <= 5) {
+    return true;
+  }
+  if (/^(?:comes?\s+with|must\s+have|need(?:s)?)\b/i.test(t) && t.split(/\s+/).length <= 12) {
+    return true;
+  }
+  if (/^don'?t\s+put\b/i.test(t) && t.split(/\s+/).length <= 14) return true;
+  if (/^(?:or\s+)?maybe\b/i.test(t) && t.split(/\s+/).length <= 8) return true;
+  if (/^(?:make\s+it|nah\s+\d|wait\s+\d)\b/i.test(t)) return true;
+  if (/\b(?:not\s+selling|looking\s+to\s+buy|no\s+scams|serious\s+only)\b/i.test(t) && t.split(/\s+/).length <= 16) {
+    return true;
+  }
+  if (/\b(?:\d+\s+(?:pads?|controllers?|games?|chargers?)|1\s+pad\s+is\s+fine)\b/i.test(t) && t.split(/\s+/).length <= 16) {
+    return true;
+  }
+  if (/\b(?:a\s+day|a\s+week|per\s+day|per\s+week|\/\s*day|\/\s*week)\b/i.test(t) && t.split(/\s+/).length <= 10) {
+    return true;
+  }
   return false;
 }
 

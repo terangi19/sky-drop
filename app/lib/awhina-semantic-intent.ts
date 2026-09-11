@@ -71,6 +71,11 @@ function cleanIdentity(raw: string): string {
     .trim();
 }
 
+const COLOUR_WORD_RE =
+  /^(?:natural|space|midnight|pearl|matte|metallic|starlight|graphite|alpine|gunmetal|navy|dark|light|forest|racing\s+)?(?:black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy|titanium|graphite|starlight)$/i;
+
+const STORAGE_CAP_RE = /^(?:64|128|256|512|1024)(?:\s*(?:gb|tb))?$/i;
+
 function looksLikePersonOrSubject(name: string): boolean {
   const t = name.trim();
   if (t.length < 2 || t.length > 60) return false;
@@ -78,9 +83,15 @@ function looksLikePersonOrSubject(name: string): boolean {
   const parts = t.split(/\s+/).filter(Boolean);
   if (parts.length < 1 || parts.length > 5) return false;
   if (/^\d+$/.test(t)) return false;
-  if (/^(new|used|good|fair|mint|auckland|wellington|manual|auto|petrol)/i.test(t)) {
+  if (COLOUR_WORD_RE.test(t) || STORAGE_CAP_RE.test(t)) return false;
+  if (
+    /^(new|used|good|fair|mint|auckland|wellington|manual|auto|petrol|pad|pads|game|games|charger|chargers|bond|pickup|purple|blue|black|white)$/i.test(
+      t
+    )
+  ) {
     return false;
   }
+  if (/\b(?:gb|tb|pad|controller|game|charger|bond|inch)\b/i.test(t)) return false;
   return /^[a-z][\w.'-]*(?:\s+[a-z][\w.'-]*){0,4}$/i.test(t);
 }
 
@@ -111,7 +122,9 @@ function extractPriceFact(
     )
     .replace(/\b\d+\s*(?:gb|tb)\b/gi, " ")
     .replace(/\bbattery\s*\d{2,3}\b/gi, " ")
-    .replace(/\b(?:wait\s+)?(?:no|nah)\s+\d{2,4}\b/gi, " ");
+    .replace(/\b(?:wait\s+)?(?:no|nah|actually)\s+(?:64|128|256|512|1024)\b/gi, " ")
+    .replace(/\b(?:wait\s+)?(?:no|nah)\s+\d{2,4}\b/gi, " ")
+    .replace(/\b\d+\s+(?:pads?|controllers?|games?|chargers?|keys?)\b/gi, " ");
   // Vehicle compound: year + odo-k + price-k → drop the first bare k (odometer)
   const kTokens = scrubbed.match(/\b[\d,]+\s*k\b/gi) || [];
   if (/\b(?:19|20)\d{2}\b/.test(scrubbed) && kTokens.length >= 2) {
@@ -126,6 +139,9 @@ function extractPriceFact(
       /\b([\d,]+(?:\.\d{1,2})?)\s*(?:bucks|nzd|dollars?)\b/i
     ) ||
     scrubbed.match(/\b(?:make\s+it|asking|price(?:\s+is)?)\s*\$?\s*([\d,]+)\s*(k)?/i) ||
+    scrubbed.match(
+      /\b(?:under|up\s+to|max(?:imum)?|budget|around|about|less\s+than|below)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\b/i
+    ) ||
     scrubbed.match(/\b(?:actually|for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\b/i) ||
     // Bare price only when not a tiny grade-like residue
     scrubbed.match(/\b([\d,]+(?:\.\d{1,2})?)\s*(k)?\b/i);
@@ -134,6 +150,12 @@ function extractPriceFact(
   const kFlag = m[2];
   if (kFlag && /^k$/i.test(String(kFlag))) n *= 1000;
   if (!Number.isFinite(n) || n < 1 || n > 10_000_000) return null;
+  if (
+    /^(64|128|256|512|1024)$/.test(String(Math.round(n))) &&
+    /\b(?:wait|nah|actually|no|gb|tb)\b/i.test(message)
+  ) {
+    return null;
+  }
   if (n >= 1980 && n <= 2035 && !/\$/.test(m[0]) && !kFlag) return null;
   // Ignore lone tiny numbers that are likely grade leftovers (1–10) unless $-prefixed
   if (n <= 10 && !/\$/.test(m[0]) && !kFlag && !/price|bucks|asking|actually/i.test(message)) {
@@ -208,6 +230,18 @@ function extractIdentityCorrection(
   const itsNot = t.match(ITS_X_NOT_Y);
   if (itsNot) {
     const correct = cleanIdentity(itsNot[1]);
+    const rejected = cleanIdentity(itsNot[2] || "");
+    if (COLOUR_WORD_RE.test(correct) || COLOUR_WORD_RE.test(rejected)) {
+      facts.push({
+        key: "colour",
+        value: correct.charAt(0).toUpperCase() + correct.slice(1).toLowerCase(),
+        slot: "colour",
+        confidence: "HIGH",
+      });
+      correctedKeys.push("colour");
+      residual = t.replace(itsNot[0], " ").replace(/\s+/g, " ").trim();
+      return { facts, correctedKeys, residual };
+    }
     if (looksLikePersonOrSubject(correct) || looksLikeVehicleGen(correct)) {
       if (looksLikeVehicleGen(correct)) {
         facts.push({
@@ -404,18 +438,25 @@ export function interpretSemanticTurn(opts: {
   }
   const colours = [
     ...message.matchAll(
-      /\b(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold)\b/gi
+      /\b(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|purple|pink|navy)\b/gi
     ),
   ];
+  const colourDenied = /\bnot\s+(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|purple|pink|navy)\b/gi;
+  const denied = new Set(
+    [...message.matchAll(colourDenied)].map((hit) => hit[1].toLowerCase())
+  );
   if (colours.length) {
-    const last = colours[colours.length - 1][1];
-    facts.push({
-      key: "colour",
-      value: last.charAt(0).toUpperCase() + last.slice(1).toLowerCase(),
-      slot: "colour",
-      confidence: "HIGH",
-    });
-    correctedKeys.push("colour");
+    const affirmed = colours.filter((hit) => !denied.has(hit[1].toLowerCase()));
+    const last = (affirmed.length ? affirmed : colours).at(-1)?.[1];
+    if (last) {
+      facts.push({
+        key: "colour",
+        value: last.charAt(0).toUpperCase() + last.slice(1).toLowerCase(),
+        slot: "colour",
+        confidence: "HIGH",
+      });
+      correctedKeys.push("colour");
+    }
   }
   const battery = message.match(/\bbattery\s*(\d{2,3})\b/i);
   if (battery) {
@@ -429,6 +470,48 @@ export function interpretSemanticTurn(opts: {
     facts.push({
       key: "conditionDetail",
       value: "cracked screen",
+      slot: "condition",
+      confidence: "HIGH",
+    });
+  }
+  const padHit = message.match(/\b(\d+)\s+(pads?|controllers?)\b/i);
+  if (padHit) {
+    facts.push({
+      key: "included",
+      value: `${padHit[1]} ${padHit[2].toLowerCase()}`,
+      slot: "quantity",
+      confidence: "HIGH",
+    });
+  }
+  const gameHit = message.match(/\b(\d+)\s+games?\b/i);
+  if (gameHit) {
+    facts.push({
+      key: "included",
+      value: `${gameHit[1]} games`,
+      slot: "quantity",
+      confidence: "HIGH",
+    });
+  }
+  if (/\bhedge\s*trimm/i.test(message)) {
+    facts.push({
+      key: "included",
+      value: "hedge trimming",
+      slot: "service_rate",
+      confidence: "HIGH",
+    });
+  }
+  if (/\bwof\b/i.test(message)) {
+    facts.push({
+      key: "included",
+      value: "WOF checks",
+      slot: "service_rate",
+      confidence: "HIGH",
+    });
+  }
+  if (/\bengine\s+knocks?\b/i.test(message)) {
+    facts.push({
+      key: "conditionDetail",
+      value: "engine knocks",
       slot: "condition",
       confidence: "HIGH",
     });

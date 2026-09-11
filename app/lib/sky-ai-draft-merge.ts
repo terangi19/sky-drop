@@ -5,6 +5,7 @@ import {
   isForbiddenUntouchedDefault,
 } from "./listing-draft-confirmed";
 import { listingIdentitiesConflict } from "./awhina-listing-identity-conflict";
+import { extraKeyIsMultiValue } from "./awhina-seller-evidence";
 
 const MERGE_STRING_FIELDS = [
   "title",
@@ -76,13 +77,24 @@ function mergeExtras(existing: string[] | undefined, incoming: string[] | undefi
   if (!a.length && !b.length) return undefined;
   if (!b.length) return a.length ? a : undefined;
   if (!a.length) return b;
-  // Preserve prior extras the incoming patch omitted (one canonical extras list).
-  const seen = new Set(b.map((item) => item.toLowerCase()));
-  const merged = [...b];
-  for (const item of a) {
-    if (!seen.has(item.toLowerCase())) merged.push(item);
+  const out = [...a];
+  for (const extra of b) {
+    const colon = extra.indexOf(":");
+    if (colon <= 0) {
+      if (!out.some((item) => item.toLowerCase() === extra.toLowerCase())) out.push(extra);
+      continue;
+    }
+    const key = extra.slice(0, colon);
+    if (extraKeyIsMultiValue(key)) {
+      if (!out.some((item) => item.toLowerCase() === extra.toLowerCase())) out.push(extra);
+      continue;
+    }
+    const prefix = extra.slice(0, colon + 1);
+    const idx = out.findIndex((item) => item.toLowerCase().startsWith(prefix.toLowerCase()));
+    if (idx >= 0) out[idx] = extra;
+    else out.push(extra);
   }
-  return merged;
+  return out.slice(0, 48);
 }
 
 /** Merge AI LISTING_FILL onto the active draft — one source of truth, never drop prior fields */

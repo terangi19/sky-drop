@@ -989,6 +989,19 @@ export function sanitizeListingExtras(
     ) {
       continue;
     }
+    if (key === "note" && /^no\s+/i.test(value) && /\b(?:nah|bro|wait|its|it's)\b/i.test(value)) {
+      continue;
+    }
+    if (/\bthe\s+(?:new|like[\s-]*new)\s+but is smashed\b/i.test(value)) {
+      continue;
+    }
+    if (
+      /smash/i.test(value) &&
+      (key === "maintenance" || key === "conditiondetail") &&
+      cleaned.some((entry) => /smash/i.test(entry) && entry !== `${match[1]}:${value}`)
+    ) {
+      continue;
+    }
     if (/\bavail(?:able)?\s+now\s+or\b/i.test(value)) continue;
     if (/^no\s+unfurnished\s+avail/i.test(value)) continue;
     if (/\b(?:paid|bought|was asking)\b/i.test(value) && /\$?\s*\d[\d,]*(?:\s*k\b)?/i.test(value)) {

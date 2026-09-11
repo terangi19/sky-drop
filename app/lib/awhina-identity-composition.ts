@@ -263,7 +263,7 @@ function partsFromFill(fill: Partial<SkyAiListingFill>): SemanticIdentityPart[] 
   const parts: SemanticIdentityPart[] = [];
 
   const subject = hasExtra(fill, "subject:");
-  if (subject) {
+  if (subject && domainNeedsSubject(domain)) {
     parts.push({ value: subject, role: "core", kind: "subject", confidence: "HIGH" });
   }
   const productFormat = hasExtra(fill, "productFormat:") || hasExtra(fill, "format:");

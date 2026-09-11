@@ -785,12 +785,8 @@ function assertCase(c: CorpusCase) {
 
 /** Current-main breaks — expected semantics stay locked; CI uses it.fails. */
 const KNOWN_FAILURE_IDS = new Set<string>([
-  "physical-iphone-contradiction-one-shot",
   "vehicle-ranger-extremely-long",
-  "physical-tv-size-price-correction",
-  "physical-iphone-followup-correction",
   "service-add-hedge-followup",
-  "wanted-budget-correction",
 ]);
 
 function registerCorpus(name: string, cases: CorpusCase[]) {

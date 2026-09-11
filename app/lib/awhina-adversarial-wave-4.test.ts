@@ -951,14 +951,10 @@ function assertCase(c: CorpusCase) {
  *   multi7-price-maybe-firm-nah-final-ipad — identity wiped to title "OR"
  */
 const KNOWN_FAILURE_IDS = new Set<string>([
-  "wanted-wtb-gopro-max-akl",
-  "rental-scaffold-daily-and-weekly",
-  "rental-trailer-dented-not-for-sale",
   "multi8-identity-change-undo-rechange-pixel",
   "multi6-accessory-qty-walk-ps4",
   "multi8-pending-slot-must-not-overwrite-identity",
   "multi7-vehicle-identity-undo-then-rechange",
-  "multi6-wanted-budget-pads-requirements",
   "multi6-rental-trailer-rate-bond-location",
   "multi5-wanted-iso-then-not-a-sale",
   "multi7-price-maybe-firm-nah-final-ipad",

@@ -10,6 +10,8 @@ import {
 } from "./awhina-pending-slots";
 import {
   groupedSellerEvidenceFromExtras,
+  sanitizeListingExtras,
+  extraKeyIsMultiValue,
   type GroupedSellerEvidence,
 } from "./awhina-seller-evidence";
 import {
@@ -392,10 +394,30 @@ export function prepareFillForDescription(
   const semanticFactModel = validateStructuredSellerFactModel(fill.semanticFactModel)
     ? fill.semanticFactModel
     : parseSellerMessageToFactModel(undefined, fill);
+  const fromModel = semanticFactModelToPublicExtras(semanticFactModel);
+  const merged: string[] = [...fromModel];
+  for (const raw of fill.extras || []) {
+    const extra = String(raw || "").trim();
+    if (!extra) continue;
+    const colon = extra.indexOf(":");
+    if (colon <= 0) {
+      if (!merged.some((item) => item.toLowerCase() === extra.toLowerCase())) merged.push(extra);
+      continue;
+    }
+    const key = extra.slice(0, colon);
+    if (extraKeyIsMultiValue(key)) {
+      if (!merged.some((item) => item.toLowerCase() === extra.toLowerCase())) merged.push(extra);
+      continue;
+    }
+    const prefix = extra.slice(0, colon + 1);
+    const idx = merged.findIndex((item) => item.toLowerCase().startsWith(prefix.toLowerCase()));
+    if (idx >= 0) merged[idx] = extra;
+    else merged.push(extra);
+  }
   return {
     ...fill,
     semanticFactModel,
-    extras: semanticFactModelToPublicExtras(semanticFactModel),
+    extras: sanitizeListingExtras({ ...fill, extras: merged }),
   };
 }
 

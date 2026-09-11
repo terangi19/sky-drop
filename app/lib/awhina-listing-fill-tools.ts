@@ -216,7 +216,7 @@ const KEYWORDS_RE =
   /\b(?:keywords?|tags?)\s*(?:are|:)?\s*(.+)$/i;
 
 const TITLE_SET_RE =
-  /\b(?:title(?:\s+is)?|rename(?:\s+it)?|call(?:\s+it)?)\s*[:\-]?\s*["']?([^"'\n]{3,80})["']?\s*$/i;
+  /\b(?:title(?:\s+is)?|rename(?:\s+it)?|call\s+it)\s*[:\-]?\s*["']?([^"'\n]{3,80})["']?\s*$/i;
 
 const DESC_SET_RE =
   /\b(?:description(?:\s+is)?|describe(?:\s+it)?(?:\s+as)?)\s*[:\-]?\s*(.{10,})\s*$/i;
@@ -422,9 +422,37 @@ export function validateListingFillFields(
   if (fill.replaceDraft === true) fillOut.replaceDraft = true;
   if (fill.semanticFactModel) fillOut.semanticFactModel = fill.semanticFactModel;
   if (fill.draftId) fillOut.draftId = fill.draftId;
-  if (fillOut.listingType === "rental" && fillOut.rentalSubType === "property") {
-    delete fillOut.rentalPriceDaily;
-    if (fillOut.rentalPriceWeekly) fillOut.price = fillOut.rentalPriceWeekly;
+  if (fillOut.listingType === "rental") {
+    const daily = Number(fillOut.rentalPriceDaily);
+    const weekly = Number(fillOut.rentalPriceWeekly);
+    const monthly = Number(fillOut.rentalPriceMonthly);
+    if (fillOut.rentalSubType === "property") {
+      delete fillOut.rentalPriceDaily;
+      if (fillOut.rentalPriceWeekly) fillOut.price = fillOut.rentalPriceWeekly;
+    } else if (daily > 0 && weekly > 0 && daily === weekly) {
+      delete fillOut.rentalPriceDaily;
+      fillOut.price = fillOut.rentalPriceWeekly;
+    } else if (daily > 0 && weekly === daily * 7) {
+      delete fillOut.rentalPriceWeekly;
+      if (monthly === daily * 28) delete fillOut.rentalPriceMonthly;
+    }
+    if (
+      fillOut.rentalPriceWeekly &&
+      monthly === Number(fillOut.rentalPriceWeekly) * 4 &&
+      !fillOut.rentalPriceDaily
+    ) {
+      delete fillOut.rentalPriceMonthly;
+    }
+    if (!fillOut.price) {
+      fillOut.price = fillOut.rentalPriceDaily || fillOut.rentalPriceWeekly;
+    }
+    if (fillOut.title) {
+      fillOut.title = String(fillOut.title)
+        .replace(/\bnot\s+for\s+sale\b/gi, " ")
+        .replace(/\bnot\s+selling\b/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
   }
   const hydrated = applyAwhinaDomainKnowledge(
     hydrateVehicleGeneration(fillOut) as SkyAiListingFill
@@ -465,6 +493,13 @@ function isStorageOrSizeToken(raw: string, message: string): boolean {
   if (/\b\d+\s*(gb|tb)\b/i.test(message) && /^(64|128|256|512|1024|1|2|4)$/.test(raw)) {
     const glued = message.match(new RegExp(`\\b${raw}\\s*(gb|tb)\\b`, "i"));
     if (glued) return true;
+  }
+  if (
+    /^(64|128|256|512|1024)$/.test(raw) &&
+    /\b(?:wait|nah|actually|no)\b/i.test(message) &&
+    !/\bmake\s+it\s+\$?\s*\d/i.test(message)
+  ) {
+    return true;
   }
   return false;
 }
@@ -553,6 +588,11 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     return finalize(sellFor[1], sellFor[2]);
   }
 
+  const callout = message.match(/\bcallout\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\b/i);
+  if (callout) {
+    return finalize(callout[1], callout[2]);
+  }
+
   // Bare price after storage capacity: "128gb 900" / "256GB 900 Hamilton"
   const afterStorage = message.match(
     /\b\d+\s*(?:gb|tb)\b[\s,]*(?:(?:brand\s+)?(?:like\s+)?new|used|good|fair|mint|excellent)?[\s,]*\$?\s*([\d,]{2,8}(?:\.\d{1,2})?)\s*(k|K)?\b/i
@@ -563,14 +603,23 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     if (raw && !looksLikeVehicleYearToken(raw, message)) return raw;
   }
 
-  // Bare amount before NZ city: "900 Hamilton" / "450 Auckland"
+  // Bare amount before NZ city: "900 Hamilton" / "450 Auckland" / "80 akl"
   // Skip search budgets: "under 15k Auckland" / "below 10k Wellington"
-  const beforeCity = message.match(
-    /\b([\d,]{2,8}(?:\.\d{1,2})?)\s*(k|K)?\s+(?:in\s+)?(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|new\s+plymouth|rotorua|queenstown|invercargill|nelson|whangarei)\b/i
+  const cityMessage = message
+    .replace(/\bchch\b/gi, "christchurch")
+    .replace(/\bwestie\b/gi, "west auckland")
+    .replace(/\bhammers?\b/gi, "hamilton")
+    .replace(/\bpalmy\b/gi, "palmerston north")
+    .replace(/\bakl\b/gi, "auckland")
+    .replace(/\bwellie\b/gi, "wellington")
+    .replace(/\bdunners\b/gi, "dunedin")
+    .replace(/\btaupo\b/gi, "taupo");
+  const beforeCity = cityMessage.match(
+    /\b([\d,]{2,8}(?:\.\d{1,2})?)\s*(k|K)?\s+(?:in\s+)?(west\s+auckland|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|new\s+plymouth|rotorua|queenstown|invercargill|nelson|whangarei|taupo)\b/i
   );
   if (beforeCity) {
     const idx = beforeCity.index ?? -1;
-    const prefix = idx >= 0 ? message.slice(Math.max(0, idx - 24), idx) : "";
+    const prefix = idx >= 0 ? cityMessage.slice(Math.max(0, idx - 24), idx) : "";
     const isBudget =
       /\b(under|below|max(?:imum)?|budget|up\s+to|less\s+than|no\s+more\s+than)\s*$/i.test(
         prefix
@@ -609,7 +658,7 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     num >= 4 &&
     num <= 16 &&
     new RegExp(
-      `(?:iphone|pixel|galaxy|it'?s\\s+(?:a|the)|its\\s+(?:a|the))\\s+${raw}\\s*(?:pro|plus|mini)?\\b`,
+      `(?:iphone|pixel|galaxy|gopro|hero|it'?s\\s+(?:a|the)|its\\s+(?:a|the))\\s+${raw}\\s*(?:pro|plus|mini)?\\b`,
       "i"
     ).test(message) &&
     !new RegExp(`make\\s+it\\s+\\$?\\s*${raw}\\b`, "i").test(message)
@@ -1083,8 +1132,11 @@ export function processListingFillMessage(
           ...hydrateVehicleGeneration(baseDraftEarly),
           ...extracted.partial,
         };
-        if (extracted.partial.extras || baseDraftEarly.extras) {
-          merged.extras = mergeExtras(baseDraftEarly.extras, extracted.partial.extras);
+        delete merged.semanticFactModel;
+        if (extracted.partial.extras) {
+          merged.extras = extracted.partial.extras;
+        } else if (baseDraftEarly.extras) {
+          merged.extras = baseDraftEarly.extras;
         }
         // Sticky identity: never drop make/model/generation once set — unless incoming conflicts
         const incomingMake = extracted.partial.vehicleMake?.trim();
@@ -1893,11 +1945,20 @@ export function processListingFillMessage(
         if (compound.partial.price && !partial.price) {
           partial.price = compound.partial.price;
         }
+        if (compound.partial.stockQuantity && !partial.stockQuantity) {
+          partial.stockQuantity = compound.partial.stockQuantity;
+        }
         if (compound.partial.servicePricingType && !partial.servicePricingType) {
           partial.servicePricingType = compound.partial.servicePricingType;
         }
         if (compound.partial.rentalPriceWeekly && !partial.rentalPriceWeekly) {
           partial.rentalPriceWeekly = compound.partial.rentalPriceWeekly;
+        }
+        if (compound.partial.rentalPriceDaily && !partial.rentalPriceDaily) {
+          partial.rentalPriceDaily = compound.partial.rentalPriceDaily;
+        }
+        if (compound.partial.rentalDeposit && !partial.rentalDeposit) {
+          partial.rentalDeposit = compound.partial.rentalDeposit;
         }
       }
 
@@ -1938,6 +1999,15 @@ export function processListingFillMessage(
       if (partial.listingType === "wanted") {
         const budget = parseFindBudget(trimmed);
         if (budget && !partial.price) partial.price = budget;
+        else if (budget && /\bfor sale\b/i.test(trimmed)) partial.price = budget;
+        else if (
+          budget &&
+          /^(?:[1-9]|1[0-6])$/.test(String(partial.price || "")) &&
+          Number(budget) >= 20
+        ) {
+          // Hero 11 / Pixel 8 / iPhone 14 are identity, not the wanted cap.
+          partial.price = budget;
+        }
         if (partial.title) {
           partial.title = partial.title
             .replace(
@@ -1998,9 +2068,9 @@ export function processListingFillMessage(
           if (partial.rentalPriceWeekly) partial.price = partial.rentalPriceWeekly;
         } else if (partial.rentalPriceDaily) {
           partial.price = partial.rentalPriceDaily;
-        } else if (partial.rentalPriceWeekly) {
-          partial.price = partial.rentalPriceWeekly;
         }
+        // Weekly-only equipment: leave price unset until after normalize so
+        // protected daily=price inference cannot treat weekly as daily.
         const bondWeeks = trimmed.match(/\bbond\s+(\d+)\s+weeks?\b/i);
         const bondCash =
           trimmed.match(/\bbond\s+\$?\s*([\d,]+)\b/i) ||

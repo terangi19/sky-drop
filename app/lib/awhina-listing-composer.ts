@@ -172,11 +172,20 @@ function scrubPublicListingTitle(raw: string, fill?: SkyAiListingFill): string {
       `${waitStorage[3]}${waitStorage[2].toUpperCase()}`
     );
   }
-  const sizes = [...t.matchAll(/\b(\d+)\s*(gb|tb)\b/gi)];
-  if (sizes.length > 1) {
-    const last = sizes[sizes.length - 1];
-    t = t.replace(/\b\d+\s*(gb|tb)\b/gi, " ");
-    t = `${t} ${last[1]}${last[2].toUpperCase()}`;
+  const extraStorage = (fill?.extras || [])
+    .map((entry) => String(entry).match(/^storage:\s*(.+)$/i)?.[1]?.trim())
+    .find(Boolean);
+  if (extraStorage && /\b\d+\s*(gb|tb)\b/i.test(t)) {
+    t = t.replace(/\b\d+\s*(gb|tb)\b/gi, extraStorage.replace(/\s+/g, ""));
+  }
+  const extraColour = (fill?.extras || [])
+    .map((entry) => String(entry).match(/^colour:\s*(.+)$/i)?.[1]?.trim())
+    .find(Boolean);
+  if (extraColour && /\b(black|white|silver|grey|gray|blue|red|purple|pink|green|gold)\b/i.test(t)) {
+    t = t.replace(
+      /\b(black|white|silver|grey|gray|blue|red|purple|pink|green|gold)\b/gi,
+      extraColour
+    );
   }
   t = t
     .replace(/\bwait\s+(?:no|nah|actually)\b/gi, " ")
@@ -184,6 +193,13 @@ function scrubPublicListingTitle(raw: string, fill?: SkyAiListingFill): string {
     .replace(/\btitle\s+it(?:\s+\w+){0,3}\b/gi, " ")
     .replace(/\bdon'?t\s+(?:say|put|mention|use)\b(?:\s+\w+){0,6}/gi, " ")
     .replace(/\b(?:bargain|starting bid|or nearest offer|\bono\b|\bneg\b|negotiable)\b/gi, " ")
+    .replace(/\bwas\s+\$?\d[\d,]*(?:\.\d{1,2})?\s*k?\b/gi, " ")
+    .replace(/\bpaid\s+\$?\d[\d,]*(?:\.\d{1,2})?\s*k?\b/gi, " ")
+    .replace(/^\s*mint\b/i, " ")
+    .replace(/\bperfect(?:\s+condition)?\b/gi, " ")
+    .replace(/\bcracked(?:\s+screen)?(?:\s+cracked(?:\s+once\s+more)?)*/gi, " ")
+    .replace(/\bbattery\s+\d{2,3}\b/gi, " ")
+    .replace(/\bkeyboard\s+worn\b/gi, " ")
     .replace(/\blisting_fill\b/gi, " ")
     .replace(/\bsystem\s+prompt\b/gi, " ")
     .replace(/\bunder\s+\$?\d[\d,]*(?:\.\d{1,2})?\s*k?\b/gi, " ")

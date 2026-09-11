@@ -297,10 +297,19 @@ function isNotPriceSpan(before: string, after: string, amount: number): boolean 
   if (/^\s*(?:the\s+)?(?:lot|pair|set)\b/i.test(after) && amount <= 12 && /\b(?:lot|set|pair|x\d)\b/i.test(before)) {
     return true;
   }
-  // "wait no 256" / "wait no 512 purple" — storage/capacity, not asking price
+  // "wait no 256" / "actually 256" / "wait no 512 purple" — storage/capacity, not asking price
   if (
-    /(?:wait\s+)?(?:no|nah)\s*$/i.test(before) &&
+    /(?:wait\s+)?(?:no|nah|actually)\s*$/i.test(before) &&
     /^(64|128|256|512|1024|1|2|4)$/.test(String(amount))
+  ) {
+    return true;
+  }
+  // Phone generation ("it's the 14 again") is identity, not asking price.
+  if (
+    amount >= 4 &&
+    amount <= 16 &&
+    /\b(?:iphone|pixel|galaxy|it'?s|its|forget)\b/i.test(before) &&
+    !/\bmake\s+it\s*$/i.test(before)
   ) {
     return true;
   }
@@ -350,6 +359,14 @@ export function classifySellerPrices(message: string): SellerPriceModel {
     const amount = normalizeAmount(rawDigits, kFlag);
     if (!amount) continue;
     const n = Number(amount);
+    if (
+      kFlag &&
+      /^\d{2,3}$/.test(String(rawDigits).replace(/,/g, "")) &&
+      /\b[\d,]{4,6}\b/.test(text) &&
+      /\b(?:hilux|ranger|ute|toyota|ford|honda|mazda|nissan|bmw)\b/i.test(text)
+    ) {
+      continue;
+    }
     const before = text.slice(Math.max(0, match.index - 48), match.index);
     const after = text.slice(match.index + match[0].length, match.index + match[0].length + 28);
     if (isNotPriceSpan(before, after, n)) continue;

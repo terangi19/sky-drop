@@ -1052,14 +1052,6 @@ function assertCase(c: CorpusCase) {
 
 /** Current-main breaks — expected semantics stay locked; CI uses it.fails. */
 const KNOWN_FAILURE_IDS = new Set<string>([
-  "rental-caravan-weekly",
-  "service-plumbing-westie-quote-plus-drain",
-  "service-mow-hammers-quote-gardens",
-  "service-cleaning-chch-secondary-oven",
-  "physical-ipad-instruction-historical-defect",
-  "wanted-budget-pads-nah-bro",
-  "physical-identity-iphone-13-to-15",
-  "physical-storage-colour-flipflops",
   "service-add-secondary-followup",
 ]);
 
@@ -1124,7 +1116,7 @@ describe("adversarial NZ wave2 — price traps (parseListingPriceFromMessage)", 
     );
   });
 
-  it.fails('FAIL: "gtr 50k akl" → 50000 (slang 50k asking is dropped at parser)', () => {
+  it(' "gtr 50k akl" → 50000 (slang 50k asking is not dropped)', () => {
     expect(parseListingPriceFromMessage("gtr 50k akl")).toBe("50000");
     expect(parseListingPriceFromMessage("gtr 50k akl")).not.toBe("50");
   });
@@ -1199,7 +1191,7 @@ describe("adversarial NZ wave2 — semantic fact model", () => {
 });
 
 describe("adversarial NZ wave2 — semantic correction stress", () => {
-  it.fails("FAIL: nah bro max 550 plus 2 pads is a budget+accessory correction", () => {
+  it("nah bro max 550 plus 2 pads is a budget+accessory correction", () => {
     const r = interpretSemanticTurn({
       message: "nah bro max 550 and must have 2 pads",
       pendingSlot: "price",

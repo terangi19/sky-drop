@@ -655,6 +655,8 @@ export function cleanRentalItemName(raw: string): string {
   s = s.replace(/\bfor\s+hire\b/gi, " ");
   s = s.replace(/\b(?:available\s+)?(?:to\s+)?(?:rent|hire)\b/gi, " ");
   s = s.replace(/\brental\b/gi, " ");
+  s = s.replace(/\bnot\s+for\s+sale\b/gi, " ");
+  s = s.replace(/\bnot\s+selling\b/gi, " ");
   s = s.replace(/^(?:for|out|my|a|an|the)\s+/i, "");
   s = s.replace(/\s+(?:for|out|my|a|an|the)$/i, "");
   s = s.replace(/\s+/g, " ").trim();
@@ -1118,17 +1120,12 @@ export function extractDescriptionFacts(
       parking: fill.rentalParkingSpaces?.trim() || null,
       weekly: fill.rentalPriceWeekly?.trim() || null,
       monthly: fill.rentalPriceMonthly?.trim() || null,
-      daily: fill.rentalPriceDaily?.trim() || fill.price?.trim() || null,
+      daily: fill.rentalPriceDaily?.trim() || (!fill.rentalPriceWeekly ? fill.price?.trim() : null) || null,
       bond: fill.rentalDeposit?.trim() || null,
       availableFrom: fill.rentalAvailableDate?.trim() || null,
     };
     // Guard: weekly rent mis-copied onto daily (same dollar figure) — keep weekly only.
-    if (
-      rental.weekly &&
-      rental.daily &&
-      rental.weekly === rental.daily &&
-      !/\b(?:\/\s*day|a\s+day|per\s+day)\b/i.test(`${fill.title || ""} ${fill.description || ""}`)
-    ) {
+    if (rental.weekly && rental.daily && rental.weekly === rental.daily) {
       rental.daily = null;
     }
     if (rental.weekly) priceMode = "weekly";
@@ -2521,6 +2518,13 @@ export function applyDescriptionContradictionGuard(
   );
   out = out.replace(/\b(\d+)\s*(gb|tb)\b/gi, (_, n, u) => `${n}${String(u).toUpperCase()}`);
   out = out.replace(/\bfor sale in\b/gi, "in");
+  if (facts.kind === "rental" || facts.kind === "wanted" || facts.kind === "service") {
+    out = out
+      .replace(/\bnot\s+for\s+sale\b/gi, " ")
+      .replace(/\bfor sale\b/gi, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  }
   return polishParagraph(out);
 }
 
