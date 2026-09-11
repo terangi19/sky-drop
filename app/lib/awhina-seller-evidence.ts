@@ -649,6 +649,9 @@ function classifyEvidenceFragment(
   }
 
   if (INCLUDED_RE.test(text) || USE_HISTORY_RE.test(text)) {
+    if (/\bnot\s+(?:a\s+)?(?:usb|disc)\b/i.test(text) && /\b(?:usb|disc)\b/i.test(text) && text.split(/\s+/).length <= 8) {
+      return items;
+    }
     const packageItems = [
       ...text.matchAll(new RegExp(PACKAGE_INCLUDED_RE.source, "gi")),
     ].map((m) => normalizeIncludedFragment(m[0]));
@@ -970,6 +973,14 @@ export function sanitizeListingExtras(
     let value = sanitizePublicListingCopy(match[2].trim());
     if (!value || containsInternalOrchestration(value)) continue;
     if (containsSellerMetaInstruction(value)) continue;
+    if (
+      /\b(?:no\s+scams|serious\s+only|no\s+time\s*wasters?|timewasters?|prefer(?:ably)?)\b/i.test(
+        value
+      ) &&
+      !/\b(?:unlock|diesel|petrol|rust|pad|controller|furnish|pet|cat)\b/i.test(value)
+    ) {
+      continue;
+    }
     if (value.split(/\s+/).length > 14 && key === "conditiondetail") continue;
     if (/\bwait\s+(?:nah|no)\b/i.test(value) && key === "conditiondetail") continue;
     if (
@@ -978,7 +989,8 @@ export function sanitizeListingExtras(
     ) {
       continue;
     }
-    if (key === "included" && /^(?:wanted|looking for|iso)\b/i.test(value)) continue;
+    if (/\bavail(?:able)?\s+now\s+or\b/i.test(value)) continue;
+    if (/^no\s+unfurnished\s+avail/i.test(value)) continue;
     if (/\b(?:paid|bought|was asking)\b/i.test(value) && /\$?\s*\d[\d,]*(?:\s*k\b)?/i.test(value)) {
       continue;
     }
@@ -1004,7 +1016,12 @@ export function sanitizeListingExtras(
       const isVehicle = String(fill.listingType || "").toLowerCase() === "vehicle";
       if (isVehicle && colour && normalize(value) === normalize(colour)) continue;
     }
-    if (key === "fuel" && fill.vehicleFuelType && normalize(value).includes(normalize(fill.vehicleFuelType))) {
+    if (
+      key === "fuel" &&
+      fill.vehicleFuelType &&
+      String(fill.listingType || "").toLowerCase() === "vehicle" &&
+      normalize(value).includes(normalize(fill.vehicleFuelType))
+    ) {
       continue;
     }
 

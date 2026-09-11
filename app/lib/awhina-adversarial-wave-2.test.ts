@@ -969,7 +969,7 @@ function assertCase(c: CorpusCase) {
   for (const bad of e.priceNot || []) {
     expect(String(fill.price || ""), `price must not be ${bad}\n${ctx}`).not.toBe(bad);
     expect(desc, `description must not use trap price ${bad}\n${ctx}`).not.toMatch(
-      new RegExp(`(?:asking(?:\\s+price)?|price(?:\\s+is)?|\\$)\\s*${bad}\\b`, "i")
+      new RegExp(`(?:asking(?:\\s+price)?|price(?:\\s+is)?|\\$)\\s*${bad}(?![\\d,])\\b`, "i")
     );
   }
 
@@ -1004,7 +1004,7 @@ function assertCase(c: CorpusCase) {
     expect(desc, `description must ${re}\n${ctx}`).toMatch(re);
   }
   for (const re of e.descriptionMustNot || []) {
-    expect(desc, `description must not ${re}\n${ctx}`).toMatch(re);
+    expect(desc, `description must not ${re}\n${ctx}`).not.toMatch(re);
   }
   for (const re of e.publicMust || []) {
     expect(pub, `public must ${re}\n${ctx}`).toMatch(re);
@@ -1052,33 +1052,14 @@ function assertCase(c: CorpusCase) {
 
 /** Current-main breaks — expected semantics stay locked; CI uses it.fails. */
 const KNOWN_FAILURE_IDS = new Set<string>([
-  "wanted-wtb-axela-budget-cap",
-  "wanted-iso-hilux-westie-no-scams",
-  "wanted-looking-for-post-ad-dunedin",
-  "wanted-mower-hammers-short",
-  "wanted-wtb-gtr-extremely-short",
-  "wanted-long-hilux-budget-walk",
-  "rental-chch-unit-bond-weeks",
-  "rental-property-long-chch-commands",
-  "rental-studio-bond-dollars",
-  "rental-mixer-equipment-not-sale",
-  "rental-trailer-daily-or-weekly",
-  "rental-ranger-hire-not-sale",
   "rental-caravan-weekly",
   "service-plumbing-westie-quote-plus-drain",
-  "service-mechanic-chch-hourly-wof",
   "service-mow-hammers-quote-gardens",
-  "service-painting-quote-required-palmy",
   "service-cleaning-chch-secondary-oven",
   "physical-ipad-instruction-historical-defect",
-  "physical-iphone-exaggerated-new-with-crack",
-  "physical-ps4-historical-paid-leak",
-  "vehicle-gtr-short-model-not-price",
-  "service-mow-short-westie",
   "wanted-budget-pads-nah-bro",
   "physical-identity-iphone-13-to-15",
   "physical-storage-colour-flipflops",
-  "rental-trailer-rate-flipflop",
   "service-add-secondary-followup",
 ]);
 
@@ -1191,7 +1172,7 @@ describe("adversarial NZ wave2 — semantic fact model", () => {
     expect(model.price.confirmed?.value).not.toBe("450");
   });
 
-  it.fails("FAIL: no scams / serious only are seller instructions not public facts", () => {
+  it("no scams / serious only are seller instructions not public facts", () => {
     const model = parseSellerMessageToFactModel(
       "WTB mazda axela under 8k wellington no timewasters serious only no scams",
       { title: "Mazda Axela", listingType: "wanted" }

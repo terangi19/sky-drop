@@ -648,7 +648,7 @@ export function cleanRentalItemName(raw: string): string {
   if (!s) return s;
 
   s = s.replace(
-    /^(?:rent(?:ing)?|hire(?:ing)?)\s+(?:out\s+)?(?:my\s+|a\s+|an\s+|the\s+)?/i,
+    /^(?:(?:just|not\s+selling)\s+)?(?:rent(?:ing)?|hire(?:ing)?)\s+(?:out\s+)?(?:my\s+|a\s+|an\s+|the\s+)?/i,
     ""
   );
   // Phrase forms first so "for hire" doesn't leave a dangling "for"
@@ -1786,9 +1786,12 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
             ? `$${facts.rental.monthly} per month`
             : facts.money || null;
     const cleanItem = cleanRentalItemName(item) || item;
+    const isProperty =
+      facts.rental?.subType === "property" || Boolean(facts.rental?.bedrooms);
+    const verb = isProperty ? "to rent" : "to hire";
     parts.push(
       polishParagraph(
-        `${cleanItem}${facts.location ? ` available to hire in ${facts.location}` : " available to hire"}${rate ? ` for ${rate}` : ""}.`
+        `${cleanItem}${facts.location ? ` available ${verb} in ${facts.location}` : ` available ${verb}`}${rate ? ` for ${rate}` : ""}.`
       )
     );
     const extrasProse = composeExtrasProse(facts.extras, undefined, facts.kind);

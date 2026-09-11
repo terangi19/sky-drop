@@ -35,7 +35,7 @@ import {
   parseListingCondition,
 } from "./awhina-listing-condition";
 import { extractSellerAuthoredText } from "./awhina-orchestration-boundary";
-import { extractVehicleVariantTrim } from "./sky-ai-find-routing";
+import { extractVehicleVariantTrim, parseFindBudget } from "./sky-ai-find-routing";
 import {
   classifySellerPrices,
   extractSellerSemanticModel,
@@ -1191,11 +1191,19 @@ export function extractCompoundListingFacts(
       /\b(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|navy|purple|pink)\b/gi
     ),
   ];
-  if (colourTokens.length) {
-    const lastColour = colourTokens[colourTokens.length - 1][1];
+  const affirmedColour = colourTokens.filter((hit) => {
+    const before = residual.slice(Math.max(0, (hit.index || 0) - 8), hit.index || 0);
+    return !/\bnot\s+$/i.test(before);
+  });
+  const colourHit = (affirmedColour.length ? affirmedColour : colourTokens).at(-1);
+  if (colourHit?.[1]) {
+    const lastColour = colourHit[1];
     const titled =
       lastColour.charAt(0).toUpperCase() + lastColour.slice(1).toLowerCase();
-    partial.extras = mergeExtras(partial.extras || base.extras, [`colour:${titled}`]);
+    const withoutPriorColour = (partial.extras || base.extras || []).filter(
+      (entry) => !/^(?:colour|color):/i.test(entry)
+    );
+    partial.extras = mergeExtras(withoutPriorColour, [`colour:${titled}`]);
     if (!partial.vehicleColour) partial.vehicleColour = titled;
     filledSlots.push("colour");
   }
@@ -1210,7 +1218,10 @@ export function extractCompoundListingFacts(
       /\b(?:wait|nah|actually)\b/i.test(message))
   ) {
     const inches = screenSize[1];
-    partial.extras = mergeExtras(partial.extras || base.extras, [`size:${inches} inch`]);
+    const withoutPriorSize = (partial.extras || base.extras || []).filter(
+      (entry) => !/^size:/i.test(entry)
+    );
+    partial.extras = mergeExtras(withoutPriorSize, [`size:${inches} inch`]);
     const nextTitle = baseTitle
       .replace(/\b\d{2,3}\s*[-]?(?:inch|in(?:ches)?)\b/i, `${inches} inch`)
       .replace(/\b\d{2,3}inch\b/i, `${inches} inch`)
@@ -1238,6 +1249,38 @@ export function extractCompoundListingFacts(
       notes.push("hedge trimming");
     }
   }
+  const padCount = message.match(/\b(\d+)\s+(pads?|controllers?)\b/i);
+  if (padCount && (domain === "unknown" || /\b(?:ps5|ps4|xbox|wanted|need|must\s+have|disc)\b/i.test(`${base.title || ""} ${message}`))) {
+    partial.extras = mergeExtras(partial.extras || base.extras, [
+      `included:${padCount[1]} ${padCount[2].toLowerCase()}`,
+    ]);
+  }
+  if (/\bunlocked\b/i.test(message)) {
+    partial.extras = mergeExtras(partial.extras || base.extras, ["note:unlocked"]);
+  }
+  if (/\bno\s+rust\b/i.test(message)) {
+    partial.extras = mergeExtras(partial.extras || base.extras, ["conditionDetail:no rust"]);
+  }
+  if (/\bcats?\s+ok\b|\bpets?\s+ok\b/i.test(message)) {
+    partial.rentalPetsPolicy = /cat/i.test(message) ? "Cats ok" : "Pets ok";
+    partial.extras = mergeExtras(partial.extras || base.extras, [
+      `pets:${partial.rentalPetsPolicy}`,
+    ]);
+  }
+  if (/\bunfurnished\b/i.test(message)) {
+    partial.rentalFurnishedStatus = "Unfurnished";
+    partial.extras = mergeExtras(partial.extras || base.extras, ["furnished:unfurnished"]);
+  } else if (/\bfurnished\b/i.test(message)) {
+    partial.rentalFurnishedStatus = "Furnished";
+    partial.extras = mergeExtras(partial.extras || base.extras, ["furnished:furnished"]);
+  }
+  if (/\bno\s+pets\b|\bpets?\s+no\b/i.test(message)) {
+    partial.rentalPetsPolicy = "No pets";
+    partial.extras = mergeExtras(partial.extras || base.extras, ["pets:no pets"]);
+  }
+  if (/\b4wd\b|\b4x4\b/i.test(message)) {
+    partial.extras = mergeExtras(partial.extras || base.extras, ["modification:4wd"]);
+  }
   if (/\bquote\b/i.test(message) && (domain === "service" || /\blawn|mow|hedge|clean|handyman|plumb|mechanic|paint\b/i.test(message))) {
     partial.extras = mergeExtras(partial.extras || base.extras, ["note:quote for larger jobs"]);
     if (
@@ -1252,29 +1295,42 @@ export function extractCompoundListingFacts(
   if (/\bquote required\b/i.test(message) && (domain === "service" || /\bpaint|plumb|clean|mow|mechanic\b/i.test(message))) {
     partial.servicePricingType = "Quote Required";
   }
-  const dailyRate = residual.match(/\b([\d,]+)\s*(?:a\s+day|per\s+day|\/\s*day)\b/i);
   if (
-    dailyRate &&
-    (domain === "rental" ||
-      String(base.listingType || "").toLowerCase() === "rental" ||
-      /\b(?:nah|actually|hire|rent|trailer)\b/i.test(message))
+    String(base.listingType || partial.listingType || "").toLowerCase() === "wanted" ||
+    /\b(?:wtb|iso|wanted|looking\s+for|must\s+have|need\s+\d+\s+pads?)\b/i.test(message)
   ) {
-    partial.rentalPriceDaily = dailyRate[1].replace(/,/g, "");
-    partial.price = partial.rentalPriceDaily;
+    const budget = parseFindBudget(message);
+    if (budget) {
+      partial.price = budget;
+      notes.push(`price $${budget}`);
+    }
   }
-  const vehicleAddon = [
-    ...message.matchAll(
-      /\b(lift(?:\s+kit)?|\d[\s-]*inch\s+lift|snorkel|tow\s*bar|canopy|bull\s*bar|nudge\s*bar)\b/gi
-    ),
+  const dailyRate = residual.match(/\b([\d,]+)\s*(?:a\s+day|per\s+day|\/\s*day)\b/i);
+  const weeklyRate = residual.match(/\b([\d,]+)\s*(?:a\s+week|per\s+week|\/\s*week|pw)\b/i);
+  const rentalLike =
+    domain === "rental" ||
+    String(base.listingType || "").toLowerCase() === "rental" ||
+    /\b(?:nah|actually|hire|rent|trailer|mixer|caravan|studio|bond)\b/i.test(message);
+  if (dailyRate && rentalLike && String(base.rentalSubType || partial.rentalSubType || "").toLowerCase() !== "property") {
+    partial.rentalPriceDaily = dailyRate[1].replace(/,/g, "");
+    if (!weeklyRate) partial.price = partial.rentalPriceDaily;
+  }
+  if (weeklyRate && rentalLike) {
+    partial.rentalPriceWeekly = weeklyRate[1].replace(/,/g, "");
+    if (!partial.rentalPriceDaily) partial.price = partial.rentalPriceWeekly;
+    else if (!partial.price) partial.price = partial.rentalPriceDaily;
+  }
+  const vehicleMod = [
+    ...message.matchAll(/\b(lift(?:\s+kit)?|\d[\s-]*inch\s+lift|snorkel)\b/gi),
   ];
   if (
-    vehicleAddon.length &&
+    vehicleMod.length &&
     (domain === "vehicle" ||
       /\b(?:ranger|hilux|ute|bmw|toyota|ford|nissan|mazda|honda)\b/i.test(
         `${base.title || ""} ${message}`
       ))
   ) {
-    for (const hit of vehicleAddon) {
+    for (const hit of vehicleMod) {
       partial.extras = mergeExtras(partial.extras || base.extras, [
         `modification:${hit[1].toLowerCase()}`,
       ]);
@@ -1575,9 +1631,11 @@ export function extractCompoundListingFacts(
         domain === "service" ||
         /\bper\s+lawn|\/lawn|an?\s+hour|per\s+hour|\/\s*hr|\/hr\b/i.test(message);
       if (rateLike) {
-        if (weeklyLike) {
+        if (weeklyLike && dailyLike) {
+          // Dual daily/weekly rates were harvested from explicit spans above.
+        } else if (weeklyLike) {
           partial.rentalPriceWeekly = String(Math.round(n));
-          partial.price = String(Math.round(n));
+          if (!partial.rentalPriceDaily) partial.price = String(Math.round(n));
         } else {
           partial.rentalPriceDaily = String(Math.round(n));
           partial.price = String(Math.round(n));
@@ -1632,7 +1690,7 @@ export function extractCompoundListingFacts(
 
   // Location
   const locMatch = residual.match(
-    /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|waitakere|north\s+shore|west\s+auckland|east\s+auckland|south\s+auckland|massey|petone|lower\s+hutt|upper\s+hutt|porirua|paraparaumu|mount\s+eden|mt\s+eden|grey\s*lynn|new\s+lynn|epsom|onehunga|mangere|manurewa|papatoetoe|otahuhu|glenfield|birkenhead|devonport|orewa|hibiscus\s+coast|pukekohe|frankton|hillcrest)\b/i
+    /\b(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|palmerston\s+north|mount\s+eden|mt\s+eden|grey\s*lynn|new\s+lynn|hibiscus\s+coast|lower\s+hutt|upper\s+hutt|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|waitakere|massey|petone|porirua|paraparaumu|epsom|onehunga|mangere|manurewa|papatoetoe|otahuhu|glenfield|birkenhead|devonport|orewa|pukekohe|frankton|hillcrest)\b/i
   );
   if (locMatch) {
     const city = locMatch[1]
@@ -1655,6 +1713,12 @@ export function extractCompoundListingFacts(
       .replace(/\b(manual|automatic|auto)\b/gi, " ")
       .replace(/\s+/g, " ")
       .trim();
+    const listingKindTx = String(base.listingType || partial.listingType || "").toLowerCase();
+    if (listingKindTx !== "vehicle") {
+      partial.extras = mergeExtras(partial.extras || base.extras, [
+        `transmission:${partial.vehicleTransmission}`,
+      ]);
+    }
   }
   if (/\b(petrol|diesel|hybrid|electric|ev)\b/i.test(residual)) {
     const m = residual.match(/\b(petrol|diesel|hybrid|electric|ev)\b/i)![1];
@@ -1672,6 +1736,12 @@ export function extractCompoundListingFacts(
       .replace(/\b(petrol|diesel|hybrid|electric|ev)\b/gi, " ")
       .replace(/\s+/g, " ")
       .trim();
+    const listingKind = String(base.listingType || partial.listingType || "").toLowerCase();
+    if (listingKind !== "vehicle") {
+      partial.extras = mergeExtras(partial.extras || base.extras, [
+        `fuel:${partial.vehicleFuelType}`,
+      ]);
+    }
   }
   if (
     (domain === "vehicle" || isVehicleListingFill(base as SkyAiListingFill)) &&

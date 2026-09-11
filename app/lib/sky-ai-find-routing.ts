@@ -21,7 +21,7 @@ const VEHICLE_BODY_WORDS =
   /\b(car|cars|vehicle|vehicles|ute|utes|van|vans|motorcycle|motorbike|motorbikes|bike|bikes|truck|trucks|suv|suvs|4wd|4x4|wagon|wagons|sedan|sedans|hatchback|hatchbacks|boat|boats|camper|caravan|caravans|trailer|trailers)\b/i;
 
 const VEHICLE_MODELS =
-  /\b(hilux|ranger|corolla|civic|axela|demio|outlander|pajero|l200|d-max|dmax|navara|amarok|commodore|falcon|forester|impreza|golf|polo|focus|fiesta|mustang|camry|rav4|cx-5|cx5|cx-3|cx3|santa fe|tucson|i30|i20|leaf|x-trail|xtrail|patrol|pulsar|lancer|legacy|outback|wrx|sti|335i|330i|320i|320d|328i|340i|m3|m4|m5|x5|x3|x1|118i|120i|125i|86|brz|supra|skyline\s*r[\s-]?3[2-4]|skyline|r[\s-]?3[2-4]|rx[\s-]?8|rx[\s-]?7|yaris|aurion|kluger|highlander|landcruiser|land cruiser|prado|fortuner|everest|mu-x|mux|triton|colorado|civic|accord|cr-v|crv|hr-v|hrv|jazz|fit|odyssey|s2000|nsx|leaf|qashqai|juke|leaf|leaf|leaf)\b/i;
+  /\b(hilux|ranger|corolla|civic|axela|demio|outlander|pajero|l200|d-max|dmax|navara|amarok|commodore|falcon|forester|impreza|golf|polo|focus|fiesta|mustang|camry|rav4|cx-5|cx5|cx-3|cx3|santa fe|tucson|i30|i20|leaf|x-trail|xtrail|patrol|pulsar|lancer|legacy|outback|wrx|sti|335i|330i|320i|320d|328i|340i|m3|m4|m5|x5|x3|x1|118i|120i|125i|86|brz|supra|skyline\s*r[\s-]?3[2-4]|skyline|r[\s-]?3[2-4]|gt[\s-]?r|rx[\s-]?8|rx[\s-]?7|yaris|aurion|kluger|highlander|landcruiser|land cruiser|prado|fortuner|everest|mu-x|mux|triton|transit|colorado|civic|accord|cr-v|crv|hr-v|hrv|jazz|fit|odyssey|s2000|nsx|leaf|qashqai|juke|leaf|leaf|leaf)\b/i;
 
 /**
  * High-confidence model → make pairs. Never invents trims (GT-R, GTT, etc.).
@@ -36,6 +36,7 @@ const VEHICLE_MODEL_MAKE_ALIASES: ReadonlyArray<{
   { pattern: /\bskyline\s*r[\s-]?33\b|\br[\s-]?33\b/i, make: "Nissan", model: "Skyline R33" },
   { pattern: /\bskyline\s*r[\s-]?32\b|\br[\s-]?32\b/i, make: "Nissan", model: "Skyline R32" },
   { pattern: /\bskyline\b/i, make: "Nissan", model: "Skyline" },
+  { pattern: /\bgt[\s-]?r\b/i, make: "Nissan", model: "GT-R" },
   { pattern: /\brx[\s-]?8\b/i, make: "Mazda", model: "RX-8" },
   { pattern: /\brx[\s-]?7\b/i, make: "Mazda", model: "RX-7" },
   { pattern: /\bsupra\b/i, make: "Toyota", model: "Supra" },
@@ -43,6 +44,7 @@ const VEHICLE_MODEL_MAKE_ALIASES: ReadonlyArray<{
   { pattern: /\bcorolla\b/i, make: "Toyota", model: "Corolla" },
   { pattern: /\bcamry\b/i, make: "Toyota", model: "Camry" },
   { pattern: /\branger\b/i, make: "Ford", model: "Ranger" },
+  { pattern: /\btransit\b/i, make: "Ford", model: "Transit" },
   { pattern: /\bmustang\b/i, make: "Ford", model: "Mustang" },
   { pattern: /\bfalcon\b/i, make: "Ford", model: "Falcon" },
   { pattern: /\beverest\b/i, make: "Ford", model: "Everest" },
@@ -383,7 +385,7 @@ const FIND_PRODUCT_ALIASES: Record<string, string> = {
 /** Parse max-price filter from find messages — supports "under 400", "under $600", "under 10k". */
 export function parseFindBudget(message: string): string | undefined {
   const m = message.match(
-    /\b(?:under|up to|max|budget|less than|below|max(?:imum)?\s*price)\s*\$?\s*([\d,]+(?:\.\d+)?)\s*(k|K)?\b/i
+    /\b(?:under|up to|max|budget|around|about|approx(?:imately)?|less than|below|max(?:imum)?\s*price)\s*\$?\s*([\d,]+(?:\.\d+)?)\s*(k|K)?\b/i
   );
   if (!m) return undefined;
   let num = parseFloat(m[1].replace(/,/g, ""));

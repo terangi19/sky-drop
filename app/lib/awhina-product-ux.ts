@@ -854,9 +854,11 @@ export function normalizeProductName(raw: string): string {
 }
 
 function titleCaseProduct(s: string): string {
+  const small = new Set(["and", "or", "of", "the", "for", "with", "a", "an"]);
   return s
     .split(/\s+/)
-    .map((w) => {
+    .map((w, index) => {
+      if (index > 0 && small.has(w.toLowerCase())) return w.toLowerCase();
       if (/^(iPhone|iPad|iPod|AirPods|BMW|USB|HDMI|GB|TB|Pro|Max|Plus|WRX)$/i.test(w)) {
         if (/^iphone$/i.test(w)) return "iPhone";
         if (/^ipad$/i.test(w)) return "iPad";

@@ -162,7 +162,7 @@ function scrubPublicListingTitle(raw: string, fill?: SkyAiListingFill): string {
     /^(?:post(?:ing)?\s+a\s+)?(?:wanted\s+(?:ad|listing|post)\s+)?(?:looking\s+for\s+)?/i,
     ""
   );
-  t = t.replace(/^(?:wanted|iso|in search of|looking for)\s+/i, "");
+  t = t.replace(/^(?:wanted|iso|wtb|in search of|looking for)\s*:?\s+/i, "");
   const waitStorage = t.match(
     /\b(\d+)\s*(gb|tb)\b(?:\s+\S+){0,8}?\s+(?:wait\s+)?(?:no|nah)\s+(\d{2,4})\b/i
   );
@@ -187,14 +187,28 @@ function scrubPublicListingTitle(raw: string, fill?: SkyAiListingFill): string {
     .replace(/\blisting_fill\b/gi, " ")
     .replace(/\bsystem\s+prompt\b/gi, " ")
     .replace(/\bunder\s+\$?\d[\d,]*(?:\.\d{1,2})?\s*k?\b/gi, " ")
-    .replace(/\b(?:prefer(?:ably)?|no scams)\b/gi, " ")
+    .replace(/\baround\s+\$?\d[\d,]*(?:\.\d{1,2})?\s*k?\b/gi, " ")
+    .replace(/\bmax(?:imum)?\s+\$?\d[\d,]*(?:\.\d{1,2})?\s*k?\b/gi, " ")
+    .replace(/\b(?:prefer(?:ably)?|no scams|no time\s*wasters?|serious only)\b/gi, " ")
+    .replace(/\b(?:wtb|iso)\b/gi, " ")
+    .replace(/\bbudget\b/gi, " ")
+    .replace(/^(?:brand[\s-]*new|like[\s-]*new|mint)\s+but\s+\w+\s+/i, " ")
     .replace(/\b(?:with|and)\s+\d+\s*$/i, " ")
     .replace(TITLE_PLACE_RE, " ")
     .replace(/\b(?:bit\s+)?scratch(?:ed)?(?:\s+on\s+corner)?\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (fill?.listingType === "wanted") {
-    t = t.replace(/\bunder\b/gi, " ").replace(/\s+/g, " ").trim();
+    t = t
+      .replace(/\bunder\b/gi, " ")
+      .replace(/\blooking\s+for\b/gi, " ")
+      .replace(/^(?:ad|listing|post)\s+/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const identity = resolveVehicleIdentity(t);
+    if (identity.make && identity.model) {
+      t = [identity.make, identity.model].filter(Boolean).join(" ");
+    }
   }
   return t.replace(/^[,.\s-]+|[,.\s-]+$/g, "").trim();
 }
@@ -356,10 +370,12 @@ export function composeListingTitleAndDescription(seed: ListingComposeSeed): Com
   const identity = resolveVehicleIdentity(item);
   const rental = seed.listingType === "rental";
   const wanted = seed.listingType === "wanted";
+  const digital = seed.listingType === "digital";
   const vehicle =
     !service &&
     !rental &&
     !wanted &&
+    !digital &&
     (seed.listingType === "vehicle" || detectVehicle(item) || Boolean(seed.vehicleMake || seed.vehicleModel));
   const listingType = service
     ? "service"
@@ -367,6 +383,8 @@ export function composeListingTitleAndDescription(seed: ListingComposeSeed): Com
       ? "rental"
       : wanted
         ? "wanted"
+        : digital
+          ? "digital"
         : vehicle
           ? "vehicle"
           : seed.listingType || "physical";
@@ -426,7 +444,7 @@ export function finalizeAwhinaListingDescription(
     let description = recomposeListingDescription(fill, { ...opts, force: true });
     description = polishPublicDescription(description, fill);
     const listingTypeLower = String(fill.listingType || "").toLowerCase();
-    if (listingTypeLower !== "service" && listingTypeLower !== "rental" && listingTypeLower !== "wanted") {
+    if (listingTypeLower !== "service" && listingTypeLower !== "rental" && listingTypeLower !== "wanted" && listingTypeLower !== "digital") {
       description = removeStructuredPriceCopy(description);
     }
     description = sanitizePublicListingCopy(stripStructuredMetadataLeakage(description));
@@ -489,13 +507,13 @@ export function finalizeAwhinaListingDescription(
   });
   description = polishPublicDescription(description, fill);
   const listingTypeLower = String(fill.listingType || "").toLowerCase();
-  if (listingTypeLower !== "service" && listingTypeLower !== "rental" && listingTypeLower !== "wanted") {
+  if (listingTypeLower !== "service" && listingTypeLower !== "rental" && listingTypeLower !== "wanted" && listingTypeLower !== "digital") {
     description = removeStructuredPriceCopy(description);
   }
   description = stripStructuredMetadataLeakage(description);
   description = splitListingDescriptionSentences(description)
     .filter((sentence) => {
-      if (listingTypeLower === "service" || listingTypeLower === "rental" || listingTypeLower === "wanted") {
+      if (listingTypeLower === "service" || listingTypeLower === "rental" || listingTypeLower === "wanted" || listingTypeLower === "digital") {
         return true;
       }
       return !/\b(message|get in touch|feel free|send me a message|drop me a message|happy to (sort|arrange|chat|answer)|if you'?re (interested|keen)|come take a look|just message)\b/i.test(
@@ -513,7 +531,7 @@ export function finalizeAwhinaListingDescription(
   if (!contract.ok && description) {
     description = recomposeListingDescription(fill, { ...opts, force: true });
     description = polishPublicDescription(description, fill);
-    if (listingTypeLower !== "service" && listingTypeLower !== "rental" && listingTypeLower !== "wanted") {
+    if (listingTypeLower !== "service" && listingTypeLower !== "rental" && listingTypeLower !== "wanted" && listingTypeLower !== "digital") {
       description = removeStructuredPriceCopy(description);
     }
     description = sanitizePublicListingCopy(stripStructuredMetadataLeakage(description));

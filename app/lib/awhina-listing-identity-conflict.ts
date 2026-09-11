@@ -72,18 +72,23 @@ export function extractListingIdentityFromMessage(message: string): ListingIdent
         .replace(/\b(?:in|around|near)\s+[A-Za-z][\w\s-]{2,30}$/i, "")
         .trim()
         .slice(0, 80) || "Wanted item";
+    const vehicle = resolveVehicleIdentity(m);
+    const title =
+      vehicle.make && vehicle.model
+        ? [vehicle.make, vehicle.model].filter(Boolean).join(" ")
+        : wantedItem;
     return {
       kind: "physical",
-      label: wantedItem,
+      label: title,
       listingType: "wanted",
-      title: wantedItem,
+      title,
     };
   }
 
   if (hasRentalOfferingIntent(m) || lastMode === "hire") {
     const label =
       m.match(
-        /\b(\d+\s*bed(?:room)?s?(?:\s+(?:unit|flat|apartment|house|townhouse))?|trailer(?:\s*hire)?|hilux|ranger|ute|apartment|flat|house)\b/i
+        /\b(\d+\s*bed(?:room)?s?(?:\s+(?:unit|flat|apartment|house|townhouse))?|studio|room|(?:cement|concrete)\s+mixer|mixer|trailer(?:\s*hire)?|scaffold(?:ing)?|marquee|hilux|ranger|ute|caravan|generator|apartment|flat|house|van|transit|triton)\b/i
       )?.[1] || "Rental listing";
     const cleanedLabel = String(label)
       .replace(/^hire\s+out\s+(?:my\s+)?/i, "")

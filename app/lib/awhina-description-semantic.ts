@@ -535,6 +535,15 @@ export function mergeEvidenceExtrasSemantically(
   if (!a.length) return [...b];
   if (!b.length) return [...a];
 
+  const SINGLE_SPEC_KEYS = new Set(["storage", "colour", "color", "size", "fuel", "variant"]);
+  const incomingSpec = new Set<string>();
+  for (const item of b) {
+    const m = item.match(/^([a-z][a-z0-9_]*)\s*:\s*(.+)$/i);
+    if (!m) continue;
+    const key = m[1].toLowerCase().replace(/_/g, "");
+    if (SINGLE_SPEC_KEYS.has(key)) incomingSpec.add(key === "color" ? "colour" : key);
+  }
+
   const out = [...b];
   const keys = new Set(
     b.map((item) => {
@@ -549,6 +558,8 @@ export function mergeEvidenceExtrasSemantically(
 
   for (const item of a) {
     const m = item.match(/^([a-z][a-z0-9_]*)\s*:\s*(.+)$/i);
+    const specKey = m ? m[1].toLowerCase().replace(/_/g, "").replace(/^color$/, "colour") : "";
+    if (specKey && incomingSpec.has(specKey)) continue;
     const key = m
       ? semanticFactKey(mapExtraKeyToKind(m[1]), m[2])
       : normalizeSemanticFactText(item);

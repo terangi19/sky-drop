@@ -51,6 +51,8 @@ export const SELLER_META_INSTRUCTION_PATTERNS: RegExp[] = [
   /\bwrite\s+a\s+good\s+description\b/i,
   /\bsound\s+professional\b/i,
   /\bno\s+scams\b/i,
+  /\bno\s+time\s*wasters?\b/i,
+  /\bserious\s+only\b/i,
 ];
 
 export function containsSellerMetaInstruction(
@@ -88,6 +90,8 @@ function stripSellerMetaInstructions(text: string): string {
     String.raw`Parse\s+everything`,
     String.raw`sound\s+professional`,
     String.raw`no\s+scams`,
+    String.raw`no\s+time\s*wasters?`,
+    String.raw`serious\s+only`,
   ].join("|");
   // Never eat listing facts. Stop a command clause before sell/rent/wanted or
   // after "in (the) ad" — `$` as end-of-clause swallows unpunctuated messages.
@@ -102,6 +106,8 @@ function stripSellerMetaInstructions(text: string): string {
   out = out.replace(/\bdon'?t\s+mention(?:\s+(?:the\s+)?[\w'-]+)?/gi, " ");
   out = out.replace(/\bdon'?t\s+put\s+(?:LISTING_FILL|was\s+price|what\s+i\s+paid|my\s+max)(?:\s+in\s+(?:the\s+)?ad)?/gi, " ");
   out = out.replace(/\bno\s+scams\b/gi, " ");
+  out = out.replace(/\bno\s+time\s*wasters?\b/gi, " ");
+  out = out.replace(/\bserious\s+only\b/gi, " ");
   out = out.replace(/\bwrite\s+a\s+good\s+description\b/gi, " ");
   out = out.replace(/\bhelp\s+me\s+choose(?:\s+\w+){0,3}\b/gi, " ");
   out = out.replace(

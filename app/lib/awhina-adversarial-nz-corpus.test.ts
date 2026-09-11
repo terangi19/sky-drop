@@ -702,7 +702,7 @@ function assertCase(c: CorpusCase) {
   for (const bad of e.priceNot || []) {
     expect(String(fill.price || ""), `price must not be ${bad}\n${ctx}`).not.toBe(bad);
     expect(desc, `description must not use trap price ${bad}\n${ctx}`).not.toMatch(
-      new RegExp(`(?:asking(?:\\s+price)?|price(?:\\s+is)?|\\$)\\s*${bad}\\b`, "i")
+      new RegExp(`(?:asking(?:\\s+price)?|price(?:\\s+is)?|\\$)\\s*${bad}(?![\\d,])\\b`, "i")
     );
   }
 
@@ -787,7 +787,6 @@ function assertCase(c: CorpusCase) {
 const KNOWN_FAILURE_IDS = new Set<string>([
   "physical-iphone-contradiction-one-shot",
   "vehicle-ranger-extremely-long",
-  "rental-house-no-daily-rate",
   "physical-tv-size-price-correction",
   "physical-iphone-followup-correction",
   "service-add-hedge-followup",

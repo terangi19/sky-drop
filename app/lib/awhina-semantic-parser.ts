@@ -38,6 +38,9 @@ const INSTRUCTION_PATTERNS = [
   /\blisting_fill\b(?:\s+\w+){0,8}/gi,
   /\bsystem\s+prompt\b(?:\s+\w+){0,6}/gi,
   /\brespond\s+only\b(?:\s+\w+){0,6}/gi,
+  /\bno\s+scams\b(?:\s+\w+){0,4}/gi,
+  /\bno\s+time\s*wasters?\b(?:\s+\w+){0,4}/gi,
+  /\bserious\s+only\b/gi,
 ];
 
 const INTENT_PATTERNS = [

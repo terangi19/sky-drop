@@ -93,7 +93,7 @@ const RENTAL_OFFERING_RE =
   /\b(rent(?:ing)?\s+out|rent(?:ing)?\s+my|hire\s+out|hire\s+my|available\s+to\s+hire|for\s+hire|to\s+let|not\s+selling(?:\s+it)?|just\s+hir(?:e|ing)|hir(?:e|ing)\s+it)\b/i;
 
 const PROPERTY_RENTAL_RE =
-  /\b(?:\d+\s*-?\s*bed(?:room)?s?|\d+bed|studio)\b/i;
+  /\b(?:\d+\s*-?\s*bed(?:room)?s?|\d+bed|studio|room\s+for\s+rent)\b/i;
 
 const WANTED_POST_RE =
   /\b(?:post(?:ing)?|create|make|put\s+up)\s+(?:a\s+)?wanted\s+(?:ad|listing|post)\b|\bwanted\s+(?:ad|listing|post)\b|\bwtb\b/i;
@@ -107,15 +107,30 @@ export function lastConfirmedOfferingMode(message: string): "hire" | "sale" | nu
   if (!m) return null;
   const lastCue = [...m.matchAll(/\b(?:wait(?:\s+nah)?|nah|actually)\b/gi)].pop();
   const tail = lastCue && lastCue.index != null ? m.slice(lastCue.index) : "";
-  if (
-    tail &&
-    /\b(?:just\s+)?hir(?:e|ing)(?:\s+it)?\b|\bnot\s+(?:for\s+)?sale\b|\bnot\s+selling\b/i.test(tail)
-  ) {
-    return "hire";
-  }
+  const hireIn = (span: string) =>
+    /\b(?:just\s+)?hir(?:e|ing)(?:\s+(?:it|out))?\b|\bnot\s+for\s+sale\b/i.test(span) &&
+    /\b(?:hir(?:e|ing)|rent(?:ing)?|a\s+day|per\s+day|\/\s*day|a\s+week|per\s+week|\bpw\b)\b/i.test(
+      span
+    );
+  if (tail && hireIn(tail)) return "hire";
   if (tail && /\b(?:i'?m\s+selling|selling\s+my|for\s+sale|not\s+(?:buying|looking))\b/i.test(tail)) {
     return "sale";
   }
+  // No wait/nah: last hire confirmation still beats an earlier sell-or-hire hedge.
+  if (!tail && hireIn(m) && /\b(?:sell(?:ing)?|for sale)\b/i.test(m)) {
+    const hireAt = Math.max(
+      m.toLowerCase().lastIndexOf("hiring"),
+      m.toLowerCase().lastIndexOf("hire"),
+      m.toLowerCase().lastIndexOf("not for sale")
+    );
+    const sellAt = Math.max(
+      m.toLowerCase().lastIndexOf("selling"),
+      m.toLowerCase().lastIndexOf("for sale"),
+      m.toLowerCase().lastIndexOf("sell")
+    );
+    if (hireAt > sellAt) return "hire";
+  }
+  if (!tail && /\bnot\s+selling\b/i.test(m) && hireIn(m)) return "hire";
   return null;
 }
 
@@ -168,6 +183,13 @@ export function hasWantedListingIntent(message: string): boolean {
   }
   if (/\b(?:iso|wtb)\b/i.test(m)) return true;
   if (/\blooking\s+for\b/i.test(m) && /\b(?:wanted|post\s+a\s+wanted|no\s+scams)\b/i.test(m)) {
+    return true;
+  }
+  if (
+    /\blooking\s+for\b/i.test(m) &&
+    /\b(?:around|under|max|budget|up to)\s*\$?\d/i.test(m) &&
+    !/\b(?:find\s+me|show\s+me|search\s+for)\b/i.test(m)
+  ) {
     return true;
   }
   return false;
@@ -236,7 +258,7 @@ export function hasRentalOfferingIntent(message: string): boolean {
   if (
     /\b(?:rent|hire)\b/i.test(m) &&
     (SERVICE_PRICE_SIGNAL_RE.test(m) || /\b(?:a\s+day|per\s+day|a\s+week|per\s+week|bond)\b/i.test(m)) &&
-    /\b(?:trailer|generator|chainsaw|marquee|ute|van|bike|kayak|equipment|tool|mixer|caravan|hilux|ranger)\b/i.test(m) &&
+    /\b(?:trailer|generator|chainsaw|marquee|ute|van|bike|kayak|equipment|tool|mixer|caravan|hilux|ranger|scaffold|transit|triton)\b/i.test(m) &&
     !SERVICE_OFFERING_NOUN_RE.test(m)
   ) {
     return true;

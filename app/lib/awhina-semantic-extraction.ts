@@ -170,13 +170,13 @@ const LOCATION_BARE_RE =
   /\b(north\s+shore|west\s+auckland|east\s+auckland|south\s+auckland|palmerston\s+north|mount\s+eden|mt\s+eden|henderson|manukau|albany|newmarket|takapuna|papakura|waitakere|grey\s*lynn|new\s+lynn|petone|massey|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei)\b/i;
 
 export const SELLER_INSTRUCTION_RE =
-  /\b(?:can|could|would)\s+you\b|\b(?:please\s+)?(?:make|write|create|generate)\s+(?:the|a|an|my)?\s*(?:ad|listing|title|description)\b|\btell\s+me\s+what\s+(?:price|it(?:'?s|s)?\s+actually\s+worth|they(?:'re|\s+are)\s+worth|i\s+should)\b|\bdon'?t\s+(?:put|say|mention|use)\b|\bdo\s+not\s+(?:put|use|say|mention)\b|\btitle\s+it\b|\bmake\s+(?:the\s+)?(?:ad|listing)\s+sound\s+(?:good|professional)\b|\bhelp\s+me\s+(?:choose|pick|write|price|suggest)\b|\bsuggest\s+(?:a\s+)?(?:fair\s+)?price\b|\bsound\s+professional\b|\blisting_fill\b|\bsystem\s+prompt\b/i;
+  /\b(?:can|could|would)\s+you\b|\b(?:please\s+)?(?:make|write|create|generate)\s+(?:the|a|an|my)?\s*(?:ad|listing|title|description)\b|\btell\s+me\s+what\s+(?:price|it(?:'?s|s)?\s+actually\s+worth|they(?:'re|\s+are)\s+worth|i\s+should)\b|\bdon'?t\s+(?:put|say|mention|use)\b|\bdo\s+not\s+(?:put|use|say|mention)\b|\btitle\s+it\b|\bmake\s+(?:the\s+)?(?:ad|listing)\s+sound\s+(?:good|professional)\b|\bhelp\s+me\s+(?:choose|pick|write|price|suggest)\b|\bsuggest\s+(?:a\s+)?(?:fair\s+)?price\b|\bsound\s+professional\b|\blisting_fill\b|\bsystem\s+prompt\b|\bno\s+scams\b|\bno\s+time\s*wasters?\b|\bserious\s+only\b/i;
 
 export const SELLER_INTENT_RE =
   /\bjust\s+want(?:\s+it)?\s+gone\b|\bwant\s+(?:it\s+)?gone\b|\bneed\s+it\s+gone\b|\bpaid\s+(?:heaps|a\s+lot|lots)\s+for\s+it\b|\bidk\b|\bi\s+don'?t\s+know\s+what\s+(?:it'?s|they(?:'re|\s+are))\s+worth\b/i;
 
 const IDENTITY_STOP_RE =
-  /\b(?:bro|mate|barely|had\s+it|couple(?:\s+of)?\s+years?|still\s+works?|got|comes?\s+with|includes?|paid|bought|purchased|maybe|thinking|idk|i'?m\s+in|im\s+in|located|pickup|pick\s*up|shipping|can\s+you|could\s+you|tell\s+me|don'?t|do\s+not|just\s+want|make\s+the|help\s+me|title\s+it|mint|excellent|brand\s+new|like\s+new|good\s+condition|used\s+condition|asking|for\s+(?:\$|\d)|needs?\s+new|bit\s+scratched|scratched|dent|wait|actually|under|prefer|wtb)\b/i;
+  /\b(?:bro|mate|barely|had\s+it|couple(?:\s+of)?\s+years?|still\s+works?|got|comes?\s+with|includes?|paid|bought|purchased|maybe|thinking|idk|i'?m\s+in|im\s+in|located|pickup|pick\s*up|shipping|can\s+you|could\s+you|tell\s+me|don'?t|do\s+not|just\s+want|make\s+the|help\s+me|title\s+it|mint|excellent|brand\s+new|like\s+new|good\s+condition|used\s+condition|asking|for\s+(?:\$|\d)|needs?\s+new|bit\s+scratched|scratched|dent|wait|actually|under|prefer|wtb|budget|no\s+rust|no\s+scams|serious\s+only)\b/i;
 
 const NON_PRICE_AFTER_RE =
   /^(?:\s*(?:gb|tb|mb|km|kms|kilomet(?:er|re)s?|%|percent|inch(?:es)?|in\b|cm|mm|bed(?:room)?s?|bath(?:room)?s?|seater|pack|pcs?|volt(?:s)?|watt(?:s)?|gb\b|controllers?|chairs?|batter(?:y|ies)|cables?|i\b|t\b))/i;
@@ -255,7 +255,7 @@ function priceClassFromLocalCues(
   if (/\b(?:maybe|may\s+be|not\s+sure|idk|thinking|reckon|around|roughly)\s*$/i.test(left)) {
     return "tentative";
   }
-  if (/\b(?:now|asking|askin|nah|sell(?:ing)?\s+for|price(?:\s+is)?)\s*$/i.test(left)) {
+  if (/\b(?:now|asking|askin|nah|sell(?:ing)?\s+for|price(?:\s+is)?|make\s+it)\s*$/i.test(left)) {
     return "confirmed";
   }
   if (/^\s*(?:ono|o\.n\.o|neg|negotiable|or\s+nearest\s+offer|the\s+lot|the\s+pair|bucks|nzd|dollars?)\b/i.test(after)) {
@@ -281,7 +281,16 @@ function isNotPriceSpan(before: string, after: string, amount: number): boolean 
   if (/\b(?:stage|index|lot\s+of|set\s+of|air\s+max|max)\s+$/i.test(before)) return true;
   if (/[a-zA-Z]$/.test(before)) return true;
   if (/[a-zA-Z]-$/.test(before)) return true;
-  if (/^\s*(?:i\b|inch(?:es)?|pro\b|max\b|plus\b|gb|tb|bed|bath|seater|controllers?|pads?|games?|keys?|templates?|%|percent|kays)\b/i.test(after)) {
+  if (/^\s*(?:i\b|inch(?:es)?|pro\b|max\b|plus\b|mini\b|gb|tb|bed|bath|seater|controllers?|pads?|games?|keys?|templates?|%|percent|kays)\b/i.test(after)) {
+    return true;
+  }
+  // Phone generation ("it's a 15 pro") is identity, not asking price.
+  if (
+    amount >= 4 &&
+    amount <= 16 &&
+    /^\s*(?:pro(?:\s*max)?|plus|mini)\b/i.test(after) &&
+    /\b(?:iphone|it'?s\s+(?:a|the)|its\s+(?:a|the))\b/i.test(`${before} ${after}`)
+  ) {
     return true;
   }
   if (/\bx\s*$/i.test(before) && amount <= 12) return true;
@@ -315,7 +324,7 @@ function isNotPriceSpan(before: string, after: string, amount: number): boolean 
 }
 
 function isConfirmedPriceSpan(span: string, before: string, after: string): boolean {
-  if (/\b(?:now|asking|askin|ono|o\.n\.o|neg|negotiable|nah|firm|sell(?:ing)?\s+for|price(?:\s+is)?|buy\s+now)\b/i.test(span)) {
+  if (/\b(?:now|asking|askin|ono|o\.n\.o|neg|negotiable|nah|firm|sell(?:ing)?\s+for|price(?:\s+is)?|buy\s+now|make\s+it)\b/i.test(span)) {
     return true;
   }
   if (/\b(?:now|asking|nah)\s*$/i.test(before)) return true;
@@ -454,9 +463,11 @@ export function extractBuyerFacingIdentity(message: string): string | null {
     .replace(/^\s*title\s+it\b[\s\S]*?(?=\b(?:sell|selling|list)\b)/i, " ")
     .replace(/\bdon'?t\s+(?:say|put|use|add)\b[\s\S]*?(?=\b(?:sell|selling|list)\b)/i, " ")
     .replace(
-      /^\s*(?:please\s+)?(?:i\s+(?:want|wanna|would\s+like)\s+to\s+)?(?:sell(?:ing)?|list(?:ing)?|post(?:ing)?|advertise|wanted|iso)\s+(?:my\s+|a\s+|an\s+|the\s+|out\s+)?/i,
+      /^\s*(?:please\s+)?(?:i\s+(?:want|wanna|would\s+like)\s+to\s+)?(?:sell(?:ing)?|list(?:ing)?|post(?:ing)?|advertise|wanted|iso|wtb)\s*:?\s+(?:my\s+|a\s+|an\s+|the\s+|out\s+)?/i,
       ""
     )
+    .replace(/^\s*(?:wtb|iso|wanted)\s*:?\s+/i, "")
+    .replace(/^(?:brand[\s-]*new|like[\s-]*new|mint)\s+but\s+\w+\s+/i, "")
     .replace(/^\s*i\s+am\s+selling\s+(?:my\s+|a\s+|an\s+|the\s+)?/i, "")
     .replace(/^\s*i'?m\s+selling\s+(?:my\s+|a\s+|an\s+|the\s+)?/i, "");
   t = t.split(/[,.;]/)[0] || t;
@@ -534,6 +545,8 @@ function extractIncludedItems(message: string): string[] {
   const seen = new Set<string>();
   const pushAll = (list: string[]) => {
     for (const item of list) {
+      if (/usb/i.test(item) && /\bnot\s+(?:a\s+)?usb\b/i.test(message)) continue;
+      if (/\bdisc\b/i.test(item) && /\bnot\s+(?:a\s+)?disc\b/i.test(message)) continue;
       const key = item.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
@@ -546,7 +559,7 @@ function extractIncludedItems(message: string): string[] {
 
   // Counted items even without a clean lead capture.
   const counted = message.matchAll(
-    /\b(?:got|has|have|with|includes?)\s+((?:one|two|three|four|five|\d+)\s+[a-z][\w'-]*s)\b/gi
+    /\b(?:got|has|have|with|includes?|need|must\s+have)\s+((?:one|two|three|four|five|\d+)\s+[a-z][\w'-]*s)\b/gi
   );
   for (const m of counted) {
     const item = normalizeIncludedItem(m[1]);
@@ -614,6 +627,13 @@ function extractDefects(message: string): string[] {
     /\b(scratch(?:ed|es)?|crack(?:ed|s)?|dent(?:ed|s)?|torn|stain(?:ed|s)?|chipp?(?:ed|s)?|scuff(?:ed|s)?|broken|damaged|worn|smashed)\s+(?!on\b)([a-z][\w'-]*)\b/gi
   );
   for (const m of adjNoun) {
+    if (
+      /^(?:west|east|south|north|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston|shore|coast|wellie|westie|hammers|palmy|akl|chch)\b/i.test(
+        m[2]
+      )
+    ) {
+      continue;
+    }
     push(`${m[2]} ${m[1]}`);
   }
 
@@ -692,7 +712,11 @@ export function extractSellerSemanticModel(message: string): SellerSemanticModel
     /\bno\s+(?!known\s+|cracks?|faults?|repairs?|damage|idea|sure)([a-z][\w'-]+(?:\s+[a-z][\w'-]+){0,3})/i
   );
   if (exclusion?.[1] && !DEFECT_TOKEN_RE.test(exclusion[1])) {
-    if (/^(?:scams?|time\s*wasters?|lowballers?|spam)$/i.test(exclusion[1].trim())) {
+    if (
+      /^(?:scams?|time\s*wasters?|lowballers?|spam|serious(?:\s+only)?)\b/i.test(
+        exclusion[1].trim()
+      )
+    ) {
       // seller instruction, not a product fact
     } else {
     const text = `No ${clean(exclusion[1])}`;

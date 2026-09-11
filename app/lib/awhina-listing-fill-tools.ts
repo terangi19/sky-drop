@@ -48,6 +48,7 @@ import {
   hasRentalOfferingIntent,
   hasServiceOfferingIntent,
   hasWantedListingIntent,
+  hasDigitalOfferingIntent,
   inferSellListingTypeHint,
   isExplicitNewSellListingMessage,
 } from "./sky-ai-intent";
@@ -388,6 +389,10 @@ export function validateListingFillFields(
     return { ok: false, error: "No valid listing fields" };
   }
   const fillOut = normalized || out;
+  // Protected normalizeListingType has no "digital" enum — restore after coerce.
+  if (out.listingType === "digital" || fill.listingType === "digital") {
+    fillOut.listingType = "digital";
+  }
   // normalize() preserves an explicit "physical" even with vehicleMake — coerce back
   if (
     fillOut.listingType !== "service" &&
@@ -585,12 +590,32 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
   const rawDigits = (m?.[1] || m?.[3] || "").replace(/,/g, "");
   const kSuffix = m?.[2] || m?.[4];
   if (!rawDigits) {
-    if (/\$\s*[^\d]|\bprice\s*[:=]?\s*[a-z]/i.test(message)) return "malformed";
+    // "recommend a price dont use what i paid" is an instruction, not a broken ask.
+    if (/\$\s*[^\d]/.test(message)) return "malformed";
+    if (
+      /\bprice\s*(?:is|=|:)\s*(?:abc|xyz|freeish|tbd|tba|asap|idk|[a-z]{2,})\b/i.test(message) &&
+      !/\d/.test(message)
+    ) {
+      return "malformed";
+    }
     return null;
   }
   let num = Number(rawDigits);
   if (kSuffix) num *= 1000;
   const raw = String(Math.round(num));
+
+  // Phone/console generation next to identity is not an asking price.
+  if (
+    num >= 4 &&
+    num <= 16 &&
+    new RegExp(
+      `(?:iphone|pixel|galaxy|it'?s\\s+(?:a|the)|its\\s+(?:a|the))\\s+${raw}\\s*(?:pro|plus|mini)?\\b`,
+      "i"
+    ).test(message) &&
+    !new RegExp(`make\\s+it\\s+\\$?\\s*${raw}\\b`, "i").test(message)
+  ) {
+    return null;
+  }
 
   // Bare vehicle years are never prices ("bmw 335i 2007")
   if (looksLikeVehicleYearToken(raw, message) || looksLikeVehicleYearToken(rawDigits, message)) {
@@ -778,6 +803,16 @@ function extractRentalOfferItem(message: string): string | undefined {
     const beds = property[1];
     const kind = property[3];
     return `${beds} Bedroom ${kind.charAt(0).toUpperCase()}${kind.slice(1).toLowerCase()}`;
+  }
+  if (/\bstudio\b/i.test(message) && /\b(?:pw|a\s+week|per\s+week|weekly|bond)\b/i.test(message)) {
+    return "Studio";
+  }
+  const mixer = message.match(
+    /\b((?:cement|concrete)\s+mixer|scaffold(?:ing)?|marquee|mixer|trailer|caravan|generator|(?:transit\s+)?van)\b/i
+  );
+  if (mixer && /\b(?:hire|rent|a\s+day|per\s+day|bond|just\s+hir(?:e|ing))\b/i.test(message)) {
+    const label = mixer[1];
+    return label.replace(/\b\w/g, (c) => c.toUpperCase());
   }
   const m = message.match(
     /\b(?:rent(?:ing)?|hire(?:ing)?)\s+(?:out\s+)?(?:my\s+|a\s+|an\s+|the\s+)?(.+)$/i
@@ -1537,7 +1572,10 @@ export function processListingFillMessage(
     notes.push(`price $${priceRaw}`);
     touched = true;
   }
-  if (!partial.price && hasWantedListingIntent(trimmed)) {
+  const wantedDraft =
+    hasWantedListingIntent(trimmed) ||
+    String(baseDraft.listingType || "").toLowerCase() === "wanted";
+  if (!partial.price && wantedDraft) {
     const wantedBudget = parseFindBudget(trimmed);
     if (wantedBudget) {
       partial.price = wantedBudget;
@@ -1584,7 +1622,17 @@ export function processListingFillMessage(
     actions.pickupAvailable = true;
   }
   if (hasFormActionContent(actions)) {
+    const priorLoc = partial.location;
     Object.assign(partial, mergeFormActionsIntoFill({}, actions));
+    if (priorLoc && partial.location) {
+      const prior = priorLoc.toLowerCase();
+      const next = String(partial.location).toLowerCase();
+      if (prior !== next && (prior.includes(next) || next.split(/\s+/).every((w) => prior.includes(w)))) {
+        partial.location = priorLoc;
+      }
+    } else if (priorLoc && !partial.location) {
+      partial.location = priorLoc;
+    }
     const actionNotes = describeFormActions(actions).filter((n) => {
       if (!partial.location) return true;
       return !new RegExp(`^Location:\\s*${partial.location}$`, "i").test(n);
@@ -1670,9 +1718,9 @@ export function processListingFillMessage(
     }
 
     const colourPatch = trimmed.match(
-      /\b(?:it'?s|its|actually|change(?:\s+it)?(?:\s+to)?|make\s+it|and|now)\s+(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|navy)\b/i
+      /\b(?:it'?s|its|actually|change(?:\s+it)?(?:\s+to)?|make\s+it|and|now)\s+(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|navy|purple|pink)\b/i
     );
-    if (colourPatch?.[1]) {
+    if (colourPatch?.[1] && !new RegExp(`\\bnot\\s+${colourPatch[1]}\\b`, "i").test(trimmed)) {
       partial.vehicleColour =
         colourPatch[1].charAt(0).toUpperCase() + colourPatch[1].slice(1).toLowerCase();
       notes.push(`colour ${partial.vehicleColour}`);
@@ -1695,6 +1743,7 @@ export function processListingFillMessage(
       serviceOffer ||
       rentalOffer ||
       hasWantedListingIntent(trimmed) ||
+      hasDigitalOfferingIntent(trimmed) ||
       (onSell && sellItem) ||
       (onSell && /^(ps5|xbox|iphone|samsung|laptop|couch)/i.test(trimmed)));
 
@@ -1705,6 +1754,8 @@ export function processListingFillMessage(
       serviceTitle ||
       serviceOffer ||
       rentalOffer ||
+      hasWantedListingIntent(trimmed) ||
+      hasDigitalOfferingIntent(trimmed) ||
       isIdentityRichListingPaste(trimmed) ||
       (/selling|sell |list /i.test(trimmed) && Boolean(sellItem)))
   ) {
@@ -1893,8 +1944,9 @@ export function processListingFillMessage(
               /^(?:post(?:ing)?\s+a\s+)?(?:wanted\s+(?:ad|listing|post)\s+)?(?:looking\s+for\s+)?/i,
               ""
             )
-            .replace(/^(?:wanted|iso|wtb|in search of|looking for)\s+/i, "")
+            .replace(/^(?:wanted|iso|wtb|in search of|looking for)\s*:?\s+/i, "")
             .replace(/\b(?:no scams|prefer(?:ably)?|serious only|no time\s*wasters?)\b/gi, " ")
+            .replace(/\b(?:budget|under|up to|max|around|about)\s+\$?\d[\d,]*k?\b/gi, " ")
             .replace(/\s+/g, " ")
             .trim();
         }
@@ -1906,31 +1958,48 @@ export function processListingFillMessage(
         if (baths) partial.rentalBathrooms = baths[1];
         if (
           beds ||
-          /\b(?:house|home|flat|apartment|unit|townhouse|studio)\b/i.test(trimmed)
+          /\b(?:house|home|flat|apartment|unit|townhouse|studio|room\s+for\s+rent|\broom\b)\b/i.test(
+            trimmed
+          )
         ) {
           partial.rentalSubType = "property";
           delete partial.rentalPriceDaily;
+          if (/\bstudio\b/i.test(trimmed) && !GLUED_BED_RE.test(trimmed)) {
+            if (!/\bstudio\b/i.test(partial.title || "")) partial.title = "Studio";
+          }
+          if (/\broom\s+for\s+rent\b|\brent(?:ing)?\s+(?:out\s+)?(?:a\s+)?room\b/i.test(trimmed) && !beds) {
+            if (!partial.title || /rental listing/i.test(partial.title)) partial.title = "Room";
+          }
         } else if (
-          /\b(?:trailer|hilux|ute|equipment|generator|mixer|caravan|ranger)\b/i.test(trimmed) ||
+          /\b(?:trailer|hilux|ute|equipment|generator|mixer|caravan|ranger|scaffold|marquee|van|transit)\b/i.test(
+            trimmed
+          ) ||
           /\ba\s+day|per\s+day|\/\s*day\b/i.test(trimmed)
         ) {
-          partial.rentalSubType = /\bhilux|ute|ranger\b/i.test(trimmed)
-            ? "vehicle"
-            : "equipment";
+          partial.rentalSubType =
+            /\b(?:hilux|ute|ranger|triton|transit|van|navara)\b/i.test(trimmed)
+              ? "vehicle"
+              : "equipment";
         }
         const week = trimmed.match(
-          /\b([\d,]+)\s*(?:a\s+week|per\s+week|\/\s*week|weekly)\b/i
+          /\b([\d,]+)\s*(?:a\s+week|per\s+week|\/\s*week|weekly|\bpw\b)\b/i
         );
         const day = trimmed.match(
           /\b([\d,]+)\s*(?:a\s+day|per\s+day|\/\s*day)\b/i
         );
         if (week) {
           partial.rentalPriceWeekly = week[1].replace(/,/g, "");
-          partial.price = partial.rentalPriceWeekly;
-          delete partial.rentalPriceDaily;
-        } else if (day && partial.rentalSubType !== "property") {
+        }
+        if (day && partial.rentalSubType !== "property") {
           partial.rentalPriceDaily = day[1].replace(/,/g, "");
+        }
+        if (partial.rentalSubType === "property") {
+          delete partial.rentalPriceDaily;
+          if (partial.rentalPriceWeekly) partial.price = partial.rentalPriceWeekly;
+        } else if (partial.rentalPriceDaily) {
           partial.price = partial.rentalPriceDaily;
+        } else if (partial.rentalPriceWeekly) {
+          partial.price = partial.rentalPriceWeekly;
         }
         const bondWeeks = trimmed.match(/\bbond\s+(\d+)\s+weeks?\b/i);
         const bondCash =
@@ -1949,11 +2018,22 @@ export function processListingFillMessage(
         ) {
           partial.rentalDeposit = bondCash[1].replace(/,/g, "");
         }
-        if (/\bunfurnished\b/i.test(trimmed)) partial.rentalFurnishedStatus = "Unfurnished";
+        if (/\bpets?\s+no\b|\bno\s+pets\b/i.test(trimmed)) {
+          partial.rentalPetsPolicy = "No pets";
+          partial.extras = mergeExtras(partial.extras, ["pets:no pets"]);
+        }
+        if (/\bcats?\s+ok\b|\bpets?\s+ok\b/i.test(trimmed)) {
+          partial.rentalPetsPolicy = /cat/i.test(trimmed) ? "Cats ok" : "Pets ok";
+          partial.extras = mergeExtras(partial.extras, [`pets:${partial.rentalPetsPolicy}`]);
+        }
+        if (/\bunfurnished\b/i.test(trimmed)) {
+          partial.rentalFurnishedStatus = "Unfurnished";
+          partial.extras = mergeExtras(partial.extras, ["furnished:unfurnished"]);
+        }
         if (/\bfurnished\b/i.test(trimmed) && !/\bunfurnished\b/i.test(trimmed)) {
           partial.rentalFurnishedStatus = "Furnished";
+          partial.extras = mergeExtras(partial.extras, ["furnished:furnished"]);
         }
-        if (/\bpets?\s+no\b|\bno\s+pets\b/i.test(trimmed)) partial.rentalPetsPolicy = "No pets";
         if (/\bpickup\s+only\b/i.test(trimmed)) {
           partial.extras = mergeExtras(partial.extras, ["logistics:Pickup only"]);
         }

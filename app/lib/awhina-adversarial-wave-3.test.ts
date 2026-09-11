@@ -1010,7 +1010,7 @@ function assertCase(c: CorpusCase) {
   for (const bad of e.priceNot || []) {
     expect(String(fill.price || ""), `price must not be ${bad}\n${ctx}`).not.toBe(bad);
     expect(desc, `description must not use trap price ${bad}\n${ctx}`).not.toMatch(
-      new RegExp(`(?:asking(?:\\s+price)?|price(?:\\s+is)?|\\$)\\s*${bad}\\b`, "i")
+      new RegExp(`(?:asking(?:\\s+price)?|price(?:\\s+is)?|\\$)\\s*${bad}(?![\\d,])\\b`, "i")
     );
   }
 
@@ -1110,20 +1110,14 @@ function assertCase(c: CorpusCase) {
 /** Current-main breaks — expected semantics stay locked; CI uses it.fails. */
 const KNOWN_FAILURE_IDS = new Set<string>([
   "mixed-wanted-ps5-plus-xbox-for-sale",
-  "digital-ebook-not-physical-book",
-  "digital-canva-template-pack",
-  "digital-course-videos-not-usb",
   "physical-dyson-ono-defect",
   "physical-macbook-neg-worn",
   "physical-3ds-starting-bid-vs-buynow",
   "physical-jersey-offers-only-no-price",
-  "physical-ps4-dunners-pads",
   "physical-drill-x2-pair",
   "physical-controllers-lot-of-3",
-  "physical-brand-new-but-smashed-iphone",
   "physical-mint-scratched-everywhere-tv",
   "vehicle-perfect-except-engine-knock",
-  "physical-like-new-water-damaged-command",
   "physical-dont-put-paid-toaster",
   "physical-crack-repeated-once",
   "multi4-identity-swap-then-undo-iphone",

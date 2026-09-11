@@ -63,7 +63,10 @@ export function parseListingCondition(
   if ((mintConditionPhrase || shortMintReply) && !opts?.hasDefects) {
     return "Used - Like New";
   }
-  if (BARE_NEW_RE.test(t) && !LIKE_NEW_RE.test(t) && !/\bnew zealand\b/.test(t) && !/\bpaid\b.{0,24}\bnew\b|\bbought\b.{0,24}\bnew\b/.test(t)) return "New";
+  if (BARE_NEW_RE.test(t) && !LIKE_NEW_RE.test(t) && !/\bnew zealand\b/.test(t) && !/\bpaid\b.{0,24}\bnew\b|\bbought\b.{0,24}\bnew\b/.test(t)) {
+    if (defectContradiction) return /\bfair|rough|smash/i.test(t) ? "Used - Fair" : "Used - Good";
+    return "New";
+  }
   if (/\bfair\b|\brough\b/.test(t)) return "Used - Fair";
   if (
     /\b(?:used|good)\b/.test(t) ||

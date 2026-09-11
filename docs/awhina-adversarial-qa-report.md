@@ -847,3 +847,43 @@ Safe-ish additions vs Wave 2: **real city names** on short physical (Queenstown 
 Still unsafe, and newly unsafe: digital products, mixed sell/rent/wanted/service-in-one-message, `neg` / nearest offer / starting-bid, `dunners` / `wellie` on services, lot/x2/set-of bundles, Brand New vs smashed, prompt/instruction leaks, and **any 4+ turn undo** (identity, qty, location slang).
 
 Do not delete these `it.fails` to fake green. Do not patch individual Wave 3 strings in production. Wave 1 and Wave 2 FAIL markers were not weakened.
+
+---
+
+# Wave 4 (folded into PR #28)
+
+Wave 4 corpus from PR #32 (`app/lib/awhina-adversarial-wave-4.test.ts`) is wired into `test:awhina`, `test:awhina:adversarial`, `test:description-quality`, and `test:evidence-pipeline`. FAIL markers were not weakened.
+
+# Re-score vs PR #28 — Fixer follow-up
+
+Breaker PR #35 measured this branch at `c289aa8` as **NOT SAFE TO LAUNCH**: Waves 1–4 **126 passed | 92 expected-fail (218)**.
+
+Critical classes at that re-score: 1 PASS (commands) · 2 PASS (historical vs ask) · 3 FAIL Wanted · 4 FAIL Rentals→sale · 5 FAIL follow-up wipe · 6 PASS voice · 7 FAIL contradictions / model-as-price.
+
+This follow-up converts `it.fails` → `it()` only after production actually passed. Remaining FAIL markers stay.
+
+## Vitest (this follow-up)
+
+`npx vitest run app/lib/awhina-adversarial-nz-corpus.test.ts app/lib/awhina-adversarial-wave-2.test.ts app/lib/awhina-adversarial-wave-3.test.ts app/lib/awhina-adversarial-wave-4.test.ts`
+
+| Suite | Breaker on #28 @ `c289aa8` | This follow-up |
+| --- | --- | --- |
+| Waves 1–4 combined | **126 passed \| 92 expected-fail (218)** | **162 passed \| 56 expected-fail (218)** |
+
+## Newly passing classes (this follow-up)
+
+- **Digital type:** ebook / Canva template pack / course videos now seed `listingType=digital` (protected `normalizeListingType` has no digital enum; restored after coerce).
+- **Wanted budgets + instructions:** WTB xbox around 450; long iPad budget walk to 360; ISO bike under 200 + no-rust; looking-for Dyson around 180 vs paid 400; `no scams` / `serious only` / `no timewasters` / `dont put my max` stay instructions.
+- **Rentals hire-or-sell:** Transit van wait-just-hiring; Triton just-hiring; marquee dual daily+weekly. Dual rates kept when both stated. `around`/`about` parse as wanted budget via `parseFindBudget`.
+
+## Still FAIL (56 expected-fail, not weakened)
+
+Priority remaining matches Breaker:
+
+- Wanted PATCH: budget/pads follow-ups (`wanted-budget-correction`, `wanted-budget-pads-nah-bro`, Wave 4 pads/qty walks); some max/under parser traps (`gopro 11 max 250` as parseListingPriceFromMessage).
+- Rentals: scaffold dual-rate; dented trailer; some bond/rate follow-ups.
+- Identity wipe: TV size leftover; iPhone 13→15 / storage-colour flipflops; ≥4–8 turn undo (Wave 3 multi4/multi5, Wave 4 multi6–8).
+- Qty/lot/model traps (air max / lot of 3 / some Brand New+defect).
+- Services: westie/chch/hammers/palmy secondary add-ons (hedge, drain, oven).
+
+Verdict unchanged: **NOT SAFE TO LAUNCH**.

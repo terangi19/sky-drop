@@ -424,9 +424,17 @@ export function minimalSafeDescription(fill: SkyAiListingFill): string {
     return loc ? `Looking for ${title.toLowerCase()} in ${loc}.` : `Looking for ${title.toLowerCase()}.`;
   }
   if (domain === "rental") {
+    const sub = String(fill.rentalSubType || "").toLowerCase();
+    const isProperty = sub === "property" || Boolean(fill.rentalBedrooms);
+    const verb = isProperty ? "to rent" : "to hire";
+    const rate = fill.rentalPriceWeekly
+      ? `$${fill.rentalPriceWeekly} per week`
+      : fill.rentalPriceDaily
+        ? `$${fill.rentalPriceDaily} per day`
+        : "";
     const base = loc
-      ? `${title} available to hire in ${loc}.`
-      : `${title} available to hire.`;
+      ? `${title} available ${verb} in ${loc}${rate ? ` for ${rate}` : ""}.`
+      : `${title} available ${verb}${rate ? ` for ${rate}` : ""}.`;
     const evidence = composeDomainAwareEvidenceProse(
       groupedSellerEvidenceFromExtras(fill.extras),
       "rental"

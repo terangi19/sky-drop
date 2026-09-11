@@ -304,6 +304,10 @@ export function isListingPatchFollowUp(message: string): boolean {
   if (/^(wait\s+)?(nah|nope|no)\b/i.test(t)) return true;
   if (/\bwait\s+(?:nah|no)\b/i.test(t)) return true;
   if (/^(actually|also|and also|plus)\b/i.test(t)) return true;
+  if (/^and\b/i.test(t) && t.split(/\s+/).length <= 12) return true;
+  if (/\bforget\s+that\b/i.test(t) && !/\b(?:sell(?:ing)?|list(?:ing)?)\s+(?:my|a|an|the)\b/i.test(t)) {
+    return true;
+  }
   if (/^(change|make it|set|update|correct|fix|instead|rather|add)\b/i.test(t)) {
     return true;
   }
