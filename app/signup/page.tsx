@@ -13,6 +13,11 @@ import { getTurnstileSiteKey } from "../lib/turnstile";
 import { sanitizeRedirectPath } from "../lib/safe-redirect";
 import { funnel } from "../lib/funnel-events";
 import { isVerifiedSignupUser } from "../lib/signup-verification";
+import {
+  MIN_PASSWORD_LENGTH,
+  canEnableSignupSubmit,
+  getSignupClientErrors,
+} from "../lib/signup-form-validation";
 
 const INPUT =
   "h-12 w-full rounded-lg border border-slate-600 bg-slate-950 px-3.5 text-base text-white placeholder:text-slate-500 outline-none transition-colors focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30 disabled:cursor-not-allowed disabled:opacity-60";
@@ -38,6 +43,7 @@ export default function SignupPage() {
   const [emailVerified, setEmailVerified] = useState(false);
   const [verificationDeliveryFailed, setVerificationDeliveryFailed] = useState(false);
   const [signupCreatedThisVisit, setSignupCreatedThisVisit] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const submitInFlight = useRef(false);
   const startedForUser = useRef<string | null>(null);
   const verifiedForUser = useRef<string | null>(null);
@@ -73,7 +79,9 @@ export default function SignupPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim() || !password) return;
+    setAttemptedSubmit(true);
+    const fieldErrors = getSignupClientErrors(email, password, { requireValues: true });
+    if (fieldErrors.email || fieldErrors.password) return;
 
     if (!acceptedTerms) {
       showToast("Please agree to the Terms and Privacy Policy.", "error");
@@ -156,6 +164,13 @@ export default function SignupPage() {
   }, [user, showVerificationSent]);
 
   const verified = emailVerified;
+  const fieldErrors = getSignupClientErrors(email, password, { requireValues: attemptedSubmit });
+  const canSubmit = canEnableSignupSubmit({
+    email,
+    password,
+    acceptedTerms,
+    loading,
+  });
 
   async function handleResendVerification() {
     if (resendDisabled) return;
@@ -273,7 +288,7 @@ export default function SignupPage() {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
               <div>
                 <label htmlFor="signup-email" className="mb-2 block text-sm font-medium text-slate-100">
                   Email address
@@ -288,7 +303,14 @@ export default function SignupPage() {
                   className={INPUT}
                   required
                   disabled={loading}
+                  aria-invalid={!!fieldErrors.email}
+                  aria-describedby={fieldErrors.email ? "signup-email-error" : undefined}
                 />
+                {fieldErrors.email ? (
+                  <p id="signup-email-error" role="alert" className="mt-2 text-xs text-red-400">
+                    {fieldErrors.email}
+                  </p>
+                ) : null}
               </div>
 
               <div>
@@ -299,14 +321,21 @@ export default function SignupPage() {
                   id="signup-password"
                   type="password"
                   autoComplete="new-password"
-                  placeholder="At least 8 characters"
+                  placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className={INPUT}
                   required
-                  minLength={8}
+                  minLength={MIN_PASSWORD_LENGTH}
                   disabled={loading}
+                  aria-invalid={!!fieldErrors.password}
+                  aria-describedby={fieldErrors.password ? "signup-password-error" : undefined}
                 />
+                {fieldErrors.password ? (
+                  <p id="signup-password-error" role="alert" className="mt-2 text-xs text-red-400">
+                    {fieldErrors.password}
+                  </p>
+                ) : null}
               </div>
 
               <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-slate-300">
@@ -336,7 +365,7 @@ export default function SignupPage() {
 
               <button
                 type="submit"
-                disabled={loading || !acceptedTerms}
+                disabled={!canSubmit}
                 className="flex h-12 w-full items-center justify-center rounded-lg bg-cyan-400 px-4 text-sm font-semibold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-slate-300"
               >
                 {loading ? "Creating account…" : "Join free"}

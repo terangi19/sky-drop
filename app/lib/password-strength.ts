@@ -1,3 +1,6 @@
+/** Minimum password length for signup and strength checks. Keep in sync with Firebase/auth if raised. */
+export const MIN_PASSWORD_LENGTH = 8;
+
 export function getPasswordRequirements(password: string): { label: string; met: boolean }[] {
   const types = [
     /[A-Z]/.test(password),
@@ -7,7 +10,7 @@ export function getPasswordRequirements(password: string): { label: string; met:
   ].filter(Boolean).length;
 
   return [
-    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: `At least ${MIN_PASSWORD_LENGTH} characters`, met: password.length >= MIN_PASSWORD_LENGTH },
     {
       label: "At least 3 of: uppercase, lowercase, number, special",
       met: types >= 3,
@@ -16,8 +19,8 @@ export function getPasswordRequirements(password: string): { label: string; met:
 }
 
 export function validatePasswordStrength(password: string): { valid: boolean; error?: string } {
-  if (password.length < 8) {
-    return { valid: false, error: "Password must be at least 8 characters" };
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return { valid: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` };
   }
 
   const types = [
