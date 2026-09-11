@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { parseIpFromRequest } from "../../lib/geo-check";
@@ -42,17 +42,13 @@ import { validateListingFillFields } from "../../lib/awhina-listing-fill-tools";
 import { assessDraftTransition } from "../../lib/awhina-draft-transition";
 import { sanitizeProfileFillProposal } from "../../lib/awhina-profile-tools";
 import { enforcePublicListingDescription } from "../../lib/awhina-listing-composer";
-import { enforcePublicListingDescriptionAsync } from "../../lib/awhina-listing-composer.server";
 import {
   buildDescriptionWriterFacts,
   validateAiListingDescription,
 } from "../../lib/awhina-description-writer";
 import type { SkyAiProfileContext } from "../../lib/sky-ai-profile-context";
-import { runVisionCapability } from "../../lib/awhina-vision-capability";
-import { runVisionListing } from "../../lib/awhina-vision-listing";
 import { isAwhinaVisionListingEnabledServer } from "../../lib/awhina-vision-listing-flags";
 import { confidenceLevelToScore } from "../../lib/awhina-confidence-levels";
-import { runFreeformCapability } from "../../lib/awhina-freeform-capability";
 import {
   buildPostListingNextActions,
   isCompareRequest,
@@ -65,7 +61,6 @@ import {
   type AwhinaProgressState,
   type ListingFacts,
 } from "../../lib/awhina-product-ux";
-import { fetchListingFactsForCompare } from "../../lib/awhina-listing-compare.server";
 import { withOpenAiSpendContext } from "../../lib/openai-spend-guard";
 
 function listingFillConfirmReply(fill: SkyAiListingFill | undefined): string {
@@ -128,6 +123,9 @@ async function enhanceAiOwnedDescription(
     ? validateAiListingDescription(fill.description, buildDescriptionWriterFacts(fill))
     : null;
   try {
+    const { enforcePublicListingDescriptionAsync } = await import(
+      "../../lib/awhina-listing-composer.server"
+    );
     return await enforcePublicListingDescriptionAsync(fill, {
       force: rewriteRequested || !stillValid,
     });
@@ -395,7 +393,7 @@ function parseSearchResultMeta(raw: unknown): {
   return Object.keys(meta).length ? meta : undefined;
 }
 
-/** Local/canonical: instant. Vision/freeform: few progress states + chunked deltas. */
+/** Local/canonical: instant. Vision/freeform: progress + chunked deltas, no artificial delays. */
 function respondPayload(
   stream: boolean,
   payload: Record<string, unknown>,
@@ -423,16 +421,14 @@ function respondPayload(
 
   const encoder = new TextEncoder();
   const body = new ReadableStream({
-    async start(controller) {
+    start(controller) {
       try {
         for (const state of progress) {
           controller.enqueue(encoder.encode(sseLine({ type: "progress", state })));
-          await new Promise((r) => setTimeout(r, 40));
         }
         if (chunk) {
           for (const part of chunkReplyText(reply)) {
             controller.enqueue(encoder.encode(sseLine({ type: "delta", text: part })));
-            await new Promise((r) => setTimeout(r, 12));
           }
         } else {
           controller.enqueue(encoder.encode(sseLine({ type: "delta", text: reply })));
@@ -452,13 +448,17 @@ function respondPayload(
   });
 }
 
-async function safePersist(
-  fn: () => Promise<void>
-): Promise<void> {
+function safePersist(fn: () => Promise<void>): void {
+  const run = () =>
+    fn().catch((e) => {
+      console.warn("sky-ai: conversation save failed (chat still works):", e);
+    });
   try {
-    await fn();
-  } catch (e) {
-    console.warn("sky-ai: conversation save failed (chat still works):", e);
+    // Keep TTFB/SSE unblocked; Vercel after() holds the isolate for the write.
+    after(run);
+  } catch {
+    // Tests call POST() without Next request ALS — still must not await persist.
+    void run();
   }
 }
 
@@ -613,6 +613,7 @@ async function handleSkyAiPost(
   // ── Vision: ONE shared multimodal identifier (not the legacy flat extractor) ──
   if (images.length > 0) {
     if (isAwhinaVisionListingEnabledServer()) {
+      const { runVisionListing } = await import("../../lib/awhina-vision-listing");
       const vision = await runVisionListing({
         images,
         message,
@@ -643,7 +644,7 @@ async function handleSkyAiPost(
           "Add photos, then hit **Publish**."
       );
       if (uid && conversationId) {
-        await safePersist(() =>
+        safePersist(() =>
           appendSkyAiExchange(conversationId, uid, message || "[image]", reply, undefined)
         );
       }
@@ -692,6 +693,7 @@ async function handleSkyAiPost(
     }
 
     // Legacy fallback only when shared vision listing flag is off.
+    const { runVisionCapability } = await import("../../lib/awhina-vision-capability");
     const vision = await runVisionCapability({
       images,
       message,
@@ -714,7 +716,7 @@ async function handleSkyAiPost(
       vision.reply || listingFillConfirmReply(listingFill) || "Add photos, then hit **Publish**."
     );
     if (uid && conversationId) {
-      await safePersist(() =>
+      safePersist(() =>
         appendSkyAiExchange(conversationId, uid, message || "[image]", reply, undefined)
       );
     }
@@ -793,6 +795,9 @@ async function handleSkyAiPost(
               ? parseCompareTitlesFromMessage(message)
               : (awhinaSession?.task?.compareCandidates || []).slice(0, 4);
         if (needles.length >= 2) {
+          const { fetchListingFactsForCompare } = await import(
+            "../../lib/awhina-listing-compare.server"
+          );
           const fetched = await fetchListingFactsForCompare(needles);
           if (fetched.some((f) => f.price || f.condition || f.location || f.mileage)) {
             comparePageListings = fetched;
@@ -949,7 +954,7 @@ async function handleSkyAiPost(
         source: body.source === "voice" ? "voice" : "text",
       });
       if (uid && conversationId) {
-        await safePersist(() =>
+        safePersist(() =>
           appendSkyAiExchange(conversationId, uid, message, reply, navigateTo)
         );
       }
@@ -1000,7 +1005,7 @@ async function handleSkyAiPost(
       source: "text",
     });
     if (uid && conversationId) {
-      await safePersist(() =>
+      safePersist(() =>
         appendSkyAiExchange(conversationId, uid, message, reply, taskReply.navigateTo)
       );
     }
@@ -1033,7 +1038,7 @@ async function handleSkyAiPost(
       vagueFollowUp: true,
     });
     if (uid && conversationId) {
-      await safePersist(() =>
+      safePersist(() =>
         appendSkyAiExchange(conversationId, uid, message, contextualActions, undefined)
       );
     }
@@ -1057,7 +1062,7 @@ async function handleSkyAiPost(
   if (shortcut) {
     const reply = stripBold(shortcut.reply);
     if (uid && conversationId) {
-      await safePersist(() =>
+      safePersist(() =>
         appendSkyAiExchange(conversationId, uid, message, reply, shortcut.navigateTo)
       );
     }
@@ -1078,6 +1083,7 @@ async function handleSkyAiPost(
       awhina: { routing: "guest_auth_gate", avoidedAi: true },
     }, 401);
   }
+  const { runFreeformCapability } = await import("../../lib/awhina-freeform-capability");
   const llm = await runFreeformCapability({
     message,
     pathname,
@@ -1131,7 +1137,7 @@ async function handleSkyAiPost(
   }
 
   if (uid && conversationId) {
-    await safePersist(() =>
+    safePersist(() =>
       appendSkyAiExchange(conversationId, uid, message, finalReply, finalNav)
     );
   }

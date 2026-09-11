@@ -12,6 +12,7 @@ import {
   AWHINA_THINKING,
 } from "../lib/awhina-brand";
 import { skyAiRuleFallbackText } from "../lib/sky-ai-rule-fallback";
+import { fetchSkyAiStatus } from "../lib/sky-ai-status-client";
 import { detectSkyAiIntent } from "../lib/sky-ai-intent";
 import {
   dispatchListingFill,
@@ -405,8 +406,7 @@ export default function SkyAiChatPanel({
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/sky-ai/status")
-      .then((res) => (res.ok ? res.json() : null))
+    fetchSkyAiStatus()
       .then((data) => {
         if (!cancelled && data && typeof data.openaiReady === "boolean") {
           setOpenAiReady(data.openaiReady);
