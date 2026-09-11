@@ -5,10 +5,11 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
 import Background from "../components/Background";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { LISTING_GRID, PAGE_SHELL_WIDE } from "../lib/page-layout";
 import ListingImage from "../components/ListingImage";
+import { BROWSE_LISTINGS_LIMIT } from "../lib/firestore-query-limits";
 
 const CATEGORIES = ["All", "Concerts & Gigs", "Festivals", "Sports", "Workshops & Classes", "Community", "Food & Drink", "Other"];
 
@@ -17,7 +18,12 @@ export default function EventsPage() {
   const [category, setCategory] = useState("All");
 
   useEffect(() => {
-    const q = query(collection(db, "listings"), where("type", "==", "event"));
+    const q = query(
+      collection(db, "listings"),
+      where("type", "==", "event"),
+      orderBy("createdAt", "desc"),
+      limit(BROWSE_LISTINGS_LIMIT)
+    );
     const unsub = onSnapshot(q, (snap) => {
       const items: any[] = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any)).filter((i: any) => i.status === "live");
       items.sort((a: any, b: any) => ((b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)));

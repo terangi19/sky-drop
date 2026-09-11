@@ -4,11 +4,10 @@ import { useEffect, useState } from "react";
 import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { db } from "./lib/firebase";
 import { Listing } from "../types/firestore";
+import { LISTINGS_POLL_MS, SEARCH_LISTINGS_LIMIT } from "./lib/firestore-query-limits";
 
 /** Marketplace search / browse needs services + rentals, not only the newest physicals. */
-const GLOBAL_LISTINGS_LIMIT = 400;
-/** Search does not need live snapshots — poll instead of a realtime listener. */
-const LISTINGS_POLL_MS = 60_000;
+const GLOBAL_LISTINGS_LIMIT = SEARCH_LISTINGS_LIMIT;
 
 export function useListings(sellerEmail?: string) {
   const [listings, setListings] = useState<Listing[]>([]);
@@ -25,7 +24,6 @@ export function useListings(sellerEmail?: string) {
     }
     constraints.push(orderBy("createdAt", "desc"));
     constraints.push(limit(sellerEmail ? 100 : GLOBAL_LISTINGS_LIMIT));
-
     const listingsQuery = query(collection(db, "listings"), ...constraints);
 
     async function fetchListings() {
@@ -36,9 +34,9 @@ export function useListings(sellerEmail?: string) {
         try {
           const snapshot = await getDocs(listingsQuery);
           if (!mounted) return;
-          const items = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...(doc.data() as Omit<Listing, "id">),
+          const items = snapshot.docs.map((docSnap) => ({
+            id: docSnap.id,
+            ...(docSnap.data() as Omit<Listing, "id">),
           })) as Listing[];
           setListings(items);
           setError(false);
@@ -59,10 +57,15 @@ export function useListings(sellerEmail?: string) {
 
     fetchListings();
     const interval = setInterval(fetchListings, LISTINGS_POLL_MS);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void fetchListings();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       mounted = false;
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [sellerEmail]);
 

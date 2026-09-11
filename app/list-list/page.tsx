@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User } from "firebase/auth";
-import { collection, deleteDoc, doc, onSnapshot, query, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, limit, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
@@ -18,6 +18,11 @@ import { LISTING_GRID, PAGE_SHELL_CHAT } from "../lib/page-layout";
 import { timeAgo } from "../lib/listing-utils";
 import ListingImage, { listingHasImage } from "../components/ListingImage";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
+import {
+  SELLER_LISTINGS_LIMIT,
+  SELLER_PAGE_POLL_MS,
+  SELLER_TRADE_POSTS_LIMIT,
+} from "../lib/firestore-query-limits";
 
 interface Listing {
   id: string;
@@ -58,40 +63,52 @@ export default function ListListPage() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
+    const sellerEmail = user.email;
 
-    const q1 = query(collection(db, "listings"), where("sellerEmail", "==", user.email));
-    const unsub1 = onSnapshot(q1, (snap) => {
-      if (cancelled) return;
-      const physical = snap.docs.map(d => ({ id: d.id, ...d.data(), _collection: "listings" } as Listing));
-      setListings(prev => {
-        const digital = prev.filter(p => p._collection === "tradePosts");
-        const merged = mergeListings(physical, digital);
+    async function fetchMine() {
+      if (cancelled || !sellerEmail) return;
+      try {
+        const [listingsSnap, tradeSnap] = await Promise.all([
+          getDocs(
+            query(
+              collection(db, "listings"),
+              where("sellerEmail", "==", sellerEmail),
+              limit(SELLER_LISTINGS_LIMIT)
+            )
+          ),
+          getDocs(
+            query(
+              collection(db, "tradePosts"),
+              where("sellerEmail", "==", sellerEmail),
+              limit(SELLER_TRADE_POSTS_LIMIT)
+            )
+          ),
+        ]);
+        if (cancelled) return;
+        const physical = listingsSnap.docs.map(
+          (d) => ({ id: d.id, ...d.data(), _collection: "listings" } as Listing)
+        );
+        const digital = tradeSnap.docs.map(
+          (d) => ({ id: d.id, ...d.data(), _collection: "tradePosts" } as Listing)
+        );
+        setListings(mergeListings(physical, digital));
         setLoading(false);
-        return merged;
-      });
-    }, (error) => {
-      console.error(error);
-      if (!cancelled) setLoading(false);
-      showToast("Failed to load listings: " + error.message, "error");
-    });
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) setLoading(false);
+        showToast(
+          "Failed to load listings: " + (error instanceof Error ? error.message : "unknown error"),
+          "error"
+        );
+      }
+    }
 
-    const q2 = query(collection(db, "tradePosts"), where("sellerEmail", "==", user.email));
-    const unsub2 = onSnapshot(q2, (snap) => {
-      if (cancelled) return;
-      const digital = snap.docs.map(d => ({ id: d.id, ...d.data(), _collection: "tradePosts" } as Listing));
-      setListings(prev => {
-        const physical = prev.filter(p => p._collection === "listings");
-        const merged = mergeListings(physical, digital);
-        setLoading(false);
-        return merged;
-      });
-    }, (error) => {
-      console.error(error);
-      if (!cancelled) setLoading(false);
-      showToast("Failed to load trade posts: " + error.message, "error");
-    });
-
-    return () => { cancelled = true; unsub1(); unsub2(); };
+    fetchMine();
+    const interval = setInterval(fetchMine, SELLER_PAGE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [user]);
 
   function mergeListings(...arrays: Listing[][]): Listing[] {

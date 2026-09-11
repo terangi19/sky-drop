@@ -99,6 +99,8 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', '@stripe/react-stripe-js'],
   },
+  // Keep the OpenAI SDK out of browser chunks even if a server module is imported.
+  serverExternalPackages: ["openai"],
 
   async redirects() {
 

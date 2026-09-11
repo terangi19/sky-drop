@@ -192,7 +192,14 @@ export default function SellerPage() {
         }
 
         // Listings
-        const listingsSnap = await getDocs(query(collection(db, "listings"), where("sellerEmail", "==", email)));
+        const listingsSnap = await getDocs(
+          query(
+            collection(db, "listings"),
+            where("sellerEmail", "==", email),
+            orderBy("createdAt", "desc"),
+            limit(100)
+          )
+        );
         const items = listingsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Listing);
         items.sort((a, b) => {
           const ta = a.createdAt?.toMillis?.() || 0;

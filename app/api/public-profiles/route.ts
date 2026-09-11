@@ -55,24 +55,30 @@ export async function POST(req: NextRequest) {
     const profiles: Record<string, Record<string, unknown>> = {};
     const emailToUid: Record<string, string> = {};
 
-    if (uids.length > 0) {
-      // Firestore getAll supports up to 100 refs; we cap below that.
-      const refs = uids.map((uid) => db.collection("profiles").doc(uid));
-      const snaps = await db.getAll(...refs);
-      for (const snap of snaps) {
-        if (!snap.exists) continue;
-        profiles[snap.id] = pickPublicProfileFields(snap.id, snap.data() || {});
-      }
+    const emailChunks: string[][] = [];
+    for (let i = 0; i < emails.length; i += 10) {
+      emailChunks.push(emails.slice(i, i + 10));
     }
 
-    // Legacy listings may only store sellerEmail — resolve to profile UID in chunks of 10.
-    for (let i = 0; i < emails.length; i += 10) {
-      const chunk = emails.slice(i, i + 10);
-      const snap = await db
-        .collection("profiles")
-        .where("email", "in", chunk)
-        .limit(chunk.length)
-        .get();
+    const [uidSnaps, ...emailSnaps] = await Promise.all([
+      uids.length > 0
+        ? db.getAll(...uids.map((uid) => db.collection("profiles").doc(uid)))
+        : Promise.resolve([] as Awaited<ReturnType<typeof db.getAll>>),
+      ...emailChunks.map((chunk) =>
+        db
+          .collection("profiles")
+          .where("email", "in", chunk)
+          .limit(chunk.length)
+          .get()
+      ),
+    ]);
+
+    for (const snap of uidSnaps) {
+      if (!snap.exists) continue;
+      profiles[snap.id] = pickPublicProfileFields(snap.id, snap.data() || {});
+    }
+
+    for (const snap of emailSnaps) {
       for (const doc of snap.docs) {
         const data = doc.data() || {};
         const email = String(data.email || "").trim().toLowerCase();

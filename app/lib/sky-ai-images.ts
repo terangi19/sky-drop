@@ -68,28 +68,34 @@ export async function prepareSkyAiImages(
   quality = 0.85
 ): Promise<{ dataUrls: string[]; names: string[]; files: File[] } | { error: string }> {
   const slice = files.slice(0, SKY_AI_MAX_IMAGES_PER_MESSAGE);
-  const dataUrls: string[] = [];
-  const names: string[] = [];
-  const outFiles: File[] = [];
-
   for (const file of slice) {
     if (!file.type.startsWith("image/")) {
       return { error: `"${file.name}" is not an image.` };
     }
-    const nsfw = await checkImage(file);
-    if (!nsfw.safe) {
-      return { error: `"${file.name}" flagged: ${nsfw.reason || "not allowed"}.` };
-    }
-    const { dataUrl, file: compressed } = await compressImageFile(file, maxSide, quality);
-    if (dataUrl.length > 6_000_000) {
-      return { error: `"${file.name}" is too large after compression.` };
-    }
-    dataUrls.push(dataUrl);
-    names.push(compressed.name);
-    outFiles.push(compressed);
   }
 
-  return { dataUrls, names, files: outFiles };
+  try {
+    const compressed = await Promise.all(
+      slice.map(async (file) => {
+        const nsfw = await checkImage(file);
+        if (!nsfw.safe) {
+          throw new Error(`"${file.name}" flagged: ${nsfw.reason || "not allowed"}.`);
+        }
+        const result = await compressImageFile(file, maxSide, quality);
+        if (result.dataUrl.length > 6_000_000) {
+          throw new Error(`"${file.name}" is too large after compression.`);
+        }
+        return result;
+      })
+    );
+    return {
+      dataUrls: compressed.map((c) => c.dataUrl),
+      names: compressed.map((c) => c.file.name),
+      files: compressed.map((c) => c.file),
+    };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not process images." };
+  }
 }
 
 export function dataUrlToFile(dataUrl: string, name: string): File {

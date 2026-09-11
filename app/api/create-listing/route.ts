@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { CsrfError, requireCsrf } from "../../lib/csrf";
 import { parseIpFromRequest } from "../../lib/geo-check";
@@ -44,6 +44,61 @@ function detectScam(text: string): { isScam: boolean; keywords: string[] } {
 function isPriceSuspicious(price: number, category?: string): boolean {
   if (!category || !CATEGORY_PRICE_THRESHOLDS[category]) return false;
   return price < CATEGORY_PRICE_THRESHOLDS[category];
+}
+
+const SAVED_SEARCH_NOTIFY_CAP = 50;
+
+async function runCreateListingSideEffects(opts: {
+  listingId: string;
+  listingWithId: Record<string, unknown>;
+  sanitizedTitle: string;
+  category: string;
+  notifyFromEmail: string;
+  listingImage: string;
+}): Promise<void> {
+  const titleLower = opts.sanitizedTitle.toLowerCase();
+  const categoryLower = opts.category.toLowerCase();
+  try {
+    const searches = await getAdminDb().collection("savedSearches").limit(500).get();
+    const notifications: Array<ReturnType<typeof createSystemNotification>> = [];
+    for (const doc of searches.docs) {
+      if (notifications.length >= SAVED_SEARCH_NOTIFY_CAP) break;
+      const s = doc.data();
+      const userEmail = s.userEmail;
+      if (!userEmail || typeof userEmail !== "string") continue;
+      const q = String(s.query || "").toLowerCase();
+      const cat = String(s.category || "All").toLowerCase();
+      const matchesQuery = !q || titleLower.includes(q);
+      const matchesCategory = cat === "all" || categoryLower === cat;
+      if (matchesQuery && matchesCategory) {
+        notifications.push(
+          createSystemNotification({
+            targetEmail: userEmail,
+            fromEmail: opts.notifyFromEmail,
+            type: "saved_search_match",
+            title: "New listing matches your search",
+            message: `New ${opts.category}: "${opts.sanitizedTitle}"`,
+            listingId: opts.listingId,
+            listingTitle: opts.sanitizedTitle,
+            listingImage: opts.listingImage,
+          })
+        );
+      }
+    }
+    if (notifications.length > 0) {
+      await Promise.all(notifications);
+    }
+  } catch (e) {
+    console.error("[create-listing] Saved-search notification failed:", e);
+  }
+
+  try {
+    console.log("[create-listing] Running matchmaking for listing:", opts.listingId, opts.listingWithId.type);
+    await runMatchmaking(opts.listingWithId as Parameters<typeof runMatchmaking>[0]);
+    console.log("[create-listing] Matchmaking completed for listing:", opts.listingId);
+  } catch (e) {
+    console.error("[create-listing] Matchmaking failed:", e);
+  }
 }
 
 async function getSellerProfileForUid(uid: string, email?: string | null) {
@@ -294,9 +349,18 @@ export async function POST(req: NextRequest) {
     let salesCount = 0;
     let kycApproved = false;
     let profileUsername = "";
+    let sellerProfile: Record<string, unknown> | null = null;
 
     if (isAdminInitialized()) {
-      const sellerProfile = await getSellerProfileForUid(token.uid, token.email);
+      const [loadedProfile, activeCountSnap] = await Promise.all([
+        getSellerProfileForUid(token.uid, token.email),
+        getAdminDb().collection("listings")
+          .where("sellerEmail", "==", token.email)
+          .where("status", "==", "live")
+          .count()
+          .get(),
+      ]);
+      sellerProfile = loadedProfile;
       let reportsCount = 0;
       if (sellerProfile) {
         salesCount = Number(sellerProfile.salesCount) || 0;
@@ -327,12 +391,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Optimized: Use count query instead of fetching all documents
-      const activeListingsCount = (await getAdminDb().collection("listings")
-        .where("sellerEmail", "==", token.email)
-        .where("status", "==", "live")
-        .count()
-        .get()).data().count;
+      const activeListingsCount = activeCountSnap.data().count;
 
       // KYC requirement paused - unlimited listings for all users
       const maxListings = 9999;
@@ -363,12 +422,14 @@ export async function POST(req: NextRequest) {
     const { resolveListingPaymentTypeForWrite } = await import("../../lib/listing-payment-type-write");
     const paymentType = resolveListingPaymentTypeForWrite(requestedPaymentType);
     if (paymentType === "stripe") {
-      let profileForStripe: Record<string, unknown> | null = null;
-      if (isAdminInitialized()) {
-        profileForStripe = await getSellerProfileForUid(token.uid, token.email);
-      } else {
-        const snap = await getServerDb(idToken).collection("profiles").doc(token.uid).get();
-        if (snap.exists) profileForStripe = snap.data() as Record<string, unknown>;
+      let profileForStripe: Record<string, unknown> | null = sellerProfile;
+      if (!profileForStripe) {
+        if (isAdminInitialized()) {
+          profileForStripe = await getSellerProfileForUid(token.uid, token.email);
+        } else {
+          const snap = await getServerDb(idToken).collection("profiles").doc(token.uid).get();
+          if (snap.exists) profileForStripe = snap.data() as Record<string, unknown>;
+        }
       }
       const stripeErr = await stripeListingPublishErrorAsync(profileForStripe);
       if (stripeErr) {
@@ -478,48 +539,21 @@ export async function POST(req: NextRequest) {
     const ref = await db.collection("listings").add(finalData);
     const listingId = ref.id;
 
-    // Saved-search alerts: notify users whose saved search matches this new listing
-    // Skip for demo listings to keep them out of marketplace logic
+    // Saved-search alerts + matchmaking are not needed for the client response.
+    // Run after() so Vercel keeps the isolate alive without blocking publish latency.
     if (isAdminInitialized() && !finalData.isDemo) {
-      try {
-        const searches = await getAdminDb().collection("savedSearches").limit(500).get();
-        const titleLower = sanitizedTitle.toLowerCase();
-        const categoryLower = String(category || "Other").toLowerCase();
-        for (const doc of searches.docs) {
-          const s = doc.data();
-          const userEmail = s.userEmail;
-          if (!userEmail || typeof userEmail !== "string") continue;
-          const q = String(s.query || "").toLowerCase();
-          const cat = String(s.category || "All").toLowerCase();
-          const matchesQuery = !q || titleLower.includes(q);
-          const matchesCategory = cat === "all" || categoryLower === cat;
-          if (matchesQuery && matchesCategory) {
-            await createSystemNotification({
-              targetEmail: userEmail,
-              fromEmail: token.email || "system@skydrop.nz",
-              type: "saved_search_match",
-              title: "New listing matches your search",
-              message: `New ${String(category || "listing")}: "${sanitizedTitle}"`,
-              listingId,
-              listingTitle: sanitizedTitle,
-              listingImage: String((finalData.images as string[])?.[0] || ""),
-            });
-          }
-        }
-      } catch (e) {
-        console.error("[create-listing] Saved-search notification failed:", e);
-      }
-
-      // Auto-Matching: notify users of matching listings/wanted posts
-      // Skip for demo listings to keep them out of marketplace logic
-      try {
-        const listingWithId = { ...finalData, id: listingId, type: listingType || "physical" };
-        console.log("[create-listing] Running matchmaking for listing:", listingId, listingWithId.type);
-        await runMatchmaking(listingWithId);
-        console.log("[create-listing] Matchmaking completed for listing:", listingId);
-      } catch (e) {
-        console.error("[create-listing] Matchmaking failed:", e);
-      }
+      const listingWithId = { ...finalData, id: listingId, type: listingType || "physical" };
+      const notifyFromEmail = token.email || "system@skydrop.nz";
+      after(() =>
+        runCreateListingSideEffects({
+          listingId,
+          listingWithId,
+          sanitizedTitle,
+          category: String(category || "Other"),
+          notifyFromEmail,
+          listingImage: String((finalData.images as string[])?.[0] || ""),
+        })
+      );
     }
 
     return NextResponse.json({

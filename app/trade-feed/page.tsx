@@ -3,11 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import Navbar from "../components/Navbar";
 import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Background from "../components/Background";
-import CheckoutModal from "../components/CheckoutModal";
-import PromoteModal from "../components/PromoteModal";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
@@ -27,6 +26,9 @@ import {
   resolveSellerCardProfileSlug,
 } from "../lib/public-display";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
+
+const CheckoutModal = dynamic(() => import("../components/CheckoutModal"), { ssr: false });
+const PromoteModal = dynamic(() => import("../components/PromoteModal"), { ssr: false });
 
 const WORLDS = [
   { id: "all", label: "Categories", icon: "🌐", accent: "border-sky-500/20", glow: "shadow-[0_0_12px_rgba(14,165,233,0.06)]", color: "from-sky-400" },

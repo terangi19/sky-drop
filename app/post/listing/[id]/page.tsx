@@ -3,18 +3,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import Navbar from "../../../components/Navbar";
 import Background from "../../../components/Background";
 import ReportModal from "../../../components/ReportModal";
-import CheckoutModal from "../../../components/CheckoutModal";
 import SellerPaymentMethodControl from "../../../components/SellerPaymentMethodControl";
-import PromoteModal from "../../../components/PromoteModal";
 import JobApplicationModal from "../../../components/JobApplicationModal";
 import ArrangePurchaseModal from "../../../components/ArrangePurchaseModal";
 import { showToast } from "../../../components/Toast";
 import { createNotification } from "../../../lib/notifications";
 import { User } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, increment, onSnapshot, query, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, increment, limit, onSnapshot, query, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../../../lib/firebase";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
@@ -22,6 +21,14 @@ import { isFullyVerifiedSeller, profileEmailVerified } from "../../../lib/seller
 import { detectSuspiciousPrice } from "../../../lib/pricedetection";
 import { safeGetDoc, safeOnSnapshot, parseFirestoreError, isOnline } from "../../../lib/firestore";
 import { getFreshIdToken } from "../../../lib/api-auth";
+import {
+  LISTING_ORDERS_LIMIT,
+  LISTING_QNA_LIMIT,
+  LISTING_REPORTS_LIMIT,
+  SELLER_OTHER_LISTINGS_FETCH_LIMIT,
+  SELLER_REVIEWS_LIMIT,
+  SELLER_SALES_LIMIT,
+} from "../../../lib/firestore-query-limits";
 import { trackFunnelEvent } from "../../../lib/funnel-events";
 import {
   isListingAvailableForPurchase,
@@ -68,6 +75,9 @@ import { MOBILE_STICKY_CTA } from "../../../lib/page-layout";
 import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
 import { V1_ARRANGE_SAFETY_ONE_LINER } from "../../../lib/conversation-safety";
 import EmptyState from "../../../components/EmptyState";
+
+const CheckoutModal = dynamic(() => import("../../../components/CheckoutModal"), { ssr: false });
+const PromoteModal = dynamic(() => import("../../../components/PromoteModal"), { ssr: false });
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -594,7 +604,7 @@ export default function ListingPage() {
       }
 
       if (!sellerEmail) return;
-      getDocs(query(collection(db, "reports"), where("reportedUserEmail", "==", sellerEmail), where("status", "==", "pending"))).then((reportsSnap) => {
+      getDocs(query(collection(db, "reports"), where("reportedUserEmail", "==", sellerEmail), where("status", "==", "pending"), limit(LISTING_REPORTS_LIMIT))).then((reportsSnap) => {
         if (mounted) setSellerReportsCount(reportsSnap.size);
       }).catch((e) => console.error("Failed to fetch reports:", e));
     });
@@ -607,7 +617,8 @@ export default function ListingPage() {
     const q = query(
       collection(db, "purchases"),
       where("listingId", "==", listingId),
-      where("buyerEmail", "==", user.email)
+      where("buyerEmail", "==", user.email),
+      limit(LISTING_ORDERS_LIMIT)
     );
     const unsub = onSnapshot(
       q,
@@ -629,7 +640,8 @@ export default function ListingPage() {
     const q = query(
       collection(db, "purchases"),
       where("listingId", "==", listingId),
-      where("sellerEmail", "==", user.email)
+      where("sellerEmail", "==", user.email),
+      limit(LISTING_ORDERS_LIMIT)
     );
     const unsub = onSnapshot(
       q,
@@ -721,8 +733,8 @@ export default function ListingPage() {
       (async () => {
         try {
           const [reviewSnap, salesSnap] = await Promise.all([
-            getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", listing.sellerEmail))),
-            getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", listing.sellerEmail), where("status", "in", ["delivered", "completed"]))),
+            getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", listing.sellerEmail), limit(SELLER_REVIEWS_LIMIT))),
+            getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", listing.sellerEmail), where("status", "in", ["delivered", "completed"]), limit(SELLER_SALES_LIMIT))),
           ]);
           const ratings: number[] = [];
           reviewSnap.docs.forEach((d) => {
@@ -754,7 +766,7 @@ export default function ListingPage() {
     if (!listing?.sellerEmail || !listingId) return;
     let cancelled = false;
     const run = () => {
-      getDocs(query(collection(db, "listings"), where("sellerEmail", "==", listing.sellerEmail))).then((snap) => {
+      getDocs(query(collection(db, "listings"), where("sellerEmail", "==", listing.sellerEmail), limit(SELLER_OTHER_LISTINGS_FETCH_LIMIT))).then((snap) => {
         if (cancelled) return;
         const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((l: any) => l.id !== listingId && isListingVisibleInMarketplace(l));
         setSellerListings(items.slice(0, 5));
@@ -815,7 +827,7 @@ export default function ListingPage() {
   useEffect(() => {
     if (!listingId) return;
     const unsub = onSnapshot(
-      query(collection(db, "listingQuestions"), where("listingId", "==", listingId)),
+      query(collection(db, "listingQuestions"), where("listingId", "==", listingId), limit(LISTING_QNA_LIMIT)),
       (snap) => {
         const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         items.sort((a: any, b: any) => ((a.createdAt?.toDate?.() || 0) - (b.createdAt?.toDate?.() || 0)));

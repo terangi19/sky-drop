@@ -50,10 +50,8 @@ export function clearExpiredCache(): void {
   }
 }
 
-// Clear expired cache every minute
-if (typeof window !== 'undefined') {
-  setInterval(clearExpiredCache, 60 * 1000);
-}
+// No module-level timer — this helper is unused in production paths.
+// Callers that need eviction can invoke clearExpiredCache() themselves.
 
 /**
  * Helper to generate cache keys from query parameters
