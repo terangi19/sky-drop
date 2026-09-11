@@ -44,10 +44,10 @@ describe("signup client validation", () => {
     });
   });
 
-  it("enables Join free only with valid email, min-length password, and accepted terms", () => {
+  it("enables Join free only with valid email, strong password, and accepted terms", () => {
     const valid = {
       email: "you@example.com",
-      password: "a".repeat(MIN_PASSWORD_LENGTH),
+      password: "Password1",
       acceptedTerms: true,
     };
     expect(canEnableSignupSubmit(valid)).toBe(true);
@@ -55,5 +55,17 @@ describe("signup client validation", () => {
     expect(canEnableSignupSubmit({ ...valid, password: "short" })).toBe(false);
     expect(canEnableSignupSubmit({ ...valid, acceptedTerms: false })).toBe(false);
     expect(canEnableSignupSubmit({ ...valid, loading: true })).toBe(false);
+  });
+
+  it("keeps Join free disabled for long passwords that fail server strength rules", () => {
+    const base = {
+      email: "you@example.com",
+      acceptedTerms: true,
+    };
+    expect(canEnableSignupSubmit({ ...base, password: "password1" })).toBe(false);
+    expect(canEnableSignupSubmit({ ...base, password: " ".repeat(MIN_PASSWORD_LENGTH) })).toBe(false);
+    expect(getSignupClientErrors("you@example.com", "password1").password).toMatch(
+      /at least 3 of/i
+    );
   });
 });

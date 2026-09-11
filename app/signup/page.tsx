@@ -321,7 +321,7 @@ export default function SignupPage() {
                   id="signup-password"
                   type="password"
                   autoComplete="new-password"
-                  placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                  placeholder="8+ characters, mixed types"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className={INPUT}

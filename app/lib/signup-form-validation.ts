@@ -1,5 +1,5 @@
 import { validateEmail } from "./api-validation";
-import { MIN_PASSWORD_LENGTH } from "./password-strength";
+import { MIN_PASSWORD_LENGTH, validatePasswordStrength } from "./password-strength";
 
 export { MIN_PASSWORD_LENGTH };
 
@@ -29,8 +29,11 @@ export function getSignupClientErrors(
     passwordError = options?.requireValues
       ? `Password must be at least ${MIN_PASSWORD_LENGTH} characters`
       : null;
-  } else if (!isSignupPasswordLongEnough(password)) {
-    passwordError = `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
+  } else {
+    const strength = validatePasswordStrength(password);
+    if (!strength.valid) {
+      passwordError = strength.error || `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
+    }
   }
 
   return { email: emailError, password: passwordError };
