@@ -61,6 +61,7 @@ import {
   resolvedMarketplaceListingCount,
 } from "./lib/marketplace-listing-count";
 import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
+import { requireWatchlistAccount } from "./lib/require-watchlist-account";
 import { useSellerListingMeta } from "./lib/useSellerListingMeta";
 import { LISTINGS_POLL_MS } from "./lib/firestore-query-limits";
 import {
@@ -248,9 +249,10 @@ export default function Home() {
   const isInWatchlistForCards = useCallback(
     (id: string) => {
       void watchlistTick;
+      if (!user?.uid) return false;
       return isInWatchlist(id);
     },
-    [watchlistTick]
+    [watchlistTick, user?.uid]
   );
 
   const activeCategories = useMemo(() => {
@@ -570,10 +572,12 @@ export default function Home() {
   }, [router]);
 
     const saveToWatchlist = useCallback(async (item: any) => {
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return;
     // Check Firestore for duplicate (in case user is on a different device)
-    if (user?.uid) {
+    if (uid) {
       try {
-        const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
+        const snap = await getDoc(doc(db, "users", uid, "watchlist", item.id));
         if (snap.exists()) {
           showToast("Already in watchlist", "info");
           return;
@@ -612,12 +616,10 @@ export default function Home() {
      )
    );
 
-   if (user?.uid) {
-     setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
+     setDoc(doc(db, "users", uid, "watchlist", item.id), {
        id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
        savedAt: new Date().toISOString(),
        }).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
-     }
 
      void adjustListingWatchlistCount(item.id, 1);
      setListings((prev) =>
@@ -632,22 +634,22 @@ export default function Home() {
   }, [user]);
 
   async function toggleWatchlist(item: any) {
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return;
     const wasSaved = JSON.parse(localStorage.getItem("watchlist") || "[]").some(
       (fav: any) => fav.id === item.id
     );
     const now = new Date().toISOString();
 
-    if (user?.uid) {
-      try {
-        const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
-        if (snap.exists()) {
-          const { deleteDoc } = await import("firebase/firestore");
-          await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id));
-          await deleteDoc(doc(db, "watchlist", `${user.uid}_${item.id}`));
-        }
-      } catch (e) {
-        console.error(e);
+    try {
+      const snap = await getDoc(doc(db, "users", uid, "watchlist", item.id));
+      if (snap.exists()) {
+        const { deleteDoc } = await import("firebase/firestore");
+        await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
+        await deleteDoc(doc(db, "watchlist", `${uid}_${item.id}`));
       }
+    } catch (e) {
+      console.error(e);
     }
 
     const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
@@ -670,23 +672,21 @@ export default function Home() {
     } else {
       existing.unshift(item);
       localStorage.setItem("watchlist", JSON.stringify(existing));
-      if (user?.uid) {
-        const watchData = {
-          id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
-          savedPrice: item.price,
-          savedAt: now,
-          sellerEmail: item.sellerEmail || "",
-          sellerUsername: item.sellerUsername || "",
-          sellerId: item.sellerId || "",
-        };
-        setDoc(doc(db, "users", user.uid, "watchlist", item.id), watchData).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
-        setDoc(doc(db, "watchlist", `${user.uid}_${item.id}`), {
-          ...watchData,
-          userId: user.uid,
-          userEmail: user.email,
-          listingId: item.id,
-        }).catch((e) => { console.error("Watchlist index save failed:", e); });
-      }
+      const watchData = {
+        id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
+        savedPrice: item.price,
+        savedAt: now,
+        sellerEmail: item.sellerEmail || "",
+        sellerUsername: item.sellerUsername || "",
+        sellerId: item.sellerId || "",
+      };
+      setDoc(doc(db, "users", uid, "watchlist", item.id), watchData).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
+      setDoc(doc(db, "watchlist", `${uid}_${item.id}`), {
+        ...watchData,
+        userId: uid,
+        userEmail: user?.email || "",
+        listingId: item.id,
+      }).catch((e) => { console.error("Watchlist index save failed:", e); });
       showToast("Added to watchlist!");
       void adjustListingWatchlistCount(item.id, 1);
       setListings((prev) =>

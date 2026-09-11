@@ -28,6 +28,8 @@ import {
   isMessagingOnlyListingType,
   listingSupportsCondition,
 } from "../../lib/listing-type-config";
+import { requireWatchlistAccount } from "../../lib/require-watchlist-account";
+import { watchlistHeartIsSaved } from "../../lib/watchlist-account-gate";
 
 export type MarketplaceListingCardProps = {
   item: Record<string, any>;
@@ -110,6 +112,11 @@ export default memo(function MarketplaceListingCard({
     item.pricingType === "quote" || item.servicePricingType === "request_quote"
       ? "Quote required"
       : priceLabel;
+  const savedOnAccount = watchlistHeartIsSaved(
+    user?.uid,
+    item.id,
+    isInWatchlist(item.id) ? [item.id] : []
+  );
 
   return (
     <div className="relative h-full">
@@ -278,14 +285,15 @@ export default memo(function MarketplaceListingCard({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              if (!requireWatchlistAccount(user)) return;
               onToggleWatchlist(item);
             }}
-            className={`lc-watchlist touch-target relative inline-flex items-center justify-center text-base ${
-              isInWatchlist(item.id) ? "lc-watchlist--active" : ""
+            className={`lc-watchlist touch-target relative z-10 inline-flex items-center justify-center text-base ${
+              savedOnAccount ? "lc-watchlist--active" : ""
             }`}
-            aria-label={isInWatchlist(item.id) ? "Remove from watchlist" : "Add to watchlist"}
+            aria-label={savedOnAccount ? "Remove from watchlist" : "Add to watchlist"}
           >
-            {isInWatchlist(item.id) ? (
+            {savedOnAccount ? (
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
