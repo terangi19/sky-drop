@@ -9,7 +9,8 @@
  *
  * Known current breaks use vitest `it.fails` so CI stays green while the
  * expected contract remains the source of truth. See
- * docs/awhina-adversarial-qa-report.md.
+ * docs/awhina-adversarial-qa-report.md. Wave 2 lives in
+ * awhina-adversarial-wave-2.test.ts — do not weaken this file's expectations.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

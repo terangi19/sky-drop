@@ -244,3 +244,317 @@ Safe-ish path today: **clean, punctuated, single-shot NZ listings** (the existin
 Not safe: voice, slang (`westie`, `chch`, `kays`, `askin`, `ISO`, `nah`), seller-editor commands, historical prices, contradictions, rentals vs sales, wanted vs find vs sell, and multi-turn corrections.
 
 Do not treat `it.fails` as a product waiver. Those tests are the contract for a later production fix. Do not patch individual examples in production to satisfy this corpus.
+
+---
+
+# Wave 2
+
+**Launch-readiness: still NOT SAFE TO LAUNCH.** Wave 1 gaps are not gone; Wave 2 shows they generalize.
+
+Coverage added (sibling `app/lib/awhina-adversarial-wave-2.test.ts`, same `processCanonicalAwhina` harness):
+
+- More **Wanted**: WTB / ISO / looking-for + post-ad, budget caps, westie/hammers/dunedin/akl, “no scams” / “serious only” / “no timewasters” as instructions, long budget walk, multi-turn `nah bro max 550` + 2 pads
+- More **Rentals**: Chch unit vs equipment, bond **weeks vs dollars**, daily vs weekly, “not for sale”, Ranger/mixer/caravan hire vs sale, trailer rate flip-flops
+- More **Services**: westie / chch / hammers / palmy, quote vs fixed vs hourly, secondary drain / WOF / gardens / oven+carpet
+- **Multi-turn stress**: iPhone 13→15 identity, S24 storage/colour flip-flops, BMW colour `actually` / `wait no` / `nah bro`, trailer rate nah, mechanic+WOF follow-up
+- **Description quality**: instruction leakage (`title it mint` / `dont mention the crack`), historical paid/was leak, Brand New + cracked screen, palmy couch duplicates
+- **Short + long + voice**: `wtb gtr akl`, `mow 40 westie`, `gtr 50k akl`, Axela “twenty fifteen / eleven five hundred”, Civic “two thousand and twelve / thirty two hundred”
+- **Model-as-price traps stay locked** at the parser: `civic si`, `320i`, `s23`, `iphone 14`, `r33`, `cx-5`, `rav4`, `wrx sti`, `s24 ultra`, `128gb`
+
+Vitest evidence (`./node_modules/.bin/vitest run app/lib/awhina-adversarial-wave-2.test.ts`, v4.1.8):
+
+- First run against current main (expected semantics vs production): **21 passed, 34 failed, 5 expected fail** (60 tests)
+- After recording breaks with `it.fails` / `FAIL:`: **22 passed | 38 expected fail (60)** — Test Files 1 passed, Duration ~0.5s, vitest v4.1.8. Combined with Wave 1: **41 passed | 63 expected fail (104)**.
+
+## Wave 2 — what passed on current main
+
+- Parser model-as-price traps (`civic si`, `320i`, `s23`, `iphone 14`, `r33`, `cx-5`, `rav4`, `wrx`, `s24 ultra`, `128gb`) do not become prices.
+- `s24 ultra $900` → 900; `iphone 12 64gb 280 chch` → 280; WTB/ISO `under 8k` / `under 25k` stay **null** at the listing-price parser (budget, not asking).
+- `ps4 slim was 400 paid 450 selling 150` → **150** at the parser (`selling N` beats was/paid). Full listing fill still leaks history (see failures).
+- Input normalize keeps `s24` / Axela / WTB+ISO identity tokens.
+- **vehicle-corolla-missing-defects**: rust + cracked bumper survive into extras/description with year 2012 / 180k / $4500. (Numeric km/price path; `palmy` happened to match via description blob here, but the couch `palmy` case still misses Palmerston North as a structured location.)
+- **physical-price-firm-nah-bro**: couch $400 → 350 → `nah bro 400 firm` keeps **400**.
+- **vehicle-identity-tv-to-axela**: “forget the tv, selling my 2015 Mazda Axela…” **replaces** the TV draft with a vehicle (this path works). Same-item identity edits still fail (iPhone 13→15).
+
+## Wave 2 — failures (locked expected semantics)
+
+Each item: input → actual → expected → what failed → likely subsystem.
+
+### W1. FAIL: `"gtr 50k akl"` → 50000 (parser)
+
+- **Input:** `gtr 50k akl`
+- **Actual:** `parseListingPriceFromMessage` → `null`
+- **Expected:** `"50000"`
+- **Failed:** slang `50k` asking dropped (full fill *does* get 50000 but as a physical “GT-R 50k Akl”)
+- **Subsystem:** listing-facts / `extractPriceFromMessage`
+
+### W2. FAIL: wanted-wtb-axela-budget-cap — **critical**
+
+- **Input:** `WTB mazda axela under 8k wellington no timewasters serious only`
+- **Actual:** **vehicle sale**, title `Mazda Axela Under`, odo **8000** (budget as kilometres), generation `Under`
+- **Expected:** wanted listing, Axela, budget 8000, Wellington; “serious only” / “no timewasters” are instructions
+- **Failed:** WTB routed as sell; `under 8k` consumed as odometer
+- **Subsystem:** semantic-intent / find-vs-wanted / vehicle odo extract
+
+### W3. FAIL: wanted-iso-hilux-westie-no-scams — **critical**
+
+- **Input:** `ISO toyota hilux diesel under 25k westie no scams`
+- **Actual:** intent **education**, scam-safety lecture, **no listingFill**
+- **Expected:** wanted Hilux diesel, budget 25000, West Auckland; “no scams” is instruction
+- **Failed:** ISO + “no scams” hijacked to safety education (same class as Wave 1 wanted-ps5)
+- **Subsystem:** semantic-intent / find-vs-wanted routing
+
+### W4. FAIL: wanted-looking-for-post-ad-dunedin — **critical**
+
+- **Input:** `post a wanted ad looking for iphone 14 pro max under 1100 dunedin preferably unlocked no scams`
+- **Actual:** education lecture, no listing
+- **Expected:** wanted iPhone 14 Pro Max, budget 1100, Dunedin, unlocked; no scam lecture
+- **Failed:** explicit “post a wanted ad” still lost to “no scams”
+- **Subsystem:** semantic-intent
+
+### W5. FAIL: wanted-mower-hammers-short
+
+- **Input:** `wanted: lawn mower petrol hammers budget 200 no rust`
+- **Actual:** **physical for-sale**, title is the raw wanted sentence, no Hamilton
+- **Expected:** wanted, mower, Hamilton (`hammers`), budget 200, rust requirement
+- **Failed:** wanted prefix ignored; NZ slang location
+- **Subsystem:** semantic-intent / input-normalize
+
+### W6. FAIL: wanted-wtb-gtr-extremely-short
+
+- **Input:** `wtb gtr akl`
+- **Actual:** **physical** `Wtb GT-R Akl`
+- **Expected:** wanted, GTR/Skyline, Auckland; no invented price
+- **Failed:** WTB not wanted; `akl` not Auckland
+- **Subsystem:** semantic-intent / input-normalize
+
+### W7. FAIL: wanted-long-hilux-budget-walk — **critical**
+
+- **Input:** long WTB/ISO Hilux ramble, final budget 23000, westie, no scams / serious only / dont put my max
+- **Actual:** education lecture, no listing
+- **Expected:** wanted Hilux, $23000 not 25k/22k, West Auckland, diesel/4WD/auto, instructions stripped
+- **Failed:** “no scams” education hijack on a long wanted post
+- **Subsystem:** semantic-intent / listing-facts merge
+
+### W8. FAIL: rental-chch-unit-bond-weeks — **critical**
+
+- **Input:** `2bed 1bath unit chch 480 a week bond 2 weeks cats ok furnished avail now not for sale`
+- **Actual:** rental, title `Listing`, **equipment**, daily **and** weekly 480, deposit **2**
+- **Expected:** property rental, 2-bed identity, weekly 480, no daily rate, bond not `$2`, Christchurch, cats/furnished
+- **Failed:** property vs equipment; bond weeks as dollars; `chch`; title
+- **Subsystem:** domain-knowledge / pending-slots
+
+### W9. FAIL: rental-property-long-chch-commands
+
+- **Input:** long Chch 2-bed ramble + “dont put daily rate” / “title it tidy 2bedder”
+- **Actual:** title `Listing`, equipment, deposit 2, extras dump the whole command blob; description `$2 bond`
+- **Expected:** property, weekly 480, no daily, instructions stripped, cats/furnished
+- **Failed:** same property/bond/instruction class as Wave 1 house rental
+- **Subsystem:** domain-knowledge / description-writer
+
+### W10. FAIL: rental-studio-bond-dollars
+
+- **Input:** `studio wellington 420pw bond $1680 avail 1 oct unfurnished no pets`
+- **Actual:** **physical**, title is the raw sentence, price **1680** (bond beats weekly rent)
+- **Expected:** property rental, weekly 420, bond 1680, Wellington, no daily rate
+- **Failed:** type detection; `$1680` wins over `420pw`
+- **Subsystem:** semantic-intent / price extract / domain-knowledge
+
+### W11. FAIL: rental-mixer-equipment-not-sale
+
+- **Input:** `hire my concrete mixer 80 a day bond 150 hamilton not selling`
+- **Actual:** **physical** title includes “Not Selling”, price 80
+- **Expected:** equipment rental, $80/day, bond 150, Hamilton
+- **Failed:** hire vs sale
+- **Subsystem:** semantic-intent / domain-knowledge
+
+### W12. FAIL: rental-trailer-daily-or-weekly
+
+- **Input:** `trailer hire 40 a day or 200 a week manukau not for sale`
+- **Actual:** rental equipment Trailer, daily 40, **weekly also 40** (daily copied)
+- **Expected:** daily 40 **and** weekly 200
+- **Failed:** dual-rate; weekly overwritten from daily
+- **Subsystem:** listing-facts merge / rental rate inference
+
+### W13. FAIL: rental-ranger-hire-not-sale — **critical**
+
+- **Input:** `not selling my 2020 ranger just hiring it 180 a day auckland bond 600`
+- **Actual:** **vehicle sale** `2020 Ford Ranger Just`, price 180, generation `JUST`
+- **Expected:** vehicle **hire** rental, $180/day, bond 600, not a $180 Ranger
+- **Failed:** “not selling / hiring” ignored; “just” glued into identity
+- **Subsystem:** semantic-intent / domain-knowledge / composer
+
+### W14. FAIL: rental-caravan-weekly
+
+- **Input:** `rent my caravan 400 a week taupo bond 200 not for sale`
+- **Actual:** rental title `Listing`, daily **and** weekly 400, deposit 200, no Taupo
+- **Expected:** equipment (or vehicle) rental, weekly 400, no invented daily, Taupo
+- **Failed:** title; daily invented from weekly; location
+- **Subsystem:** domain-knowledge / pending-slots
+
+### W15. FAIL: service-plumbing-westie-quote-plus-drain
+
+- **Input:** `plumbing westie callout 90 quote for bigger jobs also drain unblocking`
+- **Actual:** Plumbing $90 **fixed**, **no location**, drain/quote lost
+- **Expected:** West Auckland (`westie`), drain in extras, quote path for bigger jobs
+- **Failed:** westie; secondary service; quote vs fixed
+- **Subsystem:** input-normalize / domain-knowledge / listing-facts
+
+### W16. FAIL: service-mechanic-chch-hourly-wof
+
+- **Input:** `mobile mechanic chch 80 an hour also wof checks`
+- **Actual:** **physical** raw title, $80, extras `WOF current` (as if the seller’s car has a WOF)
+- **Expected:** service, mechanic, Christchurch, hourly 80, WOF checks as offered service
+- **Failed:** type; `chch`; WOF classified as vehicle compliance not a service add-on
+- **Subsystem:** semantic-intent / domain-knowledge / seller-evidence
+
+### W17. FAIL: service-mow-hammers-quote-gardens
+
+- **Input:** `i mow lawns hammers 45 a lawn bigger sections quote also gardens`
+- **Actual:** Lawn Mowing $45, **no Hamilton**, gardens/quote lost
+- **Expected:** Hamilton (`hammers`), gardens, quote-for-bigger
+- **Failed:** hammers slang; secondary + quote
+- **Subsystem:** input-normalize / domain-knowledge
+
+### W18. FAIL: service-painting-quote-required-palmy
+
+- **Input:** `house painting quote required palmy no fixed price`
+- **Actual:** **physical** raw title, no location, no quote pricing type
+- **Expected:** service, painting, Palmerston North, `request_quote`, no invented price
+- **Failed:** type; palmy; quote required
+- **Subsystem:** semantic-intent / service-pricing / input-normalize
+
+### W19. FAIL: service-cleaning-chch-secondary-oven
+
+- **Input:** `cleaning chch 50 a visit also oven and carpet`
+- **Actual:** **physical** raw title, $50, no Christchurch, oven/carpet lost
+- **Expected:** service, $50, Chch, oven + carpet in scope
+- **Failed:** type; chch; secondary services
+- **Subsystem:** semantic-intent / listing-facts
+
+### W20. FAIL: physical-ipad-instruction-historical-defect — **critical**
+
+- **Input:** `dont mention the crack title it mint sell my ipad air 64gb… was 650 paid 700 selling 220…`
+- **Actual:** title `Like New Dont Mention Crack Title IT Mint Sell iPad Air…`, price **650** (historical), condition **Like New**, extras `the ono is cracked`
+- **Expected:** iPad Air title, $220, dent/crack visible, no mint/commands, no 650/700 in ad
+- **Failed:** instruction leakage, historical price, exaggerated condition, mangled defect
+- **Subsystem:** authority / description-writer / semantic-parser price classes
+
+### W21. FAIL: physical-iphone-exaggerated-new-with-crack — **critical**
+
+- **Input:** `brand new condition but cracked screen iphone 12 64gb 280 chch`
+- **Actual:** title **Brand New iPhone 12**, price **12** (model as price), condition **New**, extras `the condition but is cracked`
+- **Expected:** iPhone 12, $280 not 12, Christchurch, cracked (not New/Like New)
+- **Failed:** `iphone 12` as price; Brand New vs crack; `chch`
+- **Subsystem:** price extract / listing-condition / input-normalize
+
+### W22. FAIL: physical-ps4-historical-paid-leak
+
+- **Input:** `ps4 slim was 400 paid 450 selling 150 hamilton dont put what i paid`
+- **Actual:** title `150 Hamilton Dont Put What I`, price **400** (was-price)
+- **Expected:** PS4 Slim, $150, Hamilton, no paid/was/instruction in public copy
+- **Failed:** parser can see 150 in isolation, but listing fill still takes 400 and eats the title
+- **Subsystem:** listing-facts merge / composer / instruction strip
+
+### W23. FAIL: physical-couch-duplicate-facts
+
+- **Input:** repeated 2-seater grey fabric palmy 250
+- **Actual:** Couch $250, **no Palmerston North**, fabric/2-seater thin
+- **Expected:** palmy → Palmerston North; 2-seater / fabric once, not duplicated
+- **Failed:** `palmy` slang (Mt Maunganui still works from Wave 1; palmy does not)
+- **Subsystem:** input-normalize / seller-evidence
+
+### W24. FAIL: vehicle-axela-voice-number-words — **critical**
+
+- **Input:** `um so yeah uh sell my uh mazda axela uh twenty fifteen uh one two eight thousand k uh eleven five hundred auckland blue`
+- **Actual:** title `Mazda Axela UH Twenty`, generation `UH Twenty`, no year/odo/price
+- **Expected:** Mazda Axela 2015, 128000 km, $11500, blue, Auckland; no UH Twenty
+- **Failed:** same voice-number class as Wave 1 Hilux (`UH Twenty`)
+- **Subsystem:** input-normalize / semantic-intent
+
+### W25. FAIL: vehicle-civic-voice-year-price-words
+
+- **Input:** `sell my honda civic two thousand and twelve thirty two hundred bucks wellington`
+- **Actual:** `Honda Civic Two Thousand`, generation `TWO Thousand`, no year/price
+- **Expected:** Honda Civic 2012, $3200, Wellington
+- **Failed:** spoken year/price glued into generation
+- **Subsystem:** input-normalize
+
+### W26. FAIL: vehicle-gtr-short-model-not-price
+
+- **Input:** `gtr 50k akl`
+- **Actual:** **physical** `GT-R 50k Akl`, price 50000
+- **Expected:** vehicle, GTR/Skyline, $50000, Auckland
+- **Failed:** type + `akl`; 50k happens to land as price in fill but identity is junk
+- **Subsystem:** semantic-intent / input-normalize
+
+### W27. FAIL: service-mow-short-westie
+
+- **Input:** `mow 40 westie`
+- **Actual:** **physical** `Mow 40 Westie`, $40
+- **Expected:** service lawn mowing, $40, West Auckland
+- **Failed:** type + westie
+- **Subsystem:** semantic-intent / input-normalize
+
+### W28. FAIL: wanted-budget-pads-nah-bro (multi-turn)
+
+- **Transcript:** (1) `WTB ps5 disc chch under 700 no scams` (2) `nah bro max 550 and must have 2 pads`
+- **Actual:** turn 1 education; turn 2 **unknown** “What are you confirming?”
+- **Expected:** wanted PS5, budget 550, Christchurch, 2 controllers
+- **Failed:** no-scams hijack then follow-up has no draft
+- **Subsystem:** semantic-intent / pending-slots
+
+### W29. FAIL: physical-identity-iphone-13-to-15 (multi-turn)
+
+- **Transcript:** (1) iPhone 13 128 black 600 (2) `wait no it's a 15 pro 256 blue make it 950`
+- **Actual:** still **iPhone 13**, price 950 OK, colour blue, storage still **128GB**
+- **Expected:** iPhone 15 Pro, 256, blue, $950
+- **Failed:** same-item identity/storage not corrected (TV→Axela *cross-item* replace works)
+- **Subsystem:** draft-transition / authority / listing-facts
+
+### W30. FAIL: physical-storage-colour-flipflops (multi-turn)
+
+- **Transcript:** S24 128 black 700 → `actually 256` → `wait no 512 and its purple not black`
+- **Actual:** title **purple**, price **512** (storage as price), extras still 128GB
+- **Expected:** Galaxy S24, 512GB, purple, $700; 128/256/black gone
+- **Failed:** 512 as price; identity wiped to colour word; first storage locked
+- **Subsystem:** authority / semantic-intent / price extract
+
+### W31. FAIL: vehicle-colour-nah-bro-chain (multi-turn)
+
+- **Transcript:** 07 BMW 335i grey 9k → actually silver → `wait no grey nah bro its blue cracked bumper tho`
+- **Actual:** still **grey**, 9k consumed as **odometer 9000**, year missing, extras `the its blue is cracked`
+- **Failed:** colour chain; 9k as km; defect parse around nah-bro
+- **Subsystem:** authority / seller-evidence / input-normalize
+
+### W32. FAIL: rental-trailer-rate-flipflop (multi-turn)
+
+- **Transcript:** trailer 50/day → actually 40 → `nah 45 a day`
+- **Actual:** after `nah 45 a day`, intent **unknown**, listingType empty
+- **Expected:** same rental draft, $45/day, Manukau, not for sale
+- **Failed:** short nah-correction treated as confirm-with-no-context (Wave 1 trailer was already typed as physical, so the draft never existed)
+- **Subsystem:** draft-transition / authority / pending-slots
+
+### W33. FAIL: service-add-secondary-followup (multi-turn)
+
+- **Transcript:** (1) `mobile mechanic chch 80 an hour` (2) `also wof checks and bigger jobs quote`
+- **Actual:** **new physical** `Also Wof Checks And Bigger Jobs Quote`
+- **Expected:** same service draft + WOF checks + quote-for-bigger
+- **Failed:** follow-up as new listing / wrong type (same class as Wave 1 hedge follow-up)
+- **Subsystem:** draft-transition / pending-slots
+
+### Semantic / correction layer (already `it.fails`)
+
+- **no scams / serious only** are not classified as `sellerInstructions`; they never become public-fact exclusions.
+- **dont mention the crack / title it mint**: crack not in `negativeCondition`; commands not instructions.
+- **nah bro max 550 + 2 pads**: not understood as budget+accessory correction.
+- **wait no 512 purple not black**: 512 treated as price; colour/storage dropped.
+- **eleven five hundred** voice asking → parser still not 11500.
+
+## Wave 2 launch notes
+
+Still safe-ish: clean punctuated one-shots, **cross-listing identity replace** (TV→Axela), **price firm/nah bro** on a clean couch, Corolla defects when km/price are numeric, parser model-as-price traps.
+
+Still unsafe: WTB/ISO/wanted + “no scams”, westie/chch/hammers/palmy/akl, hire vs sale, bond weeks, quote-required services, voice number-words, instruction/historical leakage, same-item identity and storage/colour flip-flops.
+
+Do not delete these `it.fails` to fake green. Do not patch individual Wave 2 strings in production.
