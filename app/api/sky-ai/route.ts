@@ -41,10 +41,8 @@ import { finalizePageAwareResponse } from "../../lib/sky-ai-page-intent";
 import { validateListingFillFields } from "../../lib/awhina-listing-fill-tools";
 import { assessDraftTransition } from "../../lib/awhina-draft-transition";
 import { sanitizeProfileFillProposal } from "../../lib/awhina-profile-tools";
-import {
-  enforcePublicListingDescription,
-  enforcePublicListingDescriptionAsync,
-} from "../../lib/awhina-listing-composer";
+import { enforcePublicListingDescription } from "../../lib/awhina-listing-composer";
+import { enforcePublicListingDescriptionAsync } from "../../lib/awhina-listing-composer.server";
 import {
   buildDescriptionWriterFacts,
   validateAiListingDescription,

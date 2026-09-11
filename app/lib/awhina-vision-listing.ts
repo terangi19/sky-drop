@@ -6,6 +6,8 @@
  *   IMAGE → structured perception → knowledge enrich → adapter → public copy gate
  */
 
+import "server-only";
+
 import { createGatedOpenAI } from "./openai-spend-guard";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import { openaiErrorResponse } from "./openai-errors";
@@ -28,7 +30,7 @@ import {
 import { isAwhinaVisionListingEnabledServer } from "./awhina-vision-listing-flags";
 import { mergeVisionWithSellerText } from "./awhina-vision-compound";
 import { enrichObservationWithKnowledge } from "./awhina-vision-knowledge";
-import { enforcePublicListingDescriptionAsync } from "./awhina-listing-composer";
+import { enforcePublicListingDescriptionAsync } from "./awhina-listing-composer.server";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import {
   logAwhinaTiming,

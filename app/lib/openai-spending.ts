@@ -1,3 +1,4 @@
+import "server-only";
 import { getAdminDb, isAdminInitialized } from "./firebase-admin";
 import { logSecurityWarning } from "./security-log";
 import * as admin from "firebase-admin";

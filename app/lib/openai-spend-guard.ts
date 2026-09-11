@@ -3,8 +3,10 @@
  *
  * Every billed OpenAI call must go through `gateOpenAiCall` / `createGatedOpenAI`.
  * Do not use `openai-spend-caps.ts` (client localStorage stub).
+ * Never import this module from Client Components.
  */
 
+import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 import OpenAI from "openai";
 import { checkSpendingLimits, recordSpending } from "./openai-spending";
