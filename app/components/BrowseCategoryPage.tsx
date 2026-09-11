@@ -58,6 +58,11 @@ import {
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
+import {
+  formatMarketplaceListingCount,
+  isAuthoritativeListingSnapshot,
+  resolvedMarketplaceListingCount,
+} from "../lib/marketplace-listing-count";
 
 function categoryExtraSearchFields(
   configKey: BrowseCategoryKey,
@@ -167,6 +172,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
       try {
         const snap = await getDocs(q);
         if (!mounted) return;
+        if (!isAuthoritativeListingSnapshot(snap)) return;
         const items: any[] = snap.docs
           .map((d) => ({ id: d.id, ...d.data() } as any))
           .filter((i: any) => isListingVisibleInMarketplace(i));
@@ -327,7 +333,14 @@ export default function BrowseCategoryPage({ configKey }: Props) {
     return top.map((l: any) => l.title).join(" · ");
   }, [listings]);
 
-  const filterCountLabel = `${filteredListings.length} ${filteredListings.length === 1 ? config.itemSingular : config.itemPlural}`;
+  const knownListingCount = resolvedMarketplaceListingCount({
+    loading,
+    count: filteredListings.length,
+  });
+  const filterCountLabel = formatMarketplaceListingCount(knownListingCount, {
+    singular: config.itemSingular,
+    plural: config.itemPlural,
+  });
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white transition-colors duration-300">
@@ -547,16 +560,20 @@ export default function BrowseCategoryPage({ configKey }: Props) {
                   </div>
                 </>
               )}
-              <span className="text-[11px] text-zinc-500">
-                {filterCountLabel}
-                {searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
-                {config.filterMode === "region" && selectedRegion !== "All"
+              <span
+                className="text-[11px] text-zinc-500"
+                data-listing-count={knownListingCount ?? "loading"}
+                {...(knownListingCount == null ? { "aria-busy": true, "aria-label": "Loading listing count" } : {})}
+              >
+                {filterCountLabel ?? ""}
+                {filterCountLabel && searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
+                {filterCountLabel && config.filterMode === "region" && selectedRegion !== "All"
                   ? ` in ${selectedRegion}`
                   : ""}
-                {config.filterMode === "region" && selectedCity !== "All"
+                {filterCountLabel && config.filterMode === "region" && selectedCity !== "All"
                   ? ` · ${selectedCity}`
                   : ""}
-                {config.filterMode === "category" && selectedCategory !== "All"
+                {filterCountLabel && config.filterMode === "category" && selectedCategory !== "All"
                   ? ` in ${selectedCategory}`
                   : ""}
               </span>
@@ -587,7 +604,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
         />
 
         {loading ? (
-          <div className={`${LISTING_GRID_MT} mt-12`}>
+          <div className={`${LISTING_GRID_MT} mt-12`} data-listing-count="loading" aria-busy="true">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="h-64 animate-pulse rounded-2xl bg-white/[0.04]" />
             ))}
@@ -646,16 +663,19 @@ export default function BrowseCategoryPage({ configKey }: Props) {
                   <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
                     {config.listingsHeading}
                   </h2>
-                  <p className="text-[11px] text-zinc-500">
-                    {filterCountLabel} found
-                    {searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
-                    {config.filterMode === "region" && selectedRegion !== "All"
+                  <p
+                    className="text-[11px] text-zinc-500"
+                    data-listing-count={knownListingCount ?? "loading"}
+                  >
+                    {filterCountLabel ? `${filterCountLabel} found` : ""}
+                    {filterCountLabel && searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
+                    {filterCountLabel && config.filterMode === "region" && selectedRegion !== "All"
                       ? ` · ${selectedRegion}`
                       : ""}
-                    {config.filterMode === "region" && selectedCity !== "All"
+                    {filterCountLabel && config.filterMode === "region" && selectedCity !== "All"
                       ? ` · ${selectedCity}`
                       : ""}
-                    {config.filterMode === "category" && selectedCategory !== "All"
+                    {filterCountLabel && config.filterMode === "category" && selectedCategory !== "All"
                       ? ` · ${selectedCategory}`
                       : ""}
                   </p>
