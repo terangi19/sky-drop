@@ -1,34 +1,27 @@
 #!/usr/bin/env node
 /**
- * Revoke Firebase Storage download tokens on KYC / proof-of-address objects
- * and scrub leftover tokenized download URLs from Firestore.
+ * Inventory / revoke Firebase Storage download tokens on KYC + proof-of-address
+ * prefixes, and list leftover tokenized download URLs in Firestore.
  *
- * Default is dry-run (lists what WOULD change; no writes).
- * Pass --apply to mutate Storage metadata and Firestore documents.
+ * Sky Drop does not currently run KYC in production. An empty dry-run is the
+ * expected result (no kyc/ or proof_of_address/ objects). Keep this script as
+ * a first-pass inventory if those prefixes appear later.
+ *
+ * Default = dry-run (lists what WOULD change; no writes).
+ * --apply mutates Storage metadata / Firestore. Do not overuse; only after a
+ * non-empty dry-run. Objects are never deleted.
  *
  * Auth (never commit credentials; never print the JSON):
  *   GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/service-account.json
- *   FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}'   # JSON string
  *   FIREBASE_SERVICE_ACCOUNT=/absolute/path/to/service-account.json
+ *   FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}'
  *
- * Target buckets:
- *   sky-drop-de459.firebasestorage.app
- *   sky-drop-de459.appspot.com  (legacy; skipped if the bucket does not exist)
- *
+ * Buckets: sky-drop-de459.firebasestorage.app and legacy
+ *          sky-drop-de459.appspot.com (skipped if missing)
  * Prefixes ONLY: kyc/ and proof_of_address/
- * Objects are NOT deleted — only metadata key firebaseStorageDownloadTokens is cleared.
  *
- * Run (from repo root):
- *
- *   # Dry-run (default)
- *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/prod-sa.json node scripts/revoke-kyc-download-tokens.cjs
- *
- *   FIREBASE_SERVICE_ACCOUNT=/path/to/prod-sa.json node scripts/revoke-kyc-download-tokens.cjs
- *
- *   # Apply (required to mutate)
- *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/prod-sa.json node scripts/revoke-kyc-download-tokens.cjs --apply
- *
- * This does NOT replace deploying firestore.rules or setting Upstash.
+ *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json node scripts/revoke-kyc-download-tokens.cjs
+ *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json node scripts/revoke-kyc-download-tokens.cjs --apply
  */
 
 "use strict";
@@ -261,7 +254,13 @@ async function main() {
   );
 
   if (!apply) {
-    console.log("[revoke-kyc-tokens] no writes performed. Re-run with --apply to mutate.");
+    if (counts.tokensCleared === 0 && counts.firestoreScrubbed === 0) {
+      console.log(
+        "[revoke-kyc-tokens] inventory empty — no download tokens or tokenized KYC URLs found (expected if KYC is not in use)."
+      );
+    } else {
+      console.log("[revoke-kyc-tokens] no writes performed. Re-run with --apply to mutate.");
+    }
   }
 }
 

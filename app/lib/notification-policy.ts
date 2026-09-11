@@ -120,28 +120,40 @@ export async function assertNotificationAllowed(
 
   if (listingId) {
     const listingSnap = await db.collection("listings").doc(listingId).get();
-    if (!listingSnap.exists) {
-      return { ok: false, reason: "Listing not found" };
-    }
-    const seller = String(listingSnap.data()?.sellerEmail || "").toLowerCase();
-    if (!seller) {
-      return { ok: false, reason: "Listing has no seller" };
-    }
-    if (sender !== seller && target === seller) {
-      if (!LISTING_CONTACT_TYPES.has(type)) {
-        return { ok: false, reason: "Notification type not allowed for this listing" };
+    if (listingSnap.exists) {
+      const seller = String(listingSnap.data()?.sellerEmail || "").toLowerCase();
+      if (!seller) {
+        return { ok: false, reason: "Listing has no seller" };
       }
-      return { ok: true };
-    }
-    if (sender === seller && target !== seller) {
-      const purchaseSnap = await db
-        .collection("purchases")
-        .where("listingId", "==", listingId)
-        .where("sellerEmail", "==", sender)
-        .where("buyerEmail", "==", target)
-        .limit(1)
-        .get();
-      if (!purchaseSnap.empty) return { ok: true };
+      if (sender !== seller && target === seller) {
+        if (!LISTING_CONTACT_TYPES.has(type)) {
+          return { ok: false, reason: "Notification type not allowed for this listing" };
+        }
+        return { ok: true };
+      }
+      if (sender === seller && target !== seller) {
+        const purchaseSnap = await db
+          .collection("purchases")
+          .where("listingId", "==", listingId)
+          .where("sellerEmail", "==", sender)
+          .where("buyerEmail", "==", target)
+          .limit(1)
+          .get();
+        if (!purchaseSnap.empty) return { ok: true };
+      }
+    } else {
+      const tradeSnap = await db.collection("tradePosts").doc(listingId).get();
+      if (tradeSnap.exists) {
+        const seller = String(tradeSnap.data()?.sellerEmail || "").toLowerCase();
+        if (
+          seller &&
+          sender !== seller &&
+          target === seller &&
+          LISTING_CONTACT_TYPES.has(type)
+        ) {
+          return { ok: true };
+        }
+      }
     }
   }
 

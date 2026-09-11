@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
-import { adminCreateCheckoutMessage } from "../../lib/checkout-server";
+import {
+  adminCreateCheckoutMessage,
+  adminResolveListingSellerEmail,
+} from "../../lib/checkout-server";
 import { rateLimit } from "../../lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -29,16 +32,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not determine buyer email" }, { status: 400 });
     }
 
-    const { text, sellerEmail, listingId } = await req.json();
-    if (!text?.trim() || !sellerEmail || !listingId) {
+    const body = await req.json();
+    const text = typeof body.text === "string" ? body.text.trim() : "";
+    const listingId = typeof body.listingId === "string" ? body.listingId.trim() : "";
+    if (!text || !listingId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    const sellerEmail = await adminResolveListingSellerEmail(listingId);
+    if (sellerEmail.toLowerCase() === buyerEmail.toLowerCase()) {
+      return NextResponse.json({ error: "Cannot message yourself" }, { status: 400 });
+    }
+
     const messageId = await adminCreateCheckoutMessage({
-      text: String(text).trim(),
+      text,
       sender: buyerEmail,
-      receiver: String(sellerEmail),
-      listingId: String(listingId),
+      receiver: sellerEmail,
+      listingId,
     });
 
     return NextResponse.json({ success: true, messageId });
@@ -50,6 +60,9 @@ export async function POST(req: NextRequest) {
         { error: "Checkout is temporarily unavailable. Please try again later." },
         { status: 503 }
       );
+    }
+    if (msg === "Listing not found" || msg === "Listing has no seller") {
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
     return NextResponse.json({ error: "Could not send message" }, { status: 500 });
   }

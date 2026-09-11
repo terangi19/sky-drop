@@ -11,13 +11,13 @@ vi.mock("./admin-check", () => ({
     String(email || "").toLowerCase() === "admin@skydrop.test",
 }));
 
-function listingDb(sellerEmail: string) {
+function listingDb(sellerEmail: string, collectionName = "listings") {
   return {
     collection: (name: string) => ({
       doc: () => ({
         get: async () => ({
-          exists: name === "listings",
-          data: () => (name === "listings" ? { sellerEmail } : undefined),
+          exists: name === collectionName,
+          data: () => (name === collectionName ? { sellerEmail } : undefined),
         }),
       }),
       where: () => {
@@ -98,5 +98,33 @@ describe("notification policy", () => {
       listingId: "listing-1",
     });
     expect(result.ok).toBe(false);
+  });
+
+  it("allows stranger → trade-post seller for listing-contact types", async () => {
+    const result = await assertNotificationAllowed(
+      listingDb("trader@example.test", "tradePosts") as never,
+      {
+        senderEmail: "buyer@example.test",
+        targetEmail: "trader@example.test",
+        fromEmail: "buyer@example.test",
+        type: "offer",
+        listingId: "trade-1",
+      }
+    );
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("does not treat a missing listingId as an existence oracle", async () => {
+    const result = await assertNotificationAllowed(listingDb("seller@example.test", "none") as never, {
+      senderEmail: "buyer@example.test",
+      targetEmail: "seller@example.test",
+      fromEmail: "buyer@example.test",
+      type: "message",
+      listingId: "does-not-exist",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).not.toMatch(/Listing not found/i);
+    }
   });
 });
