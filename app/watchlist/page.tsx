@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
-import { User } from "firebase/auth";
 import { collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query } from "firebase/firestore";
-import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { db } from "../lib/firebase";
+import { AuthGatePlaceholder, useRequireAuth } from "../lib/use-require-auth";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
@@ -43,7 +43,7 @@ const SORT_OPTIONS = [
 ] as const;
 
 export default function WatchlistPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, authReady } = useRequireAuth("/watchlist");
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [listingStats, setListingStats] = useState<Record<string, { views: number; bidCount: number }>>({});
@@ -56,16 +56,6 @@ export default function WatchlistPage() {
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 60000);
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser?.uid) {
-        setLoading(false);
-      }
-    });
-    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -235,6 +225,10 @@ export default function WatchlistPage() {
   );
   useAwhinaInsightEffect(awhinaInsight);
 
+  if (!authReady || !user) {
+    return <AuthGatePlaceholder fallbackPath="/watchlist" message="Sign in to view your watchlist." />;
+  }
+
   if (loading) {
     return (
       <main className="relative min-h-screen bg-[var(--background)]">
@@ -253,25 +247,6 @@ export default function WatchlistPage() {
               </div>
             ))}
           </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (!user) {
-    return (
-      <main className="relative min-h-screen bg-[var(--background)]">
-        <Background />
-        <Navbar />
-        <div className="relative z-10 flex flex-col items-center justify-center py-40">
-          <div className="text-6xl mb-4">🔐</div>
-          <p className="text-xl text-[var(--muted)]">Log in to view your watchlist</p>
-          <Link
-            href="/login"
-            className="mt-6 rounded-xl bg-sky-500 px-8 py-3 font-bold text-white hover:bg-sky-400 transition-all active:scale-[0.97]"
-          >
-            Log In
-          </Link>
         </div>
       </main>
     );

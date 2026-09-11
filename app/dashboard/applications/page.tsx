@@ -5,24 +5,19 @@ import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import Background from "../../components/Background";
-import { User } from "firebase/auth";
 import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
-import { auth, db, onAuthStateChanged } from "../../lib/firebase";
+import { db } from "../../lib/firebase";
+import { AuthGatePlaceholder, useRequireAuth } from "../../lib/use-require-auth";
 import type { JobApplication } from "../../lib/jobApplications";
 
 type Filter = "all" | "pending" | "reviewed" | "accepted" | "rejected";
 
 export default function EmployerApplicationsPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, authReady } = useRequireAuth("/dashboard/applications");
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(true);
   const [notesInput, setNotesInput] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, setUser);
-    return () => unsub();
-  }, []);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -69,6 +64,10 @@ export default function EmployerApplicationsPage() {
     accepted: applications.filter((a) => a.status === "accepted").length,
     rejected: applications.filter((a) => a.status === "rejected").length,
   };
+
+  if (!authReady || !user) {
+    return <AuthGatePlaceholder fallbackPath="/dashboard/applications" message="Sign in to review job applications." />;
+  }
 
   const filters: { key: Filter; label: string }[] = [
     { key: "all", label: `All (${counts.all})` },

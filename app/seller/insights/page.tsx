@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "../../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { replaceWithLoginRedirect } from "../../lib/use-require-auth";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 
@@ -36,11 +37,11 @@ export default function SellerInsightsPage() {
       if (user) {
         loadInsights(user.email || "");
       } else {
-        router.push("/login");
+        replaceWithLoginRedirect("/seller/insights");
       }
     });
     return () => unsub();
-  }, [router]);
+  }, []);
 
   async function loadInsights(userEmail: string) {
     try {

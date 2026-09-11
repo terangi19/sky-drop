@@ -7,9 +7,9 @@ import Background from "../components/Background";
 import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
 import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildPurchasesInsight } from "../lib/awhina-insights";
-import { User } from "firebase/auth";
 import { collection, doc, limit, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
-import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
+import { AuthGatePlaceholder, useRequireAuth } from "../lib/use-require-auth";
 import { getFreshIdToken } from "../lib/api-auth";
 import { openDisputeRequest } from "../lib/open-dispute.client";
 import { createNotification } from "../lib/notifications";
@@ -205,7 +205,7 @@ const FILTER_TABS = [
 ] as const;
 
 export default function PurchasesPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, authReady } = useRequireAuth("/purchases");
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -223,11 +223,6 @@ export default function PurchasesPage() {
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeDescription, setDisputeDescription] = useState("");
   const [disputeSending, setDisputeSending] = useState(false);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
-    return () => unsub();
-  }, []);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -454,6 +449,10 @@ export default function PurchasesPage() {
         </div>
       </div>
     );
+  }
+
+  if (!authReady || !user) {
+    return <AuthGatePlaceholder fallbackPath="/purchases" message="Sign in to view your purchases." />;
   }
 
   return (

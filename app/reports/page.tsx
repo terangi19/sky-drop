@@ -19,17 +19,13 @@ import {
   where,
 } from "firebase/firestore";
 
-import {
-  User,
-} from "firebase/auth";
-
-import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { db } from "../lib/firebase";
+import { AuthGatePlaceholder, useRequireAuth } from "../lib/use-require-auth";
 import { REPORT_REASONS } from "../lib/report-constants";
 import { submitReportRequest } from "../lib/submit-report.client";
 
 export default function ReportsPage() {
-  const [user, setUser] =
-    useState<User | null>(null);
+  const { user, authReady } = useRequireAuth("/reports");
 
   const [reports, setReports] =
     useState<any[]>([]);
@@ -42,18 +38,6 @@ export default function ReportsPage() {
 
   const [details, setDetails] =
     useState("");
-
-  useEffect(() => {
-    const unsubscribeAuth =
-      onAuthStateChanged(
-        auth,
-        (currentUser) => {
-          setUser(currentUser);
-        }
-      );
-
-    return () => unsubscribeAuth();
-  }, []);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -121,6 +105,10 @@ export default function ReportsPage() {
       console.error(error);
       showToast(error instanceof Error ? error.message : "Failed to submit report.", "error");
     }
+  }
+
+  if (!authReady || !user) {
+    return <AuthGatePlaceholder fallbackPath="/reports" message="Sign in to submit or view reports." />;
   }
 
   return (

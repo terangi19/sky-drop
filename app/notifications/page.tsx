@@ -17,8 +17,8 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { User } from "firebase/auth";
-import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { db } from "../lib/firebase";
+import { AuthGatePlaceholder, useRequireAuth } from "../lib/use-require-auth";
 import { showToast } from "../components/Toast";
 import { fetchPublicHandle as resolvePublicHandle } from "../lib/fetch-public-profile-client";
 import {
@@ -66,7 +66,7 @@ function formatTime(seconds: number): string {
 }
 
 export default function NotificationsPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, authReady } = useRequireAuth("/notifications");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastDoc, setLastDoc] = useState<any>(null);
@@ -84,14 +84,6 @@ export default function NotificationsPage() {
     }
   }
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
-    return unsub;
-  }, []);
-
-  // Real-time listener for first PAGE_SIZE notifications
   useEffect(() => {
     if (!user?.email) {
       setLoading(false);
@@ -175,15 +167,8 @@ export default function NotificationsPage() {
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
-  if (!user) {
-    return (
-      <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-        <Background /><Navbar /><div className="relative z-10 mx-auto max-w-3xl px-4 py-20 text-center">
-          <p className="text-[var(--muted)]">Please log in to view notifications.</p>
-          <Link href="/login" className="mt-4 inline-block rounded-lg bg-red-500 px-6 py-2.5 text-sm font-bold text-white hover:bg-red-400">Log In</Link>
-        </div>
-      </main>
-    );
+  if (!authReady || !user) {
+    return <AuthGatePlaceholder fallbackPath="/notifications" message="Sign in to view your notifications." />;
   }
 
   return (

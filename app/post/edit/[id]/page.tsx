@@ -5,8 +5,6 @@ import { useEffect, useState, useRef } from "react";
 import { showToast } from "../../../components/Toast";
 import { sanitizeListingContent } from "../../../lib/sanitize";
 
-import { User } from "firebase/auth";
-
 import {
   doc,
   getDoc,
@@ -16,11 +14,8 @@ import Navbar from "../../../components/Navbar";
 import { AwhinaUnderHeader } from "../../../components/AwhinaOnlineBadge";
 
 import { uploadListingImagesViaApi } from "../../../lib/upload-listing-image.client";
-import {
-  auth,
-  db,
-  onAuthStateChanged,
-} from "../../../lib/firebase";
+import { auth, db } from "../../../lib/firebase";
+import { AuthGatePlaceholder, useRequireAuth } from "../../../lib/use-require-auth";
 import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
 import {
   categoriesForListingType,
@@ -56,11 +51,7 @@ export default function EditListingPage({
     });
   }, [params]);
 
-  const [user, setUser] =
-    useState<User | null>(null);
-
-  const [checkingUser, setCheckingUser] =
-    useState(true);
+  const { user, authReady } = useRequireAuth();
 
   const [loading, setLoading] =
     useState(true);
@@ -130,23 +121,6 @@ export default function EditListingPage({
     servicePricingType,
     rentalSubType,
   });
-
-  useEffect(() => {
-
-    const unsubscribe =
-      onAuthStateChanged(
-        auth,
-        (currentUser) => {
-
-          setUser(currentUser);
-
-          setCheckingUser(false);
-        }
-      );
-
-    return () => unsubscribe();
-
-  }, []);
 
   useEffect(() => {
 
@@ -256,7 +230,7 @@ export default function EditListingPage({
 
     loadListing();
 
-  }, [id, user, checkingUser]);
+  }, [id, user]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -417,7 +391,16 @@ export default function EditListingPage({
     }
   }
 
-  if (checkingUser || loading) {
+  if (!authReady || !user) {
+    return (
+      <AuthGatePlaceholder
+        fallbackPath={id ? `/post/edit/${id}` : "/list-list"}
+        message="Sign in to edit this listing."
+      />
+    );
+  }
+
+  if (loading) {
     return (
       <main className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <p className="text-[var(--muted)]">Loading...</p>
@@ -429,14 +412,6 @@ export default function EditListingPage({
     return (
       <main className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <p className="text-[var(--muted)]">Listing not found</p>
-      </main>
-    );
-  }
-
-  if (!user) {
-    return (
-      <main className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <p className="text-[var(--muted)]">Please login to edit</p>
       </main>
     );
   }

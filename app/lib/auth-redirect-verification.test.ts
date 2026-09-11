@@ -39,6 +39,10 @@ describe("auth redirect and verification safeguards", () => {
     expect(loginRedirectHref("/messages?conversation=abc")).toBe(
       "/login?redirect=%2Fmessages%3Fconversation%3Dabc"
     );
+    expect(loginRedirectHref("/list-list")).toBe("/login?redirect=%2Flist-list");
+    expect(loginRedirectHref("/purchases")).toBe("/login?redirect=%2Fpurchases");
+    expect(loginRedirectHref("/sales")).toBe("/login?redirect=%2Fsales");
+    expect(loginRedirectHref("/wanted/create")).toBe("/login?redirect=%2Fwanted%2Fcreate");
     expect(loginRedirectHref("https://evil.example")).toBe("/login");
   });
 
@@ -55,4 +59,48 @@ describe("auth redirect and verification safeguards", () => {
     expect(src).toContain("/login?redirect=/profile");
     expect(src).toMatch(/if\s*\(\s*!user\s*\)/);
   });
+
+  it.each([
+    "app/list-list/page.tsx",
+    "app/purchases/page.tsx",
+    "app/sales/page.tsx",
+    "app/disputes/page.tsx",
+    "app/reports/page.tsx",
+    "app/watchlist/page.tsx",
+    "app/notifications/page.tsx",
+    "app/dashboard/applications/page.tsx",
+    "app/wanted/create/page.tsx",
+    "app/post/edit/[id]/page.tsx",
+  ])("%s uses the require-auth redirect gate instead of rendering protected UI logged out", (file) => {
+    const src = readFileSync(path.join(process.cwd(), file), "utf8");
+    expect(src).toContain("useRequireAuth");
+    expect(src).toContain("AuthGatePlaceholder");
+    expect(src).toMatch(/if\s*\(\s*!authReady\s*\|\|\s*!user\s*\)/);
+  });
+
+  it("dashboard sign-in CTA keeps a sanitized return URL", () => {
+    const src = readFileSync(path.join(process.cwd(), "app/dashboard/page.tsx"), "utf8");
+    expect(src).toContain("loginRedirectHref(\"/dashboard\")");
+    expect(src).toMatch(/if\s*\(\s*!user\s*\)/);
+  });
+
+  it("blocked users page keeps a sanitized return URL", () => {
+    const src = readFileSync(path.join(process.cwd(), "app/blocked/page.tsx"), "utf8");
+    expect(src).toContain("loginRedirectHref(\"/blocked\")");
+    expect(src).toMatch(/if\s*\(\s*!user\s*\)/);
+  });
+
+  it("seller insights redirects logged-out users with a return URL", () => {
+    const src = readFileSync(path.join(process.cwd(), "app/seller/insights/page.tsx"), "utf8");
+    expect(src).toContain("replaceWithLoginRedirect(\"/seller/insights\")");
+  });
+
+  it("shared require-auth helper redirects through sanitized login URLs", () => {
+    const src = readFileSync(path.join(process.cwd(), "app/lib/use-require-auth.tsx"), "utf8");
+    expect(src).toContain("loginRedirectHref");
+    expect(src).toContain("window.location.replace");
+    expect(src).toContain("onAuthStateChanged");
+    expect(src).toMatch(/if\s*\(\s*!authReady\s*\|\|\s*user\s*\)\s*return/);
+  });
 });
+

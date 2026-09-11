@@ -8,6 +8,7 @@ import Background from "../../components/Background";
 import { showToast } from "../../components/Toast";
 import { getFreshIdToken } from "../../lib/api-auth";
 import { getClientCsrfToken } from "../../lib/csrf-client";
+import { AuthGatePlaceholder, useRequireAuth } from "../../lib/use-require-auth";
 import TurnstileWidget from "../../components/TurnstileWidget";
 import { getTurnstileSiteKey } from "../../lib/turnstile";
 
@@ -15,6 +16,7 @@ import { WANTED_LISTING_CATEGORIES } from "../../lib/listing-type-config";
 const WANTED_CATEGORIES = [...WANTED_LISTING_CATEGORIES];
 
 export default function WantedCreatePage() {
+  const { user, authReady } = useRequireAuth("/wanted/create");
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -90,6 +92,10 @@ export default function WantedCreatePage() {
       showToast("Something went wrong", "error");
     }
     setLoading(false);
+  }
+
+  if (!authReady || !user) {
+    return <AuthGatePlaceholder fallbackPath="/wanted/create" message="Sign in to post a wanted ad." />;
   }
 
   return (

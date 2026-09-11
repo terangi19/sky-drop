@@ -86,6 +86,35 @@ test.describe("Authentication", () => {
     expect(decodeURIComponent(redirect)).toBe("/messages?conversation=abc123");
   });
 
+  const gatedPrivateRoutes = [
+    "/list-list",
+    "/purchases",
+    "/sales",
+    "/watchlist",
+    "/notifications",
+    "/disputes",
+    "/reports",
+    "/dashboard/applications",
+    "/wanted/create",
+  ] as const;
+
+  for (const route of gatedPrivateRoutes) {
+    test(`unauthenticated ${route} redirects to login with return URL`, async ({ page }) => {
+      await page.goto(route);
+      await expect(page).toHaveURL(/\/login\?redirect=/, { timeout: 15000 });
+      const redirect = new URL(page.url()).searchParams.get("redirect") || "";
+      expect(decodeURIComponent(redirect)).toBe(route);
+      await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible({ timeout: 10000 });
+    });
+  }
+
+  test("unauthenticated /post/edit deep link redirects to login with return URL", async ({ page }) => {
+    await page.goto("/post/edit/listing123");
+    await expect(page).toHaveURL(/\/login\?redirect=/, { timeout: 15000 });
+    const redirect = new URL(page.url()).searchParams.get("redirect") || "";
+    expect(decodeURIComponent(redirect)).toBe("/post/edit/listing123");
+  });
+
   test("login validates and exposes accessible credentials controls", async ({ page }) => {
     await page.goto("/login");
     const email = page.getByLabel("Email address");

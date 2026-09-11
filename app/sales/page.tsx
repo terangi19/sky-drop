@@ -5,9 +5,9 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
-import { User } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
-import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { AuthGatePlaceholder, useRequireAuth } from "../lib/use-require-auth";
 import { getFreshIdToken } from "../lib/api-auth";
 import { canSellerConfirmArrangeSale } from "../lib/arrange-purchase-status";
 import { createNotification } from "../lib/notifications";
@@ -108,7 +108,7 @@ function sellerActionsForSale(s: Purchase) {
 }
 
 export default function SalesPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, authReady } = useRequireAuth("/sales");
   const userEmailRef = useRef<string | null>(null);
   const [sales, setSales] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,9 +125,8 @@ export default function SalesPage() {
   const [reviewSending, setReviewSending] = useState(false);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => { setUser(u); userEmailRef.current = u?.email || null; });
-    return () => unsub();
-  }, []);
+    userEmailRef.current = user?.email || null;
+  }, [user]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -344,6 +343,10 @@ export default function SalesPage() {
     } catch (e) {
       console.error("Failed to send order notifications:", e);
     }
+  }
+
+  if (!authReady || !user) {
+    return <AuthGatePlaceholder fallbackPath="/sales" message="Sign in to view your sales." />;
   }
 
   return (

@@ -5,9 +5,9 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
-import { User } from "firebase/auth";
 import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
-import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { db } from "../lib/firebase";
+import { AuthGatePlaceholder, useRequireAuth } from "../lib/use-require-auth";
 import { sellerMessagesUrl, sellerProfileDisplayName } from "../lib/public-display";
 import HistoricalOrdersNotice from "../components/HistoricalOrdersNotice";
 
@@ -38,14 +38,9 @@ const REASON_LABELS: Record<string, string> = {
 };
 
 export default function DisputesPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, authReady } = useRequireAuth("/disputes");
   const [disputes, setDisputes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
-    return () => unsub();
-  }, []);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -63,6 +58,10 @@ export default function DisputesPage() {
     });
     return () => unsub();
   }, [user?.email]);
+
+  if (!authReady || !user) {
+    return <AuthGatePlaceholder fallbackPath="/disputes" message="Sign in to view your disputes." />;
+  }
 
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
