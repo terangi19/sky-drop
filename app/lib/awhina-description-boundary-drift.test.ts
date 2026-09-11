@@ -92,4 +92,22 @@ describe("description boundary drift", () => {
       /!isUserLockedProvenance\(restoredProvenance\.description\)[\s\S]{0,300}enforcePublicListingDescription/
     );
   });
+
+  it("public composition serializes only validated semantic public facts", () => {
+    const semantic = readFileSync(
+      join(APP_LIB, "awhina-description-semantic.ts"),
+      "utf8"
+    );
+    const composer = readFileSync(
+      join(APP_LIB, "awhina-listing-composer.ts"),
+      "utf8"
+    );
+    expect(semantic).toMatch(/semanticFactModelToPublicExtras/);
+    expect(semantic).toMatch(
+      /extras:\s*semanticFactModelToPublicExtras\(semanticFactModel\)/
+    );
+    expect(composer).toMatch(
+      /normalizeAwhinaListingTitle\(prepareFillForDescription\(fill\)\)/
+    );
+  });
 });

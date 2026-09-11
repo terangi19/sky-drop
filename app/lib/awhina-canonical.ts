@@ -36,6 +36,7 @@ import {
   rememberListingDraft,
   reconstructListingDraftBase,
   validateListingFillFields,
+  parseListingPriceFromMessage,
 } from "./awhina-listing-fill-tools";
 import {
   getActiveListingSlot,
@@ -127,6 +128,8 @@ import {
   type ListingFacts,
 } from "./awhina-product-ux";
 import { enforcePublicListingDescription } from "./awhina-listing-composer";
+import { attachSellerFactModel } from "./awhina-semantic-parser";
+import { containsSellerMetaInstruction } from "./awhina-orchestration-boundary";
 import {
   buildAwhinaDecision,
   collectIgnoredStaleContext,
@@ -700,6 +703,55 @@ export function processCanonicalAwhina(
       toolCall = undefined;
       listingFill = undefined;
       navigateTo = navigateTo === "/post/ai" ? undefined : navigateTo;
+    }
+
+    if (listingFill && typeof listingFill === "object") {
+      const currentFill =
+        listingFill as import("./sky-ai-listing-fill").SkyAiListingFill;
+      const priorFill = context.listingContext as
+        | import("./sky-ai-listing-fill").SkyAiListingFill
+        | null
+        | undefined;
+      const followUpWasMisreadAsIdentity =
+        (/^(?:like[\s-]*new|good|fair|new)\b/i.test(
+          String(currentFill.title || "")
+        ) &&
+          /\b(?:comes?\s+with|includes?|\$\s*\d|located|condition)\b/i.test(
+            String(currentFill.title || "")
+          )) ||
+        Boolean(
+          priorFill?.title &&
+            containsSellerMetaInstruction(rawMessage) &&
+            !/\b(?:sell(?:ing)?|list(?:ing)?)\s+(?:my|a|an|the)\s+\S/i.test(
+              rawMessage
+            )
+        );
+      const semanticSeed =
+        followUpWasMisreadAsIdentity && priorFill?.title
+          ? {
+              ...priorFill,
+              ...currentFill,
+              title: priorFill.title,
+              listingType: priorFill.listingType || currentFill.listingType,
+              category: priorFill.category || currentFill.category,
+              price: currentFill.price || priorFill.price,
+              extras: [
+                ...(priorFill.extras || []),
+                ...(currentFill.extras || []),
+              ],
+            }
+          : currentFill;
+      if (!semanticSeed.price) {
+        const parsedPrice = parseListingPriceFromMessage(rawMessage);
+        if (parsedPrice && parsedPrice !== "malformed") {
+          semanticSeed.price = parsedPrice;
+        }
+      }
+      const structured = attachSellerFactModel(rawMessage, semanticSeed);
+      listingFill =
+        structured.descriptionSource === "user"
+          ? structured
+          : enforcePublicListingDescription(structured, { force: true });
     }
 
     // Internal self-check — strip unsafe tool/fill before emit (never shown)

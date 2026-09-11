@@ -6,6 +6,7 @@ import {
 } from "./listing-type-config";
 import { isStripeCheckoutProductEnabled } from "./stripe-checkout-flags";
 import { parseListingCondition } from "./awhina-listing-condition";
+import type { StructuredSellerFactModel } from "./awhina-semantic-fact-model";
 
 export const SKY_AI_LISTING_FILL_TAG =
   /\[\[LISTING_FILL\]\]\s*([\s\S]*?)\s*\[\[\/LISTING_FILL\]\]/gi;
@@ -64,6 +65,8 @@ export type SkyAiListingFill = {
   serviceDuration?: string;
   /** Merged add-ons — servicing, tyres, receipts, included items */
   extras?: string[];
+  /** Provenance-backed seller meaning used by public description writers. */
+  semanticFactModel?: StructuredSellerFactModel;
   /**
    * Who last wrote the buyer description.
    * When "user", AI must not overwrite on subsequent fills.
@@ -559,6 +562,13 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
   if (raw.description) out.description = raw.description.slice(0, 8000);
   if (o.descriptionSource === "user" || o.descriptionSource === "ai") {
     out.descriptionSource = o.descriptionSource;
+  }
+  if (
+    o.semanticFactModel &&
+    typeof o.semanticFactModel === "object" &&
+    (o.semanticFactModel as { version?: unknown }).version === 1
+  ) {
+    out.semanticFactModel = o.semanticFactModel as StructuredSellerFactModel;
   }
   if (raw.extras?.length) out.extras = raw.extras.slice(0, 24);
   if (listingType) out.listingType = listingType;

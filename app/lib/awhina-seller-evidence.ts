@@ -109,7 +109,7 @@ const USE_HISTORY_RE =
   /\b(always used with|used with a case|screen protector|case and screen)\b/i;
 /** Bundle/accessory nouns often listed without “comes with” (phones, consoles). */
 const PACKAGE_INCLUDED_RE =
-  /\b(original\s+box|(?:the\s+)?box(?:\s+and\s+charger)?|usb-?c(?:\s+cable)?|hdmi(?:\s+cable)?|power\s+cable|charger|(?:(?:one|two|three|\d+)\s+)?controllers?|screen\s+protector|(?:phone\s+)?case|(?:[a-z0-9][\w'’-]*\s+){0,3}(?:disc|game|manual))\b/gi;
+  /\b(original\s+box|(?:the\s+)?box(?:\s+and\s+charger)?|usb-?c(?:\s+cable)?|hdmi(?:\s+cable)?|power\s+cable|(?:all\s+)?cables?|charger|(?:(?:one|two|three|\d+)\s+)?controllers?|screen\s+protector|(?:phone\s+)?case|(?:[a-z0-9][\w'’-]*\s+){0,3}(?:disc|game|manual))\b/gi;
 const COND_DETAIL_RE =
   /\b(scratch(?:es)?|stone chips?|marks?|dents?|dings?|scuffs?|chips?|cracks?|cracked|tidy|wear|worn twice|barely\s+use(?:d)?(?:\s+(?:it|them))?|only\s+used\s+[^,.;]+|paint|interior|age-related|tiny scratch|small (?:scratch|mark|dent|scuff)|corner|oil\s+leak|needs?\s+(?:new\s+)?(?:repair|work|clutch)|doesn'?t\s+start|missing\s+\w+)\b/i;
 const LOGISTICS_RE = /\b(pickup only|pick-?up only|shipping only)\b/i;

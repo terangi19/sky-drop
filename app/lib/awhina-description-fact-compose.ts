@@ -162,6 +162,15 @@ export function naturalizeConditionClause(atom: string): string {
       : `has been ${lowerLead(t)}`;
   }
 
+  if (
+    /^(?:works?\b|used\s+for\b|has\s+been\b)/i.test(t) ||
+    /^(?:one|the|this|[a-z][\w'-]*)\s+(?:[a-z][\w'-]*\s+){0,2}(?:has|is|does|doesn'?t|won'?t)\b/i.test(
+      t
+    )
+  ) {
+    return lowerLead(t);
+  }
+
   if (/^needs?\b/i.test(t)) {
     const rest = t.replace(/^needs?\s+/i, "").replace(/^(?:a|an|the)\s+/i, "");
     if (/^new\s+/i.test(rest)) return `needs ${withIndefiniteArticle(rest)}`;

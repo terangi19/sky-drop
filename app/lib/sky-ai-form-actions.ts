@@ -6,6 +6,7 @@ import {
 } from "./awhina-seller-evidence";
 import { parseListingCondition } from "./awhina-listing-condition";
 import { extractSellerAuthoredText } from "./awhina-orchestration-boundary";
+import { attachSellerFactModel } from "./awhina-semantic-parser";
 
 const NZ_REGIONS = [
   "Northland",
@@ -336,7 +337,8 @@ export function enhanceListingFillFromMessage(
     mergeFormActionsIntoFill(mergeFormActionsIntoFill(fill, fromJson), fromRules)
   );
   const enriched = enrichSellerFactsFromMessage(message, combined);
-  return hasListingFillOrFormActions(enriched) ? enriched : fill;
+  const structured = attachSellerFactModel(message, enriched);
+  return hasListingFillOrFormActions(structured) ? structured : fill;
 }
 
 export function hasListingFillOrFormActions(fill: SkyAiListingFill | null | undefined): boolean {

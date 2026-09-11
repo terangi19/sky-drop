@@ -188,7 +188,9 @@ export type DescriptionQualityViolation =
   | "identity_mismatch"
   | "uncomposed_fact_dump"
   | "seller_instruction_leak"
-  | "orphan_filler_token";
+  | "orphan_filler_token"
+  | "missing_provenance_fact"
+  | "unsupported_numeric_claim";
 
 const INVENTED_COLLECTIBLE_HYPE_RE =
   /\b(?:rare(?:ly)?|highly sought[- ]after|investment potential|sure to appreciate|iconic status|legendary status|valuable addition)\b/i;
@@ -324,6 +326,52 @@ export function validateDescriptionQualityContract(
     ].filter((m) => m !== model && !model.includes(m) && descLower.includes(m));
     if (conflictingMakes.length > 0 || conflictingModels.length > 0) {
       violations.push("identity_mismatch");
+    }
+  }
+
+  const semanticModel = fill.semanticFactModel;
+  if (semanticModel) {
+    const descriptionNorm = normalizeSemanticFactText(text);
+    const requiredPublicFacts = semanticModel.publicFacts.filter((fact) =>
+      /^(?:included_item|negative_condition|modification)$/.test(fact.class)
+    );
+    if (
+      requiredPublicFacts.some((fact) => {
+        const tokens = normalizeSemanticFactText(fact.value)
+          .split(/\s+/)
+          .filter(
+            (token) =>
+              token.length > 2 &&
+              !/^(?:the|and|with|has|have|one|item|condition)$/.test(token)
+          );
+        if (!tokens.length) return false;
+        return (
+          tokens.filter((token) => descriptionNorm.includes(token)).length /
+            tokens.length <
+          0.6
+        );
+      })
+    ) {
+      violations.push("missing_provenance_fact");
+    }
+
+    const supportedNumbers = new Set(
+      [
+        ...semanticModel.publicFacts.map((fact) => fact.value),
+        semanticModel.price.confirmed?.value || "",
+        factBlob,
+      ]
+        .flatMap(
+          (value) => value.match(/(?<!\d)\d+(?:[.,]\d+)?(?!\d)/g) || []
+        )
+        .map((value) => value.replace(/,/g, ""))
+    );
+    if (
+      (text.match(/(?<!\d)\d+(?:[.,]\d+)?(?!\d)/g) || [])
+        .map((value) => value.replace(/,/g, ""))
+        .some((value) => !supportedNumbers.has(value))
+    ) {
+      violations.push("unsupported_numeric_claim");
     }
   }
 

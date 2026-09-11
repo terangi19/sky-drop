@@ -17,6 +17,11 @@ import {
   composeNaturalIncludedProse,
   composeNaturalModificationProse,
 } from "./awhina-description-fact-compose";
+import {
+  parseSellerMessageToFactModel,
+  semanticFactModelToPublicExtras,
+  validateStructuredSellerFactModel,
+} from "./awhina-semantic-parser";
 
 export type SemanticFactKind =
   | "identity"
@@ -381,9 +386,13 @@ export function scrubExtrasAgainstIdentity(
 export function prepareFillForDescription(
   fill: SkyAiListingFill
 ): SkyAiListingFill {
+  const semanticFactModel = validateStructuredSellerFactModel(fill.semanticFactModel)
+    ? fill.semanticFactModel
+    : parseSellerMessageToFactModel(undefined, fill);
   return {
     ...fill,
-    extras: scrubExtrasAgainstIdentity(fill),
+    semanticFactModel,
+    extras: semanticFactModelToPublicExtras(semanticFactModel),
   };
 }
 
@@ -439,6 +448,11 @@ export function composeDomainAwareEvidenceProse(
   }
 
   if (grouped.mechanical.length) {
+    grouped.mechanical = grouped.mechanical.map((item) =>
+      /^works?\s+(?:well|fine|great)$/i.test(item.trim())
+        ? "In working order"
+        : item
+    );
     // Preserve denial + battery grouping from caller via single join when simple
     if (grouped.mechanical.length === 1) {
       sentences.push(ensure(grouped.mechanical[0]));

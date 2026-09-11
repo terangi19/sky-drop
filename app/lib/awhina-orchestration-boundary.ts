@@ -145,6 +145,11 @@ export function extractSellerAuthoredText(raw: string): string {
  * Remove orchestration fragments anywhere in a string without inventing content.
  */
 export function stripInternalOrchestrationFragments(text: string): string {
+  return stripSellerMetaInstructions(stripInternalOrchestrationOnly(text));
+}
+
+/** Remove transport/control text while retaining classifiable seller commands. */
+export function stripInternalOrchestrationOnly(text: string): string {
   let out = String(text || "");
   if (!out) return "";
 
@@ -169,7 +174,7 @@ export function stripInternalOrchestrationFragments(text: string): string {
     .replace(/\s+([.,!?])/g, "$1")
     .trim();
 
-  return stripSellerMetaInstructions(out);
+  return out;
 }
 
 /**

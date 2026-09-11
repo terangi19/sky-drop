@@ -3,6 +3,7 @@ import { processCanonicalAwhina } from "./awhina-canonical";
 import { validateDescriptionQualityContract } from "./awhina-description-quality";
 import { clearAllListingDraftCacheForTests } from "./awhina-listing-fill-tools";
 import { clearTaskScope, taskScopeKey } from "./awhina-task-scope";
+import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 
 const MESSAGE =
   "selling my ps5 slim bro barely use it got 2 controllers but one got stick drift comes with hdmi power cable and spiderman 2 disc paid heaps for it just want gone im in henderson maybe 600 idk what they're worth can you make the listing sound good and tell me what price i should put";
@@ -20,7 +21,7 @@ describe("PS5 unpunctuated seller-evidence regression", () => {
       conversationId,
       pathname: "/post/ai",
     });
-    const fill = result.listingFill;
+    const fill = result.listingFill as SkyAiListingFill | undefined;
     expect(fill).toBeTruthy();
 
     const description = String(fill?.description || "");
@@ -42,5 +43,13 @@ describe("PS5 unpunctuated seller-evidence regression", () => {
       /excellent|mint|perfect|reliable|great choice|bargain/i
     );
     expect(validateDescriptionQualityContract(description, fill!).ok).toBe(true);
+    expect(fill?.semanticFactModel?.price.tentative?.value).toBe("600");
+    expect(fill?.semanticFactModel?.sellerIntent.length).toBeGreaterThan(0);
+    expect(fill?.semanticFactModel?.sellerInstructions.length).toBeGreaterThan(0);
+    expect(
+      fill?.semanticFactModel?.publicFacts.some((fact) =>
+        /make the listing|tell me what price|want gone/i.test(fact.value)
+      )
+    ).toBe(false);
   });
 });
