@@ -14,6 +14,7 @@ import {
   sanitizePublicListingCopy,
 } from "./awhina-orchestration-boundary";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
+import { NZ_PLACE_ALT } from "./nz-place-names";
 import {
   composeNaturalConditionProse,
   composeNaturalIncludedProse,
@@ -71,8 +72,7 @@ export type SellerEvidenceHarvestContext = {
 
 export type StructuredFactContext = SellerEvidenceHarvestContext;
 
-const NZ_LOCATION_RE =
-  /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|waitakere|north\s+shore|west\s+auckland|east\s+auckland|south\s+auckland|massey|petone|greymouth|whanganui|new\s+plymouth|mount\s+eden|mt\s+eden)\b/i;
+const NZ_LOCATION_RE = new RegExp(String.raw`\b(${NZ_PLACE_ALT})\b`, "i");
 
 const MULTI_VALUE_KEYS = new Set([
   "modification",
@@ -689,16 +689,25 @@ function classifyEvidenceFragment(
   if (COND_DETAIL_RE.test(text)) {
     if (/\bdon'?t\s+(?:say|put|mention|use)\b|\btitle\s+it\b|\blisting_fill\b/i.test(text)) {
       const isolated = text.match(
-        /\b((?:dent|crack|scratch|smash)(?:ed)?\s+on\s+(?:the\s+)?[a-z][\w'-]*)\b/i
+        /\b((?:dent|crack|scratch|smash)(?:ed)?(?:\s+on)?(?:\s+the)?\s+[a-z][\w'-]*)\b/i
       );
       if (isolated) pushUnique(items, { kind: "conditionDetail", text: isolated[1] });
       return items;
     }
-    const dentOn = text.match(
-      /\b((?:dent|crack|scratch|smash)(?:ed)?\s+on\s+(?:the\s+)?[a-z][\w'-]*)\b/i
+    const isolatedPart = text.match(
+      /\b((?:dent|crack|scratch|smash)(?:ed)?(?:\s+on)?(?:\s+the)?\s+[a-z][\w'-]*)\b/i
     );
-    if (dentOn && text.split(/\s+/).length > 5) {
-      pushUnique(items, { kind: "conditionDetail", text: dentOn[1] });
+    // Full hire/sale sentences must not dump as one extras blob; isolate defects only.
+    if (
+      isolatedPart &&
+      text.split(/\s+/).length > 5 &&
+      /\b(?:hir(?:e|ing)|rent(?:ing)?|not\s+for\s+sale|a\s+day|per\s+day)\b/i.test(text)
+    ) {
+      for (const hit of text.matchAll(
+        /\b((?:dent|crack|scratch|smash)(?:ed)?(?:\s+on)?(?:\s+the)?\s+[a-z][\w'-]*)\b/gi
+      )) {
+        pushUnique(items, { kind: "conditionDetail", text: hit[1] });
+      }
       return items;
     }
     const atoms = splitJammedConditionAtoms(text);

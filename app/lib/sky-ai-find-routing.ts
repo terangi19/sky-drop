@@ -21,7 +21,7 @@ const VEHICLE_BODY_WORDS =
   /\b(car|cars|vehicle|vehicles|ute|utes|van|vans|motorcycle|motorbike|motorbikes|bike|bikes|truck|trucks|suv|suvs|4wd|4x4|wagon|wagons|sedan|sedans|hatchback|hatchbacks|boat|boats|camper|caravan|caravans|trailer|trailers)\b/i;
 
 const VEHICLE_MODELS =
-  /\b(hilux|ranger|corolla|civic|axela|demio|outlander|pajero|l200|d-max|dmax|navara|amarok|commodore|falcon|forester|impreza|golf|polo|focus|fiesta|mustang|camry|rav4|cx-5|cx5|cx-3|cx3|santa fe|tucson|i30|i20|leaf|x-trail|xtrail|patrol|pulsar|lancer|legacy|outback|wrx|sti|335i|330i|320i|320d|328i|340i|m3|m4|m5|x5|x3|x1|118i|120i|125i|86|brz|supra|skyline\s*r[\s-]?3[2-4]|skyline|r[\s-]?3[2-4]|gt[\s-]?r|rx[\s-]?8|rx[\s-]?7|yaris|aurion|kluger|highlander|landcruiser|land cruiser|prado|fortuner|everest|mu-x|mux|triton|transit|colorado|civic|accord|cr-v|crv|hr-v|hrv|jazz|fit|odyssey|s2000|nsx|leaf|qashqai|juke|leaf|leaf|leaf)\b/i;
+  /\b(hilux|ranger|corolla|civic|axela|demio|outlander|pajero|l200|d-max|dmax|navara|hiace|jimny|amarok|commodore|falcon|forester|impreza|golf|polo|focus|fiesta|mustang|camry|rav4|cx-5|cx5|cx-3|cx3|santa fe|tucson|i30|i20|leaf|x-trail|xtrail|patrol|pulsar|lancer|legacy|outback|wrx|sti|335i|330i|320i|320d|328i|340i|m3|m4|m5|x5|x3|x1|118i|120i|125i|86|brz|supra|skyline\s*r[\s-]?3[2-4]|skyline|r[\s-]?3[2-4]|gt[\s-]?r|rx[\s-]?8|rx[\s-]?7|yaris|aurion|kluger|highlander|landcruiser|land cruiser|prado|fortuner|everest|mu-x|mux|triton|transit|colorado|civic|accord|cr-v|crv|hr-v|hrv|jazz|fit|odyssey|s2000|nsx|leaf|qashqai|juke|leaf|leaf|leaf)\b/i;
 
 /**
  * High-confidence model → make pairs. Never invents trims (GT-R, GTT, etc.).
@@ -59,6 +59,8 @@ const VEHICLE_MODEL_MAKE_ALIASES: ReadonlyArray<{
   { pattern: /\bforester\b/i, make: "Subaru", model: "Forester" },
   { pattern: /\boutback\b/i, make: "Subaru", model: "Outback" },
   { pattern: /\bnavara\b/i, make: "Nissan", model: "Navara" },
+  { pattern: /\bhiace\b/i, make: "Toyota", model: "Hiace" },
+  { pattern: /\bjimny\b/i, make: "Suzuki", model: "Jimny" },
   { pattern: /\bpatrol\b/i, make: "Nissan", model: "Patrol" },
   { pattern: /\b335i\b/i, make: "BMW", model: "335i" },
   { pattern: /\b330i\b/i, make: "BMW", model: "330i" },

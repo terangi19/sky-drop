@@ -35,6 +35,7 @@ import {
   prepareFillForDescription,
   normalizeSemanticFactText,
 } from "./awhina-description-semantic";
+import { NZ_PLACE_TAIL_RE } from "./nz-place-names";
 
 export type ListingDescriptionQuality = "standard" | "premium" | "premium_plus";
 
@@ -648,7 +649,7 @@ export function cleanRentalItemName(raw: string): string {
   if (!s) return s;
 
   s = s.replace(
-    /^(?:(?:just|not\s+selling)\s+)?(?:rent(?:ing)?|hire(?:ing)?)\s+(?:out\s+)?(?:my\s+|a\s+|an\s+|the\s+)?/i,
+    /^(?:(?:just|not\s+selling|might\s+sell\s+or)\s+)?(?:rent(?:ing)?|hire(?:ing)?)\s+(?:out\s+)?(?:my\s+|a\s+|an\s+|the\s+)?/i,
     ""
   );
   // Phrase forms first so "for hire" doesn't leave a dangling "for"
@@ -657,8 +658,26 @@ export function cleanRentalItemName(raw: string): string {
   s = s.replace(/\brental\b/gi, " ");
   s = s.replace(/\bnot\s+for\s+sale\b/gi, " ");
   s = s.replace(/\bnot\s+selling\b/gi, " ");
-  s = s.replace(/^(?:for|out|my|a|an|the)\s+/i, "");
-  s = s.replace(/\s+(?:for|out|my|a|an|the)$/i, "");
+  s = s.replace(/\b(?:for sale|selling|buy now|not hiring)\b/gi, " ");
+  s = s.replace(/\bmight\s+sell(?:ing)?(?:\s+or)?\b/gi, " ");
+  s = s.replace(/\bsell\s+or\b/gi, " ");
+  s = s.replace(/\bjust\s+hir(?:e|ing)\b/gi, " ");
+  // Stated hire rates belong in price fields, not the identity title.
+  s = s.replace(
+    /\b\$?\d[\d,]*(?:\.\d{2})?\s*(?:\/\s*)?(?:per\s+)?(?:a\s+)?(?:p\/w|p\/d|pw|pd|day|week|month|hourly|hr)\b/gi,
+    " "
+  );
+  s = s.replace(/\b(?:per\s+)?(?:a\s+)?(?:day|week|month)\b/gi, " ");
+  // Sale-alternative amount without a hire unit: "or 22000"
+  s = s.replace(
+    /\bor\s+\$?\d[\d,]{3,}(?!\s*(?:a\s+|per\s+|\/\s*)?(?:day|week|month|pw))\b/gi,
+    " "
+  );
+  s = s.replace(/\bbond\b.*$/i, " ");
+  s = s.replace(NZ_PLACE_TAIL_RE, " ");
+  s = s.replace(/\s+/g, " ").trim();
+  s = s.replace(/^(?:for|out|my|a|an|the|or|not)\s+/i, "");
+  s = s.replace(/\s+(?:for|out|my|a|an|the|or|not)$/i, "");
   s = s.replace(/\s+/g, " ").trim();
   return s || String(raw || "").trim();
 }

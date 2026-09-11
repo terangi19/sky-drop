@@ -868,20 +868,35 @@ This follow-up converts `it.fails` → `it()` only after production actually pas
 
 | Suite | Breaker on #28 @ `c289aa8` | This follow-up |
 | --- | --- | --- |
-| Waves 1–4 combined | **126 passed \| 92 expected-fail (218)** | **162 passed \| 56 expected-fail (218)** |
+| Waves 1–4 combined | **126 passed \| 92 expected-fail (218)** | **190 passed \| 28 expected-fail (218)** |
 
 ## Newly passing classes (this follow-up)
 
 - **Digital type:** ebook / Canva template pack / course videos now seed `listingType=digital` (protected `normalizeListingType` has no digital enum; restored after coerce).
 - **Wanted budgets + instructions:** WTB xbox around 450; long iPad budget walk to 360; ISO bike under 200 + no-rust; looking-for Dyson around 180 vs paid 400; `no scams` / `serious only` / `no timewasters` / `dont put my max` stay instructions.
 - **Rentals hire-or-sell:** Transit van wait-just-hiring; Triton just-hiring; marquee dual daily+weekly. Dual rates kept when both stated. `around`/`about` parse as wanted budget via `parseFindBudget`.
+- **Rentals Class 4 (this follow-up):** `280pw` weekly beats bond `$`; trailer rate/bond/location walk keeps daily 45 + weekly 200 + bond 100. Hire-or-sell, property vs equipment, bond-weeks, dual rates.
 
-## Still FAIL (56 expected-fail, not weakened)
+---
+
+# Wave 5 Class 4 (Rentals) — this branch
+
+Wave 5 corpus from Breaker PR #51 (`app/lib/awhina-adversarial-wave-5.test.ts`) is wired into `test:awhina` / adversarial / description-quality / evidence-pipeline. Wanted / identity / contradiction FAIL markers were not weakened. PR #28 remains HOLD.
+
+Class 4 production (generic — no Wave 5 string hardcoding):
+
+- Hire vehicles resolve make/model/year (Hiace→Toyota, Jimny→Suzuki; Navara already mapped) and stay `rentalSubType=vehicle`, not equipment/sale.
+- NZ places include Hastings, Gisborne, Invercargill, New Plymouth, Taupo so location lands on the fill (and `new plymouth` is not Brand New).
+- Dual-rate hire titles keep identity, not leftover `180 a day or 750 a week`.
+- Bond `$` does not beat weekly `pw`. Hire-or-sell last-wins stays hire. Defect phrases like `scratched hull` harvest as negative condition, not a whole-message extras dump.
+
+**Wave 5 vitest:** `48 passed | 20 expected fail (68)` — **Class 4 Rentals PASS** (all rental corpus cases live `it()`, including hire Hiace/Jimny/Navara, dual-rate mixer/cherry picker, NPL room, Hastings 5bed, tinnie scratch, mixer multi-turn). Remaining expected-fail are Wanted/identity/contradiction. Overall still **NOT SAFE TO LAUNCH**. PR #28 HOLD.
+
+## Still FAIL (expected-fail, not weakened)
 
 Priority remaining matches Breaker:
 
 - Wanted PATCH: budget/pads follow-ups (`wanted-budget-correction`, `wanted-budget-pads-nah-bro`, Wave 4 pads/qty walks); some max/under parser traps (`gopro 11 max 250` as parseListingPriceFromMessage).
-- Rentals: scaffold dual-rate; dented trailer; some bond/rate follow-ups.
 - Identity wipe: TV size leftover; iPhone 13→15 / storage-colour flipflops; ≥4–8 turn undo (Wave 3 multi4/multi5, Wave 4 multi6–8).
 - Qty/lot/model traps (air max / lot of 3 / some Brand New+defect).
 - Services: westie/chch/hammers/palmy secondary add-ons (hedge, drain, oven).

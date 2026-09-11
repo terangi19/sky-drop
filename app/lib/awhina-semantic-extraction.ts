@@ -10,6 +10,7 @@
  */
 
 import type { SellerEvidenceItem } from "./awhina-seller-evidence";
+import { NZ_PLACE_ALT } from "./nz-place-names";
 
 export type SemanticPriceClass =
   | "confirmed"
@@ -163,11 +164,12 @@ const DEFECT_TOKEN_RE =
 const POSITIVE_CONDITION_RE =
   /\b(?:barely\s+use(?:d)?(?:\s+(?:it|them))?|only\s+used\s+(?:once|twice|a\s+few\s+times)|light(?:ly)?\s+used|still\s+works?(?:\s+(?:fine|well|ok|okay|good))?|works?\s+(?:fine|well|ok|okay|good|perfectly)|in\s+working\s+order)\b/gi;
 
-const LOCATION_RE =
-  /\b(?:i'?m\s+in|im\s+in|located(?:\s+in)?|based(?:\s+in)?|pickup(?:\s+in)?|pick\s*up(?:\s+in)?|in)\s+(north\s+shore|west\s+auckland|east\s+auckland|south\s+auckland|palmerston\s+north|mount\s+eden|mt\s+eden|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|papakura|waitakere|grey\s*lynn|new\s+lynn|petone|massey|howick|botany)\b/i;
+const LOCATION_RE = new RegExp(
+  String.raw`\b(?:i'?m\s+in|im\s+in|located(?:\s+in)?|based(?:\s+in)?|pickup(?:\s+in)?|pick\s*up(?:\s+in)?|in)\s+(${NZ_PLACE_ALT})\b`,
+  "i"
+);
 
-const LOCATION_BARE_RE =
-  /\b(north\s+shore|west\s+auckland|east\s+auckland|south\s+auckland|palmerston\s+north|mount\s+eden|mt\s+eden|henderson|manukau|albany|newmarket|takapuna|papakura|waitakere|grey\s*lynn|new\s+lynn|petone|massey|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei)\b/i;
+const LOCATION_BARE_RE = new RegExp(String.raw`\b(${NZ_PLACE_ALT})\b`, "i");
 
 export const SELLER_INSTRUCTION_RE =
   /\b(?:can|could|would)\s+you\b|\b(?:please\s+)?(?:make|write|create|generate)\s+(?:the|a|an|my)?\s*(?:ad|listing|title|description)\b|\btell\s+me\s+what\s+(?:price|it(?:'?s|s)?\s+actually\s+worth|they(?:'re|\s+are)\s+worth|i\s+should)\b|\bdon'?t\s+(?:put|say|mention|use)\b|\bdo\s+not\s+(?:put|use|say|mention)\b|\btitle\s+it\b|\bmake\s+(?:the\s+)?(?:ad|listing)\s+sound\s+(?:good|professional)\b|\bhelp\s+me\s+(?:choose|pick|write|price|suggest)\b|\bsuggest\s+(?:a\s+)?(?:fair\s+)?price\b|\bsound\s+professional\b|\blisting_fill\b|\bsystem\s+prompt\b|\bno\s+scams\b|\bno\s+time\s*wasters?\b|\bserious\s+only\b/i;
@@ -245,7 +247,9 @@ function priceClassFromLocalCues(
     return "excluded";
   }
   if (/\b(?:under|below|up\s+to|max(?:imum)?|budget)\s*$/i.test(left)) return "skip";
-  if (/\bbond\s*\$?\s*$/i.test(left)) return "skip";
+  // Bond / deposit cash is never the asking / weekly rent.
+  if (/\bbond\s*\$?\s*$/i.test(left)) return "excluded";
+  if (/^\s*bond\b/i.test(after)) return "excluded";
   if (/\b(?:lot|set)\s+of\s*$/i.test(left)) return "skip";
   if (/\b(?:starting\s+)?bid\s*$/i.test(left)) return "skip";
   if (/\bbuy\s+now\s*$/i.test(left)) return "confirmed";
@@ -262,6 +266,10 @@ function priceClassFromLocalCues(
     return "confirmed";
   }
   if (/^\s*(?:a|an|per|\/)\s*(?:day|week|hour|hr|lawn|visit|job|night|section)\b/i.test(after)) {
+    return "confirmed";
+  }
+  // NZ rental shorthand: 280pw / 420 p/w is weekly rent, not a missing ask.
+  if (/^\s*(?:pw|p\/w)\b/i.test(after)) {
     return "confirmed";
   }
   if (
@@ -372,6 +380,10 @@ export function classifySellerPrices(message: string): SellerPriceModel {
     if (isNotPriceSpan(before, after, n)) continue;
     if (/\b(?:under|below|up\s+to|max(?:imum)?|budget)\s*$/i.test(before)) continue;
     if (/\b(?:bond|deposit)\s*$/i.test(before) && /\bweeks?\b/i.test(after)) continue;
+    if (/\b(?:bond|deposit)\s*$/i.test(before) && !/\bweeks?\b/i.test(after)) {
+      mentions.push({ amount, klass: "excluded", raw: match[0] });
+      continue;
+    }
     if (/^\s*(?:gb|tb|bed|bath|inch|controllers?|pads?|games?|keys?|%|percent)\b/i.test(after)) {
       continue;
     }

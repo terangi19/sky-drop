@@ -51,7 +51,9 @@ import {
   hasDigitalOfferingIntent,
   inferSellListingTypeHint,
   isExplicitNewSellListingMessage,
+  isEquipmentBrandNotVehicle,
 } from "./sky-ai-intent";
+import { NZ_PLACE_ALT, NZ_PLACE_RE as SHARED_NZ_PLACE_RE, NZ_PLACE_TAIL_RE } from "./nz-place-names";
 import { normalizeServicePricingType } from "./service-pricing";
 import type { AwhinaToolCall } from "./awhina-types";
 import { validateToolCall } from "./awhina-tool-registry";
@@ -207,10 +209,9 @@ const SELL_ITEM_RE =
 
 // kms? must consume optional trailing "s" so "145000kms" stops (km\b fails between m/s).
 const SELL_ITEM_STOP_RE =
-  /\b(?:brand\s+new|its|it's|condition|new|used|like\s+new|excellent|mint|good|fair|pickup|pick\s*up|shipping|located|based|in\s+auckland|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|henderson|manukau|for\s+\$|\$\d|\d+\s*(?:bucks|nzd|dollars?)|for\s+\d{1,4}\s*k\b|\d{2,3}[\s,]?\d{3}\s*kms?|bit\s+scratched|scratched|dent|still\s+works|under\s+\d)\b/i;
+  /\b(?:brand\s+new|its|it's|condition|new|used|like\s+new|excellent|mint|good|fair|pickup|pick\s*up|shipping|located|based|in\s+auckland|for\s+\$|\$\d|\d+\s*(?:bucks|nzd|dollars?)|for\s+\d{1,4}\s*k\b|\d{2,3}[\s,]?\d{3}\s*kms?|bit\s+scratched|scratched|dent|still\s+works|under\s+\d)\b/i;
 
-const NZ_CITY_TAIL_RE =
-  /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei)\b.*$/i;
+const NZ_CITY_TAIL_RE = NZ_PLACE_TAIL_RE;
 
 const KEYWORDS_RE =
   /\b(?:keywords?|tags?)\s*(?:are|:)?\s*(.+)$/i;
@@ -221,11 +222,12 @@ const TITLE_SET_RE =
 const DESC_SET_RE =
   /\b(?:description(?:\s+is)?|describe(?:\s+it)?(?:\s+as)?)\s*[:\-]?\s*(.{10,})\s*$/i;
 
-const NZ_PLACE_RE =
-  /\b(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|mt\s+maunganui|mount\s+maunganui|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|rotorua|queenstown|nelson|whangarei|henderson|manukau|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|albany|petone|canterbury)\b/i;
+const NZ_PLACE_RE = SHARED_NZ_PLACE_RE;
 
-const LOCATION_RE =
-  /\b(?:located(?:\s+in)?|based(?:\s+in)?|location(?:\s+is)?|in)\s+(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|mt\s+maunganui|mount\s+maunganui|northland|auckland|waikato|bay of plenty|gisborne|hawke'?s bay|taranaki|manawatu|wellington|nelson|marlborough|west coast|canterbury|otago|southland|christchurch|hamilton|tauranga|dunedin|henderson|manukau|newmarket|takapuna)\b/i;
+const LOCATION_RE = new RegExp(
+  String.raw`\b(?:located(?:\s+in)?|based(?:\s+in)?|location(?:\s+is)?|in)\s+(northland|waikato|bay of plenty|taranaki|manawatu|marlborough|west coast|canterbury|otago|southland|${NZ_PLACE_ALT})\b`,
+  "i"
+);
 
 function pruneSessions(): void {
   const now = Date.now();
@@ -426,9 +428,24 @@ export function validateListingFillFields(
     const daily = Number(fillOut.rentalPriceDaily);
     const weekly = Number(fillOut.rentalPriceWeekly);
     const monthly = Number(fillOut.rentalPriceMonthly);
+    const incomingDaily = Number(String(fill.rentalPriceDaily || "").replace(/,/g, ""));
+    const incomingWeekly = Number(String(fill.rentalPriceWeekly || "").replace(/,/g, ""));
+    const dualStated =
+      String(fillOut.rentalSubType || "").toLowerCase() !== "property" &&
+      incomingDaily > 0 &&
+      incomingWeekly > 0 &&
+      incomingDaily !== incomingWeekly;
     if (fillOut.rentalSubType === "property") {
       delete fillOut.rentalPriceDaily;
       if (fillOut.rentalPriceWeekly) fillOut.price = fillOut.rentalPriceWeekly;
+    } else if (dualStated) {
+      // Protected normalize copies price onto daily and can collapse dual rates.
+      fillOut.rentalPriceDaily = String(Math.round(incomingDaily));
+      fillOut.rentalPriceWeekly = String(Math.round(incomingWeekly));
+      fillOut.price = fillOut.rentalPriceDaily;
+      if (monthly === incomingDaily * 28 || monthly === incomingWeekly * 4) {
+        delete fillOut.rentalPriceMonthly;
+      }
     } else if (daily > 0 && weekly > 0 && daily === weekly) {
       delete fillOut.rentalPriceDaily;
       fillOut.price = fillOut.rentalPriceWeekly;
@@ -511,9 +528,17 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
 
   const classified = classifySellerPrices(message);
   if (classified.confirmed) {
-    const check = validatePriceString(classified.confirmed);
-    if (check.ok && !isStorageOrSizeToken(check.price, message)) {
-      return check.price;
+    const isBondAsk =
+      classified.excluded.includes(classified.confirmed) ||
+      new RegExp(
+        `\\bbond\\s*\\$?\\s*${classified.confirmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+        "i"
+      ).test(message);
+    if (!isBondAsk) {
+      const check = validatePriceString(classified.confirmed);
+      if (check.ok && !isStorageOrSizeToken(check.price, message)) {
+        return check.price;
+      }
     }
   }
 
@@ -532,9 +557,29 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     return check.price;
   };
 
-  // Explicit dollar amounts always win (still reject storage-as-price / historical)
+  // Stated rental rates beat bond dollars. 280pw / 80 a day must win over bond $1120.
+  const weeklyAsk = message.match(
+    /\b([\d,]+(?:\.\d{1,2})?)\s*(?:pw|p\/w|a\s+week|per\s+week|\/\s*week|weekly)\b/i
+  );
+  const dailyAsk = message.match(
+    /\b([\d,]+(?:\.\d{1,2})?)\s*(?:a\s+day|per\s+day|\/\s*day)\b/i
+  );
+  if (weeklyAsk) {
+    const raw = finalize(weeklyAsk[1]);
+    if (raw && raw !== "malformed") return raw;
+  }
+  if (dailyAsk) {
+    const raw = finalize(dailyAsk[1]);
+    if (raw && raw !== "malformed") return raw;
+  }
+
+  // Explicit dollar amounts always win (still reject storage-as-price / historical / bond)
   const dollarAll = [...message.matchAll(/\$\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\b/gi)];
   for (const dollar of dollarAll) {
+    const idx = dollar.index ?? 0;
+    const beforeDol = message.slice(Math.max(0, idx - 16), idx);
+    const afterDol = message.slice(idx + dollar[0].length, idx + dollar[0].length + 12);
+    if (/\bbond\s*$/i.test(beforeDol) || /^\s*bond\b/i.test(afterDol)) continue;
     const got = finalize(dollar[1], dollar[2]);
     if (got && got !== "malformed") return got;
   }
@@ -610,12 +655,13 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     .replace(/\bwestie\b/gi, "west auckland")
     .replace(/\bhammers?\b/gi, "hamilton")
     .replace(/\bpalmy\b/gi, "palmerston north")
+    .replace(/\bnpl\b/gi, "new plymouth")
     .replace(/\bakl\b/gi, "auckland")
     .replace(/\bwellie\b/gi, "wellington")
     .replace(/\bdunners\b/gi, "dunedin")
     .replace(/\btaupo\b/gi, "taupo");
   const beforeCity = cityMessage.match(
-    /\b([\d,]{2,8}(?:\.\d{1,2})?)\s*(k|K)?\s+(?:in\s+)?(west\s+auckland|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|new\s+plymouth|rotorua|queenstown|invercargill|nelson|whangarei|taupo)\b/i
+    /\b([\d,]{2,8}(?:\.\d{1,2})?)\s*(k|K)?\s+(?:in\s+)?(west\s+auckland|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|new\s+plymouth|rotorua|queenstown|invercargill|nelson|whangarei|taupo|gisborne|hastings)\b/i
   );
   if (beforeCity) {
     const idx = beforeCity.index ?? -1;
@@ -856,8 +902,25 @@ function extractRentalOfferItem(message: string): string | undefined {
   if (/\bstudio\b/i.test(message) && /\b(?:pw|a\s+week|per\s+week|weekly|bond)\b/i.test(message)) {
     return "Studio";
   }
+  if (
+    /\broom\s+for\s+rent\b|\brent(?:ing)?\s+(?:out\s+)?(?:a\s+)?room\b/i.test(message) &&
+    !GLUED_BED_RE.test(message)
+  ) {
+    return "Room";
+  }
+  if (
+    /\b(?:hire|hiring|rent|renting|a\s+day|per\s+day|just\s+hir(?:e|ing)|not\s+selling)\b/i.test(
+      message
+    ) &&
+    !isEquipmentBrandNotVehicle(message)
+  ) {
+    const identity = resolveVehicleIdentity(message);
+    if (identity.make && identity.model) {
+      return [identity.year, identity.make, identity.model].filter(Boolean).join(" ");
+    }
+  }
   const mixer = message.match(
-    /\b((?:cement|concrete)\s+mixer|scaffold(?:ing)?|marquee|mixer|trailer|caravan|generator|(?:transit\s+)?van)\b/i
+    /\b((?:cement|concrete)\s+mixer|cherry\s+picker|boom\s+lift|scaffold(?:ing)?|marquee|mixer|trailer|caravan|generator|tinnie|(?:transit\s+)?van)\b/i
   );
   if (mixer && /\b(?:hire|rent|a\s+day|per\s+day|bond|just\s+hir(?:e|ing))\b/i.test(message)) {
     const label = mixer[1];
@@ -869,7 +932,10 @@ function extractRentalOfferItem(message: string): string | undefined {
   if (!m?.[1]) return undefined;
   let item = m[1].trim();
   const stop = item.search(
-    /\b(?:for\s+\$|\$\d|\d+\s*(?:\/\s*day|a\s+day|per\s+day|\/day|bucks|nzd|dollars?)|bond|pickup|not\s+for\s+sale|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|manukau)\b/i
+    new RegExp(
+      String.raw`\b(?:for\s+\$|\$\d|\d+\s*(?:\/\s*day|a\s+day|per\s+day|\/day|bucks|nzd|dollars?)|bond|pickup|not\s+for\s+sale|${NZ_PLACE_ALT})\b`,
+      "i"
+    )
   );
   if (stop > 0) item = item.slice(0, stop).trim();
   item = item
@@ -2038,18 +2104,25 @@ export function processListingFillMessage(
             if (!/\bstudio\b/i.test(partial.title || "")) partial.title = "Studio";
           }
           if (/\broom\s+for\s+rent\b|\brent(?:ing)?\s+(?:out\s+)?(?:a\s+)?room\b/i.test(trimmed) && !beds) {
-            if (!partial.title || /rental listing/i.test(partial.title)) partial.title = "Room";
+            if (
+              !partial.title ||
+              /rental listing|plymouth|new\s+ply/i.test(partial.title)
+            ) {
+              partial.title = "Room";
+            }
           }
         } else if (
-          /\b(?:trailer|hilux|ute|equipment|generator|mixer|caravan|ranger|scaffold|marquee|van|transit)\b/i.test(
+          /\b(?:trailer|hilux|ute|equipment|generator|mixer|caravan|ranger|scaffold|marquee|van|transit|cherry\s+picker|tinnie|hiace|jimny|navara|boom\s+lift)\b/i.test(
             trimmed
           ) ||
+          Boolean(identityEarly.make && identityEarly.model && !isEquipmentBrandNotVehicle(trimmed)) ||
           /\ba\s+day|per\s+day|\/\s*day\b/i.test(trimmed)
         ) {
-          partial.rentalSubType =
-            /\b(?:hilux|ute|ranger|triton|transit|van|navara)\b/i.test(trimmed)
-              ? "vehicle"
-              : "equipment";
+          const vehicleHire =
+            !isEquipmentBrandNotVehicle(trimmed) &&
+            (Boolean(identityEarly.make && identityEarly.model) ||
+              /\b(?:hilux|ute|ranger|triton|transit|van|navara|hiace|jimny)\b/i.test(trimmed));
+          partial.rentalSubType = vehicleHire ? "vehicle" : "equipment";
         }
         const week = trimmed.match(
           /\b([\d,]+)\s*(?:a\s+week|per\s+week|\/\s*week|weekly|\bpw\b)\b/i
@@ -2126,6 +2199,21 @@ export function processListingFillMessage(
             }
           }
         }
+      }
+      if (
+        partial.listingType === "rental" &&
+        partial.rentalSubType === "vehicle" &&
+        identityEarly.make &&
+        identityEarly.model &&
+        !isEquipmentBrandNotVehicle(trimmed)
+      ) {
+        partial.vehicleMake = identityEarly.make;
+        partial.vehicleModel = identityEarly.model;
+        if (identityEarly.year) partial.vehicleYear = identityEarly.year;
+        const vTitle = [identityEarly.year, identityEarly.make, identityEarly.model]
+          .filter(Boolean)
+          .join(" ");
+        if (vTitle) partial.title = vTitle;
       }
       if (partial.listingType === "service" && !partial.servicePricingType) {
         partial.servicePricingType = normalizeServicePricingType(

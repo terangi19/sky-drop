@@ -947,6 +947,10 @@ function assertCase(c: CorpusCase) {
  *   rental-marquee-just-hiring-dual-rate
  *   plus Wave 3 digital ebook/canva/course
  *
+ * Class 4 rental follow-up (this commit):
+ *   multi6-rental-trailer-rate-bond-location
+ *   plus parser "280pw bond $1120" weekly beats bond dollars
+ *
  * Newly recorded FAIL (regression vs Wave 4-on-main):
  *   multi7-price-maybe-firm-nah-final-ipad — identity wiped to title "OR"
  */
@@ -955,7 +959,6 @@ const KNOWN_FAILURE_IDS = new Set<string>([
   "multi6-accessory-qty-walk-ps4",
   "multi8-pending-slot-must-not-overwrite-identity",
   "multi7-vehicle-identity-undo-then-rechange",
-  "multi6-rental-trailer-rate-bond-location",
   "multi5-wanted-iso-then-not-a-sale",
   "multi7-price-maybe-firm-nah-final-ipad",
 ]);
@@ -1021,9 +1024,11 @@ describe("adversarial NZ wave4 — price/budget traps (parseListingPriceFromMess
     expect(parseListingPriceFromMessage("2bed flat wellie 520 a week bond 3 weeks")).not.toBe("3");
   });
 
-  it.fails('FAIL: "280pw bond $1120" weekly 280 beats bond dollars', () => {
+  it('"280pw bond $1120" weekly 280 beats bond dollars', () => {
     expect(parseListingPriceFromMessage("room for rent tauranga 280pw bond $1120")).toBe("280");
     expect(parseListingPriceFromMessage("room for rent tauranga 280pw bond $1120")).not.toBe("1120");
+    expect(parseListingPriceFromMessage("studio wellington 420pw bond $1680")).toBe("420");
+    expect(parseListingPriceFromMessage("studio wellington 420pw bond $1680")).not.toBe("1680");
   });
 
   it('"just hiring 150 a day" is 150 not 2017 / 18000', () => {
