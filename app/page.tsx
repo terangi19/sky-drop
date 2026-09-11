@@ -38,7 +38,6 @@ import { LoadingCard } from "./components/LoadingSpinner";
 import EmptyState from "./components/EmptyState";
 import { funnel } from "./lib/funnel-events";
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -46,12 +45,9 @@ import {
   getDocs,
   Timestamp,
   limit,
-  onSnapshot,
   orderBy,
   query,
-  serverTimestamp,
   setDoc,
-  where,
 } from "firebase/firestore";
 
 import { auth, db, storage, onAuthStateChanged } from "./lib/firebase";
@@ -66,6 +62,12 @@ import {
 } from "./lib/marketplace-listing-count";
 import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
 import { useSellerListingMeta } from "./lib/useSellerListingMeta";
+import { LISTINGS_POLL_MS } from "./lib/firestore-query-limits";
+import {
+  HOME_SWR_TTL_MS,
+  dedupeAsync,
+  startVisibilityPolledFetch,
+} from "./lib/polled-firestore";
 import { sellerMessagesUrl } from "./lib/public-display";
 
 interface Listing {
@@ -224,7 +226,6 @@ export default function Home() {
 
   const lastOfferTime = useRef(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
-  const [authReady, setAuthReady] = useState(false);
   const [listingsRetry, setListingsRetry] = useState(0);
   const {
     sellerReviewStats,
@@ -340,7 +341,6 @@ export default function Home() {
         try { localStorage.removeItem("recentlyViewed"); } catch {}
       }
       setUser(currentUser);
-      setAuthReady(true);
     });
     return () => {
       mounted = false;
@@ -348,142 +348,126 @@ export default function Home() {
     };
   }, []);
 
-  // Fetch listings with getDocs + polling instead of real-time for cost optimization
+  // Public marketplace rows — do not wait on Firebase auth. Module SWR + visibility
+  // poller skip remount / tab-switch duplicate reads of the bounded 150-doc set.
   useEffect(() => {
-    if (!authReady) return;
     let mounted = true;
-    let inFlight: Promise<void> | null = null;
-    let queuedRefresh = false;
+    const forceRefresh = listingsRetry > 0;
 
     async function fetchListings() {
       if (!mounted) return;
-      // Dedupe overlapping calls from interval + visibility + effect remount/retry
-      if (inFlight) {
-        queuedRefresh = true;
-        return inFlight;
-      }
+      try {
+        const filtered = await dedupeAsync(
+          "home:listings-tradeposts:v1",
+          HOME_SWR_TTL_MS,
+          async () => {
+            const [listingsSnap, tradePostsSnap] = await Promise.all([
+              getDocs(
+                query(
+                  collection(db, "listings"),
+                  orderBy("createdAt", "desc"),
+                  limit(100)
+                )
+              ),
+              getDocs(
+                query(
+                  collection(db, "tradePosts"),
+                  orderBy("createdAt", "desc"),
+                  limit(50)
+                )
+              ),
+            ]);
 
-      inFlight = (async () => {
-        try {
-          const [listingsSnap, tradePostsSnap] = await Promise.all([
-            getDocs(
-              query(
-                collection(db, "listings"),
-                orderBy("createdAt", "desc"),
-                limit(100)
-              )
-            ),
-            getDocs(
-              query(
-                collection(db, "tradePosts"),
-                orderBy("createdAt", "desc"),
-                limit(50)
-              )
-            ),
-          ]);
+            const listingItems = listingsSnap.docs.map((d) => {
+              const data = d.data();
+              return {
+                id: d.id,
+                title: data.title,
+                price: data.price,
+                image: data.image,
+                imageUrl: data.imageUrl,
+                images: data.images,
+                category: data.category,
+                condition: data.condition,
+                location: data.location,
+                sellerEmail: data.sellerEmail,
+                sellerUsername: data.sellerUsername,
+                sellerId:
+                  data.sellerId ||
+                  data.userId ||
+                  data.ownerId ||
+                  data.sellerUid ||
+                  data.uid,
+                userId: data.userId,
+                ownerId: data.ownerId,
+                sellerUid: data.sellerUid,
+                createdAt: data.createdAt,
+                status: data.status,
+                type: data.type,
+                saleType: data.saleType,
+                pricingType: data.pricingType,
+                paymentType: data.paymentType,
+                stockQuantity: data.stockQuantity,
+                views: data.views,
+                watchlistCount: data.watchlistCount,
+                expiresAt: data.expiresAt,
+                promotedUntil: data.promotedUntil,
+                promoted: data.promoted,
+                isDemo: data.isDemo,
+              };
+            });
+            const tradeItems = tradePostsSnap.docs.map((d) => {
+              const data = d.data();
+              return {
+                id: d.id,
+                title: data.title,
+                price: data.price,
+                image: data.image,
+                imageUrl: data.imageUrl,
+                images: data.images,
+                sellerEmail: data.sellerEmail,
+                sellerUsername: data.sellerUsername,
+                sellerId: data.sellerId || data.userId || data.ownerId,
+                createdAt: data.createdAt,
+                status: data.status,
+                type: data.type,
+                views: data.views,
+                watchlistCount: data.watchlistCount,
+              };
+            });
 
-          if (!mounted) return;
+            const combined = [...listingItems, ...tradeItems];
+            const visible = combined.filter(
+              (i: any) => i.status !== "flagged" && i.status !== "pending_review"
+            );
+            visible.sort(
+              (a: any, b: any) =>
+                (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+            );
+            return visible.slice(0, 100);
+          },
+          forceRefresh
+        );
 
-          // Map fields the marketplace card needs (do not strip watchlistCount/views)
-          const listingItems = listingsSnap.docs.map((d) => {
-            const data = d.data();
-            return {
-              id: d.id,
-              title: data.title,
-              price: data.price,
-              image: data.image,
-              imageUrl: data.imageUrl,
-              images: data.images,
-              category: data.category,
-              condition: data.condition,
-              location: data.location,
-              sellerEmail: data.sellerEmail,
-              sellerUsername: data.sellerUsername,
-              sellerId:
-                data.sellerId ||
-                data.userId ||
-                data.ownerId ||
-                data.sellerUid ||
-                data.uid,
-              userId: data.userId,
-              ownerId: data.ownerId,
-              sellerUid: data.sellerUid,
-              createdAt: data.createdAt,
-              status: data.status,
-              type: data.type,
-              saleType: data.saleType,
-              pricingType: data.pricingType,
-              paymentType: data.paymentType,
-              stockQuantity: data.stockQuantity,
-              views: data.views,
-              watchlistCount: data.watchlistCount,
-              expiresAt: data.expiresAt,
-              promotedUntil: data.promotedUntil,
-              promoted: data.promoted,
-              isDemo: data.isDemo,
-            };
-          });
-          const tradeItems = tradePostsSnap.docs.map((d) => {
-            const data = d.data();
-            return {
-              id: d.id,
-              title: data.title,
-              price: data.price,
-              image: data.image,
-              imageUrl: data.imageUrl,
-              images: data.images,
-              sellerEmail: data.sellerEmail,
-              sellerUsername: data.sellerUsername,
-              sellerId: data.sellerId || data.userId || data.ownerId,
-              createdAt: data.createdAt,
-              status: data.status,
-              type: data.type,
-              views: data.views,
-              watchlistCount: data.watchlistCount,
-            };
-          });
-
-          const combined = [...listingItems, ...tradeItems];
-          const filtered = combined.filter((i: any) => i.status !== "flagged" && i.status !== "pending_review");
-          filtered.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
-          setListings(filtered.slice(0, 100));
-          setLoadError(false);
+        if (!mounted) return;
+        setListings(filtered);
+        setLoadError(false);
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch listings:", error);
+        if (mounted) {
+          setLoadError(true);
           setLoading(false);
-        } catch (error) {
-          console.error("Failed to fetch listings:", error);
-          if (mounted) {
-            setLoadError(true);
-            setLoading(false);
-          }
-        } finally {
-          inFlight = null;
-          if (queuedRefresh && mounted) {
-            queuedRefresh = false;
-            void fetchListings();
-          }
         }
-      })();
-
-      return inFlight;
+      }
     }
 
-    fetchListings();
-    // Refresh every 5 minutes; also refetch when tab becomes visible
-    const interval = setInterval(fetchListings, 300000);
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && mounted) {
-        fetchListings();
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
+    const stop = startVisibilityPolledFetch(fetchListings, LISTINGS_POLL_MS);
     return () => {
       mounted = false;
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      stop();
     };
-  }, [user, authReady, listingsRetry]);
+  }, [listingsRetry]);
 
   // Infinite scroll via IntersectionObserver
   useEffect(() => {

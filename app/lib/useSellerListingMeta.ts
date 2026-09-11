@@ -162,6 +162,7 @@ export function useSellerListingMeta(
           })()
         );
       }
+      const profilesPromise = fetchSellerProfilesByListing(snapshot);
       if (reviewChunkTasks.length) await Promise.all(reviewChunkTasks);
 
       const badges: Record<string, string> = {};
@@ -172,8 +173,8 @@ export function useSellerListingMeta(
       const joinedDates: Record<string, string> = {};
 
       try {
-        // Scales with unique sellers (batch + TTL cache inside fetchSellerProfilesByListing)
-        const profiles = await fetchSellerProfilesByListing(snapshot);
+        // Overlap with review chunks; still await before applying so cancel is safe.
+        const profiles = await profilesPromise;
         if (cancelled) return;
 
         const applyKeys = (keys: string[], data: Record<string, unknown>) => {

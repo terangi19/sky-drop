@@ -69,6 +69,8 @@ export async function rateLimit(
   }
 
   // Layer 3: Firestore-backed check (cross-instance fallback when no Upstash)
+  // Ops: this is a billed read+write on every limited request per instance.
+  // Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN in Vercel (see .env.template).
   try {
     const { getAdminDb, isAdminInitialized } = await import("./firebase-admin");
     if (isAdminInitialized()) {

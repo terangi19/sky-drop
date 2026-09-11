@@ -66,6 +66,8 @@ describe("performance reliability locks", () => {
     expect(file).toContain("getDocs");
     expect(file).not.toContain("onSnapshot");
     expect(file).toContain("SEARCH_LISTINGS_LIMIT");
+    expect(file).toContain("startVisibilityPolledFetch");
+    expect(file).toContain("dedupeAsync");
   });
 
   it("polls navbar badges instead of dual realtime listeners", () => {
@@ -163,5 +165,39 @@ describe("performance reliability locks", () => {
     expect(client).toContain('fetchImpl("/api/sky-ai/status")');
     expect(client).toContain("SKY_AI_STATUS_TTL_MS");
     expect(client).toContain("if (inflight) return inflight");
+  });
+
+  it("loads homepage listings without waiting on Firebase auth", () => {
+    const file = src("app/page.tsx");
+    expect(file).not.toMatch(/if \(!authReady\) return/);
+    expect(file).toContain("startVisibilityPolledFetch");
+    expect(file).toContain("HOME_SWR_TTL_MS");
+    expect(file).toContain("dedupeAsync");
+    expect(file).not.toMatch(/\bonSnapshot\s*\(/);
+  });
+
+  it("skips visibility refetch churn and shares browse SWR", () => {
+    const file = src("app/lib/polled-firestore.ts");
+    expect(file).toContain("VISIBILITY_REFETCH_MIN_MS");
+    expect(file).toContain("fromVisibility");
+    expect(file).toContain("dedupeAsync");
+    expect(src("app/components/BrowseCategoryPage.tsx")).toContain("dedupeAsync");
+  });
+
+  it("loads Āwhina conversation history with one parallel Firestore round-trip", () => {
+    const file = src("app/lib/sky-ai-firestore.ts");
+    const start = file.indexOf("export async function loadSkyAiMessages");
+    const next = file.indexOf("export async function", start + 1);
+    const fn = file.slice(start, next === -1 ? undefined : next);
+    expect(fn).toContain("Promise.all");
+    expect(fn).toContain("convRef.get()");
+    expect(fn).not.toContain("assertConversationOwner");
+    expect(fn).toContain("if (!convSnap.exists || convSnap.data()?.uid !== uid)");
+  });
+
+  it("overlaps seller review and public-profile fetches on listing cards", () => {
+    const file = src("app/lib/useSellerListingMeta.ts");
+    expect(file).toContain("const profilesPromise = fetchSellerProfilesByListing(snapshot)");
+    expect(file).toContain("await profilesPromise");
   });
 });
