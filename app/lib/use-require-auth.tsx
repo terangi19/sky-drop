@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "./firebase";
 import { loginRedirectHref } from "./safe-redirect";
@@ -25,26 +26,34 @@ export function useRequireAuth(fallbackPath = "/"): {
   user: User | null;
   authReady: boolean;
 } {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     let mounted = true;
+    // Firebase can stall (blocked IndexedDB, missing env). Fail closed to login
+    // instead of leaving the protected shell on a spinner forever.
+    const fallback = window.setTimeout(() => {
+      if (mounted) setAuthReady(true);
+    }, 3000);
     const unsub = onAuthStateChanged(auth, (currentUser) => {
       if (!mounted) return;
+      window.clearTimeout(fallback);
       setUser(currentUser);
       setAuthReady(true);
     });
     return () => {
       mounted = false;
+      window.clearTimeout(fallback);
       unsub();
     };
   }, []);
 
   useEffect(() => {
     if (!authReady || user) return;
-    replaceWithLoginRedirect(currentReturnPath(fallbackPath));
-  }, [authReady, user, fallbackPath]);
+    router.replace(loginRedirectHref(currentReturnPath(fallbackPath)));
+  }, [authReady, user, fallbackPath, router]);
 
   return { user, authReady };
 }
@@ -63,7 +72,7 @@ export function AuthGatePlaceholder({
       : loginRedirectHref(currentReturnPath(fallbackPath));
 
   return (
-    <div className="flex flex-col items-center justify-center p-12 text-center">
+    <main className="flex min-h-[40vh] flex-col items-center justify-center p-12 text-center">
       <div
         className="h-8 w-8 animate-spin rounded-full border-2 border-sky-500/30 border-t-sky-400"
         aria-hidden
@@ -75,6 +84,6 @@ export function AuthGatePlaceholder({
       >
         Sign in
       </a>
-    </div>
+    </main>
   );
 }

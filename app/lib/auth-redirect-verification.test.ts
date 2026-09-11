@@ -98,9 +98,10 @@ describe("auth redirect and verification safeguards", () => {
   it("shared require-auth helper redirects through sanitized login URLs", () => {
     const src = readFileSync(path.join(process.cwd(), "app/lib/use-require-auth.tsx"), "utf8");
     expect(src).toContain("loginRedirectHref");
-    expect(src).toContain("window.location.replace");
+    expect(src).toContain("router.replace");
     expect(src).toContain("onAuthStateChanged");
     expect(src).toMatch(/if\s*\(\s*!authReady\s*\|\|\s*user\s*\)\s*return/);
+    expect(src).toContain("setTimeout");
   });
 });
 
