@@ -62,6 +62,7 @@ import { purchaseStatusLabel } from "../lib/purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
 import { trackFunnelEvent } from "../lib/funnel-events";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
+import { loginRedirectHref } from "../lib/safe-redirect";
 
 const OfferPaymentModal = dynamic(() => import("../components/OfferPaymentModal"), { ssr: false });
 const NegotiationAssistant = dynamic(() => import("../components/NegotiationAssistant"), { ssr: false });
@@ -1562,7 +1563,36 @@ function MessagesPage() {
 
     return () => unsub();
   }, [chatUser, chatListingId, user?.email]);
-  // â€”â€” Render â€”â€”
+  useEffect(() => {
+    if (!authReady || user) return;
+    const returnPath = `${window.location.pathname}${window.location.search}` || "/messages";
+    window.location.replace(loginRedirectHref(returnPath));
+  }, [authReady, user]);
+  // —— Render ——
+  if (!authReady || !user) {
+    const signInHref = loginRedirectHref(
+      typeof window === "undefined"
+        ? "/messages"
+        : `${window.location.pathname}${window.location.search}` || "/messages"
+    );
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center">
+        {!authReady ? (
+          <LoadingSpinner text="Loading messages" />
+        ) : (
+          <>
+            <p className="text-sm text-[var(--muted)]">Sign in to view your messages.</p>
+            <Link
+              href={signInHref}
+              className="mt-4 inline-flex items-center rounded-lg bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-400"
+            >
+              Sign in
+            </Link>
+          </>
+        )}
+      </div>
+    );
+  }
   return (
     <>
       {/* Block User Confirmation Modal */}

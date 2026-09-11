@@ -71,6 +71,21 @@ test.describe("Authentication", () => {
     }
   });
 
+  test("unauthenticated /messages redirects to login with return URL", async ({ page }) => {
+    await page.goto("/messages");
+    await expect(page).toHaveURL(/\/login\?redirect=/, { timeout: 15000 });
+    const redirect = new URL(page.url()).searchParams.get("redirect") || "";
+    expect(decodeURIComponent(redirect)).toBe("/messages");
+    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible({ timeout: 10000 });
+  });
+
+  test("unauthenticated /messages deep link preserves conversation return URL", async ({ page }) => {
+    await page.goto("/messages?conversation=abc123");
+    await expect(page).toHaveURL(/\/login\?redirect=/, { timeout: 15000 });
+    const redirect = new URL(page.url()).searchParams.get("redirect") || "";
+    expect(decodeURIComponent(redirect)).toBe("/messages?conversation=abc123");
+  });
+
   test("login validates and exposes accessible credentials controls", async ({ page }) => {
     await page.goto("/login");
     const email = page.getByLabel("Email address");
