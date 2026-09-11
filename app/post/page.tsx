@@ -4,8 +4,10 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { useEffect, useState } from "react";
+import { AuthGatePlaceholder, useRequireAuth } from "../lib/use-require-auth";
 
 export default function PostPage() {
+  const { user, authReady } = useRequireAuth("/post");
   const [preferredMethod, setPreferredMethod] = useState<"awhina" | "manual" | null>(null);
 
   useEffect(() => {
@@ -19,6 +21,10 @@ export default function PostPage() {
     localStorage.setItem("listingMethodPreference", method);
     window.location.href = "/post/ai";
   };
+
+  if (!authReady || !user) {
+    return <AuthGatePlaceholder fallbackPath="/post" message="Sign in to create a listing." />;
+  }
 
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">

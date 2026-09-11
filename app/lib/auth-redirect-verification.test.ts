@@ -43,6 +43,9 @@ describe("auth redirect and verification safeguards", () => {
     expect(loginRedirectHref("/purchases")).toBe("/login?redirect=%2Fpurchases");
     expect(loginRedirectHref("/sales")).toBe("/login?redirect=%2Fsales");
     expect(loginRedirectHref("/wanted/create")).toBe("/login?redirect=%2Fwanted%2Fcreate");
+    expect(loginRedirectHref("/post")).toBe("/login?redirect=%2Fpost");
+    expect(loginRedirectHref("/post/ai")).toBe("/login?redirect=%2Fpost%2Fai");
+    expect(loginRedirectHref("/profile/settings")).toBe("/login?redirect=%2Fprofile%2Fsettings");
     expect(loginRedirectHref("https://evil.example")).toBe("/login");
   });
 
@@ -56,7 +59,8 @@ describe("auth redirect and verification safeguards", () => {
 
   it("profile still gates logged-out users with a login return URL", () => {
     const src = readFileSync(path.join(process.cwd(), "app/profile/ProfileAccountClient.tsx"), "utf8");
-    expect(src).toContain("/login?redirect=/profile");
+    expect(src).toContain("loginRedirectHref");
+    expect(src).toContain('mode === "settings" ? "/profile/settings" : "/profile"');
     expect(src).toMatch(/if\s*\(\s*!user\s*\)/);
   });
 
@@ -71,6 +75,8 @@ describe("auth redirect and verification safeguards", () => {
     "app/dashboard/applications/page.tsx",
     "app/wanted/create/page.tsx",
     "app/post/edit/[id]/page.tsx",
+    "app/post/page.tsx",
+    "app/post/ai/layout.tsx",
   ])("%s uses the require-auth redirect gate instead of rendering protected UI logged out", (file) => {
     const src = readFileSync(path.join(process.cwd(), file), "utf8");
     expect(src).toContain("useRequireAuth");
