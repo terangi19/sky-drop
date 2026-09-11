@@ -49,7 +49,12 @@ import HotThisWeek from "../components/HotThisWeek";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
-import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
+import {
+  BROWSE_POLL_MS,
+  BROWSE_SWR_TTL_MS,
+  dedupeAsync,
+  startVisibilityPolledFetch,
+} from "../lib/polled-firestore";
 
 const OPPORTUNITY_CATEGORIES = ["All", "Items", "Services", "Rentals", "Vehicles"];
 
@@ -110,11 +115,17 @@ export default function OpportunitiesPage() {
     async function fetchListings() {
       if (!mounted) return;
       try {
-        const snap = await getDocs(q);
+        const items = await dedupeAsync(
+          "browse:type:wanted:opportunities",
+          BROWSE_SWR_TTL_MS,
+          async () => {
+            const snap = await getDocs(q);
+            return snap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as any))
+              .filter((i: any) => isListingVisibleInMarketplace(i));
+          }
+        );
         if (!mounted) return;
-        const items: any[] = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as any))
-          .filter((i: any) => isListingVisibleInMarketplace(i));
         setListings(items);
       } catch (err) {
         console.error("Failed to load opportunities:", err);

@@ -50,15 +50,16 @@ export async function listSkyAiConversations(uid: string, limit = 25) {
 }
 
 export async function loadSkyAiMessages(conversationId: string, uid: string, limit = 40) {
-  await assertConversationOwner(conversationId, uid);
   const db = getAdminDb();
-  const snap = await db
-    .collection(COL)
-    .doc(conversationId)
-    .collection("messages")
-    .orderBy("createdAt", "asc")
-    .limitToLast(limit)
-    .get();
+  const convRef = db.collection(COL).doc(conversationId);
+  // Owner check + messages in one RTT. Missing/foreign conv still throws before any rows are returned.
+  const [convSnap, snap] = await Promise.all([
+    convRef.get(),
+    convRef.collection("messages").orderBy("createdAt", "asc").limitToLast(limit).get(),
+  ]);
+  if (!convSnap.exists || convSnap.data()?.uid !== uid) {
+    throw new Error("Conversation not found");
+  }
 
   return snap.docs.map((doc) => {
     const d = doc.data();

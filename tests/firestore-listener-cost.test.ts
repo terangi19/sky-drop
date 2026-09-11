@@ -19,6 +19,7 @@ describe("P0 Firestore listener cost guards", () => {
     expect(src).toMatch(/getDocs/);
     expect(src).toMatch(/GLOBAL_LISTINGS_LIMIT/);
     expect(src).toMatch(/limit\(sellerEmail \? 100 : GLOBAL_LISTINGS_LIMIT\)/);
+    expect(src).toMatch(/startVisibilityPolledFetch/);
   });
 
   it("post/listing browse uses getDocs instead of realtime listings snapshots", () => {
@@ -47,6 +48,7 @@ describe("P0 Firestore listener cost guards", () => {
       expect(src, path).not.toMatch(/\bonSnapshot\s*\(/);
       expect(src, path).toMatch(/getDocs/);
       expect(src, path).toMatch(/startVisibilityPolledFetch/);
+      expect(src, path).toMatch(/dedupeAsync/);
       expect(src, path).toMatch(/limit\(/);
     }
   });

@@ -66,6 +66,8 @@ describe("performance reliability locks", () => {
     expect(file).toContain("getDocs");
     expect(file).not.toContain("onSnapshot");
     expect(file).toContain("SEARCH_LISTINGS_LIMIT");
+    expect(file).toContain("startVisibilityPolledFetch");
+    expect(file).toContain("dedupeAsync");
   });
 
   it("polls navbar badges instead of dual realtime listeners", () => {
@@ -163,5 +165,87 @@ describe("performance reliability locks", () => {
     expect(client).toContain('fetchImpl("/api/sky-ai/status")');
     expect(client).toContain("SKY_AI_STATUS_TTL_MS");
     expect(client).toContain("if (inflight) return inflight");
+  });
+
+  it("loads homepage listings without waiting on Firebase auth", () => {
+    const file = src("app/page.tsx");
+    expect(file).not.toMatch(/if \(!authReady\) return/);
+    expect(file).toContain("startVisibilityPolledFetch");
+    expect(file).toContain("HOME_SWR_TTL_MS");
+    expect(file).toContain("dedupeAsync");
+    expect(file).not.toMatch(/\bonSnapshot\s*\(/);
+  });
+
+  it("skips visibility refetch churn and shares browse SWR", () => {
+    const file = src("app/lib/polled-firestore.ts");
+    expect(file).toContain("VISIBILITY_REFETCH_MIN_MS");
+    expect(file).toContain("fromVisibility");
+    expect(file).toContain("dedupeAsync");
+    expect(src("app/components/BrowseCategoryPage.tsx")).toContain("dedupeAsync");
+  });
+
+  it("loads Āwhina conversation history with one parallel Firestore round-trip", () => {
+    const file = src("app/lib/sky-ai-firestore.ts");
+    const start = file.indexOf("export async function loadSkyAiMessages");
+    const next = file.indexOf("export async function", start + 1);
+    const fn = file.slice(start, next === -1 ? undefined : next);
+    expect(fn).toContain("Promise.all");
+    expect(fn).toContain("convRef.get()");
+    expect(fn).not.toContain("assertConversationOwner");
+    expect(fn).toContain("if (!convSnap.exists || convSnap.data()?.uid !== uid)");
+  });
+
+  it("overlaps seller review and public-profile fetches on listing cards", () => {
+    const file = src("app/lib/useSellerListingMeta.ts");
+    expect(file).toContain("const profilesPromise = fetchSellerProfilesByListing(snapshot)");
+    expect(file).toContain("await profilesPromise");
+  });
+
+  it("allows a short CDN cache on the homepage shell only", () => {
+    const file = src("next.config.ts");
+    expect(file).toContain('source: "/"');
+    expect(file).toContain(
+      "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
+    );
+    expect(file).toContain(
+      'source: "/((?!api|_next/static|_next/image|favicon|manifest).+)"'
+    );
+    expect(file).toContain(
+      "private, no-cache, no-store, max-age=0, must-revalidate"
+    );
+    expect(file).not.toContain(
+      'source: "/((?!api|_next/static|_next/image|favicon|manifest).*)"'
+    );
+  });
+
+  it("does not CDN-cache auth or geo-blocked HTML (catch-all requires a path segment)", () => {
+    // Mirrors next.config `source: "/((?!api|_next/static|_next/image|favicon|manifest).+)"`
+    const noStoreDoc = /^\/(?!api|_next\/static|_next\/image|favicon|manifest).+$/;
+    expect(noStoreDoc.test("/")).toBe(false);
+    for (const path of [
+      "/login",
+      "/signup",
+      "/profile",
+      "/messages",
+      "/list-list",
+      "/purchases",
+      "/about",
+      "/privacy",
+    ]) {
+      expect(noStoreDoc.test(path), path).toBe(true);
+    }
+  });
+
+  it("keeps Āwhina conversation create awaited so follow-ups share one id", () => {
+    const route = src("app/api/sky-ai/route.ts");
+    expect(route).toMatch(
+      /conversationId = await createSkyAiConversation\(uid, email\)/
+    );
+    expect(route).toContain("await loadSkyAiMessages(conversationId, uid, 30)");
+    const panel = src("app/components/SkyAiChatPanel.tsx");
+    expect(panel).toContain("history: user ? undefined : history");
+    expect(panel).toContain(
+      "conversationId: user ? conversationId || undefined : undefined"
+    );
   });
 });
