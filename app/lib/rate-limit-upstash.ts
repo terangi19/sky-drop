@@ -81,7 +81,9 @@ export async function rateLimitUpstash(
       limit: result.limit,
     };
   } catch (err) {
-    console.warn("[rate-limit] Upstash error, falling back to Firestore:", err);
+    console.warn(
+      `[rate-limit] Upstash error, falling back to Firestore: ${formatUpstashErrorForLog(err)}`
+    );
     return {
       allowed: true,
       remaining: maxRequests,
@@ -89,4 +91,24 @@ export async function rateLimitUpstash(
       degraded: true,
     };
   }
+}
+
+/** Error name/message plus nested cause code or message only — never url, token, headers, or env. */
+export function formatUpstashErrorForLog(err: unknown): string {
+  const name = err instanceof Error ? err.name : "Error";
+  const message = err instanceof Error ? err.message : String(err);
+  const cause = err instanceof Error ? err.cause : undefined;
+  const causeDetail = formatCauseCodeOrMessage(cause);
+  return causeDetail ? `${name}: ${message} cause=${causeDetail}` : `${name}: ${message}`;
+}
+
+function formatCauseCodeOrMessage(cause: unknown): string {
+  if (cause == null) return "";
+  if (typeof cause === "string") return cause;
+  if (typeof cause !== "object") return "";
+  const rec = cause as { code?: unknown; message?: unknown };
+  if (typeof rec.code === "string" && rec.code) return rec.code;
+  if (typeof rec.code === "number") return String(rec.code);
+  if (typeof rec.message === "string" && rec.message) return rec.message;
+  return "";
 }
