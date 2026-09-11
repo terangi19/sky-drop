@@ -185,6 +185,47 @@ describe("validation matrix", () => {
     });
     expect(r.ok).toBe(true);
   });
+  it("does not treat Need for Speed as a wanted listing", () => {
+    const r = validateListingForPublish({
+      type: "physical",
+      title: "Need for Speed Underground 2",
+      description: "Complete with manual",
+      price: "25",
+      condition: "Used - Good",
+      category: "Gaming",
+    });
+    expect(r.ok).toBe(true);
+  });
+  it("requires a file for fixed-price digital listings", () => {
+    const missing = validateListingForPublish({
+      type: "digital",
+      title: "Invoice template pack",
+      description: "Editable templates",
+      price: "29",
+      pricingType: "fixed",
+    });
+    expect(missing.ok).toBe(false);
+    expect(missing.errors.some((e) => /downloadable file/i.test(e))).toBe(true);
+
+    const withFile = validateListingForPublish({
+      type: "digital",
+      title: "Invoice template pack",
+      description: "Editable templates",
+      price: "29",
+      pricingType: "fixed",
+      digitalStoragePath: "listings/u1/file.zip",
+    });
+    expect(withFile.ok).toBe(true);
+  });
+  it("allows quote-required digital listings without a file", () => {
+    const r = validateListingForPublish({
+      type: "digital",
+      title: "Custom logo design",
+      description: "Brand work to spec",
+      pricingType: "quote",
+    });
+    expect(r.ok).toBe(true);
+  });
 });
 
 describe("service from-price", () => {

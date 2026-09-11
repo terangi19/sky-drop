@@ -94,6 +94,7 @@ export async function PUT(req: NextRequest) {
       "rentalPriceWeekly", "rentalPriceMonthly", "rentalDeposit", "rentalAvailableDate",
       "vehicleMake", "vehicleModel", "vehicleYear", "vehicleOdometer",
       "vehicleFuelType", "vehicleTransmission", "vehicleBodyType", "vehicleColour",
+      "digitalStoragePath", "digitalFileName",
       "type",
     ];
     const updateData: Record<string, unknown> = {};
@@ -155,6 +156,8 @@ export async function PUT(req: NextRequest) {
       vehicleModel: mergedForValidation.vehicleModel as string,
       vehicleYear: mergedForValidation.vehicleYear as string | number,
       vehicleOdometer: mergedForValidation.vehicleOdometer as string | number,
+      digitalStoragePath: mergedForValidation.digitalStoragePath as string,
+      digitalFileName: mergedForValidation.digitalFileName as string,
       allowLegacyPhysicalCars: allowLegacy,
     });
     if (!typeValidation.ok) {

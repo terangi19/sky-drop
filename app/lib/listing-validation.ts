@@ -32,6 +32,8 @@ export type ListingValidationInput = {
   vehicleModel?: string | null;
   vehicleYear?: string | number | null;
   vehicleOdometer?: string | number | null;
+  digitalStoragePath?: string | null;
+  digitalFileName?: string | null;
   /** When true, physical+Cars is allowed for editing historical records only. */
   allowLegacyPhysicalCars?: boolean;
 };
@@ -49,6 +51,11 @@ function hasPositiveMoney(v: unknown): boolean {
   if (!hasText(v)) return false;
   const n = Number(String(v).replace(/[$,]/g, ""));
   return Number.isFinite(n) && n > 0;
+}
+
+function isQuotePricing(v: unknown): boolean {
+  const s = String(v || "").trim().toLowerCase();
+  return s === "quote" || s === "request_quote";
 }
 
 export function validateListingForPublish(input: ListingValidationInput): ListingValidationResult {
@@ -120,6 +127,17 @@ export function validateListingForPublish(input: ListingValidationInput): Listin
         !(VEHICLE_LISTING_CATEGORIES as readonly string[]).includes(String(input.category))
       ) {
         errors.push("Vehicle listings must use the Cars category");
+      }
+      break;
+    }
+    case "digital": {
+      const quote =
+        isQuotePricing(input.pricingType) || isQuotePricing(input.servicePricingType);
+      if (!quote && !hasPositiveMoney(input.price)) {
+        errors.push("Sale price is required");
+      }
+      if (!quote && !hasText(input.digitalStoragePath) && !hasText(input.digitalFileName)) {
+        errors.push("Upload a downloadable file for fixed-price digital listings");
       }
       break;
     }

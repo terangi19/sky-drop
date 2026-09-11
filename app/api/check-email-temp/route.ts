@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
     }
     const disposable = isDisposableEmail(email);
     return NextResponse.json({ disposable });
-  } catch {
-    return NextResponse.json({ disposable: false });
+  } catch (e) {
+    console.error("[check-email-temp]", e);
+    return NextResponse.json({ error: "Could not check email" }, { status: 500 });
   }
 }

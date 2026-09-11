@@ -2226,6 +2226,7 @@ export default function AIPostPage() {
         profileExists: profileSnap?.exists(),
       });
       if (blockReason) {
+        showToast(blockReason, "error");
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
@@ -2499,8 +2500,8 @@ export default function AIPostPage() {
         } finally {
           window.clearTimeout(fetchTimeout);
         }
-        const data = await res.json();
-        if (!data.success) {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
           showToast(data.error || "Failed to update listing", "error");
           setLoading(false);
           return;
@@ -2524,7 +2525,7 @@ export default function AIPostPage() {
           body: JSON.stringify({ ...listingData, expiresInDays: expiresIn, listingType: publishType }),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
+        if (!res.ok || !data.success || !data.listingId) {
           showToast(data.error || `Failed to create listing (${res.status})`, "error");
           if (res.status === 401) {
             setTimeout(() => { window.location.href = "/login?redirect=/post/ai"; }, 1500);

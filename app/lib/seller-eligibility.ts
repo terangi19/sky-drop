@@ -139,7 +139,6 @@ export function sellUnlockDaysLeft(memberSince: Date | null | undefined): number
 /** Why a user cannot create a listing (null = OK). Email verification is required to sell. */
 
 export function getListingBlockReason(opts: {
-  /** @deprecated Not used for listing gates — kept for call-site compatibility. */
   authEmailVerified?: boolean;
 
   phone?: string;
@@ -159,6 +158,12 @@ export function getListingBlockReason(opts: {
   if (opts.restricted) {
 
     return "Your account is temporarily restricted.";
+
+  }
+
+  if (opts.authEmailVerified === false) {
+
+    return "Please verify your email before creating a listing.";
 
   }
 
