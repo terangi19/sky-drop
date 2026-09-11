@@ -29,11 +29,15 @@ const NUMBER_WORDS: Record<string, number> = {
 };
 
 const INSTRUCTION_PATTERNS = [
-  /\b(?:can|could|would)\s+you\s+(?:please\s+)?(?:make|write|create|generate|suggest|tell)\b[\s\S]*$/gi,
-  /\b(?:please\s+)?(?:make|write|create|generate)\s+(?:the|this|my|a)?\s*(?:listing|title|description)\b[^.?!]*/gi,
-  /\b(?:tell|help)\s+me\s+(?:what|which|how|to)\b[^.?!]*/gi,
-  /\b(?:recommend|suggest)\s+(?:a\s+)?price\b[^.?!]*/gi,
-  /\bdon'?t\s+(?:put|use|include)\s+(?:that|this|what\s+i\s+paid)\b[^.?!]*/gi,
+  /\b(?:can|could|would)\s+you\s+(?:please\s+)?(?:make|write|create|generate|suggest|tell)\b(?:(?!\b(?:sell|selling|list|asking)\b).){0,80}/gi,
+  /\b(?:please\s+)?(?:make|write|create|generate)\s+(?:the|this|my|a)?\s*(?:listing|title|description)\b(?:(?!\b(?:sell|selling|list)\b).){0,60}/gi,
+  /\b(?:tell|help)\s+me\s+(?:what|which|how|to)\b(?:(?!\b(?:sell|selling|list)\b).){0,60}/gi,
+  /\b(?:recommend|suggest)\s+(?:a\s+)?price\b(?:(?!\b(?:sell|selling|list)\b).){0,40}/gi,
+  /\bdon'?t\s+(?:put|use|include|say|mention)\b(?:\s+\w+){0,6}(?=\s+(?:sell|selling|list|in\s+(?:the\s+)?ad)|$)/gi,
+  /\btitle\s+it(?:\s+\w+){0,3}(?=\s+(?:don'?t|dont|sell|selling|list)|$)/gi,
+  /\blisting_fill\b(?:\s+\w+){0,8}/gi,
+  /\bsystem\s+prompt\b(?:\s+\w+){0,6}/gi,
+  /\brespond\s+only\b(?:\s+\w+){0,6}/gi,
 ];
 
 const INTENT_PATTERNS = [
@@ -416,9 +420,28 @@ function extractRelationalConditions(raw: string): {
     );
   }
   for (const match of raw.matchAll(
-    /\b([a-z][\w'-]*(?:\s+[a-z][\w'-]*)?)\s+(?:is\s+|pretty\s+|has\s+)?(scratched|cracked|damaged|stained|torn|dented|worn)\b/gi,
+    /\b(dent(?:ed)?|crack(?:ed)?|scratch(?:ed)?|smash(?:ed)?)\s+on\s+(?:the\s+)?([a-z][\w'-]*)\b/gi,
+  )) {
+    negative.push(
+      makeFact(
+        "negative_condition",
+        `${match[1].toLowerCase()} on ${match[2].toLowerCase()}`,
+        provenanceFor(match[0], "seller_message", raw),
+      ),
+    );
+  }
+  for (const match of raw.matchAll(
+    /\b([a-z][\w'-]*(?:\s+[a-z][\w'-]*)?)\s+(?:is\s+|pretty\s+|has\s+)?(scratched|cracked|damaged|stained|torn|dented|worn|smashed)\b/gi,
   )) {
     const subject = match[1].replace(/^anymore\s+/i, "").trim();
+    if (
+      /^(?:don'?t|dont|say|put|mention|title|bargain|the|a|an|it|its|this|that|not)\b/i.test(
+        subject
+      ) ||
+      /\b(?:don'?t|dont|say|put|mention|title it)\b/i.test(subject)
+    ) {
+      continue;
+    }
     negative.push(
       makeFact(
         "negative_condition",

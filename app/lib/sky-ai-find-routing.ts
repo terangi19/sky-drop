@@ -420,6 +420,10 @@ export function parseVehicleYear(message: string): string | undefined {
     const n = Number(y);
     if (n >= 1900 && n <= 2099) return y;
   }
+  const short = message.match(
+    /\b'?0(\d)\b(?=\s+(?:bmw|toyota|honda|mazda|ford|nissan|holden|subaru|hyundai|kia|mitsubishi|audi|mercedes|volkswagen|vw|isuzu|suzuki|335i|hilux|ranger))/i
+  );
+  if (short) return `200${short[1]}`;
   return undefined;
 }
 

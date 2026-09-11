@@ -108,7 +108,10 @@ function extractPriceFact(
     .replace(
       /\b[\d,]+\s*k\s*(?:km|kms|kilometers|kilometres|miles?|mi)\b/gi,
       " "
-    );
+    )
+    .replace(/\b\d+\s*(?:gb|tb)\b/gi, " ")
+    .replace(/\bbattery\s*\d{2,3}\b/gi, " ")
+    .replace(/\b(?:wait\s+)?(?:no|nah)\s+\d{2,4}\b/gi, " ");
   // Vehicle compound: year + odo-k + price-k → drop the first bare k (odometer)
   const kTokens = scrubbed.match(/\b[\d,]+\s*k\b/gi) || [];
   if (/\b(?:19|20)\d{2}\b/.test(scrubbed) && kTokens.length >= 2) {
@@ -380,6 +383,56 @@ export function interpretSemanticTurn(opts: {
   if (gen && !facts.some((f) => f.key === "vehicleGeneration")) facts.push(gen);
   const pickup = extractPickupOnly(message);
   if (pickup) facts.push(pickup);
+
+  const storageHits = [...message.matchAll(/\b(\d+)\s?(gb|tb)\b/gi)];
+  const storageBare = message.match(/\b(?:wait\s+)?(?:no|nah)\s+(\d{2,4})\b/i);
+  const storageN =
+    storageBare && Number(storageBare[1]) >= 32
+      ? storageBare[1]
+      : storageHits.length
+        ? storageHits[storageHits.length - 1][1]
+        : null;
+  if (storageN) {
+    const unit = (storageHits[storageHits.length - 1]?.[2] || "GB").toUpperCase();
+    facts.push({
+      key: "storage",
+      value: `${storageN}${unit}`,
+      slot: "storage",
+      confidence: "HIGH",
+    });
+    correctedKeys.push("storage");
+  }
+  const colours = [
+    ...message.matchAll(
+      /\b(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold)\b/gi
+    ),
+  ];
+  if (colours.length) {
+    const last = colours[colours.length - 1][1];
+    facts.push({
+      key: "colour",
+      value: last.charAt(0).toUpperCase() + last.slice(1).toLowerCase(),
+      slot: "colour",
+      confidence: "HIGH",
+    });
+    correctedKeys.push("colour");
+  }
+  const battery = message.match(/\bbattery\s*(\d{2,3})\b/i);
+  if (battery) {
+    facts.push({
+      key: "battery",
+      value: battery[1],
+      confidence: "HIGH",
+    });
+  }
+  if (/\b(?:screen\s+)?crack(?:ed|s)?\b/i.test(message)) {
+    facts.push({
+      key: "conditionDetail",
+      value: "cracked screen",
+      slot: "condition",
+      confidence: "HIGH",
+    });
+  }
 
   const parsedCondition = parseListingCondition(message);
   if (parsedCondition) {

@@ -75,6 +75,7 @@ import {
 import { hasActiveListingDraft } from "./sky-ai-draft-merge";
 import {
   assessDraftTransition,
+  isListingPatchFollowUp,
   isTerseListingCommand,
 } from "./awhina-draft-transition";
 import {
@@ -852,11 +853,22 @@ export function processCanonicalAwhina(
             String(scrubbed.listingType || "") !== decision.currentTurnEntities.listingType
           ) {
             const curType = decision.currentTurnEntities.listingType;
+            const keepOffering =
+              scrubbed.listingType === "rental" ||
+              scrubbed.listingType === "wanted" ||
+              scrubbed.listingType === "service" ||
+              curType === "rental" ||
+              curType === "wanted" ||
+              curType === "service";
             const scrubIsVehicle =
               scrubbed.listingType === "vehicle" ||
               Boolean(scrubbed.vehicleMake) ||
               Boolean(curMake);
-            if (!(scrubIsVehicle && curType === "physical")) {
+            if (keepOffering) {
+              if (curType === "rental" || curType === "wanted" || curType === "service") {
+                scrubbed.listingType = curType;
+              }
+            } else if (!(scrubIsVehicle && curType === "physical")) {
               scrubbed.listingType = curType;
             } else {
               scrubbed.listingType = "vehicle";
@@ -885,6 +897,7 @@ export function processCanonicalAwhina(
       if (
         fillRec.listingType !== "service" &&
         fillRec.listingType !== "rental" &&
+        fillRec.listingType !== "wanted" &&
         (fillRec.vehicleMake ||
           fillRec.vehicleModel ||
           decision.currentTurnEntities.make ||
@@ -2458,6 +2471,7 @@ export function processCanonicalAwhina(
     const priorListingForStale =
       context.listingContext || (listSession?.draft as SkyAiListingContext) || null;
     const identityConflictSell =
+      !isListingPatchFollowUp(trimmed) &&
       listingIdentitiesConflict(priorListingForStale, trimmed) &&
       isIdentityRichListingPaste(trimmed);
     if (switchingFromSearch || domainShiftSell || identityConflictSell) {

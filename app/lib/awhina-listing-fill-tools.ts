@@ -6,6 +6,7 @@
 
 import {
   assessDraftTransition,
+  isListingPatchFollowUp,
   stampReplaceDraft,
 } from "./awhina-draft-transition";
 import {
@@ -46,6 +47,7 @@ import {
   hasListingSellIntent,
   hasRentalOfferingIntent,
   hasServiceOfferingIntent,
+  hasWantedListingIntent,
   inferSellListingTypeHint,
   isExplicitNewSellListingMessage,
 } from "./sky-ai-intent";
@@ -71,8 +73,16 @@ import {
   enforcePublicListingDescription,
 } from "./awhina-listing-composer";
 import { parseListingCondition } from "./awhina-listing-condition";
+import { attachSellerFactModel } from "./awhina-semantic-parser";
+import {
+  classifySellerPrices,
+  extractBuyerFacingIdentity,
+  extractSellerSemanticModel,
+  isNonConfirmedAskingPrice,
+} from "./awhina-semantic-extraction";
 import {
   looksLikeVehicleYearToken,
+  parseFindBudget,
   parseVehicleYear,
   resolveVehicleIdentity,
 } from "./sky-ai-find-routing";
@@ -196,7 +206,7 @@ const SELL_ITEM_RE =
 
 // kms? must consume optional trailing "s" so "145000kms" stops (km\b fails between m/s).
 const SELL_ITEM_STOP_RE =
-  /\b(?:brand\s+new|its|it's|condition|new|used|like\s+new|excellent|mint|good|fair|pickup|pick\s*up|shipping|located|based|in\s+auckland|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|for\s+\$|\$\d|\d+\s*(?:bucks|nzd|dollars?)|for\s+\d{1,4}\s*k\b|\d{2,3}[\s,]?\d{3}\s*kms?)\b/i;
+  /\b(?:brand\s+new|its|it's|condition|new|used|like\s+new|excellent|mint|good|fair|pickup|pick\s*up|shipping|located|based|in\s+auckland|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|henderson|manukau|for\s+\$|\$\d|\d+\s*(?:bucks|nzd|dollars?)|for\s+\d{1,4}\s*k\b|\d{2,3}[\s,]?\d{3}\s*kms?|bit\s+scratched|scratched|dent|still\s+works|under\s+\d)\b/i;
 
 const NZ_CITY_TAIL_RE =
   /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei)\b.*$/i;
@@ -210,8 +220,11 @@ const TITLE_SET_RE =
 const DESC_SET_RE =
   /\b(?:description(?:\s+is)?|describe(?:\s+it)?(?:\s+as)?)\s*[:\-]?\s*(.{10,})\s*$/i;
 
+const NZ_PLACE_RE =
+  /\b(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|mt\s+maunganui|mount\s+maunganui|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|rotorua|queenstown|nelson|whangarei|henderson|manukau|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|albany|petone|canterbury)\b/i;
+
 const LOCATION_RE =
-  /\b(?:located(?:\s+in)?|based(?:\s+in)?|location(?:\s+is)?|in)\s+(northland|auckland|waikato|bay of plenty|gisborne|hawke'?s bay|taranaki|manawatu|wellington|nelson|marlborough|west coast|canterbury|otago|southland|[A-Za-z][A-Za-z\s'-]{1,30})\b/i;
+  /\b(?:located(?:\s+in)?|based(?:\s+in)?|location(?:\s+is)?|in)\s+(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|mt\s+maunganui|mount\s+maunganui|northland|auckland|waikato|bay of plenty|gisborne|hawke'?s bay|taranaki|manawatu|wellington|nelson|marlborough|west coast|canterbury|otago|southland|christchurch|hamilton|tauranga|dunedin|henderson|manukau|newmarket|takapuna)\b/i;
 
 function pruneSessions(): void {
   const now = Date.now();
@@ -347,9 +360,18 @@ export function validateListingFillFields(
     "vehicleTransmission",
     "vehicleFuelType",
     "vehicleBodyType",
+    "rentalPriceDaily",
     "rentalPriceWeekly",
     "rentalPriceMonthly",
     "rentalDeposit",
+    "rentalBedrooms",
+    "rentalBathrooms",
+    "rentalParkingSpaces",
+    "rentalFurnishedStatus",
+    "rentalPetsPolicy",
+    "rentalMinTenancy",
+    "rentalAvailableDate",
+    "rentalPropertyType",
     "stockQuantity",
     "serviceDuration",
     "servicePricingType",
@@ -371,6 +393,7 @@ export function validateListingFillFields(
     fillOut.listingType !== "service" &&
     fillOut.listingType !== "rental" &&
     fillOut.listingType !== "digital" &&
+    fillOut.listingType !== "wanted" &&
     (fillOut.vehicleMake ||
       fillOut.vehicleModel ||
       fillOut.vehicleYear ||
@@ -392,7 +415,12 @@ export function validateListingFillFields(
     }
   }
   if (fill.replaceDraft === true) fillOut.replaceDraft = true;
+  if (fill.semanticFactModel) fillOut.semanticFactModel = fill.semanticFactModel;
   if (fill.draftId) fillOut.draftId = fill.draftId;
+  if (fillOut.listingType === "rental" && fillOut.rentalSubType === "property") {
+    delete fillOut.rentalPriceDaily;
+    if (fillOut.rentalPriceWeekly) fillOut.price = fillOut.rentalPriceWeekly;
+  }
   const hydrated = applyAwhinaDomainKnowledge(
     hydrateVehicleGeneration(fillOut) as SkyAiListingFill
   );
@@ -441,6 +469,14 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     return "malformed";
   }
 
+  const classified = classifySellerPrices(message);
+  if (classified.confirmed) {
+    const check = validatePriceString(classified.confirmed);
+    if (check.ok && !isStorageOrSizeToken(check.price, message)) {
+      return check.price;
+    }
+  }
+
   const finalize = (rawDigits: string, kSuffix?: string | null): string | null | "malformed" => {
     if (!rawDigits) return null;
     let n = Number(rawDigits.replace(/,/g, ""));
@@ -452,13 +488,15 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     }
     const check = validatePriceString(raw);
     if (!check.ok) return "malformed";
+    if (isNonConfirmedAskingPrice(message, check.price)) return null;
     return check.price;
   };
 
-  // Explicit dollar amounts always win (still reject storage-as-price)
-  const dollar = message.match(/\$\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\b/);
-  if (dollar) {
-    return finalize(dollar[1], dollar[2]);
+  // Explicit dollar amounts always win (still reject storage-as-price / historical)
+  const dollarAll = [...message.matchAll(/\$\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\b/gi)];
+  for (const dollar of dollarAll) {
+    const got = finalize(dollar[1], dollar[2]);
+    if (got && got !== "malformed") return got;
   }
 
   // "200 bucks" / "280 dollars" / "200 nzd" — currency words beat history years
@@ -486,9 +524,9 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     return raw;
   }
 
-  // "asking 200" / "asking price 200" / "asking for 200"
+  // "asking 200" / "asking price 200" / "askin 9k"
   const asking = message.match(
-    /\basking(?:\s+(?:price|for))?\s+(?:of\s+)?\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?)?\b/i
+    /\baskin(?:g)?(?:\s+(?:price|for))?\s+(?:of\s+)?\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?)?\b/i
   );
   if (asking) {
     return finalize(asking[1], asking[2]);
@@ -575,6 +613,7 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
 
   const check = validatePriceString(raw);
   if (!check.ok) return "malformed";
+  if (isNonConfirmedAskingPrice(message, check.price)) return null;
   return check.price;
 }
 
@@ -613,16 +652,43 @@ function extractVehicleBodyTypeFromMessage(message: string): string | null {
  * Prefer explicit km readings ("145000kms", "145,000 km") over bare "18k" price tokens.
  */
 export function extractVehicleOdometerFromMessage(message: string): string | null {
+  if (/\b(?:under|below|up\s+to|budget|max(?:imum)?|wtb|wanted|iso)\b/i.test(message) &&
+      !/\b(?:km|kms|kays|clock|odometer)\b/i.test(message)) {
+    // Budget caps are not odometer unless an explicit km reading is present.
+  }
   const patterns = [
     /\b([\d,]{3,7})\s*kms?\b/i,
+    /\b([\d,]{4,7})\s*k\b/i,
+    /\b([\d,]{4,7})k\b/i,
     /\b(?:done|clocked|odometer|travelled|traveled)\s+([\d,]+)\s*k(?:m|ms)?\b/i,
     /\b([\d,]+)\s*(?:kilometers|kilometres)\b/i,
   ];
   for (const re of patterns) {
     const m = message.match(re);
     if (!m?.[1]) continue;
+    const idx = m.index ?? 0;
+    const before = message.slice(Math.max(0, idx - 24), idx);
+    if (/\b(?:under|below|up\s+to|budget|max(?:imum)?|wtb|wanted|asking|askin)\s*$/i.test(before)) {
+      continue;
+    }
     const n = Number(m[1].replace(/,/g, ""));
     if (Number.isFinite(n) && n >= 100 && n <= 2_000_000) return String(Math.round(n));
+  }
+  const asking = classifySellerPrices(message).confirmed;
+  const wantedBudget = parseFindBudget(message);
+  const bareOdo = [...message.matchAll(/\b([\d,]{5,7})\b/g)];
+  for (const m of bareOdo) {
+    const n = Number(m[1].replace(/,/g, ""));
+    if (!Number.isFinite(n) || n < 8000 || n > 800_000) continue;
+    if (asking && String(Math.round(n)) === asking) continue;
+    if (wantedBudget && String(Math.round(n)) === wantedBudget) continue;
+    if (n >= 1980 && n <= 2035) continue;
+    const idx = m.index ?? 0;
+    const before = message.slice(Math.max(0, idx - 24), idx);
+    if (/\b(?:under|below|up\s+to|budget|max(?:imum)?|wtb|wanted|asking|askin)\s*$/i.test(before)) {
+      continue;
+    }
+    return String(Math.round(n));
   }
   return null;
 }
@@ -632,18 +698,31 @@ function extractSellItem(message: string): string | undefined {
   if (isListPublishActionMessage(message) || isPronounTitleForbidden(message.trim())) {
     return undefined;
   }
+  if (isListingPatchFollowUp(message) && /^(wait|nah|actually|also)\b/i.test(message.trim())) {
+    return undefined;
+  }
   const cmds = detectActiveDraftCommands(message);
   if (cmds.isActionOnly || (cmds.isPronounOnly && cmds.commands.length > 0)) {
     return undefined;
   }
-  const m = message.match(SELL_ITEM_RE);
+  const cleaned = message
+    .replace(/^\s*title\s+it\b[^.?!]*?(?=\b(?:sell|selling|list)\b)/i, " ")
+    .replace(/\bdon'?t\s+(?:say|put|use|add)\b[^.?!]*?(?=\b(?:sell|selling|list|macbook|iphone|tv)\b)/i, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const vehicleIdentity = resolveVehicleIdentity(cleaned);
+  if (vehicleIdentity.make && vehicleIdentity.model) {
+    return [vehicleIdentity.year, vehicleIdentity.make, vehicleIdentity.model]
+      .filter(Boolean)
+      .join(" ");
+  }
+  const semanticId = extractBuyerFacingIdentity(cleaned);
+  if (semanticId && semanticId.split(/\s+/).length <= 8) {
+    return semanticId;
+  }
+  const m = cleaned.match(SELL_ITEM_RE);
   if (!m?.[1]) {
-    // Rich vehicle copy without a clean "sell my …" capture — still seed from identity
-    const identity = resolveVehicleIdentity(message);
-    if (identity.make && identity.model) {
-      return [identity.year, identity.make, identity.model].filter(Boolean).join(" ");
-    }
-    return undefined;
+    return semanticId || undefined;
   }
   let item = m[1].replace(/\b(for sale|please|thanks)\b/gi, "").trim();
   const stop = item.search(SELL_ITEM_STOP_RE);
@@ -688,14 +767,25 @@ function extractSellItem(message: string): string | undefined {
 }
 
 /** Rental offer item seed — strips rent/hire verb debris and price/location tails. */
+const GLUED_BED_RE = /\b(\d+)\s*-?\s*bed(?:room)?s?\b/i;
+const GLUED_BATH_RE = /\b(\d+)\s*-?\s*bath(?:room)?s?\b/i;
+
 function extractRentalOfferItem(message: string): string | undefined {
+  const property = message.match(
+    /\b(\d+)\s*-?\s*bed(?:room)?s?(?:\s+(\d+)\s*-?\s*bath(?:room)?s?)?\s+(house|home|flat|apartment|unit|townhouse)\b/i
+  );
+  if (property) {
+    const beds = property[1];
+    const kind = property[3];
+    return `${beds} Bedroom ${kind.charAt(0).toUpperCase()}${kind.slice(1).toLowerCase()}`;
+  }
   const m = message.match(
     /\b(?:rent(?:ing)?|hire(?:ing)?)\s+(?:out\s+)?(?:my\s+|a\s+|an\s+|the\s+)?(.+)$/i
   );
   if (!m?.[1]) return undefined;
   let item = m[1].trim();
   const stop = item.search(
-    /\b(?:for\s+\$|\$\d|\d+\s*(?:\/\s*day|a\s+day|per\s+day|\/day|bucks|nzd|dollars?)|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei)\b/i
+    /\b(?:for\s+\$|\$\d|\d+\s*(?:\/\s*day|a\s+day|per\s+day|\/day|bucks|nzd|dollars?)|bond|pickup|not\s+for\s+sale|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|manukau)\b/i
   );
   if (stop > 0) item = item.slice(0, stop).trim();
   item = item
@@ -867,9 +957,17 @@ export function processListingFillMessage(
     freshStartHint: opts.freshStart === true,
     pendingClarification: opts.pendingClarification,
   });
+  const hasPriorDraft = Boolean(
+    priorForIdentityEarly &&
+      (String(priorForIdentityEarly.title || "").trim() ||
+        String(priorForIdentityEarly.listingType || "").trim() ||
+        priorForIdentityEarly.vehicleMake)
+  );
   const identityReplace =
-    draftTransitionEarly.mode === "REPLACE" ||
-    listingIdentitiesConflict(priorForIdentityEarly, trimmed);
+    hasPriorDraft &&
+    (draftTransitionEarly.mode === "REPLACE" ||
+      listingIdentitiesConflict(priorForIdentityEarly, trimmed)) &&
+    !isListingPatchFollowUp(trimmed);
   const activeSlotEarly = getActiveListingSlot(opts.pendingClarification);
   const slotAnswersSameListing =
     Boolean(activeSlotEarly) && !listingIdentitiesConflict(opts.listingContext, trimmed);
@@ -898,12 +996,13 @@ export function processListingFillMessage(
       (Boolean(activeSlotEarly) ||
         draftCmds.commands.length > 0 ||
         isListPublishActionMessage(trimmed) ||
-        /\br[\s-]?3[2-4]\b|\bgtr\b|\bgt[\s-]?r\b|\bpsa\s*\d|\d+\s?(gb|tb)\b|\bsize\s*\d/i.test(
+        isListingPatchFollowUp(trimmed) ||
+        /\br[\s-]?3[2-4]\b|\bgtr\b|\bgt[\s-]?r\b|\bpsa\s*\d|\d+\s?(gb|tb)\b|\bsize\s*\d|\d+\s*(?:inch|in)\b/i.test(
           trimmed
         ));
 
     if (compoundWorthTrying) {
-      if (listingIdentitiesConflict(baseDraftEarly, trimmed)) {
+      if (listingIdentitiesConflict(baseDraftEarly, trimmed) && !isListingPatchFollowUp(trimmed)) {
         return processListingFillMessage(trimmed, {
           ...opts,
           freshStart: true,
@@ -932,11 +1031,14 @@ export function processListingFillMessage(
           lead: `I've kept **${baseDraftEarly.title || "your listing"}** on the form.`,
         });
         rememberListingDraft(sessionKeyEarly, baseDraftEarly);
-        return finishFill(reply, baseDraftEarly, "listing_update", pending || undefined);
+        return finishFill(reply, baseDraftEarly, "listing_update", pending || undefined, trimmed);
       }
 
       const touchedCompound =
         extracted.filledSlots.length > 0 ||
+        Boolean(extracted.partial.extras?.length) ||
+        Boolean(extracted.partial.price) ||
+        Boolean(extracted.partial.title) ||
         draftCmds.commands.includes("regenerate_description") ||
         draftCmds.commands.includes("improve_title") ||
         (draftCmds.commands.includes("list_publish") && extracted.filledSlots.length > 0);
@@ -1126,7 +1228,7 @@ export function processListingFillMessage(
           lead,
           listPublishAsked: draftCmds.commands.includes("list_publish"),
         });
-        return finishFill(reply, validated.fill, "listing_update", pending || undefined);
+        return finishFill(reply, validated.fill, "listing_update", pending || undefined, trimmed);
       }
 
       // Short pure slot answer (no commands) — keep prior fast path
@@ -1243,7 +1345,7 @@ export function processListingFillMessage(
                 ? `Got it — ${uniqueAck.join(", ")}.`
                 : `Got it — updated.`;
           const reply = buildReadinessFollowUpReply(validated.fill, { lead });
-          return finishFill(reply, validated.fill, "listing_update", pending || undefined);
+          return finishFill(reply, validated.fill, "listing_update", pending || undefined, trimmed);
         }
       }
     }
@@ -1339,7 +1441,7 @@ export function processListingFillMessage(
     if (!createReply) {
       createReply = buildIncompleteDraftReply(validatedCreate.fill, []);
     }
-    return finishFill(createReply, validatedCreate.fill, "listing_create");
+    return finishFill(createReply, validatedCreate.fill, "listing_create", undefined, trimmed);
   }
 
   const baseDraft: SkyAiListingFill = reconstructListingDraftBase({
@@ -1359,7 +1461,7 @@ export function processListingFillMessage(
       return { handled: true, reply: validated.error, clarify: true, intent: "listing_create" };
     }
     rememberListingDraft(sessionKey, validated.fill);
-    return finishFill(paste.reply, validated.fill, "listing_create");
+    return finishFill(paste.reply, validated.fill, "listing_create", undefined, trimmed);
   }
 
   // Form toggle tweaks (pickup only, etc.)
@@ -1378,7 +1480,7 @@ export function processListingFillMessage(
       return { handled: true, reply: validated.error, clarify: true, intent: "listing_update" };
     }
     rememberListingDraft(sessionKey, validated.fill);
-    return finishFill(formShortcut.reply, validated.fill, "listing_update");
+    return finishFill(formShortcut.reply, validated.fill, "listing_update", undefined, trimmed);
   }
 
   // Relative price without amount — clarify (no silent guess)
@@ -1435,9 +1537,20 @@ export function processListingFillMessage(
     notes.push(`price $${priceRaw}`);
     touched = true;
   }
+  if (!partial.price && hasWantedListingIntent(trimmed)) {
+    const wantedBudget = parseFindBudget(trimmed);
+    if (wantedBudget) {
+      partial.price = wantedBudget;
+      notes.push(`price $${wantedBudget}`);
+      touched = true;
+    }
+  }
 
-  // Condition — like-new / sealed / used from the whole message
-  const parsedCondition = parseListingCondition(trimmed);
+  // Condition — like-new / sealed / used from the whole message (never upgrade mint-in-a-rant)
+  const semanticForCondition = extractSellerSemanticModel(trimmed);
+  const parsedCondition = parseListingCondition(trimmed, {
+    hasDefects: semanticForCondition.hasDefects,
+  });
   if (parsedCondition) {
     partial.condition = parsedCondition;
     notes.push(`condition ${parsedCondition}`);
@@ -1446,9 +1559,7 @@ export function processListingFillMessage(
 
   // Location — "in Auckland" or bare NZ city after pickup
   const locMatch = trimmed.match(LOCATION_RE);
-  const bareCity = trimmed.match(
-    /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|rotorua|queenstown|nelson|whangarei)\b/i
-  );
+  const bareCity = trimmed.match(NZ_PLACE_RE);
   const locRaw = locMatch?.[1] && !/^it$/i.test(locMatch[1]) ? locMatch[1] : bareCity?.[1];
   if (locRaw) {
     const loc = locRaw
@@ -1458,6 +1569,12 @@ export function processListingFillMessage(
       .slice(0, 80);
     partial.location = loc;
     notes.push(`location ${loc}`);
+    touched = true;
+  }
+
+  if (!partial.location && semanticForCondition.location) {
+    partial.location = semanticForCondition.location;
+    notes.push(`location ${partial.location}`);
     touched = true;
   }
 
@@ -1572,10 +1689,12 @@ export function processListingFillMessage(
       detectActiveDraftCommands(trimmed).commands.includes("list_publish"));
   const wantsSell =
     !listActionOnly &&
+    !(hasDraft && isListingPatchFollowUp(trimmed)) &&
     (isNewSellSeed ||
       hasListingSellIntent(trimmed) ||
       serviceOffer ||
       rentalOffer ||
+      hasWantedListingIntent(trimmed) ||
       (onSell && sellItem) ||
       (onSell && /^(ps5|xbox|iphone|samsung|laptop|couch)/i.test(trimmed)));
 
@@ -1604,6 +1723,7 @@ export function processListingFillMessage(
     const item = rentalOffer && itemRaw ? cleanRentalItemName(itemRaw) || itemRaw : itemRaw;
     if (item && item.length >= 2) {
       const typeHint =
+        (hasWantedListingIntent(trimmed) ? "wanted" : undefined) ||
         (serviceOffer || serviceTitle ? "service" : undefined) ||
         (rentalOffer ? "rental" : undefined) ||
         inferSellListingTypeHint(trimmed);
@@ -1617,10 +1737,17 @@ export function processListingFillMessage(
       let seedExtras: string[] | undefined;
       const identityEarly = resolveVehicleIdentity(trimmed);
       let vehicleYearSeed = identityEarly.year || undefined;
+      const offeringNonVehicle =
+        typeHint === "rental" ||
+        typeHint === "service" ||
+        typeHint === "wanted" ||
+        typeHint === "digital" ||
+        rentalOffer;
       const vehicleLikely =
-        typeHint === "vehicle" ||
-        Boolean(identityEarly.make && identityEarly.model) ||
-        Boolean(identityEarly.make);
+        !offeringNonVehicle &&
+        (typeHint === "vehicle" ||
+          Boolean(identityEarly.make && identityEarly.model) ||
+          Boolean(identityEarly.make));
 
       if (vehicleLikely) {
         const compound = extractCompoundListingFacts(trimmed, {
@@ -1675,7 +1802,52 @@ export function processListingFillMessage(
           ...(compound.partial.extras || []),
           ...modExtras,
         ];
-        if (extraBits.length) seedExtras = [...new Set(extraBits)].slice(0, 12);
+        if (extraBits.length) seedExtras = [...new Set(extraBits)].slice(0, 24);
+        const harvestedAddons = harvestSellerEvidence(
+          trimmed,
+          structuredFactContextFromFill({
+            title: item,
+            listingType: "vehicle",
+            vehicleMake: identityEarly.make || undefined,
+            vehicleModel: identityEarly.model || undefined,
+          })
+        ).filter(
+          (entry) =>
+            entry.kind === "modification" ||
+            entry.kind === "included" ||
+            entry.kind === "conditionDetail"
+        );
+        if (harvestedAddons.length) {
+          seedExtras = mergeExtras(seedExtras, sellerEvidenceToExtras(harvestedAddons));
+        }
+      } else {
+        const compound = extractCompoundListingFacts(trimmed, {
+          baseDraft: {
+            listingType: typeHint || "physical",
+            title: item,
+            condition: partial.condition,
+            price: partial.price,
+            location: partial.location,
+          },
+        });
+        if (compound.partial.extras?.length) {
+          seedExtras = [...new Set(compound.partial.extras)].slice(0, 24);
+        }
+        if (compound.partial.location && !partial.location) {
+          partial.location = compound.partial.location;
+        }
+        if (compound.partial.condition && !partial.condition) {
+          partial.condition = compound.partial.condition;
+        }
+        if (compound.partial.price && !partial.price) {
+          partial.price = compound.partial.price;
+        }
+        if (compound.partial.servicePricingType && !partial.servicePricingType) {
+          partial.servicePricingType = compound.partial.servicePricingType;
+        }
+        if (compound.partial.rentalPriceWeekly && !partial.rentalPriceWeekly) {
+          partial.rentalPriceWeekly = compound.partial.rentalPriceWeekly;
+        }
       }
 
       const seeded = buildTitleAndDescription(item, {
@@ -1699,8 +1871,111 @@ export function processListingFillMessage(
       if (!partial.category && seeded.category) partial.category = seeded.category;
       if (!partial.listingType) partial.listingType = seeded.listingType || typeHint;
       // Prefer explicit vehicle inference / seeded make over a soft physical default
-      if (typeHint === "vehicle" || seeded.listingType === "vehicle" || seeded.vehicleMake || vehicleLikely) {
+      if (
+        typeHint !== "rental" &&
+        typeHint !== "service" &&
+        typeHint !== "wanted" &&
+        typeHint !== "digital" &&
+        (typeHint === "vehicle" || seeded.listingType === "vehicle" || seeded.vehicleMake || vehicleLikely)
+      ) {
         partial.listingType = "vehicle";
+      }
+      if (typeHint === "wanted") partial.listingType = "wanted";
+      if (typeHint === "rental") partial.listingType = "rental";
+      if (typeHint === "digital") partial.listingType = "digital";
+      if (typeHint === "service") partial.listingType = "service";
+      if (partial.listingType === "wanted") {
+        const budget = parseFindBudget(trimmed);
+        if (budget && !partial.price) partial.price = budget;
+        if (partial.title) {
+          partial.title = partial.title
+            .replace(
+              /^(?:post(?:ing)?\s+a\s+)?(?:wanted\s+(?:ad|listing|post)\s+)?(?:looking\s+for\s+)?/i,
+              ""
+            )
+            .replace(/^(?:wanted|iso|wtb|in search of|looking for)\s+/i, "")
+            .replace(/\b(?:no scams|prefer(?:ably)?|serious only|no time\s*wasters?)\b/gi, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+      }
+      if (partial.listingType === "rental") {
+        const beds = trimmed.match(GLUED_BED_RE);
+        const baths = trimmed.match(GLUED_BATH_RE);
+        if (beds) partial.rentalBedrooms = beds[1];
+        if (baths) partial.rentalBathrooms = baths[1];
+        if (
+          beds ||
+          /\b(?:house|home|flat|apartment|unit|townhouse|studio)\b/i.test(trimmed)
+        ) {
+          partial.rentalSubType = "property";
+          delete partial.rentalPriceDaily;
+        } else if (
+          /\b(?:trailer|hilux|ute|equipment|generator|mixer|caravan|ranger)\b/i.test(trimmed) ||
+          /\ba\s+day|per\s+day|\/\s*day\b/i.test(trimmed)
+        ) {
+          partial.rentalSubType = /\bhilux|ute|ranger\b/i.test(trimmed)
+            ? "vehicle"
+            : "equipment";
+        }
+        const week = trimmed.match(
+          /\b([\d,]+)\s*(?:a\s+week|per\s+week|\/\s*week|weekly)\b/i
+        );
+        const day = trimmed.match(
+          /\b([\d,]+)\s*(?:a\s+day|per\s+day|\/\s*day)\b/i
+        );
+        if (week) {
+          partial.rentalPriceWeekly = week[1].replace(/,/g, "");
+          partial.price = partial.rentalPriceWeekly;
+          delete partial.rentalPriceDaily;
+        } else if (day && partial.rentalSubType !== "property") {
+          partial.rentalPriceDaily = day[1].replace(/,/g, "");
+          partial.price = partial.rentalPriceDaily;
+        }
+        const bondWeeks = trimmed.match(/\bbond\s+(\d+)\s+weeks?\b/i);
+        const bondCash =
+          trimmed.match(/\bbond\s+\$?\s*([\d,]+)\b/i) ||
+          trimmed.match(/\$\s*([\d,]+)\s+bond\b/i);
+        if (bondWeeks) {
+          const weeks = Number(bondWeeks[1]);
+          const weekly = Number(String(partial.rentalPriceWeekly || "").replace(/,/g, ""));
+          if (Number.isFinite(weeks) && weeks > 0 && Number.isFinite(weekly) && weekly >= 50) {
+            partial.rentalDeposit = String(Math.round(weeks * weekly));
+          }
+        } else if (
+          bondCash &&
+          !/\bweeks?\b/i.test(bondCash[0]) &&
+          Number(String(bondCash[1]).replace(/,/g, "")) >= 50
+        ) {
+          partial.rentalDeposit = bondCash[1].replace(/,/g, "");
+        }
+        if (/\bunfurnished\b/i.test(trimmed)) partial.rentalFurnishedStatus = "Unfurnished";
+        if (/\bfurnished\b/i.test(trimmed) && !/\bunfurnished\b/i.test(trimmed)) {
+          partial.rentalFurnishedStatus = "Furnished";
+        }
+        if (/\bpets?\s+no\b|\bno\s+pets\b/i.test(trimmed)) partial.rentalPetsPolicy = "No pets";
+        if (/\bpickup\s+only\b/i.test(trimmed)) {
+          partial.extras = mergeExtras(partial.extras, ["logistics:Pickup only"]);
+        }
+        if (
+          /\b(?:house|home|flat|apartment|unit|townhouse)\b/i.test(trimmed) &&
+          GLUED_BED_RE.test(trimmed)
+        ) {
+          partial.rentalSubType = "property";
+          delete partial.rentalPriceDaily;
+          const bedHit = trimmed.match(GLUED_BED_RE);
+          if (bedHit) {
+            const kind =
+              trimmed.match(/\b(house|home|flat|apartment|unit|townhouse)\b/i)?.[1] || "House";
+            const titled = `${bedHit[1]} Bedroom ${kind.charAt(0).toUpperCase()}${kind.slice(1).toLowerCase()}`;
+            if (
+              !/\b\d+\s+Bedroom\b/i.test(partial.title || "") ||
+              /^\s*\d+\s*-?\s*bed\b/i.test(partial.title || "")
+            ) {
+              partial.title = titled;
+            }
+          }
+        }
       }
       if (partial.listingType === "service" && !partial.servicePricingType) {
         partial.servicePricingType = normalizeServicePricingType(
@@ -1713,6 +1988,9 @@ export function processListingFillMessage(
       if (seeded.vehicleModel) partial.vehicleModel = seeded.vehicleModel;
       if (seeded.vehicleYear) partial.vehicleYear = seeded.vehicleYear;
       if (vehicleColour) partial.vehicleColour = vehicleColour;
+      if (!vehicleOdometer) {
+        vehicleOdometer = extractVehicleOdometerFromMessage(trimmed) || undefined;
+      }
       if (vehicleOdometer) partial.vehicleOdometer = vehicleOdometer;
       if (vehicleTransmission) partial.vehicleTransmission = vehicleTransmission;
       if (vehicleFuelType) partial.vehicleFuelType = vehicleFuelType;
@@ -1835,7 +2113,7 @@ export function processListingFillMessage(
           if (validatedPatch.ok) {
             rememberListingDraft(sessionKey, validatedPatch.fill);
             const reply = buildDraftUpdateReply(validatedPatch.fill, [], { suggestion: null });
-            return finishFill(reply, validatedPatch.fill, "listing_update");
+            return finishFill(reply, validatedPatch.fill, "listing_update", undefined, trimmed);
           }
         }
       }
@@ -1853,7 +2131,10 @@ export function processListingFillMessage(
   }
 
   // Partial merge — preserve draft; only change requested fields (never cross-listing identity)
-  if (listingIdentitiesConflict(hasDraft ? baseDraft : opts.listingContext, trimmed)) {
+  if (
+    listingIdentitiesConflict(hasDraft ? baseDraft : opts.listingContext, trimmed) &&
+    !isListingPatchFollowUp(trimmed)
+  ) {
     return processListingFillMessage(trimmed, {
       ...opts,
       freshStart: true,
@@ -1905,7 +2186,12 @@ export function processListingFillMessage(
     // Never overwrite user-edited description
     if (merged.descriptionSource === "user" && merged.description) {
       // keep user copy
-    } else if (merged.listingType === "vehicle" || merged.vehicleMake || merged.vehicleModel) {
+    } else if (
+      merged.listingType !== "rental" &&
+      merged.listingType !== "wanted" &&
+      merged.listingType !== "service" &&
+      (merged.listingType === "vehicle" || merged.vehicleMake || merged.vehicleModel)
+    ) {
       const titleCore = composeVehicleIdentityTitle(merged);
       if (titleCore) {
         merged.title = buildPremiumListingTitle({
@@ -1928,11 +2214,29 @@ export function processListingFillMessage(
       }
     }
   }
-  if (merged.title) merged.title = normalizeProductName(merged.title).slice(0, 120);
+  if (merged.extras?.length) {
+    const lastStorage = [...trimmed.matchAll(/\b(\d+)\s?(gb|tb)\b/gi)].pop();
+    const waitNoStorage = trimmed.match(
+      /\b(?:wait\s+)?(?:no|nah)\s+(\d{2,4})\b(?!\s*(?:k\b|km|bucks|\$))/i
+    );
+    const lastSize = waitNoStorage?.[1] || lastStorage?.[1];
+    if (lastSize && Number(lastSize) >= 32) {
+      const unit = (lastStorage?.[2] || "gb").toUpperCase();
+      merged.extras = (merged.extras || []).filter(
+        (entry) => !/\b(?:64|128|256|512|1024)\s*gb\b/i.test(entry) && !/^storage:/i.test(entry)
+      );
+      merged.extras = mergeExtras(merged.extras, [`storage:${lastSize}${unit}`]);
+    }
+    merged.extras = sanitizeListingExtras(merged);
+  }
 
   // Strip any leaked vehicle-year-as-price when current message has explicit bucks/$ price
   if (partial.price) merged.price = partial.price;
   if (partial.condition) merged.condition = partial.condition;
+  if (!merged.price && (merged.listingType === "wanted" || hasWantedListingIntent(trimmed))) {
+    const budget = parseFindBudget(trimmed);
+    if (budget) merged.price = budget;
+  }
 
   const validated = validateListingFillFields(merged);
   if (!validated.ok) {
@@ -1978,14 +2282,15 @@ export function processListingFillMessage(
     reply = buildDraftUpdateReply(validated.fill, notes, { suggestion });
   }
 
-  return finishFill(reply, validated.fill, intent);
+  return finishFill(reply, validated.fill, intent, undefined, trimmed);
 }
 
 function finishFill(
   reply: string,
   listingFill: SkyAiListingFill,
   intent: string,
-  pendingClarification?: PendingClarification
+  pendingClarification?: PendingClarification,
+  sourceMessage?: string
 ): ListingFillToolResult {
   const isPartial = intent === "listing_update";
   if (isPartial) {
@@ -1993,6 +2298,9 @@ function finishFill(
     listingFill = rest;
   } else {
     listingFill = { ...listingFill, replaceDraft: true };
+  }
+  if (sourceMessage) {
+    listingFill = attachSellerFactModel(sourceMessage, listingFill);
   }
   listingFill = { ...listingFill, extras: sanitizeListingExtras(listingFill) };
   if (listingFill.descriptionSource !== "user") {
@@ -2061,7 +2369,7 @@ export function isListingFollowUp(message: string, hasDraft: boolean): boolean {
   if (/\b(pickup|shipping|condition|price|title|description|keywords?|tags?|location)\b/i.test(t)) {
     return true;
   }
-  if (/^(actually|make it|set|change|update)\b/i.test(t)) return true;
+  if (/^(actually|also|and also|plus|make it|set|change|update|wait|nah)\b/i.test(t)) return true;
   // Generation / variant / compound slot answers
   if (/\br[\s-]?3[2-4]\b|\bgtr\b|\bgt[\s-]?r\b|\bpsa\s*\d|\d+\s?(gb|tb)\b/i.test(t)) {
     return true;

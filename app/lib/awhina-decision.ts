@@ -13,11 +13,12 @@ import {
   resolveTaskForMessage,
   type TaskScopeSession,
 } from "./awhina-task-scope";
-import { assessTextObjectContinuity } from "./awhina-draft-transition";
+import { assessTextObjectContinuity, isListingPatchFollowUp } from "./awhina-draft-transition";
 import {
   extractServiceOfferingTitle,
   hasExplicitSellSwitch,
   hasListingSellIntent,
+  hasWantedListingIntent,
   hasRentalOfferingIntent,
   hasSearchIntentLanguage,
   hasServiceOfferingIntent,
@@ -499,7 +500,9 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
       entities.item = extractServiceOfferingTitle(trimmed) || entities.item;
     }
   } else if (rentalOffer) {
-    entities.listingType = entities.listingType || "rental";
+    entities.listingType = "rental";
+  } else if (hasWantedListingIntent(trimmed)) {
+    entities.listingType = "wanted";
   } else if (sellIntent) {
     const hint = inferSellListingTypeHint(trimmed);
     if (hint) entities.listingType = hint;
@@ -508,6 +511,7 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
     if (
       entities.listingType !== "service" &&
       entities.listingType !== "rental" &&
+      entities.listingType !== "wanted" &&
       (hint === "vehicle" || entities.make || entities.model)
     ) {
       entities.listingType = "vehicle";
@@ -532,8 +536,10 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
   // While Āwhina is collecting details for the current listing, a more accurate
   // type classification (e.g. physical → vehicle after year/km arrive) is a
   // refinement of the SAME draft, not a new listing/domain switch.
+  const patchFollowUp = isListingPatchFollowUp(trimmed);
   const domainShiftSell =
     !continuingListingClarification &&
+    !patchFollowUp &&
     activeTask === "selling" &&
     priorTask === "selling" &&
     !isListPublishActionMessage(trimmed) &&
@@ -542,6 +548,7 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
     entities.listingType !== priorDraftType;
   const freshSellStart =
     activeTask === "selling" &&
+    !patchFollowUp &&
     Boolean(
       ((explicitSell || sellIntent) && (priorTask === "shopping" || priorTask === "help")) ||
         (isExplicitNewSellListingMessage(trimmed) && priorTask === "selling") ||

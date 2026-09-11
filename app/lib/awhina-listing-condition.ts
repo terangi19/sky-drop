@@ -19,7 +19,10 @@ const BARE_NEW_RE = /(?:^|[^\w]|_)new(?:\s+condition)?\b/;
 const NEW_PARTS_RE =
   /\b(?:needs?\s+)?new\s+(?:chain|tyres?|tires?|brakes?|batter(?:y|ies)|filters?|oil|wheels?|exhaust|pads?|intake|clutch|rotors?|spark\s+plugs?|wipers?|bladder|valve|belt|hose|gasket|screen|display|hinge|charger|cable)\b/gi;
 
-export function parseListingCondition(raw: string | undefined | null): ListingCondition | undefined {
+export function parseListingCondition(
+  raw: string | undefined | null,
+  opts?: { hasDefects?: boolean }
+): ListingCondition | undefined {
   const source = String(raw || "").trim();
   if (!source) return undefined;
   if ((LISTING_CONDITIONS as readonly string[]).includes(source)) {
@@ -30,20 +33,50 @@ export function parseListingCondition(raw: string | undefined | null): ListingCo
   // Scrub maintenance "new X" before bare-new matching.
   t = t.replace(NEW_PARTS_RE, " ");
   const sealed = BRAND_NEW_RE.test(t);
+  const explicitLikeNew = LIKE_NEW_RE.test(t);
+  const mintConditionPhrase =
+    /\b(?:mint|excellent)\s+condition\b/.test(t) || /\bin\s+(?:mint|excellent)\b/.test(t);
+  const shortMintReply = /^(?:it'?s\s+|its\s+)?(?:mint|excellent)(?:\s+condition)?$/.test(t);
+  const colloquialMint = /\bworks?\s+mint\b|\bstill\s+works?\s+mint\b|\bmint\s+got\b/.test(t);
+  const defectContradiction =
+    Boolean(opts?.hasDefects) ||
+    /\b(?:smash(?:ed)?|crack(?:ed)?|dent(?:ed)?|scratch(?:ed)?|water\s+damaged?|knock(?:s|ing)?)\b/i.test(t);
   // like-new must beat bare "new" (hyphen trap), but factory-sealed/unopened wins over mint.
-  if (LIKE_NEW_RE.test(t) && !sealed) return "Used - Like New";
-  if (sealed) return "New";
-  if (/\b(?:mint|excellent)\b/.test(t)) return "Used - Like New";
-  if (BARE_NEW_RE.test(t) && !LIKE_NEW_RE.test(t) && !/\bnew zealand\b/.test(t)) return "New";
+  if (explicitLikeNew && !sealed && !defectContradiction) return "Used - Like New";
+  if (explicitLikeNew && !sealed && defectContradiction) return "Used - Good";
+  if (sealed && defectContradiction) {
+    return /\bfair|rough|smash|water\s+damage/i.test(t) ? "Used - Fair" : "Used - Good";
+  }
+  if (sealed && !/\bpaid\b.{0,20}\bnew\b|\bbought\b.{0,20}\bnew\b|\bwas\s+new\b/i.test(t)) {
+    return "New";
+  }
+  // Do not upgrade colloquial "still works mint" / mint-in-a-rant to like-new.
+  if (colloquialMint || (opts?.hasDefects && !mintConditionPhrase && !shortMintReply)) {
+    if (/\bfair\b|\brough\b/.test(t)) return "Used - Fair";
+    if (
+      /\b(?:used|good|works?|working|mint|excellent)\b/.test(t) ||
+      /\bworking\s+order\b/.test(t)
+    ) {
+      return "Used - Good";
+    }
+  }
+  if ((mintConditionPhrase || shortMintReply) && !opts?.hasDefects) {
+    return "Used - Like New";
+  }
+  if (BARE_NEW_RE.test(t) && !LIKE_NEW_RE.test(t) && !/\bnew zealand\b/.test(t) && !/\bpaid\b.{0,24}\bnew\b|\bbought\b.{0,24}\bnew\b/.test(t)) return "New";
   if (/\bfair\b|\brough\b/.test(t)) return "Used - Fair";
-  if (/\b(?:used|good)\b/.test(t) || /\bworking\s+order\b/.test(t) || /\bworks?\s+(?:well|ok|fine)\b/.test(t)) {
+  if (
+    /\b(?:used|good)\b/.test(t) ||
+    /\bworking\s+order\b/.test(t) ||
+    /\bworks?\s+(?:well|ok|fine|mint)\b/.test(t)
+  ) {
     return "Used - Good";
   }
   return undefined;
 }
 
 const DEFECT_WORD =
-  "(?:cracks?|faults?|repairs?|damage|dents?|scratches?|scuffs?|chips?|dings?|issues?|marks?)";
+  "(?:cracks?|faults?|repairs?|damage|dents?|scratch(?:ed|es)?|scuffs?|chips?|dings?|issues?|marks?|drift|runtime|smash(?:ed)?|worn|wobbly|knock(?:s|ing)?)";
 
 /** Wear/damage that the seller actually reported — ignore "no cracks" / "no damage". */
 export function hasAffirmativeWear(text: string): boolean {
@@ -64,7 +97,10 @@ export function hasAffirmativeWear(text: string): boolean {
       ),
       " "
     );
-  return new RegExp(`\\b${DEFECT_WORD}|\\bwear\\b|\\bworn\\b|\\bdamaged?\\b`, "i").test(stripped);
+  return new RegExp(
+    `\\b${DEFECT_WORD}|\\bwear\\b|\\bworn\\b|\\bdamaged?\\b|\\bdoesn'?t\\s+last\\b|\\bstick\\s+drift\\b|\\breduced\\s+runtime\\b`,
+    "i"
+  ).test(stripped);
 }
 
 export function looksLikeColourFinish(text: string): boolean {

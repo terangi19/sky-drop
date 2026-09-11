@@ -8,6 +8,14 @@ import type { SkyAiListingContext } from "./sky-ai-types";
 import { normalizedAwhinaText } from "./awhina-input-normalize";
 import { resolveVehicleIdentity } from "./sky-ai-find-routing";
 import { composeListingIdentity } from "./awhina-listing-identity";
+import {
+  hasDigitalOfferingIntent,
+  hasRentalOfferingIntent,
+  hasServiceOfferingIntent,
+  hasWantedListingIntent,
+  isEquipmentBrandNotVehicle,
+  lastConfirmedOfferingMode,
+} from "./sky-ai-intent";
 
 export type ListingIdentity = {
   kind: "vehicle" | "physical" | "service" | "rental" | "digital" | "unknown";
@@ -54,8 +62,72 @@ export function extractListingIdentityFromMessage(message: string): ListingIdent
   const m = normalizedAwhinaText(message);
   if (!m) return null;
 
+  const lastMode = lastConfirmedOfferingMode(m);
+
+  if (hasWantedListingIntent(m) && lastMode !== "sale") {
+    const wantedItem =
+      m
+        .replace(/^(?:looking for|wanted[:\s]*|after a|in the market for|iso|wtb)\s+/i, "")
+        .replace(/\b(?:budget|up to|under|around|max|no scams|prefer(?:ably)?|serious only|no time\s*wasters?)\b.*$/i, "")
+        .replace(/\b(?:in|around|near)\s+[A-Za-z][\w\s-]{2,30}$/i, "")
+        .trim()
+        .slice(0, 80) || "Wanted item";
+    return {
+      kind: "physical",
+      label: wantedItem,
+      listingType: "wanted",
+      title: wantedItem,
+    };
+  }
+
+  if (hasRentalOfferingIntent(m) || lastMode === "hire") {
+    const label =
+      m.match(
+        /\b(\d+\s*bed(?:room)?s?(?:\s+(?:unit|flat|apartment|house|townhouse))?|trailer(?:\s*hire)?|hilux|ranger|ute|apartment|flat|house)\b/i
+      )?.[1] || "Rental listing";
+    const cleanedLabel = String(label)
+      .replace(/^hire\s+out\s+(?:my\s+)?/i, "")
+      .trim();
+    return {
+      kind: "rental",
+      label: cleanedLabel.replace(/\b\w/g, (c) => c.toUpperCase()),
+      listingType: "rental",
+      title: cleanedLabel,
+    };
+  }
+
+  if (hasDigitalOfferingIntent(m)) {
+    const hit =
+      m.match(
+        /\b((?:ebook|e-book)[^,.]{0,40}|canva[^,.]{0,40}|template\s+pack[^,.]{0,40}|(?:adobe\s+)?photoshop\s+course[^,.]{0,40}|course\s+videos?)\b/i
+      )?.[1] || "Digital download";
+    return {
+      kind: "digital",
+      label: hit.trim().replace(/\b\w/g, (c) => c.toUpperCase()),
+      listingType: "digital",
+      title: hit.trim(),
+    };
+  }
+
+  if (hasServiceOfferingIntent(m)) {
+    const title =
+      m.match(
+        /\b(lawn\s*mowing(?:\s+service)?|house\s*clean(?:ing)?(?:\s+service)?|handyman(?:\s+services?)?|tutoring|maths?\s+tutoring|photography|photographer|i\s+mow\s+lawns?)\b/i
+      )?.[1] || "Service";
+    const label = /mow/i.test(title) ? "Lawn Mowing" : title.replace(/\b\w/g, (c) => c.toUpperCase());
+    return {
+      kind: "service",
+      label,
+      listingType: "service",
+      title: label,
+    };
+  }
+
   const vehicle = resolveVehicleIdentity(m);
-  if (vehicle.make || vehicle.model || YEAR_MAKE_RE.test(m)) {
+  if (
+    !isEquipmentBrandNotVehicle(m) &&
+    (vehicle.make || vehicle.model || YEAR_MAKE_RE.test(m))
+  ) {
     const make = vehicle.make?.trim();
     const model = vehicle.model?.trim();
     const year = vehicle.year?.trim();
@@ -75,59 +147,6 @@ export function extractListingIdentityFromMessage(message: string): ListingIdent
     };
   }
 
-  if (/\b(lawn\s*mow|mowing service|house\s*clean|cleaning service|handyman|tutor(?:ing)?|photograph(?:y|er)?)\b/i.test(m)) {
-    const title =
-      m.match(
-        /\b(lawn\s*mowing(?:\s+service)?|house\s*clean(?:ing)?(?:\s+service)?|handyman(?:\s+services?)?|tutoring|maths?\s+tutoring|photography|photographer)\b/i
-      )?.[1] || "Service";
-    return {
-      kind: "service",
-      label: title.replace(/\b\w/g, (c) => c.toUpperCase()),
-      listingType: "service",
-      title: title.replace(/\b\w/g, (c) => c.toUpperCase()),
-    };
-  }
-  // Prefer rental over wanted when the seller is offering a hire/rent-out.
-  if (
-    /\b(looking for|wanted[:\s]|after a\b|in the market for)\b/i.test(m) &&
-    !/\b(?:hire\s+out|rent\s+out|for hire|\/\s*day|a\s+day|per\s+day|\/\s*week|per\s+week|a\s+week)\b/i.test(
-      m
-    )
-  ) {
-    const wantedItem =
-      m
-        .replace(/^(?:looking for|wanted[:\s]*|after a|in the market for)\s+/i, "")
-        .replace(/\b(?:budget|up to|under|around|max)\b.*$/i, "")
-        .replace(/\b(?:in|around|near)\s+[A-Za-z][\w\s-]{2,30}$/i, "")
-        .trim()
-        .slice(0, 80) || "Wanted item";
-    return {
-      kind: "physical",
-      label: wantedItem,
-      listingType: "wanted",
-      title: wantedItem,
-    };
-  }
-  if (
-    /\b(trailer\s*hire|hire\s+out\s+(?:my\s+)?trailer|for hire|rent(?:al)?|rent\s+out|weekly rent|\/\s*week|per week|a\s+week|bedroom(?:s)?\s+unit|\d+[-\s]?bedroom|apartment|flat)\b/i.test(
-      m
-    ) &&
-    !/\b(looking for|wanted[:\s]|in the market for)\b/i.test(m)
-  ) {
-    const label =
-      m.match(
-        /\b(\d+[-\s]?bedroom(?:s)?(?:\s+(?:unit|flat|apartment|house|townhouse))?|trailer(?:\s*hire)?|hire\s+out\s+(?:my\s+)?trailer|apartment|flat)\b/i
-      )?.[1] || "Rental listing";
-    const cleanedLabel = label
-      .replace(/^hire\s+out\s+(?:my\s+)?/i, "")
-      .trim();
-    return {
-      kind: "rental",
-      label: cleanedLabel.replace(/\b\w/g, (c) => c.toUpperCase()),
-      listingType: "rental",
-      title: cleanedLabel,
-    };
-  }
   if (
     /\b(iphone|galaxy|samsung|pixel|ps5|ps4|playstation|xbox|switch|couch|sofa|typewriter|charizard|pok[eé]mon)\b/i.test(
       m

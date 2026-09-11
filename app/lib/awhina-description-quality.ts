@@ -167,10 +167,35 @@ export function polishPublicDescription(
           .replace(/\s{2,}/g, " ")
           .trim();
       }
+      let keptLocated = false;
+      const next: string[] = [];
+      for (const s of out) {
+        if (/^Located in\s+/i.test(s)) {
+          if (keptLocated) continue;
+          keptLocated = true;
+        }
+        next.push(s);
+      }
+      out.length = 0;
+      out.push(...next);
     }
   }
 
-  return out.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  let joined = out.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  const parts = joined.split(/(?<=[.!?])\s+/);
+  let seenLoc = false;
+  joined = parts
+    .filter((s) => {
+      if (/^Located in\s+/i.test(s.trim())) {
+        if (seenLoc) return false;
+        seenLoc = true;
+      }
+      return Boolean(s.trim());
+    })
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return joined;
 }
 
 export type DescriptionQualityViolation =
@@ -416,6 +441,10 @@ export function minimalSafeDescription(fill: SkyAiListingFill): string {
     );
     return [base, evidence].filter(Boolean).join(" ").trim();
   }
-  if (loc) return `${title}. Located in ${loc}.`;
-  return `${title}.`;
+  const evidence = composeDomainAwareEvidenceProse(
+    groupedSellerEvidenceFromExtras(fill.extras, loc || undefined),
+    domain
+  );
+  const base = loc ? `${title}. Located in ${loc}.` : `${title}.`;
+  return [base, evidence].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 }

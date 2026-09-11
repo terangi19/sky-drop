@@ -9,7 +9,8 @@
  *
  * Known current breaks use vitest `it.fails` so CI stays green while the
  * expected contract remains the source of truth. See
- * docs/awhina-adversarial-qa-report.md.
+ * docs/awhina-adversarial-qa-report.md. Wave 2 lives in
+ * awhina-adversarial-wave-2.test.ts — do not weaken this file's expectations.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -784,25 +785,11 @@ function assertCase(c: CorpusCase) {
 
 /** Current-main breaks — expected semantics stay locked; CI uses it.fails. */
 const KNOWN_FAILURE_IDS = new Set<string>([
-  "physical-samsung-tv-messy",
-  "physical-macbook-command-hide-damage",
   "physical-iphone-contradiction-one-shot",
-  "physical-ps5-accessories-short",
-  "vehicle-bmw-335i-messy",
-  "vehicle-hilux-voice-garbage",
   "vehicle-ranger-extremely-long",
-  "service-lawn-messy",
-  "service-handyman-short",
-  "service-cleaning-voice",
-  "rental-trailer-not-for-sale",
   "rental-house-no-daily-rate",
-  "rental-hilux-hire-not-sale",
-  "wanted-ps5-messy",
-  "wanted-explicit-post-ad",
-  "wanted-iso-puppy",
   "physical-tv-size-price-correction",
   "physical-iphone-followup-correction",
-  "vehicle-price-walk-back",
   "service-add-hedge-followup",
   "wanted-budget-correction",
 ]);
@@ -859,11 +846,11 @@ describe("adversarial NZ — price traps (parseListingPriceFromMessage)", () => 
     });
   }
 
-  it.fails('FAIL: "samsung tv was $450 now 280 hamilton" → 280 (dollar-first takes historical)', () => {
+  it('samsung tv was $450 now 280 hamilton → 280', () => {
     expect(parseListingPriceFromMessage("samsung tv was $450 now 280 hamilton")).toBe("280");
   });
 
-  it.fails('FAIL: "askin 9k maybe 8500 firm later nah 9k" → 9000 (slang askin + nah confirmation)', () => {
+  it('askin 9k maybe 8500 firm later nah 9k → 9000', () => {
     expect(parseListingPriceFromMessage("askin 9k maybe 8500 firm later nah 9k")).toBe("9000");
   });
 });
@@ -909,7 +896,7 @@ describe("adversarial NZ — semantic fact model price classes", () => {
     expect(model.price.confirmed?.value).not.toBe("8500");
   });
 
-  it.fails("FAIL: seller hide-damage command is instruction not a public fact", () => {
+  it("seller hide-damage command is instruction not a public fact", () => {
     const model = parseSellerMessageToFactModel(
       "title it bargain don't say damaged sell macbook air m2 dent on lid $900",
       { title: "MacBook Air" }
@@ -923,7 +910,7 @@ describe("adversarial NZ — semantic fact model price classes", () => {
 });
 
 describe("adversarial NZ — semantic correction", () => {
-  it.fails("FAIL: understands wait no 256 actually blue", () => {
+  it("understands wait no 256 actually blue", () => {
     const r = interpretSemanticTurn({
       message: "wait no 256 black actually blue like new battery 87 screen cracked though",
       pendingSlot: "condition",

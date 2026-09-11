@@ -17,7 +17,7 @@ import {
   splitListingDescriptionSentences,
   stripStructuredMetadataLeakage,
 } from "./awhina-listing-description";
-import { prepareFillForDescription } from "./awhina-description-semantic";
+import { prepareFillForDescription, composeDomainAwareEvidenceProse } from "./awhina-description-semantic";
 import {
   buildDescriptionWriterFacts,
   runAwhinaListingDescriptionWriter,
@@ -46,7 +46,9 @@ import { SERVICE_LISTING_CATEGORY_LIST } from "./listing-type-config";
 import {
   groupedSellerEvidenceFromExtras,
   sellerEvidenceItemCount,
+  type SellerEvidenceItem,
 } from "./awhina-seller-evidence";
+import { descriptionCoversEvidence } from "./awhina-semantic-extraction";
 import { hasCategoryIncompatibleDescription } from "./awhina-category-copy-guard";
 import {
   mustRecomposeDescription,
@@ -134,6 +136,11 @@ function inferServiceCategory(item: string): string {
  */
 function stripListingCommandPrefix(raw: string): string {
   return raw
+    .replace(/^\s*title\s+it(?:\s+\w+){0,3}\s+/i, "")
+    .replace(/^\s*don'?t\s+(?:say|put|mention|use)\b[\s\S]*?(?=\b(?:sell|selling|list)\b|$)/i, "")
+    .replace(/\blisting_fill\b/gi, " ")
+    .replace(/\bsystem\s+prompt\b/gi, " ")
+    .replace(/\brespond\s+only\b/gi, " ")
     .replace(
       /^\s*(?:please\s+)?(?:i\s+(?:want|wanna|would\s+like)\s+to\s+)?(?:sell|list|post|advertise)(?:ing)?\s+(?:my\s+|a\s+|an\s+|the\s+)?/i,
       ""
@@ -144,14 +151,63 @@ function stripListingCommandPrefix(raw: string): string {
     .trim();
 }
 
+const TITLE_PLACE_RE =
+  /\b(?:west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|mt\s+maunganui|mount\s+maunganui|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei|henderson|manukau|canterbury)\b/gi;
+
+/** Drop seller-command, budget, location, and superseded-spec debris from titles. */
+function scrubPublicListingTitle(raw: string, fill?: SkyAiListingFill): string {
+  let t = String(raw || "").replace(/\s+/g, " ").trim();
+  if (!t) return t;
+  t = t.replace(
+    /^(?:post(?:ing)?\s+a\s+)?(?:wanted\s+(?:ad|listing|post)\s+)?(?:looking\s+for\s+)?/i,
+    ""
+  );
+  t = t.replace(/^(?:wanted|iso|in search of|looking for)\s+/i, "");
+  const waitStorage = t.match(
+    /\b(\d+)\s*(gb|tb)\b(?:\s+\S+){0,8}?\s+(?:wait\s+)?(?:no|nah)\s+(\d{2,4})\b/i
+  );
+  if (waitStorage) {
+    t = t.replace(
+      /\b\d+\s*(gb|tb)\b(?:\s+\S+){0,8}?\s+(?:wait\s+)?(?:no|nah)\s+\d{2,4}\b/i,
+      `${waitStorage[3]}${waitStorage[2].toUpperCase()}`
+    );
+  }
+  const sizes = [...t.matchAll(/\b(\d+)\s*(gb|tb)\b/gi)];
+  if (sizes.length > 1) {
+    const last = sizes[sizes.length - 1];
+    t = t.replace(/\b\d+\s*(gb|tb)\b/gi, " ");
+    t = `${t} ${last[1]}${last[2].toUpperCase()}`;
+  }
+  t = t
+    .replace(/\bwait\s+(?:no|nah|actually)\b/gi, " ")
+    .replace(/\b(?:nah|actually)\b/gi, " ")
+    .replace(/\btitle\s+it(?:\s+\w+){0,3}\b/gi, " ")
+    .replace(/\bdon'?t\s+(?:say|put|mention|use)\b(?:\s+\w+){0,6}/gi, " ")
+    .replace(/\b(?:bargain|starting bid|or nearest offer|\bono\b|\bneg\b|negotiable)\b/gi, " ")
+    .replace(/\blisting_fill\b/gi, " ")
+    .replace(/\bsystem\s+prompt\b/gi, " ")
+    .replace(/\bunder\s+\$?\d[\d,]*(?:\.\d{1,2})?\s*k?\b/gi, " ")
+    .replace(/\b(?:prefer(?:ably)?|no scams)\b/gi, " ")
+    .replace(/\b(?:with|and)\s+\d+\s*$/i, " ")
+    .replace(TITLE_PLACE_RE, " ")
+    .replace(/\b(?:bit\s+)?scratch(?:ed)?(?:\s+on\s+corner)?\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (fill?.listingType === "wanted") {
+    t = t.replace(/\bunder\b/gi, " ").replace(/\s+/g, " ").trim();
+  }
+  return t.replace(/^[,.\s-]+|[,.\s-]+$/g, "").trim();
+}
+
 function normalizeAwhinaListingTitle(fill: SkyAiListingFill): SkyAiListingFill {
   const original = fill.title?.trim();
   if (!original) return fill;
 
   const stripped = stripListingCommandPrefix(original);
-  let raw = normalizeProductName(stripped || original)
-    .replace(/\s+/g, " ")
-    .trim();
+  let raw = scrubPublicListingTitle(
+    normalizeProductName(stripped || original).replace(/\s+/g, " ").trim(),
+    fill
+  );
 
   const vehicleLike =
     fill.listingType === "vehicle" ||
@@ -204,6 +260,38 @@ function isRejectedPublicCopy(description: string | undefined | null, fill: SkyA
         hasCategoryIncompatibleDescription(description, fill) ||
         !validateDescriptionQualityContract(description, fill).ok)
   );
+}
+
+function buyerEvidenceFromFill(fill: SkyAiListingFill): SellerEvidenceItem[] {
+  const grouped = groupedSellerEvidenceFromExtras(fill.extras);
+  const items: SellerEvidenceItem[] = [];
+  for (const text of grouped.included) items.push({ kind: "included", text });
+  for (const text of grouped.conditionDetails) items.push({ kind: "conditionDetail", text });
+  for (const text of grouped.mechanical) items.push({ kind: "mechanical", text });
+  for (const text of grouped.modifications) items.push({ kind: "modification", text });
+  for (const text of grouped.maintenance) items.push({ kind: "maintenance", text });
+  return items;
+}
+
+/** If composed copy dropped structured facts, regenerate from those facts — never patch raw seller text. */
+function auditOrRegenerateFromFacts(fill: SkyAiListingFill, description: string): string {
+  const evidence = buyerEvidenceFromFill(fill);
+  if (!evidence.length) return description;
+  const audit = descriptionCoversEvidence(description, evidence);
+  if (audit.missing.length === 0) return description;
+  const grouped = groupedSellerEvidenceFromExtras(fill.extras, fill.location);
+  const prose = composeDomainAwareEvidenceProse(grouped, fill.listingType);
+  const title = (fill.title || "Listing").trim().replace(/[.!?]+$/, "");
+  const loc = (fill.location || fill.pickupArea || "").trim();
+  const proseHasLocation =
+    Boolean(loc) &&
+    (/\bLocated in\b/i.test(prose) ||
+      (loc && new RegExp(`\\bin\\s+${escapeRegExp(loc)}\\b`, "i").test(prose)));
+  const opener =
+    loc && !proseHasLocation ? `${title}. Located in ${loc}.` : `${title}.`;
+  const regenerated = [opener, prose].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  const second = descriptionCoversEvidence(regenerated, evidence);
+  return second.missing.length <= audit.missing.length ? regenerated : description;
 }
 
 function shouldDeferSparseAiDescription(fill: SkyAiListingFill): boolean {
@@ -266,8 +354,22 @@ export function composeListingTitleAndDescription(seed: ListingComposeSeed): Com
   const item = seed.item.trim();
   const service = seed.listingType === "service" || detectService(item);
   const identity = resolveVehicleIdentity(item);
-  const vehicle = !service && (seed.listingType === "vehicle" || detectVehicle(item) || Boolean(seed.vehicleMake || seed.vehicleModel));
-  const listingType = service ? "service" : vehicle ? "vehicle" : seed.listingType || "physical";
+  const rental = seed.listingType === "rental";
+  const wanted = seed.listingType === "wanted";
+  const vehicle =
+    !service &&
+    !rental &&
+    !wanted &&
+    (seed.listingType === "vehicle" || detectVehicle(item) || Boolean(seed.vehicleMake || seed.vehicleModel));
+  const listingType = service
+    ? "service"
+    : rental
+      ? "rental"
+      : wanted
+        ? "wanted"
+        : vehicle
+          ? "vehicle"
+          : seed.listingType || "physical";
   const make = seed.vehicleMake || identity.make || parseVehicleMake(item);
   const model = seed.vehicleModel || identity.model || parseVehicleModel(item);
   const year = seed.vehicleYear || identity.year || parseVehicleYear(item);
@@ -332,6 +434,8 @@ export function finalizeAwhinaListingDescription(
     if (!contract.ok || !description) {
       description = shouldDeferSparseAiDescription(fill) ? "" : minimalSafeDescription(fill);
     }
+    description = auditOrRegenerateFromFacts(fill, description);
+    description = polishPublicDescription(description, fill);
     return { ...fill, description, descriptionSource: "ai" };
   }
 
@@ -372,7 +476,11 @@ export function finalizeAwhinaListingDescription(
       !containsGenericMarketplaceFiller(polished) &&
       !hasSemanticFactDuplication(polished)
     ) {
-      return { ...fill, description: polished, descriptionSource: "ai" };
+      return {
+        ...fill,
+        description: polishPublicDescription(auditOrRegenerateFromFacts(fill, polished), fill),
+        descriptionSource: "ai",
+      };
     }
   }
   let description = recomposeListingDescription(fill, {
@@ -418,6 +526,8 @@ export function finalizeAwhinaListingDescription(
       description = minimalSafeDescription(fill);
     }
   }
+  description = auditOrRegenerateFromFacts(fill, description);
+  description = polishPublicDescription(description, fill);
   return { ...fill, description, descriptionSource: "ai" };
 }
 

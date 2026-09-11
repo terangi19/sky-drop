@@ -223,6 +223,7 @@ function appendLocatedIn(text: string, location?: string | null): string {
   if (!loc) return text;
   const escaped = loc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   if (new RegExp(`\\b${escaped}\\b`, "i").test(text)) return text;
+  if (/\bLocated in\b/i.test(text)) return text;
   const base = text.trim().replace(/[.!?]*$/, ".");
   return polishParagraph(`${base} Located in ${loc}.`);
 }
@@ -289,6 +290,10 @@ export function cleanDescriptionItemName(raw: string): string {
     .replace(/[,;]?\s*\d{1,3}\s*%\s*battery.*$/i, "")
     .replace(/[,;]?\s*like[\s-]+new\b/gi, " ")
     .replace(/[,;]?\s*screen\s+is\b.*$/i, "")
+    .replace(/\bhad\s+it(?:\s+couple(?:\s+of)?\s+years?)?.*$/i, "")
+    .replace(/\bstill\s+works?\b.*$/i, "")
+    .replace(/\bbarely\s+use(?:d)?.*$/i, "")
+    .replace(/\bbro\b.*$/i, "")
     .replace(/\s+but\s*$/i, "")
     .replace(/[,;]+$/g, "")
     .replace(/\b(\d+)\s*(gb|tb)\b/gi, (_, n, u) => `${n}${String(u).toUpperCase()}`)
@@ -536,6 +541,9 @@ function composeExtrasProse(
     .filter((e) => !/^(topps|panini|upper\s*deck|fleer|bowman|donruss)$/i.test(e))
     .filter((e) => !/^\d+\s*(?:gb|tb)(?:\s+storage)?$/i.test(e))
     .filter((e) => !looksLikeColourFinish(e))
+    .filter((e) => !/^located in\b/i.test(e))
+    .filter((e) => !/^(?:wait|nah|yeh|yeah)\b/i.test(e))
+    .filter((e) => !/\b(?:title it|don'?t say|looking for|wanted ad)\b/i.test(e))
     .filter((e) => {
       if (!evidenceProse) return true;
       const haystack = evidenceProse.toLowerCase();
@@ -1651,7 +1659,8 @@ function runQualityPass(draft: string, facts: DescriptionFacts): string {
     const cta = sentences.find((s) => classifySentence(s) === "cta");
     const keepers = sentences.filter(
       (s) =>
-        /^Located in\b/i.test(s.trim()) ||
+        ( /^Located in\b/i.test(s.trim()) &&
+          sentences.findIndex((x) => /^Located in\b/i.test(x.trim())) === sentences.indexOf(s) ) ||
         /\b(?:wof|registration|rego)\b/i.test(s)
     );
     let body = sentences.filter(
@@ -2371,7 +2380,7 @@ function writeRental(facts: DescriptionFacts): string {
   const r = facts.rental;
   const sub = r?.subType || "";
   const seed = facts.seed;
-  const isProperty = sub === "property" || Boolean(r?.bedrooms || r?.weekly);
+  const isProperty = sub === "property" || Boolean(r?.bedrooms);
 
   const dailyRate = r?.daily
     ? `$${r.daily} per day`
@@ -2415,10 +2424,9 @@ function writeRental(facts: DescriptionFacts): string {
   if (isProperty) {
     if (r?.weekly) rates.push(`$${r.weekly} per week`);
     if (r?.monthly) rates.push(`$${r.monthly} per month`);
-    if (r?.daily) rates.push(`$${r.daily} per day`);
-    if (r?.bond) rates.push(`$${r.bond} bond`);
+    if (r?.bond) rates.push(`bond ${r.bond}`);
   } else if (r?.bond) {
-    rates.push(`$${r.bond} bond`);
+    rates.push(`bond ${r.bond}`);
   }
   if (rates.length) bits.push(rates.join(", "));
   if (r?.availableFrom) bits.push(`available from ${r.availableFrom}`);
@@ -2659,8 +2667,10 @@ export function buildListingDescriptionFromFacts(
     );
   }
   out = stripStructuredMetadataLeakage(out);
-  // Ordinary physical/vehicle marketplace listings keep price in the price
-  // field only. Service/rental/wanted writers may still mention rates/budgets.
+  out = out.replace(
+    /(\bLocated in\s+[^.!?]+)[.!?](?:\s+Located in\s+[^.!?]+[.!?])+/gi,
+    "$1."
+  );
   if (facts.kind === "physical" || facts.kind === "vehicle") {
     return removeStructuredPriceCopy(out);
   }

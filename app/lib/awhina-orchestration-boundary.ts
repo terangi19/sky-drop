@@ -22,6 +22,9 @@ export const INTERNAL_ORCHESTRATION_PATTERNS: RegExp[] = [
   /\[\s*(?:system|developer|internal|tool)\s*\]/i,
   /\btool\s+instructions?\b/i,
   /\bprompt\s+wrapper\b/i,
+  /\bsystem\s+prompt\b/i,
+  /\bparse\s+everything\b/i,
+  /\brespond\s+only\b/i,
 ];
 
 /**
@@ -37,6 +40,17 @@ export const SELLER_META_INSTRUCTION_PATTERNS: RegExp[] = [
   /\b(?:choose|pick)\s+the\s+best\s+category\b/i,
   /\b(?:can|could|would)\s+you\s+(?:please\s+)?(?:make|write|create|generate|suggest|tell)\b/i,
   /\btell\s+me\s+what\s+price\s+i\s+should\s+(?:put|use|ask|list)\b/i,
+  /\btell\s+me\s+what\s+(?:it(?:'?s|s)?\s+actually\s+worth|they(?:'re|\s+are)\s+worth)\b/i,
+  /\bmake\s+(?:the\s+)?(?:ad|listing)\s+sound\s+(?:good|professional)\b/i,
+  /\bdon'?t\s+put\s+(?:that|the\s+\d[\d,]*|was\s+price|daily\s+rate|end\s+date|condition)\b/i,
+  /\bdo\s+not\s+(?:put|use)\s+(?:that|it|daily\s+rate)\b/i,
+  /\bdon'?t\s+say\s+(?:damaged|crashed|broken|water\s+damaged)\b/i,
+  /\bdon'?t\s+mention\b/i,
+  /\bdon'?t\s+put\b/i,
+  /\btitle\s+it\b/i,
+  /\bwrite\s+a\s+good\s+description\b/i,
+  /\bsound\s+professional\b/i,
+  /\bno\s+scams\b/i,
 ];
 
 export function containsSellerMetaInstruction(
@@ -59,19 +73,39 @@ function stripSellerMetaInstructions(text: string): string {
     String.raw`(?:choose|pick)\s+the\s+best\s+category`,
     String.raw`(?:can|could|would)\s+you\s+(?:please\s+)?(?:make|write|create|generate|suggest|tell)`,
     String.raw`tell\s+me\s+what\s+price\s+i\s+should\s+(?:put|use|ask|list)`,
+    String.raw`tell\s+me\s+what\s+(?:it(?:'?s|s)?\s+actually\s+worth|they(?:'re|\s+are)\s+worth)`,
+    String.raw`make\s+(?:the\s+)?(?:ad|listing)\s+sound\s+(?:good|professional)`,
+    String.raw`don'?t\s+put\s+(?:that|the\s+\d[\d,]*|was\s+price|daily\s+rate|end\s+date|condition)`,
+    String.raw`do\s+not\s+(?:put|use)\s+(?:that|it|daily\s+rate)`,
+    String.raw`don'?t\s+say\s+(?:damaged|crashed|broken|water\s+damaged)`,
+    String.raw`don'?t\s+mention`,
+    String.raw`don'?t\s+put`,
+    String.raw`title\s+it`,
+    String.raw`write\s+a\s+good\s+description`,
+    String.raw`LISTING_FILL`,
+    String.raw`system\s+prompt`,
+    String.raw`respond\s+ONLY`,
+    String.raw`Parse\s+everything`,
+    String.raw`sound\s+professional`,
+    String.raw`no\s+scams`,
   ].join("|");
+  // Never eat listing facts. Stop a command clause before sell/rent/wanted or
+  // after "in (the) ad" — `$` as end-of-clause swallows unpunctuated messages.
+  const listingVerb = String.raw`sell(?:ing)?|list(?:ing)?|rent(?:ing)?|hire|wanted|iso|asking|askin`;
   const clause = new RegExp(
-    String.raw`(?:^|(?<=[,.;!?])\s*)(?:a\s+|an\s+)?(?:${commandStarts})[^,.;!?]*(?:[,.;!?]|$)`,
+    String.raw`(?:^|(?<=[,.;!?])\s*)(?:a\s+|an\s+)?(?:${commandStarts})(?:(?!\b(?:${listingVerb})\b)[^,.;!?])*?(?:\bin\s+(?:the\s+)?ad\b)?(?:[,.;!?]|(?=\s+\b(?:${listingVerb})\b))`,
     "gi"
   );
   out = out.replace(clause, " ");
-  // Unpunctuated speech often ends with a command. Remove from the command
-  // boundary onward, while retaining every item fact before it.
+  out = out.replace(/\btitle\s+it\s+(?:a\s+)?[\w'-]+(?:\s+[\w'-]+){0,2}(?=\s+(?:don'?t|dont|sell|selling|list|write|help|asking)|$)/gi, " ");
+  out = out.replace(/\bdon'?t\s+say\s+(?:water\s+)?[\w'-]+/gi, " ");
+  out = out.replace(/\bdon'?t\s+mention(?:\s+(?:the\s+)?[\w'-]+)?/gi, " ");
+  out = out.replace(/\bdon'?t\s+put\s+(?:LISTING_FILL|was\s+price|what\s+i\s+paid|my\s+max)(?:\s+in\s+(?:the\s+)?ad)?/gi, " ");
+  out = out.replace(/\bno\s+scams\b/gi, " ");
+  out = out.replace(/\bwrite\s+a\s+good\s+description\b/gi, " ");
+  out = out.replace(/\bhelp\s+me\s+choose(?:\s+\w+){0,3}\b/gi, " ");
   out = out.replace(
-    new RegExp(
-      String.raw`\b(?:${commandStarts})\b[\s\S]*$`,
-      "i"
-    ),
+    /\bdon'?t\s+put\s+(?:the\s+)?(?:was\s+price|daily\s+rate|end\s+date|condition|that|it|[\w'$]+)(?:\s+in\s+(?:the\s+)?ad)?/gi,
     " "
   );
   return out
@@ -164,9 +198,11 @@ export function stripInternalOrchestrationOnly(text: string): string {
     .replace(/\bthe\s+user\s+is\s+on\s+the\s+sell\s+page\.?/gi, " ")
     .replace(/\bparse\s+everything\s+below\s+as\s+listing\s+data\.?/gi, " ")
     .replace(/\band\s+respond\s+only\s+with\s+listing_fill\s+json\.?/gi, " ")
-    .replace(/\brespond\s+only\s+with\s+listing_fill(?:\s+json)?\.?/gi, " ")
+    .replace(/\brespond\s+only(?:\s+with\s+listing_fill(?:\s+json)?)?\.?/gi, " ")
     .replace(/\bgenerate\s+a\s+complete\s+listing\b[^.?!]*(?:[.?!]|$)/gi, " ")
     .replace(/\bdo\s+not\s+give\s+general\s+chat\s+advice\.?/gi, " ")
+    .replace(/\bparse\s+everything\b/gi, " ")
+    .replace(/\bsystem\s+prompt\b/gi, " ")
     .replace(/\blisting_fill\b/gi, " ")
     .replace(/^\s*(?:system|developer|internal)\s*:\s*/gim, " ")
     .replace(/\[\s*(?:system|developer|internal|tool)\s*\]/gi, " ")

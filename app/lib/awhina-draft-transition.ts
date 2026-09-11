@@ -163,6 +163,21 @@ export function assessTextObjectContinuity(
     }
   }
 
+  if (priorIsPhone && isListingPatchFollowUp(message)) {
+    return "SAME_OBJECT";
+  }
+  if (priorIsVehicle && isListingPatchFollowUp(message) && !msgIsPhone && !msgIsConsole) {
+    return "SAME_OBJECT";
+  }
+  const priorIsRental = String(prior.listingType || "").toLowerCase() === "rental";
+  if (priorIsRental && isListingPatchFollowUp(message)) {
+    return "SAME_OBJECT";
+  }
+  const priorIsService = String(prior.listingType || "").toLowerCase() === "service";
+  if (priorIsService && isListingPatchFollowUp(message)) {
+    return "SAME_OBJECT";
+  }
+
   if (priorIsPhone && msgIsPhone) {
     const priorModel = priorLower.match(/\b(iphone|galaxy|pixel|s\d+|note|fold|flip)\b/i)?.[0];
     const msgModel = msgLower.match(/\b(iphone|galaxy|pixel|s\d+|note|fold|flip)\b/i)?.[0];
@@ -209,7 +224,7 @@ export function assessDraftTransition(opts: {
 
   const activeSlot = getActiveListingSlot(opts.pendingClarification);
   const patchFollowUp =
-    looksLikeListingPatch(message) ||
+    isListingPatchFollowUp(message) ||
     hasActiveDraftCommandLanguage(message) ||
     isListPublishActionMessage(message) ||
     Boolean(activeSlot);
@@ -278,10 +293,18 @@ export function assessDraftTransition(opts: {
   };
 }
 
-function looksLikeListingPatch(message: string): boolean {
-  const t = message.trim();
-  if (!t || t.length > 200) return false;
-  if (/^(actually|change|make it|set|update|correct|fix|instead|rather)\b/i.test(t)) {
+export function isListingPatchFollowUp(message: string): boolean {
+  const t = String(message || "").trim();
+  if (!t) return false;
+  if (isExplicitNewSellListingMessage(t) && t.split(/\s+/).length >= 8) return false;
+  if (isStructuredListingPaste(t) || isIdentityRichListingPaste(t)) return false;
+  if (/\bforget\s+(?:the|that|this)\b/i.test(t) && /\b(?:sell(?:ing)?|list(?:ing)?)\b/i.test(t)) {
+    return false;
+  }
+  if (/^(wait\s+)?(nah|nope|no)\b/i.test(t)) return true;
+  if (/\bwait\s+(?:nah|no)\b/i.test(t)) return true;
+  if (/^(actually|also|and also|plus)\b/i.test(t)) return true;
+  if (/^(change|make it|set|update|correct|fix|instead|rather|add)\b/i.test(t)) {
     return true;
   }
   if (/^\s*\$?\s*[\d,]+(?:\.\d{1,2})?\s*(k|K)?\s*$/i.test(t)) return true;
@@ -299,7 +322,7 @@ function inferIncomingListingType(
   const m = normalizedAwhinaText(message);
   if (!m) return undefined;
   if (YEAR_MAKE_RE.test(m) || KM_READING_RE.test(m)) return "vehicle";
-  if (/\b(lawn|clean|handyman|tutor|service|hourly|per hour)\b/i.test(m)) return "service";
+  if (/\b(lawn|clean|handyman|tutor|service|hourly|per hour|hedge)\b/i.test(m)) return "service";
   if (/\b(rent|rental|hire out|for hire|weekly rent)\b/i.test(m)) return "rental";
   if (/\b(iphone|galaxy|pixel|couch|tv|laptop|ps5|xbox|drill|camera)\b/i.test(m)) {
     return "physical";

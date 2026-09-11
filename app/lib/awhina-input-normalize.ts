@@ -163,12 +163,153 @@ function repairVehicleChassisSpacing(s: string): string {
     .replace(/\be\s*(9[0-3])\b/gi, "E$1");
 }
 
+const ONES: Record<string, number> = {
+  zero: 0,
+  oh: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+};
+
+const TEENS: Record<string, number> = {
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
+};
+
+const TENS: Record<string, number> = {
+  twenty: 20,
+  thirty: 30,
+  forty: 40,
+  fifty: 50,
+  sixty: 60,
+  seventy: 70,
+  eighty: 80,
+  ninety: 90,
+};
+
+const YEAR_ONES = { ...ONES, ...TEENS };
+
+function decodeSpokenMarketplaceNumbers(s: string): string {
+  let n = s;
+
+  n = n.replace(
+    /\b(twenty|nineteen)\s+(oh\s+)?(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen)\b/gi,
+    (_m, century: string, _oh: string, yearPart: string) => {
+      const centuryN = /^twenty$/i.test(century) ? 2000 : 1900;
+      const ones = YEAR_ONES[yearPart.toLowerCase()];
+      if (ones == null) return _m;
+      return String(centuryN + ones);
+    }
+  );
+
+  n = n.replace(
+    /\btwo\s+thousand\s+and\s+(twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|eleven|ten)\b/gi,
+    (_m, yearPart: string) => String(2000 + (YEAR_ONES[yearPart.toLowerCase()] || 0))
+  );
+
+  n = n.replace(
+    /\b((?:zero|oh|one|two|three|four|five|six|seven|eight|nine)(?:\s+(?:zero|oh|one|two|three|four|five|six|seven|eight|nine)){1,5})\s+thousand(?:\s+k)?\b/gi,
+    (_m, seq: string) => {
+      const digits = seq
+        .split(/\s+/)
+        .map((w) => ONES[w.toLowerCase()])
+        .filter((d) => d != null);
+      if (!digits.length) return _m;
+      const lead = Number(digits.join(""));
+      if (!Number.isFinite(lead)) return _m;
+      return String(lead * 1000);
+    }
+  );
+
+  n = n.replace(
+    /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\s+(one|two|three|four|five|six|seven|eight|nine)\s+(one|two|three|four|five|six|seven|eight|nine)\b/gi,
+    (_m, tens: string, ones: string, tenths: string) => {
+      const nVal = (TENS[tens.toLowerCase()] || 0) + (ONES[ones.toLowerCase()] || 0);
+      const h = ONES[tenths.toLowerCase()] || 0;
+      if (nVal < 20) return _m;
+      return String(nVal * 1000 + h * 100);
+    }
+  );
+
+  n = n.replace(
+    /\b(eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen)\s+(five|one|two|three|four|six|seven|eight|nine)\s+hundred\b/gi,
+    (_m, tens: string, hundreds: string) => {
+      const t = TEENS[tens.toLowerCase()] || 0;
+      const h = ONES[hundreds.toLowerCase()] || 0;
+      return String(t * 1000 + h * 100);
+    }
+  );
+
+  n = n.replace(
+    /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\s+(one|two|three|four|five|six|seven|eight|nine)\s+hundred(?:\s+bucks)?\b/gi,
+    (_m, tens: string, ones: string) => {
+      const nVal = (TENS[tens.toLowerCase()] || 0) + (ONES[ones.toLowerCase()] || 0);
+      return String(nVal * 100);
+    }
+  );
+
+  n = n.replace(
+    /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?=\s+(?:a\s+(?:visit|lawn)|bucks|an?\s+hour|per\s+(?:hour|visit|lawn)|\/\s*h(?:ou)?r))\b/gi,
+    (m) => String(TENS[m.toLowerCase()] || m)
+  );
+
+  return n;
+}
+
+function applyNzMarketplaceSlang(s: string): string {
+  return s
+    .replace(/\bchch\b/gi, "christchurch")
+    .replace(/\bwestie\b/gi, "west auckland")
+    .replace(/\bhammers?\b/gi, "hamilton")
+    .replace(/\bpalmy\b/gi, "palmerston north")
+    .replace(/\bakl\b/gi, "auckland")
+    .replace(/\bwellie\b/gi, "wellington")
+    .replace(/\bdunners\b/gi, "dunedin")
+    .replace(/\b(\d+)\s*pw\b/gi, "$1 per week")
+    .replace(/\bkays\b/gi, "km")
+    .replace(/\baskin\b/gi, "asking")
+    .replace(/\btrimmin\b/gi, "trimming")
+    .replace(
+      /\b'?0([0-9])\s+(?=(?:bmw|toyota|honda|mazda|ford|nissan|holden|subaru|hyundai|kia|mitsubishi|audi|mercedes|volkswagen|vw|isuzu|suzuki)\b)/gi,
+      "200$1 "
+    )
+    .replace(
+      /\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+pads\b/gi,
+      (_m, qty) => `${qty} controllers`
+    );
+}
+
+function stripVoiceFiller(s: string): string {
+  return s
+    .replace(/\b(?:uh+|um+|erm+|uhuh)\b/gi, " ")
+    .replace(/\b(?:yeah|yep|yup)\s+(?:so|uh+|um+)?\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function normalizeAwhinaInput(raw: string): NormalizedAwhinaInput {
   const rawStr = typeof raw === "string" ? raw : "";
   let n = stripLegacySellSurfaceDirective(rawStr);
   n = collapseWhitespace(n);
   if (!n) return { raw: rawStr, normalized: "" };
 
+  n = stripVoiceFiller(n);
+  n = applyNzMarketplaceSlang(n);
+  n = decodeSpokenMarketplaceNumbers(n);
   n = expandCommandHyphens(n);
 
   const parts = n.split(" ");

@@ -54,6 +54,7 @@ import {
   hasRentalOfferingIntent,
   hasSearchIntentLanguage,
   hasServiceOfferingIntent,
+  hasWantedListingIntent,
   isExplicitNewSellListingMessage,
 } from "./sky-ai-intent";
 import {
@@ -489,6 +490,9 @@ export function mergeClarifyIntoSearchMessage(
 /** Marketplace education — messaging-first V1 only. No Buy Now / Stripe / escrow. Answer in place. */
 export function tryMarketplaceEducationReply(message: string): string | null {
   if (!SAFETY_EDU_RE.test(message)) return null;
+  if (hasWantedListingIntent(message) || hasListingSellIntent(message) || hasRentalOfferingIntent(message)) {
+    return null;
+  }
   return [
     "Stay on **Sky Drop Messages** for the deal — don't move to WhatsApp/email for payment.",
     "Agree price, payment method, and pickup/delivery in chat before you pay.",

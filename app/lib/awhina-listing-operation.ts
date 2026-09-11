@@ -5,7 +5,7 @@
 
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import type { SkyAiListingContext } from "./sky-ai-types";
-import { assessDraftTransition } from "./awhina-draft-transition";
+import { assessDraftTransition, isListingPatchFollowUp, stampReplaceDraft } from "./awhina-draft-transition";
 import {
   buildNewListingTransitionReply,
   emptyListingDraftShell,
@@ -13,7 +13,6 @@ import {
   isIdentityRichListingPaste,
   listingIdentitiesConflict,
 } from "./awhina-listing-identity-conflict";
-import { stampReplaceDraft } from "./awhina-draft-transition";
 import {
   hasActiveDraftCommandLanguage,
   isListPublishActionMessage,
@@ -40,6 +39,7 @@ import {
 import { resolveVehicleIdentity } from "./sky-ai-find-routing";
 import { normalizeSkyAiListingFill } from "./sky-ai-listing-fill";
 import { groupedSellerEvidenceFromExtras } from "./awhina-seller-evidence";
+import { extractBuyerFacingIdentity } from "./awhina-semantic-extraction";
 
 export type ListingOperation =
   | { type: "CREATE"; message: string; reason: string }
@@ -56,18 +56,7 @@ export type ListingOperationResult = {
 };
 
 function looksLikePatchMessage(message: string): boolean {
-  const t = message.trim();
-  if (!t) return false;
-  if (/^(actually|change|make it|set|update|correct|fix|instead|rather|add|remove)\b/i.test(t)) {
-    return true;
-  }
-  if (/^\s*\$?\s*[\d,]+(?:\.\d{1,2})?\s*(k|K)?\s*$/i.test(t)) return true;
-  if (/^\d+\s?(gb|tb)$/i.test(t)) return true;
-  if (/^\s*[\d,]+\s*(km|kms)\s*$/i.test(t)) return true;
-  if (/^(new|used|like[\s-]?new|good|fair|mint|manual|automatic|petrol|diesel|hybrid|grey|gray|black|white)$/i.test(t)) {
-    return true;
-  }
-  return false;
+  return isListingPatchFollowUp(message);
 }
 
 export function classifyListingOperation(
@@ -89,10 +78,12 @@ export function classifyListingOperation(
     pendingClarification: opts.pendingClarification,
   });
 
-  const identityConflict = listingIdentitiesConflict(
-    current ? activeListingToFill(current) : null,
-    trimmed
-  );
+  const identityConflict =
+    !isListingPatchFollowUp(trimmed) &&
+    listingIdentitiesConflict(
+      current ? activeListingToFill(current) : null,
+      trimmed
+    );
   const activeSlot = getActiveListingSlot(opts?.pendingClarification);
   const slotSameListing =
     Boolean(activeSlot) && !listingIdentitiesConflict(current ? activeListingToFill(current) : null, trimmed);
@@ -211,7 +202,13 @@ function buildCreateFillFromMessage(message: string): SkyAiListingFill {
     seed.vehicleMake = identity.make;
     seed.vehicleModel = identity.model;
     seed.vehicleYear = identity.year;
-    seed.listingType = "vehicle";
+    if (
+      extractedIdentity?.listingType !== "rental" &&
+      extractedIdentity?.listingType !== "wanted" &&
+      extractedIdentity?.listingType !== "service"
+    ) {
+      seed.listingType = "vehicle";
+    }
   } else if (extractedIdentity?.listingType) {
     seed.listingType = extractedIdentity.listingType;
     if (extractedIdentity.title) seed.title = extractedIdentity.title;
@@ -228,6 +225,7 @@ function buildCreateFillFromMessage(message: string): SkyAiListingFill {
     item:
       vehicleItem ||
       extractedIdentity?.title ||
+      extractBuyerFacingIdentity(message) ||
       message.slice(0, 80),
     condition: seed.condition,
     price: seed.price,

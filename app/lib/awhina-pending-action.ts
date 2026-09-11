@@ -108,6 +108,20 @@ export function pendingActionKey(opts: {
 export function classifyConfirmationReply(message: string): ConfirmationClass {
   const m = (message || "").trim();
   if (!m || m.length > 64) return "NOT_CONFIRMATION";
+  if (
+    /\b(?:nah|wait|actually|nope|no)\b/i.test(m) &&
+    /(?:\d|gb|tb|day|week|hour|pro|blue|purple|silver|scratch|crack|pad|controller|hedge|wof|quote|inch)/i.test(
+      m
+    )
+  ) {
+    return "NOT_CONFIRMATION";
+  }
+  const listingPatch =
+    m.split(/\s+/).length >= 4 &&
+    /\$|\b\d+\s*k\b|\b(?:gb|tb|inch|scratch|crack|dent|bumper|hedge|controller|pads?|firm|battery|day|week)\b/i.test(
+      m
+    );
+  if (listingPatch) return "NOT_CONFIRMATION";
   if (AFFIRM_RE.test(m) || AFFIRM_WITH_DETAIL_RE.test(m)) return "AFFIRM";
   if (REJECT_RE.test(m) || REJECT_WITH_DETAIL_RE.test(m)) return "REJECT";
   // Short vague acknowledgements without clear polarity

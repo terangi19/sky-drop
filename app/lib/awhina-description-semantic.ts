@@ -344,10 +344,13 @@ export function scrubExtrasAgainstIdentity(
       ) {
         continue;
       }
-      // Single generic packaging nouns are usually identity fragments, not extras
+      // Single generic packaging nouns that only restate identity (box trailer).
+      // Keep them when they are accessories of a kit/set ("comes with case").
       if (
         distinctiveTokens(value).length === 1 &&
-        /^(?:box|case|pack|kit|set)$/i.test(value.trim())
+        /^(?:box|case|pack|kit|set)$/i.test(value.trim()) &&
+        identity &&
+        semanticFactCoveredBy(value, identity)
       ) {
         continue;
       }
