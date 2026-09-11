@@ -36,6 +36,7 @@ import {
 } from "./awhina-listing-condition";
 import { extractSellerAuthoredText } from "./awhina-orchestration-boundary";
 import { extractVehicleVariantTrim, parseFindBudget } from "./sky-ai-find-routing";
+import { NZ_PLACE_ALT } from "./nz-place-names";
 import {
   classifySellerPrices,
   extractSellerSemanticModel,
@@ -370,8 +371,7 @@ const GRADE_RE = /^\s*(psa|bgs|cgc|sgc)\s*([0-9]{1,2}(?:\.\d)?)\s*$/i;
 const PRICE_RE = /^\s*\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\s*$/i;
 const CONDITION_WORDS =
   /^(new|brand[\s-]*new|like[\s-]*new|used|good|fair|mint|sealed|unopened|excellent|great)\b/i;
-const NZ_CITY =
-  /^(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|rotorua|queenstown|nelson|whangarei)\b/i;
+const NZ_CITY = new RegExp(`^(${NZ_PLACE_ALT})\\b`, "i");
 const TRANS_RE = /^(manual|automatic|auto)\b/i;
 const FUEL_RE = /^(petrol|diesel|hybrid|electric|ev)\b/i;
 const GEN_TOKEN_RE = /\b(r[\s-]?3[2-4]|a80|a90|mk\s?[45]|jza80)\b/i;
@@ -1833,9 +1833,7 @@ export function extractCompoundListingFacts(
   }
 
   // Location
-  const locMatch = residual.match(
-    /\b(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|palmerston\s+north|mount\s+eden|mt\s+eden|grey\s*lynn|new\s+lynn|hibiscus\s+coast|lower\s+hutt|upper\s+hutt|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|waitakere|massey|petone|porirua|paraparaumu|epsom|onehunga|mangere|manurewa|papatoetoe|otahuhu|glenfield|birkenhead|devonport|orewa|pukekohe|frankton|hillcrest|taupo)\b/i
-  );
+  const locMatch = residual.match(new RegExp(`\\b(${NZ_PLACE_ALT})\\b`, "i"));
   if (locMatch) {
     const city = locMatch[1]
       .split(/\s+/)

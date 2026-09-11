@@ -18,6 +18,7 @@ import {
   stripStructuredMetadataLeakage,
 } from "./awhina-listing-description";
 import { prepareFillForDescription, composeDomainAwareEvidenceProse } from "./awhina-description-semantic";
+import { NZ_PLACE_ALT } from "./nz-place-names";
 import {
   buildDescriptionWriterFacts,
   runAwhinaListingDescriptionWriter,
@@ -151,9 +152,6 @@ function stripListingCommandPrefix(raw: string): string {
     .trim();
 }
 
-const TITLE_PLACE_RE =
-  /\b(?:west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|mt\s+maunganui|mount\s+maunganui|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei|henderson|manukau|canterbury)\b/gi;
-
 /** Drop seller-command, budget, location, and superseded-spec debris from titles. */
 function scrubPublicListingTitle(raw: string, fill?: SkyAiListingFill): string {
   let t = String(raw || "").replace(/\s+/g, " ").trim();
@@ -210,7 +208,7 @@ function scrubPublicListingTitle(raw: string, fill?: SkyAiListingFill): string {
     .replace(/\bbudget\b/gi, " ")
     .replace(/^(?:brand[\s-]*new|like[\s-]*new|mint)\s+but\s+\w+\s+/i, " ")
     .replace(/\b(?:with|and)\s+\d+\s*$/i, " ")
-    .replace(TITLE_PLACE_RE, " ")
+    .replace(new RegExp(String.raw`\b(?:${NZ_PLACE_ALT})\b`, "gi"), " ")
     .replace(/\b(?:bit\s+)?scratch(?:ed)?(?:\s+on\s+corner)?\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();

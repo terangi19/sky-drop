@@ -276,6 +276,7 @@ function applyNzMarketplaceSlang(s: string): string {
     .replace(/\bwestie\b/gi, "west auckland")
     .replace(/\bhammers?\b/gi, "hamilton")
     .replace(/\bpalmy\b/gi, "palmerston north")
+    .replace(/\bnpl\b/gi, "new plymouth")
     .replace(/\bakl\b/gi, "auckland")
     .replace(/\bwellie\b/gi, "wellington")
     .replace(/\bdunners\b/gi, "dunedin")

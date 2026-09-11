@@ -471,7 +471,7 @@ function extractRelationalConditions(raw: string): {
     /\b(dented|cracked|scratched|smashed|worn)\s+([a-z][\w'-]*)\b/gi,
   )) {
     const noun = match[2];
-    if (/^(?:screen|guard|lid|bin|latch|tray|sill|corner|frame|bumper|windscreen|windshield|disc|drive|keyboard)$/i.test(noun)) {
+    if (/^(?:screen|guard|lid|bin|latch|tray|sill|corner|frame|bumper|windscreen|windshield|disc|drive|keyboard|hull|paint|body|panel|door|deck|transom|keel|lens|housing|bonnet|dash|interior)$/i.test(noun)) {
       negative.push(
         makeFact(
           "negative_condition",

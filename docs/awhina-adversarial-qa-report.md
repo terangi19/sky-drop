@@ -877,6 +877,19 @@ This follow-up converts `it.fails` → `it()` only after production actually pas
 - **Rentals hire-or-sell:** Transit van wait-just-hiring; Triton just-hiring; marquee dual daily+weekly. Dual rates kept when both stated. `around`/`about` parse as wanted budget via `parseFindBudget`.
 - **Rentals Class 4 (this follow-up):** `280pw` weekly beats bond `$`; trailer rate/bond/location walk keeps daily 45 + weekly 200 + bond 100. Hire-or-sell, property vs equipment, bond-weeks, dual rates.
 
+---
+
+# Wave 5 Class 4 (Rentals) — this branch
+
+Wave 5 corpus from Breaker PR #51 (`app/lib/awhina-adversarial-wave-5.test.ts`) is wired into `test:awhina` / adversarial / description-quality / evidence-pipeline. Wanted / identity / contradiction FAIL markers were not weakened. PR #28 remains HOLD.
+
+Class 4 production (generic — no Wave 5 string hardcoding):
+
+- Hire vehicles resolve make/model/year (Hiace→Toyota, Jimny→Suzuki; Navara already mapped) and stay `rentalSubType=vehicle`, not equipment/sale.
+- NZ places include Hastings, Gisborne, Invercargill, New Plymouth, Taupo so location lands on the fill (and `new plymouth` is not Brand New).
+- Dual-rate hire titles keep identity, not leftover `180 a day or 750 a week`.
+- Bond `$` does not beat weekly `pw`. Hire-or-sell last-wins stays hire. Defect phrases like `scratched hull` harvest as negative condition, not a whole-message extras dump.
+
 ## Still FAIL (expected-fail, not weakened)
 
 Priority remaining matches Breaker:

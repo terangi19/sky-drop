@@ -1315,6 +1315,11 @@ describe("live oneshot human-seller regressions", () => {
     expect(cleanRentalItemName("Rent Trailer For")).toBe("Trailer");
     expect(cleanRentalItemName("trailer for hire")).toMatch(/^trailer$/i);
     expect(cleanRentalItemName("Renting out my generator")).toMatch(/^generator$/i);
+    expect(cleanRentalItemName("Cherry Picker 180 a day or 750 a week")).toMatch(/^cherry picker$/i);
+    expect(cleanRentalItemName("might sell or 2018 Jimny")).toMatch(/jimny/i);
+    expect(cleanRentalItemName("might sell or 2018 Jimny")).not.toMatch(/sell/i);
+    expect(cleanRentalItemName("Room 240 per week")).toMatch(/^room$/i);
+    expect(cleanRentalItemName("Tinnie not for sale")).toMatch(/^tinnie$/i);
   });
 
   it("rental oneshot: trailer hire — clean item name, human rate + dates CTA", () => {

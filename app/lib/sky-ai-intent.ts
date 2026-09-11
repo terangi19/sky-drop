@@ -258,7 +258,7 @@ export function hasRentalOfferingIntent(message: string): boolean {
   if (
     /\b(?:rent|hire)\b/i.test(m) &&
     (SERVICE_PRICE_SIGNAL_RE.test(m) || /\b(?:a\s+day|per\s+day|a\s+week|per\s+week|bond)\b/i.test(m)) &&
-    /\b(?:trailer|generator|chainsaw|marquee|ute|van|bike|kayak|equipment|tool|mixer|caravan|hilux|ranger|scaffold|transit|triton)\b/i.test(m) &&
+    /\b(?:trailer|generator|chainsaw|marquee|ute|van|bike|kayak|equipment|tool|mixer|caravan|hilux|ranger|scaffold|transit|triton|hiace|jimny|navara|cherry\s+picker|tinnie|boom\s+lift)\b/i.test(m) &&
     !SERVICE_OFFERING_NOUN_RE.test(m)
   ) {
     return true;
