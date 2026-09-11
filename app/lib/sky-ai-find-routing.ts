@@ -369,7 +369,7 @@ export function isActualVehicleQuery(message: string, searchTerm: string): boole
 }
 
 const NZ_CITIES =
-  /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|new plymouth|rotorua|queenstown|invercargill|nelson|whangarei|gisborne)\b/i;
+  /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|new plymouth|rotorua|queenstown|invercargill|nelson|whangarei|gisborne|hastings|taupo|greymouth|blenheim|porirua|whanganui|levin|kerikeri|te puke|lower hutt)\b/i;
 
 const FIND_PRODUCT_ALIASES: Record<string, string> = {
   iphone: "iPhone",
@@ -382,20 +382,22 @@ const FIND_PRODUCT_ALIASES: Record<string, string> = {
   airpods: "AirPods",
 };
 
-/** Parse max-price filter from find messages — supports "under 400", "under $600", "under 10k". */
+/** Parse max-price filter from find/wanted messages — last budget mention wins. */
 export function parseFindBudget(message: string): string | undefined {
-  const m = message.match(
-    /\b(?:under|up to|max|budget|around|about|approx(?:imately)?|less than|below|max(?:imum)?\s*price)\s*\$?\s*([\d,]+(?:\.\d+)?)\s*(k|K)?\b/i
-  );
-  if (!m) return undefined;
-  let num = parseFloat(m[1].replace(/,/g, ""));
-  if (Number.isNaN(num)) return undefined;
-  if (m[2]) num *= 1000;
-  return String(Math.round(num));
+  const re =
+    /\b(?:under|up to|max|budget(?:\s+is|\s+of)?|around|about|approx(?:imately)?|less than|below|max(?:imum)?\s*price)\s*\$?\s*([\d,]+(?:\.\d+)?)\s*(k|K)?\b/gi;
+  let last: string | undefined;
+  for (const m of message.matchAll(re)) {
+    let num = parseFloat(m[1].replace(/,/g, ""));
+    if (Number.isNaN(num)) continue;
+    if (m[2]) num *= 1000;
+    last = String(Math.round(num));
+  }
+  return last;
 }
 
 const NZ_CITY_NAMES =
-  "auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|new plymouth|rotorua|queenstown|invercargill|nelson|whangarei|gisborne";
+  "auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|new plymouth|rotorua|queenstown|invercargill|nelson|whangarei|gisborne|hastings|taupo|greymouth|blenheim|porirua|whanganui|levin|kerikeri|te puke|lower hutt";
 
 function titleCaseCity(raw: string): string {
   return raw

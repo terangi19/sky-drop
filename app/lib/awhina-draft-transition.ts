@@ -12,6 +12,7 @@ import {
 } from "./awhina-active-draft-commands";
 import {
   hasListingSellIntent,
+  hasWantedListingIntent,
   isExplicitNewSellListingMessage,
 } from "./sky-ai-intent";
 import { normalizedAwhinaText } from "./awhina-input-normalize";
@@ -317,7 +318,7 @@ export function isListingPatchFollowUp(message: string): boolean {
     return true;
   }
   if (/^\s*[\d,]+\s*(km|kms)\s*$/i.test(t)) return true;
-  if (/^\d+\s+(pads?|controllers?|chargers?|games?|remotes?|keys?)\b/i.test(t)) {
+  if (/^\d+\s+(pads?|controllers?|chargers?|games?|remotes?|keys?|batter(?:y|ies)|cards?|chains?)\b/i.test(t)) {
     return true;
   }
   if (
@@ -338,10 +339,19 @@ export function isListingPatchFollowUp(message: string): boolean {
   if (/^don'?t\s+put\b/i.test(t) && t.split(/\s+/).length <= 14) return true;
   if (/^(?:or\s+)?maybe\b/i.test(t) && t.split(/\s+/).length <= 8) return true;
   if (/^(?:make\s+it|nah\s+\d|wait\s+\d)\b/i.test(t)) return true;
+  if (
+    /^(?:budget|around|about|max(?:imum)?|under|up\s+to)\b/i.test(t) &&
+    t.split(/\s+/).length <= 10
+  ) {
+    return true;
+  }
+  if (/^no\s+(?:rust|scams?|time\s*wasters?)\b/i.test(t) && t.split(/\s+/).length <= 12) {
+    return true;
+  }
   if (/\b(?:not\s+selling|looking\s+to\s+buy|no\s+scams|serious\s+only)\b/i.test(t) && t.split(/\s+/).length <= 16) {
     return true;
   }
-  if (/\b(?:\d+\s+(?:pads?|controllers?|games?|chargers?)|1\s+pad\s+is\s+fine)\b/i.test(t) && t.split(/\s+/).length <= 16) {
+  if (/\b(?:\d+\s+(?:pads?|controllers?|games?|chargers?|batter(?:y|ies)|cards?|chains?)|1\s+(?:pad|battery)\s+is\s+fine)\b/i.test(t) && t.split(/\s+/).length <= 16) {
     return true;
   }
   if (/\b(?:a\s+day|a\s+week|per\s+day|per\s+week|\/\s*day|\/\s*week)\b/i.test(t) && t.split(/\s+/).length <= 10) {
@@ -355,8 +365,17 @@ function inferIncomingListingType(
 ): "physical" | "vehicle" | "service" | "rental" | undefined {
   const m = normalizedAwhinaText(message);
   if (!m) return undefined;
+  if (hasWantedListingIntent(m)) return undefined;
   if (YEAR_MAKE_RE.test(m) || KM_READING_RE.test(m)) return "vehicle";
-  if (/\b(lawn|clean|handyman|tutor|service|hourly|per hour|hedge)\b/i.test(m)) return "service";
+  const lawnMowerPhysical =
+    /\blawn\s*mower\b/i.test(m) &&
+    !/\b(?:i\s+mow|mow(?:ing)?\s+lawns?|lawn\s*mowing)\b/i.test(m);
+  if (
+    !lawnMowerPhysical &&
+    /\b(lawn|clean|handyman|tutor|service|hourly|per hour|hedge)\b/i.test(m)
+  ) {
+    return "service";
+  }
   if (/\b(rent|rental|hire out|for hire|weekly rent)\b/i.test(m)) return "rental";
   if (/\b(iphone|galaxy|pixel|couch|tv|laptop|ps5|xbox|drill|camera)\b/i.test(m)) {
     return "physical";

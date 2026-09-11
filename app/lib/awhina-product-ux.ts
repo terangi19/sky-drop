@@ -76,7 +76,16 @@ const CONSOLE_RE = /\b(ps5|ps4|playstation|xbox(?:\s*series)?\s*[sx]?|nintendo\s
 const PHONE_RE = /\b(iphone|samsung|pixel|android\s*phone|galaxy)\b/i;
 
 const SAFETY_EDU_RE =
-  /\b(scam|scams|sketchy|suspicious|is this (safe|legit)|safe (?:to )?(?:buy|meet|pickup|pick up)|how (?:do i|to) (?:stay )?safe|avoid scams?|meet(?:ing)? (?:safely|in public)|trust (?:this|the )?seller|too good to be true)\b/i;
+  /(?<!no\s)\b(scam|scams|sketchy|suspicious|is this (safe|legit)|safe (?:to )?(?:buy|meet|pickup|pick up)|how (?:do i|to) (?:stay )?safe|avoid scams?|meet(?:ing)? (?:safely|in public)|trust (?:this|the )?seller|too good to be true)\b/i;
+
+/** Seller listing instruction — not a safety-education question. */
+function isListingSafetyInstruction(message: string): boolean {
+  const m = String(message || "");
+  if (!/\b(?:no\s+scams?|serious\s+only|no\s+time\s*wasters?)\b/i.test(m)) return false;
+  return !/\b(?:is this|how (?:do i|to) (?:stay )?safe|safe to|avoid scams?|sketchy|suspicious|too good to be true)\b/i.test(
+    m
+  );
+}
 
 const COMPARE_RE =
   /\b(compare(?:\s+(?:these|those|the))?(?:\s+two)?|which (?:is |one'?s )?better|difference between|vs\.?|versus)\b/i;
@@ -489,6 +498,7 @@ export function mergeClarifyIntoSearchMessage(
 
 /** Marketplace education — messaging-first V1 only. No Buy Now / Stripe / escrow. Answer in place. */
 export function tryMarketplaceEducationReply(message: string): string | null {
+  if (isListingSafetyInstruction(message)) return null;
   if (!SAFETY_EDU_RE.test(message)) return null;
   if (hasWantedListingIntent(message) || hasListingSellIntent(message) || hasRentalOfferingIntent(message)) {
     return null;
@@ -918,10 +928,12 @@ export function buildPremiumListingTitle(opts: {
 
   core = titleCaseProduct(guardAdjacentIdentityDuplication(core));
 
+  const wantedListing = String(opts.listingType || "").toLowerCase() === "wanted";
   let prefix = "";
-  if (opts.condition === "New" && !/\bbrand\s+new\b/i.test(core)) {
+  if (!wantedListing && opts.condition === "New" && !/\bbrand\s+new\b/i.test(core)) {
     prefix = "Brand New ";
   } else if (
+    !wantedListing &&
     opts.condition === "Used - Like New" &&
     !/\blike[\s-]+new\b/i.test(core)
   ) {
@@ -930,7 +942,7 @@ export function buildPremiumListingTitle(opts: {
 
   let title = `${prefix}${core}`.replace(/\s+/g, " ").trim();
   if (title.length > 70) title = title.slice(0, 70).replace(/\s+\S*$/, "").trim();
-  if (title.length < 12 && opts.condition === "New") {
+  if (!wantedListing && title.length < 12 && opts.condition === "New") {
     title = `Brand New ${core}`.slice(0, 70);
   }
   return title.slice(0, 120);

@@ -67,6 +67,7 @@ import {
   hasListingSellIntent,
   hasExplicitSellSwitch,
   hasSearchIntentLanguage,
+  hasWantedListingIntent,
 } from "./sky-ai-intent";
 import {
   isListPublishActionMessage,
@@ -1465,8 +1466,12 @@ export function processCanonicalAwhina(
   }
 
   // Marketplace education — scam / safe pickup (messaging-first V1). Answer in place.
+  // Wanted "no scams / serious only" instructions must stay listing patches, not lectures.
   const edu = tryMarketplaceEducationReply(trimmed);
-  if (edu) {
+  const wantedDraftActive =
+    String(listingContext?.listingType || "").toLowerCase() === "wanted" ||
+    hasWantedListingIntent(trimmed);
+  if (edu && !wantedDraftActive) {
     setActiveTask(scopeKey, "help");
     const eduDecision = buildAwhinaDecision({
       message: trimmed,

@@ -949,6 +949,10 @@ function assertCase(c: CorpusCase) {
  *
  * Newly recorded FAIL (regression vs Wave 4-on-main):
  *   multi7-price-maybe-firm-nah-final-ipad — identity wiped to title "OR"
+ *
+ * Converted after Class 3 Wanted production fix:
+ *   multi5-wanted-iso-then-not-a-sale
+ *   parser traps: around 450 wellie / max 250 / under 150 palmy
  */
 const KNOWN_FAILURE_IDS = new Set<string>([
   "multi8-identity-change-undo-rechange-pixel",
@@ -956,7 +960,6 @@ const KNOWN_FAILURE_IDS = new Set<string>([
   "multi8-pending-slot-must-not-overwrite-identity",
   "multi7-vehicle-identity-undo-then-rechange",
   "multi6-rental-trailer-rate-bond-location",
-  "multi5-wanted-iso-then-not-a-sale",
   "multi7-price-maybe-firm-nah-final-ipad",
 ]);
 
@@ -988,16 +991,16 @@ describe("adversarial NZ wave4 — price/budget traps (parseListingPriceFromMess
     expect(parseListingPriceFromMessage("scaffold hire 90 a day or 400 a week chch")).not.toBe("6");
   });
 
-  it.fails('FAIL: "around 450 wellie" wanted budget is 450 not null', () => {
+  it('"around 450 wellie" wanted budget is 450 not null', () => {
     expect(parseListingPriceFromMessage("WTB xbox series x around 450 wellie")).toBe("450");
   });
 
-  it.fails('FAIL: "max 250" wanted cap is 250 not model 11', () => {
+  it('"max 250" wanted cap is 250 not model 11', () => {
     expect(parseListingPriceFromMessage("wtb gopro 11 akl max 250")).toBe("250");
     expect(parseListingPriceFromMessage("wtb gopro 11 akl max 250")).not.toBe("11");
   });
 
-  it.fails('FAIL: "under 150 palmy" wanted cap is 150', () => {
+  it('"under 150 palmy" wanted cap is 150', () => {
     expect(parseListingPriceFromMessage("looking for a double pram under 150 palmy")).toBe("150");
   });
 
@@ -1162,7 +1165,7 @@ describe("adversarial NZ wave4 — semantic correction + pending-slot traps", ()
     expect(blob).not.toMatch(/price:8\b/i);
   });
 
-  it.fails("FAIL: wait 1 pad is fine but need 2 games corrects qty, not price 1/2", () => {
+  it("wait 1 pad is fine but need 2 games corrects qty, not price 1/2", () => {
     const r = interpretSemanticTurn({
       message: "wait 1 pad is fine but need 2 games",
       pendingSlot: "extras",

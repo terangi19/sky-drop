@@ -200,7 +200,7 @@ const NON_PRICE_NUMBER_RE =
 const STORAGE_GLUED_RE = /\b(\d+)\s*(gb|tb|mb)\b/i;
 
 const CONDITION_RE =
-  /\b(?:condition(?:\s+is)?|it'?s|its)\s+(new|used(?:\s*[-–]?\s*(?:like[\s-]*new|good|fair))?|like[\s-]*new|excellent|mint|good|fair|rough)\b|\b(brand[\s-]*new|like[\s-]*new|excellent|mint|good|fair|used)\s+condition\b|\b(like[\s-]*new|brand[\s-]*new|used|excellent|mint)\b(?!\s+(?:zealand|listing))|\bnew\b(?!\s+(?:zealand|listing))(?<![A-Za-z]-)/i;
+  /\b(?:condition(?:\s+is)?|it'?s|its)\s+(new|used(?:\s*[-–]?\s*(?:like[\s-]*new|good|fair))?|like[\s-]*new|excellent|mint|good|fair|rough)\b|\b(brand[\s-]*new|like[\s-]*new|excellent|mint|good|fair|used)\s+condition\b|\b(like[\s-]*new|brand[\s-]*new|used|excellent|mint)\b(?!\s+(?:zealand|listing))|\bnew\b(?!\s+(?:zealand|listing|plymouth|lynn|brighton))(?<![A-Za-z]-)/i;
 
 const SELL_ITEM_RE =
   /\b(?:want\s+to\s+list|selling|sell(?:ing)?|list(?:ing)?|post(?:ing)?)\s+(?:my\s+|a\s+|an\s+|the\s+)?(.+)$/i;
@@ -210,7 +210,7 @@ const SELL_ITEM_STOP_RE =
   /\b(?:brand\s+new|its|it's|condition|new|used|like\s+new|excellent|mint|good|fair|pickup|pick\s*up|shipping|located|based|in\s+auckland|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|henderson|manukau|for\s+\$|\$\d|\d+\s*(?:bucks|nzd|dollars?)|for\s+\d{1,4}\s*k\b|\d{2,3}[\s,]?\d{3}\s*kms?|bit\s+scratched|scratched|dent|still\s+works|under\s+\d)\b/i;
 
 const NZ_CITY_TAIL_RE =
-  /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei)\b.*$/i;
+  /\b(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|palmerston\s+north|new\s+plymouth|lower\s+hutt|te\s+puke|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|invercargill|nelson|whangarei|gisborne|hastings|taupo|greymouth|blenheim|porirua|whanganui|levin|kerikeri)\b.*$/i;
 
 const KEYWORDS_RE =
   /\b(?:keywords?|tags?)\s*(?:are|:)?\s*(.+)$/i;
@@ -222,10 +222,10 @@ const DESC_SET_RE =
   /\b(?:description(?:\s+is)?|describe(?:\s+it)?(?:\s+as)?)\s*[:\-]?\s*(.{10,})\s*$/i;
 
 const NZ_PLACE_RE =
-  /\b(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|mt\s+maunganui|mount\s+maunganui|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|rotorua|queenstown|nelson|whangarei|henderson|manukau|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|albany|petone|canterbury)\b/i;
+  /\b(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|mt\s+maunganui|mount\s+maunganui|palmerston\s+north|new\s+plymouth|lower\s+hutt|te\s+puke|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|invercargill|nelson|whangarei|gisborne|hastings|taupo|greymouth|blenheim|porirua|whanganui|levin|kerikeri|henderson|manukau|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|albany|petone|canterbury)\b/i;
 
 const LOCATION_RE =
-  /\b(?:located(?:\s+in)?|based(?:\s+in)?|location(?:\s+is)?|in)\s+(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|mt\s+maunganui|mount\s+maunganui|northland|auckland|waikato|bay of plenty|gisborne|hawke'?s bay|taranaki|manawatu|wellington|nelson|marlborough|west coast|canterbury|otago|southland|christchurch|hamilton|tauranga|dunedin|henderson|manukau|newmarket|takapuna)\b/i;
+  /\b(?:located(?:\s+in)?|based(?:\s+in)?|location(?:\s+is)?|in)\s+(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|mt\s+maunganui|mount\s+maunganui|palmerston\s+north|new\s+plymouth|lower\s+hutt|te\s+puke|northland|auckland|waikato|bay of plenty|gisborne|hawke'?s bay|taranaki|manawatu|wellington|nelson|marlborough|west coast|canterbury|otago|southland|christchurch|hamilton|tauranga|dunedin|invercargill|hastings|taupo|greymouth|blenheim|porirua|whanganui|levin|kerikeri|whangarei|napier|rotorua|queenstown|henderson|manukau|newmarket|takapuna)\b/i;
 
 function pruneSessions(): void {
   const now = Date.now();
@@ -517,6 +517,17 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     }
   }
 
+  // Wanted budget caps (around / max / under) are the asking figure for WTB/ISO ads.
+  if (hasWantedListingIntent(message)) {
+    const wantedBudget = parseFindBudget(message);
+    if (wantedBudget) {
+      const check = validatePriceString(wantedBudget);
+      if (check.ok && !isStorageOrSizeToken(check.price, message)) {
+        return check.price;
+      }
+    }
+  }
+
   const finalize = (rawDigits: string, kSuffix?: string | null): string | null | "malformed" => {
     if (!rawDigits) return null;
     let n = Number(rawDigits.replace(/,/g, ""));
@@ -621,9 +632,9 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     const idx = beforeCity.index ?? -1;
     const prefix = idx >= 0 ? cityMessage.slice(Math.max(0, idx - 24), idx) : "";
     const isBudget =
-      /\b(under|below|max(?:imum)?|budget|up\s+to|less\s+than|no\s+more\s+than)\s*$/i.test(
+      /\b(under|below|max(?:imum)?|budget|around|about|up\s+to|less\s+than|no\s+more\s+than)\s*$/i.test(
         prefix
-      ) || /\b(find|looking for|search(?:ing)?|want to buy|need a)\b/i.test(message);
+      ) || /\b(find|looking for|search(?:ing)?|want to buy|need a|wtb|iso|wanted)\b/i.test(message);
     if (!isBudget) {
       const raw = finalize(beforeCity[1], beforeCity[2]);
       if (raw === "malformed") return "malformed";
