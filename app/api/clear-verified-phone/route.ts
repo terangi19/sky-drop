@@ -6,8 +6,9 @@ import { releaseVerifiedPhoneForUser } from "../../lib/phone-registry.server";
 
 export async function POST(req: NextRequest) {
   try {
-    if (!isAdminInitialized()) {
-      return NextResponse.json({ error: "Server not configured" }, { status: 500 });
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const ip = parseIpFromRequest(req.headers);
@@ -16,9 +17,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isAdminInitialized()) {
+      return NextResponse.json({ error: "Server not configured" }, { status: 500 });
     }
 
     let decoded;
