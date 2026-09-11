@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User } from "firebase/auth";
 import { collection, deleteDoc, doc, getDocs, limit, query, where } from "firebase/firestore";
-import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { db } from "../lib/firebase";
+import { AuthGatePlaceholder, useRequireAuth } from "../lib/use-require-auth";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
@@ -45,20 +45,13 @@ interface Listing {
 
 export default function ListListPage() {
   const router = useRouter();
+  const { user, authReady } = useRequireAuth("/list-list");
   const [listings, setListings] = useState<Listing[]>([]);
-  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"all" | "active" | "sold">("active");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [promoteItem, setPromoteItem] = useState<Listing | null>(null);
   const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribeAuth();
-  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -179,6 +172,10 @@ export default function ListListPage() {
     [listings]
   );
   useAwhinaInsightEffect(awhinaInsight);
+
+  if (!authReady || !user) {
+    return <AuthGatePlaceholder fallbackPath="/list-list" message="Sign in to manage your listings." />;
+  }
 
   return (
     <main className="relative min-h-screen overflow-x-clip bg-[var(--background)] text-[var(--foreground)]">

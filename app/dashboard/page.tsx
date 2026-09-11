@@ -18,6 +18,7 @@ import { REVIEW_STAR_CLASS } from "../components/SellerReviewStars";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import { PAGE_SHELL_WIDE } from "../lib/page-layout";
+import { loginRedirectHref } from "../lib/safe-redirect";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -302,7 +303,7 @@ export default function DashboardPage() {
           <BrowseMarketplaceHero badge="Seller Hub" title="Dashboard">
             <p className="mt-4 text-sm text-zinc-400">Sign in to see your sales, listings, and seller stats.</p>
             <Link
-              href="/login"
+              href={loginRedirectHref("/dashboard")}
               className={`mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r ${t.listBtn} px-5 py-2.5 text-sm font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.97]`}
             >
               Sign in

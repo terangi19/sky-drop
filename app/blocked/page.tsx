@@ -8,6 +8,7 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { showToast } from "../components/Toast";
+import { loginRedirectHref } from "../lib/safe-redirect";
 
 export default function BlockedPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -94,7 +95,7 @@ export default function BlockedPage() {
         <Background /><Navbar />
         <div className="relative z-10 flex flex-col items-center justify-center py-40">
           <p className="text-xl text-[var(--muted)]">Log in to manage blocked users.</p>
-          <Link href="/login" className="mt-6 rounded-xl bg-sky-500 px-8 py-3 font-bold text-[var(--foreground)] hover:bg-sky-400">Log In</Link>
+          <Link href={loginRedirectHref("/blocked")} className="mt-6 rounded-xl bg-sky-500 px-8 py-3 font-bold text-[var(--foreground)] hover:bg-sky-400">Log In</Link>
         </div>
       </main>
     );
