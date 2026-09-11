@@ -15,6 +15,8 @@ export type ListingCondition = (typeof LISTING_CONDITIONS)[number];
 const LIKE_NEW_RE = /\blike[\s-]*new\b/;
 const BRAND_NEW_RE = /\bbrand[\s-]*new\b|\bfactory[\s-]+sealed\b|\b(?:still\s+)?sealed\b|\bunopened\b/;
 const BARE_NEW_RE = /(?:^|[^\w]|_)new(?:\s+condition)?\b/;
+/** NZ places that start with "new" must not count as listing condition New. */
+const NEW_PLACE_RE = /\bnew\s+(?:plymouth|lynn|brighton|zealand)\b/gi;
 /** "new oil / new filters / new tyres" is maintenance — not listing condition New. */
 const NEW_PARTS_RE =
   /\b(?:needs?\s+)?new\s+(?:chain|tyres?|tires?|brakes?|batter(?:y|ies)|filters?|oil|wheels?|exhaust|pads?|intake|clutch|rotors?|spark\s+plugs?|wipers?|bladder|valve|belt|hose|gasket|screen|display|hinge|charger|cable)\b/gi;
@@ -30,8 +32,9 @@ export function parseListingCondition(
   }
   let t = source.toLowerCase().replace(/[_/]+/g, " ").replace(/\s+/g, " ").trim();
   if (!t) return undefined;
-  // Scrub maintenance "new X" before bare-new matching.
+  // Scrub maintenance "new X" and NZ "New X" places before bare-new matching.
   t = t.replace(NEW_PARTS_RE, " ");
+  t = t.replace(NEW_PLACE_RE, " ");
   const sealed = BRAND_NEW_RE.test(t);
   const explicitLikeNew = LIKE_NEW_RE.test(t);
   const mintConditionPhrase =

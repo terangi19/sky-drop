@@ -110,7 +110,7 @@ export function classifyConfirmationReply(message: string): ConfirmationClass {
   if (!m || m.length > 64) return "NOT_CONFIRMATION";
   if (
     /\b(?:nah|wait|actually|nope|no)\b/i.test(m) &&
-    /(?:\d|gb|tb|day|week|hour|pro|blue|purple|silver|scratch|crack|pad|controller|hedge|wof|quote|inch)/i.test(
+    /(?:\d|gb|tb|day|week|hour|pro|blue|purple|silver|scratch|crack|pad|controller|hedge|wof|quote|inch|rust|scams?|serious|time\s*wasters?)/i.test(
       m
     )
   ) {
@@ -118,7 +118,7 @@ export function classifyConfirmationReply(message: string): ConfirmationClass {
   }
   const listingPatch =
     m.split(/\s+/).length >= 4 &&
-    /\$|\b\d+\s*k\b|\b(?:gb|tb|inch|scratch|crack|dent|bumper|hedge|controller|pads?|firm|battery|day|week)\b/i.test(
+    /\$|\b\d+\s*k\b|\b(?:gb|tb|inch|scratch|crack|dent|bumper|hedge|controller|pads?|firm|battery|day|week|rust|scams?|serious\s+only|time\s*wasters?)\b/i.test(
       m
     );
   if (listingPatch) return "NOT_CONFIRMATION";

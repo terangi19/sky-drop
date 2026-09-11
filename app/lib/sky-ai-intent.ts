@@ -21,7 +21,7 @@ export type SkyAiIntent =
   | "general";
 
 const SELL_RE =
-  /\b(i\s*('m|am)?\s*(sell|selling|list|listing|post|create|make|put up|advertise|flog)|want to sell|for sale|sell(?:ing)?(?:\s+(?:my|me|a|an|the))?|get rid of|clearing out|listing my)\b/i;
+  /\b(i\s*('m|am)?\s*(sell|selling|list|listing|post|create|make|put up|advertise|flog)|want to sell|for sale|(?<!not\s)sell(?:ing)?(?:\s+(?:my|me|a|an|the))?|get rid of|clearing out|listing my)\b/i;
 const LISTING_COMMAND_RE =
   /^(?:list|sell|post|make)(?:\s+(?:it|this|that|a listing|the listing))?(?:\s+(?:for sale|up))?$/i;
 
@@ -90,7 +90,7 @@ const SERVICE_PRICE_SIGNAL_RE =
 
 /** Rent/hire-out language for creating a rental listing (not searching for rentals). */
 const RENTAL_OFFERING_RE =
-  /\b(rent(?:ing)?\s+out|rent(?:ing)?\s+my|hire\s+out|hire\s+my|available\s+to\s+hire|for\s+hire|to\s+let|not\s+selling(?:\s+it)?|just\s+hir(?:e|ing)|hir(?:e|ing)\s+it)\b/i;
+  /\b(rent(?:ing)?\s+out|rent(?:ing)?\s+my|hire\s+out|hire\s+my|available\s+to\s+hire|for\s+hire|to\s+let|just\s+hir(?:e|ing)|hir(?:e|ing)\s+it)\b/i;
 
 const PROPERTY_RENTAL_RE =
   /\b(?:\d+\s*-?\s*bed(?:room)?s?|\d+bed|studio|room\s+for\s+rent)\b/i;
@@ -189,6 +189,13 @@ export function hasWantedListingIntent(message: string): boolean {
     /\blooking\s+for\b/i.test(m) &&
     /\b(?:around|under|max|budget|up to)\s*\$?\d/i.test(m) &&
     !/\b(?:find\s+me|show\s+me|search\s+for)\b/i.test(m)
+  ) {
+    return true;
+  }
+  // "not selling mine looking to buy" is a Wanted patch, not a hire/sale.
+  if (
+    /\bnot\s+selling(?:\s+mine)?\b/i.test(m) &&
+    /\b(?:looking\s+to\s+buy|wanted|iso|wtb)\b/i.test(m)
   ) {
     return true;
   }

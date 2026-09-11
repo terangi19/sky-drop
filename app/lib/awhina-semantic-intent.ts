@@ -52,7 +52,10 @@ const NEGATE_RE = /^(no|nah|nope|wrong|incorrect)\b/i;
 
 /** Correction framing — helpful but not required; semantic conflict also counts. */
 const CORRECTION_FRAME_RE =
-  /\b(actually|correction|i\s+meant|meant\s+to\s+say|not\s+\w+|isn'?t|aren'?t|wrong|nah\s+bro|nah\s+it'?s|it'?s\s+not|its\s+not|instead\s+of|rather\s+than|change\s+(it|that|the)|make\s+it|should\s+be|was\s+wrong)\b/i;
+  /\b(actually|correction|i\s+meant|meant\s+to\s+say|not\s+\w+|isn'?t|aren'?t|wrong|nah\s+bro|nah\s+it'?s|it'?s\s+not|its\s+not|instead\s+of|rather\s+than|change\s+(it|that|the)|make\s+it|should\s+be|was\s+wrong|wait\s+\d+\s+\w+\s+is\s+fine|but\s+need\s+\d+)\b/i;
+
+const ACCESSORY_QTY_RE =
+  /\b(\d+)\s+(pads?|controllers?|games?|batter(?:y|ies)|cards?|chargers?|cables?|chains?|covers?|footswitch(?:es)?)\b/gi;
 
 const NOT_X_BUT_Y =
   /\b(?:not|isn'?t|aren'?t)\s+([a-z0-9][\w\s.'-]{1,40}?)\s*(?:,?\s*)?(?:it'?s|its|but|rather|instead)?\s*([a-z0-9][\w\s.'-]{1,40})/i;
@@ -124,7 +127,7 @@ function extractPriceFact(
     .replace(/\bbattery\s*\d{2,3}\b/gi, " ")
     .replace(/\b(?:wait\s+)?(?:no|nah|actually)\s+(?:64|128|256|512|1024)\b/gi, " ")
     .replace(/\b(?:wait\s+)?(?:no|nah)\s+\d{2,4}\b/gi, " ")
-    .replace(/\b\d+\s+(?:pads?|controllers?|games?|chargers?|keys?)\b/gi, " ");
+    .replace(/\b\d+\s+(?:pads?|controllers?|games?|chargers?|keys?|batter(?:y|ies)|cards?|cables?|chains?)\b/gi, " ");
   // Vehicle compound: year + odo-k + price-k → drop the first bare k (odometer)
   const kTokens = scrubbed.match(/\b[\d,]+\s*k\b/gi) || [];
   if (/\b(?:19|20)\d{2}\b/.test(scrubbed) && kTokens.length >= 2) {
@@ -171,7 +174,7 @@ function extractPriceFact(
 
 function extractLocationFact(message: string): ExtractedFactHint | null {
   const m = message.match(
-    /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany)\b/i
+    /\b(west\s+auckland|east\s+auckland|south\s+auckland|north\s+shore|palmerston\s+north|new\s+plymouth|lower\s+hutt|te\s+puke|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|invercargill|gisborne|hastings|taupo|greymouth|blenheim|porirua|whanganui|levin|kerikeri|henderson|manukau|albany)\b/i
   );
   if (!m) return null;
   const city = m[1]
@@ -474,20 +477,11 @@ export function interpretSemanticTurn(opts: {
       confidence: "HIGH",
     });
   }
-  const padHit = message.match(/\b(\d+)\s+(pads?|controllers?)\b/i);
-  if (padHit) {
+  const accessoryHits = [...message.matchAll(ACCESSORY_QTY_RE)];
+  for (const padHit of accessoryHits) {
     facts.push({
       key: "included",
       value: `${padHit[1]} ${padHit[2].toLowerCase()}`,
-      slot: "quantity",
-      confidence: "HIGH",
-    });
-  }
-  const gameHit = message.match(/\b(\d+)\s+games?\b/i);
-  if (gameHit) {
-    facts.push({
-      key: "included",
-      value: `${gameHit[1]} games`,
       slot: "quantity",
       confidence: "HIGH",
     });
