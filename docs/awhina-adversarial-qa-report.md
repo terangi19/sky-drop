@@ -867,27 +867,25 @@ Coverage added (sibling `app/lib/awhina-adversarial-wave-5.test.ts`, same `proce
 Vitest evidence (`./node_modules/.bin/vitest run app/lib/awhina-adversarial-wave-5.test.ts`, v4.1.8):
 
 - First run against `cursor/awhina-rescore-w28-584e` (expected semantics vs production): **24 passed, 44 failed** (68 tests).
-- After recording breaks with `it.fails` / `FAIL:`: **24 passed | 44 expected fail (68)** — Test Files 1 passed. Combined Waves 1–4 + Wave-R + Wave 5 (`npm run test:awhina:adversarial`): see scoreboard below.
+- After recording breaks with `it.fails` / `FAIL:` on that branch: **24 passed | 44 expected fail (68)**.
+- **Rebased onto `main` @ `6e6fd19` (#50):** same expected semantics vs current production: **13 passed, 55 failed** (68). Extra fails are live `it()` cases from the older tip (Wanted fill, property weekly, model-as-price fill, parser). Recorded as additional `it.fails` / `FAIL:` so CI completes. Original 44 FAIL markers were not deleted. Combined Waves 1–3 on main + Wave 5: see scoreboard below.
 
 ## Wave 5 — what passed on this branch
 
-- Parser: `google pixel 8` / `gopro hero 11` / `air max 90 infrared` / `sony a7iv` are not asking $8 / $11 / $90 / $4 when no dollar amount is present. Cherry picker `180 a day or 750 a week` is not qty `$6`. `pixel 8 128gb 620 hastings` → **620**. `2012 bmw 330i 50k kays wellington 8500` → **8500** (50k is odo). `580 a week bond 3 weeks` → **580** not `$3`. `just hiring 90 a day` → **90** not 2018/22000.
+- Parser: `google pixel 8` / `gopro hero 11` / `air max 90 infrared` / `sony a7iv` are not asking $8 / $11 / $90 / $4 when no dollar amount is present. Cherry picker `180 a day or 750 a week` is not qty `$6`. `ISO camping fridge 12v around 250 invercargill` → **250** (not 12v). `pixel 8 128gb 620 hastings` → **620**.
 - Input normalize keeps nelson / napier / gisborne / invercargill / rotorua / new plymouth / whangarei / hastings / blenheim / greymouth / porirua / whanganui / levin / kerikeri / te puke / lower hutt, plus WTB/ISO tokens.
 - Semantic fact model: “not selling / just hiring” stay out of `publicFacts` on a hire Navara; **scratched hull** is harvested as `negativeCondition` (fill still mangles the tinnie — see failures).
-- Semantic layer: pending **price** + `wait it's a7iv not a7iii` is **not** eaten as $4/$7 (Wave 4 Pixel-8 semantic equivalent still fails; this A7IV line passes). Pending **colour** + `512gb actually` is storage, not a colour.
+- Semantic layer: pending **price** + `wait it's a7iv not a7iii` is **not** eaten as $4/$7.
 - **Live 2-turn pending-slot traps:** sparse Sony A7III + `wait it's a7iv` does **not** become $4 or wipe Sony; Marshall $480 + `nah 430 firm` keeps Marshall identity and sets **$430**.
-- **Wanted fill that already routes:** explicit `post a wanted ad looking for a kayak under 400 gisborne no scams` → wanted Kayak $400 Gisborne; `wanted steam deck lcd under 550 napier no scams` → wanted Steam Deck $550 Napier (not an education lecture); `wtb iphone se 2020 akl max 280` → wanted iPhone, Auckland, $280 (SE/2020 not asking). Residual instruction leak still fails other WTB/ISO strings.
-- **Property rentals that classify:** 1bed Napier 440/week bond-weeks; 3bed Nelson 580/week bond-weeks (same class as Wave 4 Wellie 2-bed conversion). 5bed Hastings still drops the town.
-- **Model-as-price fill (not parser):** Pixel 8 $620 Hastings; GoPro Hero 11 $280 Palmy; Jordan size 11 $140 Wellie; 330i 50k kays $8500 Wellington. Parser still null on GoPro/Jordan/Air Max/STI slang-50k.
 
 ## Wave 5 — failures (locked expected semantics)
 
 Each item: input → actual → expected → what failed → likely subsystem.
 
-### P1. FAIL: `"around 250 invercargill"` / `"max 280"` / `"under 900 nelson"` / `"under 400 gisborne"` / `"max 300"` wanted budgets
+### P1. FAIL: `"max 280"` / `"under 900 nelson"` / `"under 400 gisborne"` / `"max 300"` wanted budgets
 
-- **Actual:** `parseListingPriceFromMessage` → `null`
-- **Expected:** `"250"` / `"280"` / `"900"` / `"400"` / `"300"` (`around`/`max`/`under` = budget cap; not 12v / SE / 5D / Mini 2)
+- **Actual (main @ 6e6fd19):** `around 250 invercargill` now parses **250** (live `it()`). `max`/`under` still → `null`
+- **Expected:** `"280"` / `"900"` / `"400"` / `"300"` (`max`/`under` = budget cap; not SE / 5D / Mini 2)
 - **Subsystem:** listing-facts / wanted-budget / `extractPriceFromMessage`
 
 ### P2. FAIL: `"gopro hero 11 280 palmy"` / `"air max 90 … 95 greymouth"` / `"jordan 1 chicago size 11 140 wellie"`
@@ -1110,6 +1108,42 @@ Each item: input → actual → expected → what failed → likely subsystem.
 - **Expected:** Air Max 90, $95, Greymouth; 90 is model not size/price
 - **Subsystem:** model-as-price / composer / price extract
 
+### P5. FAIL (main rebase): `"2012 bmw 330i 50k kays wellington 8500"` / `"580 a week bond 3 weeks"` / `"just hiring 90 a day"`
+
+- **Actual:** parser → `null` / `null` / **22000**
+- **Expected:** `8500` (50k is odo) / `580` not `$3` / `90` not 2018/22000
+- **Subsystem:** price extract / rental rates / last-confirmed hire asking
+
+### P6. FAIL (main rebase): pending colour `'512gb actually'` eaten
+
+- **Actual:** `interpretSemanticTurn` blob is `price:128` (512 dropped)
+- **Expected:** 512 as storage, not colour/price
+- **Subsystem:** pending-slots / semantic-intent
+
+### W5-30. FAIL (main rebase): wanted-looking-for-kayak-gisborne-post-ad / wanted-steam-deck-no-scams-not-lecture
+
+- **Actual:** intent **education**, no fill (`Stay on Sky Drop Messages…`)
+- **Expected:** wanted Kayak $400 Gisborne / wanted Steam Deck $550 Napier; Wanted≠lecture
+- **Subsystem:** semantic-intent / find-vs-wanted / education routing
+
+### W5-31. FAIL (main rebase): wanted-wtb-iphone-se-max-akl
+
+- **Actual:** **physical** iPhone SE, asking **2020** (year as price)
+- **Expected:** wanted iPhone, Auckland, $280
+- **Subsystem:** find-vs-wanted / model-as-price
+
+### W5-32. FAIL (main rebase): rental-1bed-napier-bond-weeks / rental-3bed-nelson-bond-weeks
+
+- **Actual:** Napier copies daily=weekly **440**, deposit **4**; Nelson title `Listing`, subtype **equipment**, daily=weekly **580**, deposit **3**
+- **Expected:** property weekly 440/580, no daily, bond not weeks-as-dollars, townhouse/3bed identity
+- **Subsystem:** domain-knowledge / rental rate inference / composer
+
+### W5-33. FAIL (main rebase): physical-pixel-8 / gopro-11 / jordan-size-11 fill asking
+
+- **Actual:** Pixel asking **8**; GoPro asking **11**; Jordan **no price**, extras `size:1`
+- **Expected:** $620 / $280 / $140; 8/11 are model or size
+- **Subsystem:** model-as-price / composer / price extract
+
 ### Semantic / correction layer
 
 - **no scams / serious only / no timewasters** still not `sellerInstructions` on WTB Canon.
@@ -1119,20 +1153,21 @@ Each item: input → actual → expected → what failed → likely subsystem.
 
 ## Wave 5 launch notes
 
-Safe-ish additions vs Wave 4: **2-turn** A7IV identity phrase is not eaten as $4; Marshall `nah 430 firm` keeps identity; explicit **post a wanted ad** kayak and **wanted steam deck + no scams** now fill as wanted (not a lecture); Pixel 8 / GoPro 11 / Jordan size-11 **fill** asking when a trailing number is present (parser still drops GoPro/Jordan/Air Max); property 1bed Napier / 3bed Nelson weekly+bond-weeks classify.
+Safe-ish on current `main`: **2-turn** A7IV identity phrase is not eaten as $4; Marshall `nah 430 firm` keeps identity; parser `around 250` budget; NZ place normalize; Pixel 8 **parser** 620 when a trailing number is present (fill still prices **8**).
 
-Still unsafe, and newly unsafe at this depth: **any ≥4 turn that changes identity, qty, or location slang**; looking-for + around/max still becomes a **sale** (DJI, 50mm lens); WTB/ISO still leak `no timewasters` into extras; vehicle-hire subtype still **equipment** with invented weekly = daily×7; dual-rate still copies the larger number onto both slots; cherry picker identity replaced by rate waffle; New Plymouth → Brand New; follow-up `and cracked screen tho` **deletes the draft**; last-confirmed storage/colour still loses to the first fact; `50k` slang asking still parser-null (fill may price it and drop the town).
+Still unsafe, and newly unsafe at this depth on main: explicit **post a wanted ad** kayak / Steam Deck `no scams` route to **education**; WTB iPhone SE year-as-price; property 1bed Napier / 3bed Nelson still copy daily=weekly and treat bond-weeks as dollars; Pixel/GoPro/Jordan **fill** model-as-price; **any ≥4 turn that changes identity, qty, or location slang**; looking-for + around/max still becomes a **sale** (DJI, 50mm lens); WTB/ISO still leak `no timewasters` into extras; vehicle-hire subtype still **equipment** with invented weekly = daily×7; dual-rate still copies the larger number onto both slots; cherry picker identity replaced by rate waffle; New Plymouth → Brand New; follow-up `and cracked screen tho` **deletes the draft**; last-confirmed storage/colour still loses to the first fact; `50k` slang asking still parser-null (fill may price it and drop the town).
 
-Do not delete these `it.fails` to fake green. Do not patch individual Wave 5 strings in production. Wave 1, Wave 2, Wave 3, Wave 4, and PR #35 re-score FAIL markers were not weakened.
+Do not delete these `it.fails` to fake green. Do not patch individual Wave 5 strings in production. Wave 1, Wave 2, and Wave 3 FAIL markers on main were not weakened. Wave 4 / PR #35 files are not on main and were not invented here.
 No production code was changed.
 
 ## Wave 5 scoreboard
 
-| Suite | Measured on `cursor/awhina-rescore-w28-584e` + this PR |
+| Suite | Measured on |
 |---|---|
-| Wave 5 first run (expected vs production) | **24 passed, 44 failed** (68) |
-| Wave 5 after `it.fails` | **24 passed \| 44 expected-fail (68)** |
-| Waves 1–4 + Wave-R (unchanged) | **133 passed \| 109 expected-fail (242)** |
-| **Combined W1–4 + Wave-R + Wave 5** | **157 passed \| 153 expected-fail (310)** |
+| Wave 5 first run (rescore branch) | **24 passed, 44 failed** (68) on `cursor/awhina-rescore-w28-584e` |
+| Wave 5 after `it.fails` (rescore branch) | **24 passed \| 44 expected-fail (68)** |
+| Wave 5 first run vs `main` @ `6e6fd19` | **13 passed, 55 failed** (68) |
+| Wave 5 after extra `it.fails` on main | **13 passed \| 55 expected-fail (68)** |
+| Waves 1–3 on main (unchanged) | still wired in `test:awhina:adversarial` |
 
 Classes 3/4/5/7 remain **FAIL**. Fixer still owns production. This PR is tests/docs only.
