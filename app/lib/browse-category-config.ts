@@ -1,3 +1,5 @@
+import { PHYSICAL_LISTING_CATEGORIES } from "./listing-type-config";
+
 /** Shared Sky Drop marketplace theme — matches the homepage (`/`). */
 export const HOME_MARKETPLACE_THEME = {
   accentRgb: "14, 165, 233",
@@ -240,16 +242,7 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     emptyTitle: "No listings yet",
     emptySubtitle: "Be the first to list something for sale.",
     filterMode: "category",
-    categories: [
-      "All",
-      "Tech",
-      "Gaming",
-      "Fashion",
-      "Home",
-      "Collectibles",
-      "Sports",
-      "Other",
-    ],
+    categories: ["All", ...PHYSICAL_LISTING_CATEGORIES],
     trustRow: [
       "Browse by category",
       "Message sellers directly",
