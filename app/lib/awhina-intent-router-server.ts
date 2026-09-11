@@ -5,7 +5,7 @@
  * to classify intents with high accuracy and extract entities.
  */
 
-import OpenAI from "openai";
+import { createGatedOpenAI, checkOpenAiSpendGate } from "./openai-spend-guard";
 import {
   AwhinaIntent,
   AwhinaConfidence,
@@ -116,7 +116,17 @@ export async function classifyIntentWithOpenAI(
     throw new Error("OPENAI_API_KEY not configured");
   }
 
-  const openai = new OpenAI({ apiKey });
+  const gate = await checkOpenAiSpendGate();
+  if (!gate.allowed) {
+    return {
+      intent: "unknown",
+      confidence: "low",
+      entities: [],
+      reasoning: gate.reason || "AI classification unavailable",
+    };
+  }
+
+  const openai = createGatedOpenAI({ apiKey });
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
   // Build context-aware prompt

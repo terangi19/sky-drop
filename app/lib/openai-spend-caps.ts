@@ -1,14 +1,9 @@
 /**
  * OpenAI Spend Caps and Rate Limits
- * 
- * Prevents unlimited OpenAI spending by enforcing:
- * - Daily spend cap per user
- * - Monthly spend cap per user
- * - Global daily spend cap
- * - Global monthly spend cap
- * - Rate limits per user
- * 
- * If limits are reached, fallback mode is activated.
+ *
+ * CLIENT localStorage stub — DO NOT USE on the server.
+ * Billed OpenAI calls must go through `app/lib/openai-spend-guard.ts`
+ * (which uses `openai-spending.ts`).
  */
 
 interface SpendLimits {

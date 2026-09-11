@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseIpFromRequest } from "../../../lib/geo-check";
 import { rateLimit } from "../../../lib/rate-limit";
 import { checkOpenAiHealth } from "../../../lib/openai-health";
+import { withOpenAiSpendContext } from "../../../lib/openai-spend-guard";
 
 /** Confirms server env + whether OpenAI accepts requests (never returns the key). */
 export async function GET(req: NextRequest) {
@@ -11,9 +12,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
-  const health = await checkOpenAiHealth();
-  return NextResponse.json({
-    openaiConfigured: health.configured,
-    openaiReady: health.ready,
+  return withOpenAiSpendContext({ uid: null, ip }, async () => {
+    const health = await checkOpenAiHealth();
+    return NextResponse.json({
+      openaiConfigured: health.configured,
+      openaiReady: health.ready,
+    });
   });
 }

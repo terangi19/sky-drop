@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { parseIpFromRequest } from "../../lib/geo-check";
+import {
+  OPENAI_SPEND_BLOCKED_STATUS,
+  checkOpenAiSpendGate,
+  createGatedOpenAI,
+  spendBlockedPayload,
+  withOpenAiSpendContext,
+} from "../../lib/openai-spend-guard";
 
 export interface SearchIntent {
   category?: string;
@@ -27,10 +34,25 @@ export async function POST(req: NextRequest) {
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    let uid: string | null = null;
     try {
-      await verifyIdToken(authHeader.slice(7));
+      const decoded = await verifyIdToken(authHeader.slice(7));
+      uid = decoded.uid;
     } catch {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    }
+
+    return await withOpenAiSpendContext({ uid, ip }, async () => {
+    const gate = await checkOpenAiSpendGate(uid, ip);
+    if (!gate.allowed) {
+      return NextResponse.json(spendBlockedPayload(gate), {
+        status: OPENAI_SPEND_BLOCKED_STATUS,
+      });
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) {
+      return NextResponse.json({ error: "Failed to parse search intent" }, { status: 503 });
     }
 
     const body = await req.json();
@@ -44,13 +66,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Call OpenAI to parse search intent
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
+    const openai = createGatedOpenAI({ apiKey });
+    let openaiData: {
+      choices?: Array<{ message?: { content?: string | null } }>;
+    };
+    try {
+      openaiData = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
@@ -89,16 +110,12 @@ Rules:
         ],
         temperature: 0.3,
         max_tokens: 500,
-      }),
-    });
-
-    if (!openaiResponse.ok) {
-      console.error("OpenAI API error:", await openaiResponse.text());
+      });
+    } catch (e) {
+      console.error("OpenAI API error:", e);
       return NextResponse.json({ error: "Failed to parse search intent" }, { status: 500 });
     }
-
-    const openaiData = await openaiResponse.json();
-    const content = openaiData.choices[0]?.message?.content;
+    const content = openaiData.choices?.[0]?.message?.content;
 
     if (!content) {
       return NextResponse.json({ error: "No response from AI" }, { status: 500 });
@@ -121,6 +138,7 @@ Rules:
       console.error("Failed to parse AI response:", content);
       return NextResponse.json({ error: "Failed to parse search intent" }, { status: 500 });
     }
+    });
   } catch (error) {
     console.error("Search intent parsing error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

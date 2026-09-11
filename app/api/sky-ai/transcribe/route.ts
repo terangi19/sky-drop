@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 import { parseIpFromRequest } from "../../../lib/geo-check";
 import { rateLimit } from "../../../lib/rate-limit";
 import { RATE_LIMITS } from "../../../lib/rate-limit-config";
 import { openaiErrorResponse } from "../../../lib/openai-errors";
 import { verifyIdToken } from "../../../lib/firebase-admin";
+import {
+  OPENAI_SPEND_BLOCKED_STATUS,
+  checkOpenAiSpendGate,
+  createGatedOpenAI,
+  spendBlockedPayload,
+  withOpenAiSpendContext,
+} from "../../../lib/openai-spend-guard";
 
 export const runtime = "nodejs";
 
@@ -45,6 +51,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Too many requests — wait a moment." }, { status: 429 });
   }
 
+  return withOpenAiSpendContext({ uid, ip }, async () => {
+  const gate = await checkOpenAiSpendGate(uid, ip);
+  if (!gate.allowed) {
+    return NextResponse.json(
+      {
+        ...spendBlockedPayload(gate),
+        error: "Voice transcription is unavailable — type your message instead.",
+      },
+      { status: OPENAI_SPEND_BLOCKED_STATUS }
+    );
+  }
+
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) {
     return NextResponse.json(
@@ -68,7 +86,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Recording too long — keep it under 20 seconds." }, { status: 413 });
   }
 
-  const openai = new OpenAI({ apiKey: key });
+  const openai = createGatedOpenAI({ apiKey: key });
 
   try {
     const transcription = await openai.audio.transcriptions.create({
@@ -84,4 +102,5 @@ export async function POST(req: NextRequest) {
     const mapped = openaiErrorResponse(err);
     return NextResponse.json({ error: mapped.error }, { status: mapped.status });
   }
+  });
 }

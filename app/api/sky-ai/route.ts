@@ -68,6 +68,7 @@ import {
   type ListingFacts,
 } from "../../lib/awhina-product-ux";
 import { fetchListingFactsForCompare } from "../../lib/awhina-listing-compare.server";
+import { withOpenAiSpendContext } from "../../lib/openai-spend-guard";
 
 function listingFillConfirmReply(fill: SkyAiListingFill | undefined): string {
   if (!fill) return "";
@@ -484,6 +485,7 @@ function recordAwhinaQuality(
 }
 
 export async function POST(req: NextRequest) {
+  const ip = parseIpFromRequest(req.headers);
   try {
     const { uid, email, allowed } = await checkRateLimit(req);
     if (!allowed) {
@@ -493,6 +495,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    return await withOpenAiSpendContext({ uid, ip }, () =>
+      handleSkyAiPost(req, uid, email)
+    );
+  } catch (e: unknown) {
+    console.error("sky-ai error:", e);
+    const mapped = openaiErrorResponse(e);
+    if (mapped.code !== "openai_error" || (e as { status?: number }).status) {
+      return NextResponse.json(
+        { error: mapped.error, code: mapped.code },
+        { status: mapped.status }
+      );
+    }
+    return NextResponse.json(
+      {
+        error: "Āwhina hit a snag — refresh and try again. Your form changes are still on screen.",
+        code: "sky_ai_error",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleSkyAiPost(
+  req: NextRequest,
+  uid: string | null,
+  email: string
+) {
     const body = await req.json();
     const inboundMessage = typeof body.message === "string" ? body.message.trim() : "";
     // Architectural boundary: only seller-authored text enters the sell pipeline.
@@ -1147,21 +1176,4 @@ export async function POST(req: NextRequest) {
     llm.degraded && llm.errorCode === "missing_openai_key" ? 503 : 200,
     { progress: progressStatesForRoute("freeform"), chunkReply: true }
   );
-  } catch (e: unknown) {
-    console.error("sky-ai error:", e);
-    const mapped = openaiErrorResponse(e);
-    if (mapped.code !== "openai_error" || (e as { status?: number }).status) {
-      return NextResponse.json(
-        { error: mapped.error, code: mapped.code },
-        { status: mapped.status }
-      );
-    }
-    return NextResponse.json(
-      {
-        error: "Āwhina hit a snag — refresh and try again. Your form changes are still on screen.",
-        code: "sky_ai_error",
-      },
-      { status: 500 }
-    );
-  }
 }

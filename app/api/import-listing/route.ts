@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { isPublicHttpUrl } from "../../lib/http-url";
+import { parseIpFromRequest } from "../../lib/geo-check";
+import {
+  OPENAI_SPEND_BLOCKED_STATUS,
+  checkOpenAiSpendGate,
+  createGatedOpenAI,
+  spendBlockedPayload,
+  withOpenAiSpendContext,
+} from "../../lib/openai-spend-guard";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const ip = parseIpFromRequest(req.headers);
     const { allowed } = await rateLimit(`import-listing:${ip}`, 10, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests. Try again shortly." }, { status: 429 });
@@ -16,10 +24,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    let uid: string | null = null;
     try {
-      await verifyIdToken(authHeader.slice(7));
+      const decoded = await verifyIdToken(authHeader.slice(7));
+      uid = decoded.uid;
     } catch {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+    }
+
+    return await withOpenAiSpendContext({ uid, ip }, async () => {
+    const gate = await checkOpenAiSpendGate(uid, ip);
+    if (!gate.allowed) {
+      return NextResponse.json(spendBlockedPayload(gate), {
+        status: OPENAI_SPEND_BLOCKED_STATUS,
+      });
     }
 
     const body = await req.json();
@@ -45,14 +63,18 @@ export async function POST(req: NextRequest) {
       platform = "trademe";
     }
 
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) {
+      return NextResponse.json({ error: "Failed to extract listing data" }, { status: 503 });
+    }
+
     // Call OpenAI to extract listing data from URL
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
+    const openai = createGatedOpenAI({ apiKey });
+    let openaiData: {
+      choices?: Array<{ message?: { content?: string | null } }>;
+    };
+    try {
+      openaiData = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
@@ -97,16 +119,12 @@ If the URL doesn't contain enough information, set needsMoreInfo: true and speci
         ],
         temperature: 0.3,
         max_tokens: 800,
-      }),
-    });
-
-    if (!openaiResponse.ok) {
-      console.error("OpenAI API error:", await openaiResponse.text());
+      });
+    } catch (e) {
+      console.error("OpenAI API error:", e);
       return NextResponse.json({ error: "Failed to extract listing data" }, { status: 500 });
     }
-
-    const openaiData = await openaiResponse.json();
-    const content = openaiData.choices[0]?.message?.content;
+    const content = openaiData.choices?.[0]?.message?.content;
 
     if (!content) {
       return NextResponse.json({ error: "No response from AI" }, { status: 500 });
@@ -130,6 +148,7 @@ If the URL doesn't contain enough information, set needsMoreInfo: true and speci
       console.error("Failed to parse AI response:", content);
       return NextResponse.json({ error: "Failed to parse listing data" }, { status: 500 });
     }
+    });
   } catch (error) {
     console.error("URL import error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

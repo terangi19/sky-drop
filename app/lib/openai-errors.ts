@@ -8,6 +8,23 @@ export function openaiErrorResponse(err: unknown): {
   error: string;
   code: string;
 } {
+  const blocked = err as { code?: string; message?: string; userMessage?: string; status?: number };
+  if (
+    blocked?.code === "openai_budget_exceeded" ||
+    blocked?.code === "openai_disabled"
+  ) {
+    return {
+      status: blocked.status && blocked.status >= 400 ? blocked.status : 503,
+      code: blocked.code,
+      error:
+        blocked.userMessage ||
+        blocked.message ||
+        (blocked.code === "openai_disabled"
+          ? "Āwhina AI is temporarily paused."
+          : "Āwhina AI is in limited mode because the OpenAI budget has been reached."),
+    };
+  }
+
   const oai = err as { status?: number; message?: string };
   const msg = String(oai.message || "");
 

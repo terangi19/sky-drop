@@ -4,7 +4,7 @@
  * Canonical fields remain the source of truth. The model only chooses wording
  * and organisation; it never supplies listing facts.
  */
-import OpenAI from "openai";
+import { createGatedOpenAI } from "./openai-spend-guard";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import {
   BANNED_TEMPLATE_RE,
@@ -882,7 +882,7 @@ export async function runAwhinaListingDescriptionWriter(
     const raw = opts?.generateRawOutput
       ? await opts.generateRawOutput(facts)
       : await (async () => {
-          const client = new OpenAI({ apiKey: apiKey! });
+          const client = createGatedOpenAI({ apiKey: apiKey! });
           const completion = await client.chat.completions.create({
             model: MODEL,
             temperature: 0.25,

@@ -16,8 +16,7 @@ OpenAI spending protection has been implemented to prevent runaway AI costs. The
 Add these environment variables to your Vercel environment (or .env.local for development):
 
 ```bash
-# OpenAI Spending Protection (server-only, never NEXT_PUBLIC_)
-# Daily spend limit in USD (default: 50)
+# Daily spend limit in USD (default: 50). `0` blocks all billed OpenAI calls.
 OPENAI_DAILY_LIMIT_USD=50
 
 # Monthly spend limit in USD (default: 1000)
@@ -31,6 +30,9 @@ OPENAI_PER_USER_MONTHLY_TOKENS=1000000
 
 # Per-IP daily request limit (default: 50)
 OPENAI_PER_IP_DAILY_REQUESTS=50
+
+# Kill switch (unset = enabled)
+OPENAI_ENABLED=true
 ```
 
 ## Default Limits
@@ -47,13 +49,18 @@ If environment variables are not set, these defaults apply:
 
 ### 1. Pre-Request Checking
 
-Before any OpenAI API call is made, the system checks:
-- Daily spend limit not exceeded
-- Monthly spend limit not exceeded
+Before any billed OpenAI API call is made, `gateOpenAiCall` / `createGatedOpenAI`
+(in `app/lib/openai-spend-guard.ts`) checks:
+
+- `OPENAI_ENABLED` is not `false` / `0` / `off` / `no`
+- Daily spend limit not exceeded (`OPENAI_DAILY_LIMIT_USD`, default $50; `0` is a real cap)
+- Monthly spend limit not exceeded (`OPENAI_MONTHLY_LIMIT_USD`, default $1000)
 - Per-user token limits not exceeded
 - Per-IP request limits not exceeded
 
-If any limit is exceeded, the system automatically falls back to rule-based mode (no AI cost).
+If any limit is exceeded, the billed call is **not** made. Āwhina chat/vision/description
+fall back to existing rule-based / local paths. Routes without a local fallback return
+HTTP 503 with `code: "openai_budget_exceeded"` (or `"openai_disabled"`).
 
 ### 2. Post-Request Recording
 
@@ -190,23 +197,46 @@ If budget is exceeded:
 
 ## Files Modified
 
-- `app/lib/openai-spending.ts` - Spending tracking system (new)
-- `app/api/sky-ai/route.ts` - Integrated spending checks and recording
-- `.env.template` - Added OpenAI spending protection variables (needs manual update)
+- `app/lib/openai-spending.ts` — spending tracker (Firestore + test overrides)
+- `app/lib/openai-spend-guard.ts` — shared choke point (`checkOpenAiSpendGate`, `gateOpenAiCall`, `createGatedOpenAI`)
+- `app/lib/openai-health.ts` — non-billing health check, gated by spend / kill switch
+- All billed OpenAI callers use `createGatedOpenAI` (not the client `openai-spend-caps.ts` stub)
+
+### Routes / paths wired
+
+| Path | On over-limit |
+| --- | --- |
+| `POST /api/sky-ai` (freeform, vision, description writer) | Local/canonical + rule-based fallback; no billed call |
+| `POST /api/awhina-ai` | Canonical local first; LLM path degrades |
+| `POST /api/awhina-intent` | Unknown-intent fallback (`code: openai_budget_exceeded`) |
+| `POST /api/awhina-vision` | Degraded photo reply, HTTP 503 |
+| `POST /api/ai-price-suggestion` | HTTP 503 `openai_budget_exceeded` |
+| `POST /api/ai-search-intent` | HTTP 503 `openai_budget_exceeded` |
+| `POST /api/import-listing` | HTTP 503 `openai_budget_exceeded` |
+| `POST /api/sky-ai/transcribe` | HTTP 503, type-instead message |
+| `GET /api/sky-ai/status` | `openaiReady: false` (no ping / no bill) |
+| `app/lib/awhina-llm-capability.ts` | Degraded free-form reply |
+| `app/lib/awhina-vision-capability.ts` | Degraded vision reply |
+| `app/lib/awhina-vision-listing.ts` | Degraded vision listing |
+| `app/lib/awhina-description-writer.ts` | Deterministic composer fallback |
+| `app/lib/awhina-intent-router-server.ts` | Unknown intent fallback |
+| `app/lib/openai-health.ts` | Non-billing status; skipped when over cap |
+
+Do **not** use `app/lib/openai-spend-caps.ts` — that is a client localStorage stub.
 
 ## Testing
 
 To test spending protection:
 
-1. Set low limits in environment variables:
+1. Set low limits in Vercel / `.env.local`:
    ```bash
    OPENAI_DAILY_LIMIT_USD=0.01
+   # or hard-block: OPENAI_DAILY_LIMIT_USD=0
+   # or kill switch: OPENAI_ENABLED=false
    ```
 
-2. Make a request to `/api/sky-ai`
+2. Make a request to `/api/sky-ai` (Āwhina still answers via rules) and to `/api/ai-search-intent` (HTTP 503 `openai_budget_exceeded`).
 
-3. Verify fallback mode is triggered (response includes `fallbackReason`)
+3. Confirm OpenAI usage dashboard does not increment for the blocked request.
 
-4. Check Firestore for spending records
-
-5. Verify alerts are sent to admin emails
+4. Regression: `npx vitest run app/lib/openai-spend-guard.test.ts`
