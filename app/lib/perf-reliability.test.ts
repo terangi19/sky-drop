@@ -111,7 +111,7 @@ describe("performance reliability locks", () => {
     expect(file).toContain('import { NextRequest, NextResponse, after } from "next/server"');
     expect(file).toContain("after(run)");
     expect(file).not.toMatch(/await safePersist\(/);
-    expect(file).toMatch(/function safePersist\([^)]*\): void/);
+    expect(file).toContain("function safePersist(fn: () => Promise<void>): void");
   });
 
   it("does not insert fixed SSE sleeps after the Āwhina reply is computed", () => {
@@ -141,8 +141,12 @@ describe("performance reliability locks", () => {
     expect(file).toContain('import("../../lib/awhina-vision-listing")');
     expect(file).toContain('import("../../lib/awhina-vision-capability")');
     expect(file).toContain('import("../../lib/awhina-freeform-capability")');
-    expect(file).toContain('import("../../lib/awhina-listing-compare.server")');
-    expect(file).toContain('import("../../lib/awhina-listing-composer.server")');
+    expect(file).toMatch(
+      /import\(\s*["']\.\.\/\.\.\/lib\/awhina-listing-compare\.server["']\s*\)/
+    );
+    expect(file).toMatch(
+      /import\(\s*["']\.\.\/\.\.\/lib\/awhina-listing-composer\.server["']\s*\)/
+    );
   });
 
   it("dedupes Āwhina status probes on chat mount", () => {
