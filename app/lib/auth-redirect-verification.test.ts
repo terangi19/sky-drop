@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { loginRedirectHref, sanitizeRedirectPath } from "./safe-redirect";
 import { isVerifiedSignupUser } from "./signup-verification";
@@ -43,8 +43,6 @@ describe("auth redirect and verification safeguards", () => {
     expect(loginRedirectHref("/purchases")).toBe("/login?redirect=%2Fpurchases");
     expect(loginRedirectHref("/sales")).toBe("/login?redirect=%2Fsales");
     expect(loginRedirectHref("/wanted/create")).toBe("/login?redirect=%2Fwanted%2Fcreate");
-    expect(loginRedirectHref("/post")).toBe("/login?redirect=%2Fpost");
-    expect(loginRedirectHref("/post/ai")).toBe("/login?redirect=%2Fpost%2Fai");
     expect(loginRedirectHref("/profile/settings")).toBe("/login?redirect=%2Fprofile%2Fsettings");
     expect(loginRedirectHref("https://evil.example")).toBe("/login");
   });
@@ -64,6 +62,14 @@ describe("auth redirect and verification safeguards", () => {
     expect(src).toMatch(/if\s*\(\s*!user\s*\)/);
   });
 
+  it("leaves the guest sell funnel ungated", () => {
+    const post = readFileSync(path.join(process.cwd(), "app/post/page.tsx"), "utf8");
+    const postAi = readFileSync(path.join(process.cwd(), "app/post/ai/page.tsx"), "utf8");
+    expect(post).not.toContain("useRequireAuth");
+    expect(postAi).not.toContain("useRequireAuth");
+    expect(existsSync(path.join(process.cwd(), "app/post/ai/layout.tsx"))).toBe(false);
+  });
+
   it.each([
     "app/list-list/page.tsx",
     "app/purchases/page.tsx",
@@ -75,8 +81,6 @@ describe("auth redirect and verification safeguards", () => {
     "app/dashboard/applications/page.tsx",
     "app/wanted/create/page.tsx",
     "app/post/edit/[id]/page.tsx",
-    "app/post/page.tsx",
-    "app/post/ai/layout.tsx",
   ])("%s uses the require-auth redirect gate instead of rendering protected UI logged out", (file) => {
     const src = readFileSync(path.join(process.cwd(), file), "utf8");
     expect(src).toContain("useRequireAuth");

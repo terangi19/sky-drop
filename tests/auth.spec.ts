@@ -118,7 +118,6 @@ test.describe("Authentication", () => {
     "/reports",
     "/dashboard/applications",
     "/wanted/create",
-    "/post/ai",
     "/profile/settings",
   ] as const;
 
@@ -128,11 +127,6 @@ test.describe("Authentication", () => {
       await expect.poll(() => loggedOutReturnPath(page), { timeout: 20000 }).toBe(route);
     });
   }
-
-  test("unauthenticated /post follows the /post/ai redirect then gates with that return URL", async ({ page }) => {
-    await page.goto("/post", { waitUntil: "domcontentloaded" });
-    await expect.poll(() => loggedOutReturnPath(page), { timeout: 20000 }).toBe("/post/ai");
-  });
 
   test("unauthenticated /post/edit deep link redirects to login with return URL", async ({ page }) => {
     await page.goto("/post/edit/listing123", { waitUntil: "domcontentloaded" });
