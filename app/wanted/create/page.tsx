@@ -7,6 +7,7 @@ import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import { showToast } from "../../components/Toast";
 import { getFreshIdToken } from "../../lib/api-auth";
+import { getClientCsrfToken } from "../../lib/csrf-client";
 import TurnstileWidget from "../../components/TurnstileWidget";
 import { getTurnstileSiteKey } from "../../lib/turnstile";
 
@@ -49,11 +50,13 @@ export default function WantedCreatePage() {
         return;
       }
 
+      const csrfToken = await getClientCsrfToken();
       const res = await fetch("/api/create-listing", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
         body: JSON.stringify({
           turnstileToken,
@@ -68,13 +71,13 @@ export default function WantedCreatePage() {
           paymentType: "contact",
           pickupAvailable: false,
           shippingAvailable: false,
-          acceptOffers: false,
+          acceptOffers: false,
           expiresInDays: 30,
         }),
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
+      if (!res.ok || !data.success || !data.listingId) {
         showToast(data.error || "Failed to create listing", "error");
         setLoading(false);
         return;

@@ -200,6 +200,16 @@ export async function POST(req: NextRequest) {
       await db.collection("profiles").doc(decodedToken.uid).collection("bankDetails").doc("private").set(bankData, { merge: true });
     }
 
+    try {
+      await usernameRef.set({ uid: decodedToken.uid }, { merge: true });
+    } catch (usernameErr) {
+      console.error("save-profile: username reservation failed:", usernameErr);
+      return NextResponse.json(
+        { error: "Could not reserve that username. Please try again." },
+        { status: 500 }
+      );
+    }
+
     await profileRef.set(profileData, { merge: true });
 
     if (phoneUpdate.releasePrevious) {
@@ -208,12 +218,6 @@ export async function POST(req: NextRequest) {
       } catch (releaseErr) {
         console.warn("save-profile: phone registry release failed:", releaseErr);
       }
-    }
-
-    try {
-      await usernameRef.set({ uid: decodedToken.uid }, { merge: true });
-    } catch (usernameErr) {
-      console.warn("save-profile: username reservation failed (profile still saved):", usernameErr);
     }
 
     return NextResponse.json({ success: true, username: trimmedUsername });

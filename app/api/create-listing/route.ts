@@ -244,21 +244,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid listing type" }, { status: 400 });
     }
 
-    // Data integrity validation: detect if title contains "wanted" keywords but type is not "wanted"
-    if (title) {
+    // Data integrity: log wanted-title mismatches, but never silently rewrite
+    // listingType. "Need for Speed" must not become a wanted post.
+    if (title && listingType !== "wanted") {
       const lowerTitle = title.toLowerCase();
-      const wantedKeywords = /\b(wanted|looking for|seeking|searching for|need|iso|in search of|want to buy)\b/i;
-      if (wantedKeywords.test(lowerTitle) && listingType !== "wanted") {
-        console.warn("[create-listing] Data integrity warning: Title contains wanted keywords but type is not 'wanted'", {
+      const wantedKeywords = /\b(wanted|looking for|seeking|searching for|iso|in search of|want to buy)\b/i;
+      if (wantedKeywords.test(lowerTitle) || /^wanted:/i.test(title)) {
+        console.warn("[create-listing] Title looks like a wanted post but listingType is not 'wanted'", {
           title,
           listingType,
-          suggestion: "Consider setting listingType to 'wanted'"
         });
-        // Auto-correct: if title clearly indicates wanted post, set type to wanted
-        if (/^wanted:/i.test(title) || wantedKeywords.test(title.substring(0, 20))) {
-          console.log("[create-listing] Auto-correcting listingType to 'wanted' based on title");
-          listingType = "wanted";
-        }
       }
     }
 
@@ -318,6 +313,8 @@ export async function POST(req: NextRequest) {
       vehicleModel: body.vehicleModel || clientData.vehicleModel,
       vehicleYear: body.vehicleYear || clientData.vehicleYear,
       vehicleOdometer: body.vehicleOdometer || clientData.vehicleOdometer,
+      digitalStoragePath: body.digitalStoragePath || clientData.digitalStoragePath,
+      digitalFileName: body.digitalFileName || clientData.digitalFileName,
     });
     if (!typeValidation.ok) {
       return NextResponse.json({ error: typeValidation.errors[0], errors: typeValidation.errors }, { status: 400 });
@@ -538,6 +535,12 @@ export async function POST(req: NextRequest) {
     const db = isAdminInitialized() ? getAdminDb() : getServerDb(idToken || "");
     const ref = await db.collection("listings").add(finalData);
     const listingId = ref.id;
+    if (!listingId) {
+      return NextResponse.json(
+        { error: "Could not save listing. Try again or contact support." },
+        { status: 500 }
+      );
+    }
 
     // Saved-search alerts + matchmaking are not needed for the client response.
     // Run after() so Vercel keeps the isolate alive without blocking publish latency.

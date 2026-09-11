@@ -19,6 +19,7 @@ import {
   normalizeUsernameInput,
   validateUsername,
 } from "./username";
+import { interpretEmailCheckResponse } from "./signup-email-check";
 
 function candidateUsername(base: string, attempt: number): string {
   if (attempt === 0) return base;
@@ -85,16 +86,17 @@ export async function verifyTurnstileToken(token: string): Promise<boolean> {
 }
 
 export async function checkEmailAllowed(email: string): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/check-email-temp", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: email.trim().toLowerCase() }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (data.disposable) {
-    return { ok: false, error: "Temporary email addresses aren't allowed. Use a permanent email." };
+  try {
+    const res = await fetch("/api/check-email-temp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return interpretEmailCheckResponse(res.ok, res.status, data);
+  } catch {
+    return { ok: false, error: "We couldn't verify your email. Please try again." };
   }
-  return { ok: true };
 }
 
 export function signupAuthError(error: unknown): string {
@@ -125,6 +127,9 @@ export function signupAuthError(error: unknown): string {
           "Username must be at least 3 characters.",
           "Username must be 30 characters or less.",
           "Start with a letter; use letters, numbers, and underscores only.",
+          "We couldn't verify your email. Please try again.",
+          "Too many attempts. Please wait a few minutes and try again.",
+          "We couldn't finish setting up your account. Please try again.",
         ].includes(error.message)
       ) {
         return error.message;

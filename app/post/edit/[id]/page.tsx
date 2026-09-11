@@ -398,8 +398,8 @@ export default function EditListingPage({
       } finally {
         window.clearTimeout(fetchTimeout);
       }
-      const data = await res.json();
-      if (!data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
         showToast(data.error || "Failed to update listing", "error");
         return;
       }
