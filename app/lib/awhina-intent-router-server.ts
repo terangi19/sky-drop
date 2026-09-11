@@ -5,6 +5,8 @@
  * to classify intents with high accuracy and extract entities.
  */
 
+import "server-only";
+
 import { createGatedOpenAI, checkOpenAiSpendGate } from "./openai-spend-guard";
 import {
   AwhinaIntent,

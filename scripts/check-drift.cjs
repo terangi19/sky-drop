@@ -138,11 +138,174 @@ function main() {
 
   console.log("OK: No sensitive client Firestore write drift detected.");
 
+  checkClientServerBoundary();
+
   const { execSync } = require("child_process");
   execSync("node scripts/check-description-boundary.cjs", {
     stdio: "inherit",
     cwd: path.join(__dirname, ".."),
   });
+}
+
+const FORBIDDEN_CLIENT_MODULES = [
+  "openai-spend-guard",
+  "openai-spending",
+  "openai-health",
+  "firebase-admin",
+];
+
+function stripComments(src) {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
+
+function parseSpecifiers(src) {
+  const body = stripComments(src);
+  const specs = [];
+  const fromRe =
+    /\b(?:import|export)\s+(type\s+)?(?:[\s\S]*?\sfrom\s+)?["']([^"']+)["']/g;
+  const dynRe = /\b(?:require|import)\(\s*["']([^"']+)["']\s*\)/g;
+  let m;
+  while ((m = fromRe.exec(body)) !== null) {
+    specs.push({ typeOnly: Boolean(m[1]), specifier: m[2] });
+  }
+  while ((m = dynRe.exec(body)) !== null) {
+    specs.push({ typeOnly: false, specifier: m[1] });
+  }
+  return specs;
+}
+
+function isForbiddenSpecifier(specifier) {
+  const norm = specifier.replace(/\\/g, "/");
+  if (norm === "firebase-admin" || norm.startsWith("firebase-admin/")) return "firebase-admin";
+  for (const name of FORBIDDEN_CLIENT_MODULES) {
+    if (norm === name) return name;
+    if (norm.endsWith(`/${name}`) || norm.endsWith(`/${name}.ts`) || norm.endsWith(`/${name}.tsx`)) {
+      return name;
+    }
+    if (norm.endsWith(`/lib/${name}`) || norm.includes(`/lib/${name}.`)) return name;
+  }
+  return null;
+}
+
+function resolveRelative(fromFile, specifier) {
+  if (!specifier.startsWith(".")) return null;
+  const base = path.resolve(path.dirname(fromFile), specifier);
+  const candidates = [
+    base,
+    `${base}.ts`,
+    `${base}.tsx`,
+    `${base}.js`,
+    `${base}.jsx`,
+    `${base}.mjs`,
+    `${base}.cjs`,
+    path.join(base, "index.ts"),
+    path.join(base, "index.tsx"),
+    path.join(base, "index.js"),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
+  }
+  return null;
+}
+
+function moduleIdFromFile(file) {
+  const base = path.basename(file).replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, "");
+  return FORBIDDEN_CLIENT_MODULES.includes(base) ? base : null;
+}
+
+/**
+ * Fail the build if a Client Component (or anything it imports) pulls in
+ * spend-guard / openai-spending / firebase-admin / server openai-health.
+ * This is the regression for the 57bfe78 client-bundle break.
+ */
+function checkClientServerBoundary() {
+  const files = walk(APP_DIR);
+  const clientEntries = [];
+  for (const file of files) {
+    const src = fs.readFileSync(file, "utf8");
+    if (/^["']use client["']\s*;?\s*$/m.test(src.split(/\r?\n/).slice(0, 8).join("\n")) || /^\s*["']use client["']/.test(src)) {
+      clientEntries.push(file);
+    }
+  }
+
+  const violations = [];
+  const visitedGlobal = new Set();
+
+  for (const entry of clientEntries) {
+    const stack = [{ file: entry, chain: [path.relative(path.join(__dirname, ".."), entry).replace(/\\/g, "/")] }];
+    const visited = new Set();
+
+    while (stack.length) {
+      const { file, chain } = stack.pop();
+      const abs = path.resolve(file);
+      if (visited.has(abs) || visitedGlobal.has(abs)) continue;
+      visited.add(abs);
+      visitedGlobal.add(abs);
+
+      const rel = path.relative(path.join(__dirname, ".."), abs).replace(/\\/g, "/");
+      if (rel.includes("/api/")) {
+        continue;
+      }
+
+      const forbiddenFile = moduleIdFromFile(abs);
+      if (forbiddenFile) {
+        violations.push({
+          file: chain[0],
+          module: forbiddenFile,
+          chain: chain.join(" → "),
+        });
+        continue;
+      }
+
+      if (!/\.(ts|tsx|js|jsx|mjs|cjs)$/.test(abs)) continue;
+      let src;
+      try {
+        src = fs.readFileSync(abs, "utf8");
+      } catch {
+        continue;
+      }
+
+      for (const { specifier } of parseSpecifiers(src)) {
+        const forbiddenSpec = isForbiddenSpecifier(specifier);
+        if (forbiddenSpec) {
+          violations.push({
+            file: chain[0],
+            module: forbiddenSpec,
+            chain: `${chain.join(" → ")} → ${specifier}`,
+          });
+          continue;
+        }
+        const resolved = resolveRelative(abs, specifier);
+        if (resolved) {
+          stack.push({
+            file: resolved,
+            chain: [...chain, path.relative(path.join(__dirname, ".."), resolved).replace(/\\/g, "/")],
+          });
+        }
+      }
+    }
+  }
+
+  if (violations.length) {
+    console.error("FAIL: Client bundle imports server-only OpenAI/Admin modules:\n");
+    const seen = new Set();
+    for (const v of violations) {
+      const key = `${v.file}|${v.module}|${v.chain}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      console.error(`  ${v.file}`);
+      console.error(`    imports ${v.module}`);
+      console.error(`    via ${v.chain}`);
+    }
+    console.error(
+      `\n${seen.size} violation(s). Client Components may only fetch /api/sky-ai/status (and other API routes). Do not import openai-spend-guard, openai-spending, openai-health, or firebase-admin into the client bundle.`
+    );
+    process.exit(1);
+  }
+
+  console.log("OK: Client bundle does not import spend-guard, openai-spending, openai-health, or firebase-admin.");
 }
 
 main();

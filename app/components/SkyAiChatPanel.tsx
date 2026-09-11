@@ -11,7 +11,7 @@ import {
   AWHINA_REQUEST_FAILED,
   AWHINA_THINKING,
 } from "../lib/awhina-brand";
-import { skyAiRuleFallbackText } from "../lib/openai-health";
+import { skyAiRuleFallbackText } from "../lib/sky-ai-rule-fallback";
 import { detectSkyAiIntent } from "../lib/sky-ai-intent";
 import {
   dispatchListingFill,
