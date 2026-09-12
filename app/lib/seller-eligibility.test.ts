@@ -36,4 +36,13 @@ describe("getListingBlockReason", () => {
   it("does not infer a block when email verification was not provided", () => {
     expect(getListingBlockReason({ profileExists: true })).toBeNull();
   });
+
+  it("blocks when the profile document is missing", () => {
+    expect(
+      getListingBlockReason({
+        authEmailVerified: true,
+        profileExists: false,
+      })
+    ).toMatch(/complete your profile/i);
+  });
 });

@@ -7,6 +7,12 @@ import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeRespon
 import { verifiedFlagAfterUpdate } from "../../lib/seller-verified";
 import { resolveProfilePhoneUpdate } from "../../lib/profile-phone-update";
 import { deletePhoneRegistryForUser } from "../../lib/phone-registry.server";
+import {
+  isUsernameTakenError,
+  parseUsernameForProfileSave,
+  UsernameTakenError,
+  usernameOwnerState,
+} from "../../lib/username-reservation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -74,30 +80,21 @@ export async function POST(req: NextRequest) {
       bankReference,
     } = body;
 
-    const trimmedUsername = typeof username === "string" ? username.trim() : "";
-    if (!trimmedUsername) {
-      return NextResponse.json({ error: "Username is required" }, { status: 400 });
-    }
     const isAdmin = decodedToken.email && (await import("../../lib/admin-check")).isAdminEmail(decodedToken.email);
-    if (trimmedUsername.includes(" ") && !isAdmin) {
-      return NextResponse.json({ error: "Usernames cannot contain spaces." }, { status: 400 });
+    const parsedUsername = parseUsernameForProfileSave(username, { allowSpaces: !!isAdmin });
+    if (!parsedUsername.ok) {
+      return NextResponse.json({ error: parsedUsername.error }, { status: parsedUsername.status });
     }
+    const reservedUsername = parsedUsername.username;
+    const usernameKey = parsedUsername.key;
 
     const db = getServerDb(idToken);
     const profileRef = db.collection("profiles").doc(decodedToken.uid);
-    const usernameKey = trimmedUsername.toLowerCase();
 
     const existingSnap = await profileRef.get();
     const existingData = existingSnap.exists ? existingSnap.data() : {};
 
     const usernameRef = db.collection("usernames").doc(usernameKey);
-    const usernameSnap = await usernameRef.get();
-    if (usernameSnap.exists) {
-      const owner = usernameSnap.data()?.uid;
-      if (owner && owner !== decodedToken.uid) {
-        return NextResponse.json({ error: "Username already taken" }, { status: 409 });
-      }
-    }
 
     // Phone verification is an authoritative server-side state. This profile
     // endpoint must never elevate it from client-provided request data.
@@ -112,7 +109,7 @@ export async function POST(req: NextRequest) {
     const nextEmailVerified = !!decodedToken.email_verified;
 
     const profileData = {
-      username: trimmedUsername,
+      username: reservedUsername,
       bio: bio || "",
       region: region || "",
       discord: discord || "",
@@ -196,13 +193,28 @@ export async function POST(req: NextRequest) {
     if (typeof bankAccountNumber === "string") bankData.bankAccountNumber = bankAccountNumber.trim();
     if (typeof bankReference === "string") bankData.bankReference = bankReference.trim();
 
-    if (Object.keys(bankData).length > 0) {
-      await db.collection("profiles").doc(decodedToken.uid).collection("bankDetails").doc("private").set(bankData, { merge: true });
-    }
-
     try {
-      await usernameRef.set({ uid: decodedToken.uid }, { merge: true });
+      await db.runTransaction(async (tx) => {
+        const usernameSnap = await tx.get(usernameRef);
+        const previousKey = String(existingData?.username || "").trim().toLowerCase();
+        const oldRef =
+          previousKey && previousKey !== usernameKey
+            ? db.collection("usernames").doc(previousKey)
+            : null;
+        const oldSnap = oldRef ? await tx.get(oldRef) : null;
+        const owner = usernameSnap.exists ? String(usernameSnap.data()?.uid || "") : "";
+        if (usernameOwnerState(owner, decodedToken.uid) === "taken") {
+          throw new UsernameTakenError();
+        }
+        tx.set(usernameRef, { uid: decodedToken.uid });
+        if (oldRef && oldSnap?.exists && String(oldSnap.data()?.uid || "") === decodedToken.uid) {
+          tx.delete(oldRef);
+        }
+      });
     } catch (usernameErr) {
+      if (isUsernameTakenError(usernameErr)) {
+        return NextResponse.json({ error: "Username already taken" }, { status: 409 });
+      }
       console.error("save-profile: username reservation failed:", usernameErr);
       return NextResponse.json(
         { error: "Could not reserve that username. Please try again." },
@@ -212,6 +224,10 @@ export async function POST(req: NextRequest) {
 
     await profileRef.set(profileData, { merge: true });
 
+    if (Object.keys(bankData).length > 0) {
+      await db.collection("profiles").doc(decodedToken.uid).collection("bankDetails").doc("private").set(bankData, { merge: true });
+    }
+
     if (phoneUpdate.releasePrevious) {
       try {
         await deletePhoneRegistryForUser(decodedToken.uid);
@@ -220,7 +236,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, username: trimmedUsername });
+    return NextResponse.json({ success: true, username: reservedUsername });
   } catch (e: unknown) {
     console.error("save-profile error:", e);
     if (e instanceof CsrfError) {
