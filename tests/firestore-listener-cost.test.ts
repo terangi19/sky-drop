@@ -115,6 +115,25 @@ describe("P0 Firestore listener cost guards", () => {
     }
   });
 
+  it("ProfileContext polls the profile doc instead of a live snapshot", () => {
+    const src = readSrc("app/contexts/ProfileContext.tsx");
+    expect(src).not.toMatch(/\bonSnapshot\s*\(/);
+    expect(src).toMatch(/getDoc/);
+    expect(src).toMatch(/startVisibilityPolledFetch/);
+    expect(src).toMatch(/BROWSE_POLL_MS/);
+  });
+
+  it("notifications page polls instead of a live snapshot", () => {
+    const src = readSrc("app/notifications/page.tsx");
+    expect(src).not.toMatch(/\bonSnapshot\s*\(/);
+    expect(src).toMatch(/getDocs/);
+    expect(src).toMatch(/startVisibilityPolledFetch/);
+    expect(src).toMatch(/NOTIFICATIONS_PAGE_SIZE/);
+    expect(src).toMatch(/NOTIFICATIONS_MAX_LIMIT/);
+    expect(src).toMatch(/DASHBOARD_POLL_MS/);
+    expect(src).toMatch(/limit\(NOTIFICATIONS_PAGE_SIZE\)/);
+  });
+
   it("funnelEvents client writes are gated behind the beta-off flag", () => {
     const src = readSrc("app/lib/funnel-events.ts");
     expect(src).toContain("isFunnelEventsEnabled");
