@@ -881,6 +881,47 @@ describe("Firestore Security Rules", () => {
       );
     });
 
+    it("listing seller cannot spoof highest bidder or max bids", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("listings").doc("auction-spoof-listing").set({
+          title: "Auction item",
+          sellerId: "auction-alice",
+          sellerEmail: "auction-alice@test.com",
+          currentBid: 20,
+          highestBidder: "bidder@test.com",
+          highestBidderUid: "real-bidder",
+          currentMaxBid: 40,
+          secondMaxBid: 25,
+        });
+      });
+      const alice = testEnv
+        .authenticatedContext("auction-alice", {
+          email: "auction-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        alice.collection("listings").doc("auction-spoof-listing").update({
+          highestBidderUid: "auction-alice",
+        })
+      );
+      await assertFails(
+        alice.collection("listings").doc("auction-spoof-listing").update({
+          currentMaxBid: 1,
+        })
+      );
+      await assertFails(
+        alice.collection("listings").doc("auction-spoof-listing").update({
+          secondMaxBid: 1,
+        })
+      );
+      await assertSucceeds(
+        alice.collection("listings").doc("auction-spoof-listing").update({
+          title: "Auction item (updated)",
+        })
+      );
+    });
+
     it("profile create cannot include verification keys even when false", async () => {
       const alice = testEnv
         .authenticatedContext("profile-create-alice", {

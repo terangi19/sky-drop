@@ -89,7 +89,8 @@ service cloud.firestore {
               'ownerId', 'userId', 'createdBy',
               'featured', 'boosted', 'promoted', 'bumpExpiresAt', 'visibilityRank',
               'verified', 'adminVerified', 'isDemo', 'demo',
-              'currentBid', 'highestBidder', 'highestBidderId', 'bidCount',
+              'currentBid', 'highestBidder', 'highestBidderId', 'highestBidderUid', 'bidCount',
+              'currentMaxBid', 'secondMaxBid',
               'paymentReleased', 'stripePaymentIntentId', 'stripeAccountId',
               'soldAt', 'views'
             ]);
