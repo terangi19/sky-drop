@@ -16,6 +16,9 @@ describe("Client profile privileged-field strip", () => {
       stripeAccountId: "acct_123",
       followers: 99,
       email: "owner@example.test",
+      referredBy: "ABC123",
+      referredByUid: "referrer-uid",
+      referralSignups: 4,
     });
     expect(result).toEqual({
       username: "user-a",

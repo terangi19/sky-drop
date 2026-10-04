@@ -8,7 +8,6 @@ import {
   doc,
   runTransaction,
   serverTimestamp,
-  setDoc,
   Timestamp,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
@@ -233,7 +232,7 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<C
   if (invite) {
     try {
       const token = await user.getIdToken();
-      const refRes = await fetch("/api/track-referral", {
+      await fetch("/api/track-referral", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -241,10 +240,6 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<C
         },
         body: JSON.stringify({ referralCode: invite }),
       });
-      const refData = await refRes.json().catch(() => ({}));
-      if (refRes.ok && refData.tracked && refData.referredBy) {
-        await setDoc(doc(db, "profiles", user.uid), { referredBy: refData.referredBy }, { merge: true });
-      }
     } catch (e) {
       console.error("Referral tracking failed:", e);
     }

@@ -82,7 +82,7 @@ service cloud.firestore {
 
       allow update: if request.auth != null
 
-        && (isSeller()
+        && isSeller()
           && !request.resource.data.diff(resource.data).affectedKeys()
             .hasAny([
               'sellerId', 'sellerEmail', 'sellerName', 'sellerUid', 'sellerPhotoURL',
@@ -92,11 +92,7 @@ service cloud.firestore {
               'currentBid', 'highestBidder', 'highestBidderId', 'bidCount',
               'paymentReleased', 'stripePaymentIntentId', 'stripeAccountId',
               'soldAt', 'views'
-            ])
-
-          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'updatedAt'])
-
-            && request.resource.data.views == resource.data.views + 1));
+            ]);
 
       allow delete: if request.auth != null && isSeller();
 
@@ -124,7 +120,8 @@ service cloud.firestore {
           'followers', 'following', 'totalSales',
           'phoneVerified', 'emailVerified',
           'stripeAccountId', 'stripeCustomerId',
-          'restricted', 'bannedAt', 'banReason'
+          'restricted', 'bannedAt', 'banReason',
+          'referralSignups', 'referredBy', 'referredByUid'
         ])
         && (!('kycStatus' in request.resource.data)
           || request.resource.data.kycStatus == 'pending'
@@ -160,9 +157,14 @@ service cloud.firestore {
             'followers', 'following', 'totalSales',
             'phoneVerified', 'emailVerified',
             'stripeAccountId', 'stripeCustomerId',
-            'restricted', 'bannedAt', 'banReason'])
+            'restricted', 'bannedAt', 'banReason',
+            'referralSignups', 'referredBy', 'referredByUid'])
 
-          || isKycPendingSelfSubmit());
+          || isKycPendingSelfSubmit())
+
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['referralCode'])
+          || !('referralCode' in resource.data)
+          || resource.data.referralCode == '');
 
 
 
@@ -371,7 +373,7 @@ service cloud.firestore {
 
       allow update: if request.auth != null
 
-        && ((resource.data.sellerEmail == request.auth.token.email
+        && resource.data.sellerEmail == request.auth.token.email
           && !request.resource.data.diff(resource.data).affectedKeys()
             .hasAny([
               'sellerId', 'sellerEmail', 'sellerName', 'sellerUid',
@@ -379,10 +381,8 @@ service cloud.firestore {
               'verified', 'adminVerified', 'isDemo', 'demo',
               'currentBid', 'highestBidder', 'highestBidderId', 'bidCount',
               'paymentReleased', 'stripePaymentIntentId', 'stripeAccountId',
-              'soldAt'
-            ]))
-
-          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']));
+              'soldAt', 'views'
+            ]);
 
       allow delete: if request.auth != null
 
