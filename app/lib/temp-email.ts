@@ -45,7 +45,7 @@ const DISPOSABLE_DOMAINS = new Set([
   "quickinbox.com", "rcpt.at", "re-gister.com", "reallymymail.com",
   "receiveee.com", "recyclemail.dk", "regbypass.com", "regspaces.blogspot.com",
   "rejectmail.com", "reliable-mail.com", "remail.cf", "rhyta.com",
-  "rocketmail.com", "rollin.flubber.de", "rotzmail.de", "ruggedinbox.com",
+  "rollin.flubber.de", "rotzmail.de", "ruggedinbox.com",
   "rxcay.com", "safetymail.info", "safetypost.de", "sandelf.de",
   "saynotospams.com", "scdhn.com", "schafmail.de", "schrott-email.de",
   "secretemail.de", "secure-mail.biz", "selfdestructingmail.com",

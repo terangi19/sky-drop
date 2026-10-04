@@ -16,4 +16,10 @@ describe("disposable domain matching", () => {
     expect(isDisposableEmail("x@usa.cc")).toBe(false);
     expect(isDisposableEmail("x@blogspot.com")).toBe(false);
   });
+
+  it("does not treat rocketmail.com or yahoo.com as disposable", () => {
+    expect(isDisposableEmail("seller@rocketmail.com")).toBe(false);
+    expect(isDisposableEmail("seller@yahoo.com")).toBe(false);
+    expect(isDisposableEmail("seller@mailinator.com")).toBe(true);
+  });
 });
