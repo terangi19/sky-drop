@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb, verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { disposableEmailBlock } from "../../lib/disposable-email-gate";
 import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -31,6 +32,11 @@ export async function POST(req: NextRequest) {
     // The authenticated user may only send verification for their own email
     if (decoded.email?.toLowerCase() !== email.toLowerCase()) {
       return NextResponse.json({ error: "You can only verify your own email" }, { status: 403 });
+    }
+
+    {
+      const blocked = disposableEmailBlock(decoded.email);
+      if (blocked) return blocked;
     }
 
     const db = getAdminDb();

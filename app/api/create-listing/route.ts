@@ -20,6 +20,7 @@ import {
 import { validateListingForPublish } from "../../lib/listing-validation";
 import { runMatchmaking } from "../../lib/sky-ai-matchmaking";
 import { stripeListingPublishErrorAsync } from "../../lib/stripe-connect-account";
+import { disposableEmailBlock } from "../../lib/disposable-email-gate";
 
 const SCAM_KEYWORDS = [
   "bank transfer only", "crypto only", "pay outside", "whatsapp",
@@ -156,6 +157,11 @@ export async function POST(req: NextRequest) {
 
     if (!token.email_verified) {
       return NextResponse.json({ error: "Please verify your email before creating a listing" }, { status: 403 });
+    }
+
+    {
+      const blocked = disposableEmailBlock(token.email);
+      if (blocked) return blocked;
     }
 
     if (!(await trackAndCheckAbuse(token.uid, token.email || "", "listing", ip))) {

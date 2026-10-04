@@ -45,7 +45,7 @@ const DISPOSABLE_DOMAINS = new Set([
   "quickinbox.com", "rcpt.at", "re-gister.com", "reallymymail.com",
   "receiveee.com", "recyclemail.dk", "regbypass.com", "regspaces.blogspot.com",
   "rejectmail.com", "reliable-mail.com", "remail.cf", "rhyta.com",
-  "rocketmail.com", "rollin.flubber.de", "rotzmail.de", "ruggedinbox.com",
+  "rollin.flubber.de", "rotzmail.de", "ruggedinbox.com",
   "rxcay.com", "safetymail.info", "safetypost.de", "sandelf.de",
   "saynotospams.com", "scdhn.com", "schafmail.de", "schrott-email.de",
   "secretemail.de", "secure-mail.biz", "selfdestructingmail.com",
@@ -130,10 +130,20 @@ const FREE_PROVIDERS = new Set([
   "inspire.net.nz", "clear.net.nz", "ihug.co.nz", "paradise.net.nz",
 ]);
 
+export function emailDomain(email: string): string {
+  const at = email.lastIndexOf("@");
+  if (at < 1) return "";
+  return email.slice(at + 1).trim().toLowerCase().replace(/\.+$/, "");
+}
+
+/** True if the domain or any parent domain is on the disposable list. */
 export function isDisposableEmail(email: string): boolean {
-  const domain = email.split("@").pop()?.toLowerCase().trim();
+  const domain = emailDomain(email);
   if (!domain) return false;
-  if (DISPOSABLE_DOMAINS.has(domain)) return true;
+  const labels = domain.split(".");
+  for (let i = 0; i < labels.length - 1; i++) {
+    if (DISPOSABLE_DOMAINS.has(labels.slice(i).join("."))) return true;
+  }
   return false;
 }
 
