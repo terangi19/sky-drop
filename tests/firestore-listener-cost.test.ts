@@ -1,5 +1,6 @@
 import { readFileSync } from "fs";
 import { describe, expect, it } from "vitest";
+import { BLOCKED_USERS_LIMIT } from "../app/lib/firestore-query-limits";
 
 function readSrc(path: string): string {
   return readFileSync(path, "utf8");
@@ -132,6 +133,28 @@ describe("P0 Firestore listener cost guards", () => {
     expect(src).toMatch(/NOTIFICATIONS_MAX_LIMIT/);
     expect(src).toMatch(/DASHBOARD_POLL_MS/);
     expect(src).toMatch(/limit\(NOTIFICATIONS_PAGE_SIZE\)/);
+  });
+
+  it("blocked page uses a capped one-shot getDocs and refetches after mutations (no polling)", () => {
+    const src = readSrc("app/blocked/page.tsx");
+    expect(src).not.toMatch(/\bonSnapshot\s*\(/);
+    expect(src).toMatch(/getDocs/);
+    expect(src).toMatch(/limit\(BLOCKED_USERS_LIMIT\)/);
+    expect(src).not.toMatch(/startVisibilityPolledFetch/);
+    expect(src).not.toMatch(/setInterval/);
+    // block / unblock / unblock-all refetch explicitly (a failed delete reappears)
+    expect(src.match(/await refreshBlockedUsers\(\)/g)?.length).toBe(3);
+    expect(BLOCKED_USERS_LIMIT).toBe(100);
+  });
+
+  it("seller page checks follow state with a one-shot getDoc (no listener, no interval)", () => {
+    const src = readSrc("app/seller/[username]/page.tsx");
+    expect(src).not.toMatch(/\bonSnapshot\b/);
+    expect(src).toMatch(/getDoc\(doc\(db, "followers"/);
+    expect(src).toMatch(/let cancelled = false/);
+    expect(src).not.toMatch(/startVisibilityPolledFetch/);
+    // follow/unfollow state still comes from the API response
+    expect(src).toMatch(/setFollowing\(Boolean\(data\.following\)\)/);
   });
 
   it("funnelEvents client writes are gated behind the beta-off flag", () => {
