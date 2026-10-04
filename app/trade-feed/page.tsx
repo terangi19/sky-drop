@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import Navbar from "../components/Navbar";
 import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Background from "../components/Background";
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
 import { fetchSellerProfilesByListing } from "../lib/fetch-seller-profiles";
@@ -18,6 +18,7 @@ import { checkShout } from "../lib/shoutFilter";
 import confetti from "canvas-confetti";
 import { playOffer, playSuccess, playClick } from "../lib/sounds";
 import { createNotification } from "../lib/notifications";
+import { submitTradeOffer } from "../lib/trade-offer-client";
 import { useProfile } from "../contexts/ProfileContext";
 import { REVIEW_STAR_CLASS } from "../components/SellerReviewStars";
 import {
@@ -115,6 +116,8 @@ export default function TradeFeedPage() {
   const shoutsAtBottom = useRef(true);
   const lastShoutTime = useRef(0);
   const lastOfferTime = useRef(0);
+  const offerInFlight = useRef(new Set<string>());
+  const [offerSendingId, setOfferSendingId] = useState<string | null>(null);
   const lastPostTime = useRef(0);
   const knownSoldIds = useRef(new Set<string>());
   const knownHotIds = useRef(new Set<string>());
@@ -511,28 +514,48 @@ export default function TradeFeedPage() {
   async function sendOffer(postId: string) {
     const post = posts.find((p) => p.id === postId);
     if (!post) return;
+    if (!user?.email) {
+      showToast("Sign in to send an offer", "info");
+      return;
+    }
+    if (post.sellerEmail === user.email) {
+      showToast("You can't send an offer on your own post.", "error");
+      return;
+    }
+    if (offerInFlight.current.has(postId)) return;
     if (Date.now() - lastOfferTime.current < 5000) {
       showToast("Please wait before sending another offer", "info");
       return;
     }
     lastOfferTime.current = Date.now();
-    await updateDoc(doc(db, "tradePosts", postId), { offers: (post.offers || 0) + 1 });
-    showToast("Offer sent!", "success");
-    playOffer();
-    confetti({ particleCount: 30, spread: 50, origin: { y: 0.5 } });
-    createNotification({
-      targetEmail: post.sellerEmail,
-      fromEmail: user!.email!,
-      type: "offer",
-      title: "New offer received! 💰",
-      message: `${username || user?.email?.split("@")[0] || "Someone"} sent an offer on "${post.title}".`,
-      listingId: post.id,
-      listingTitle: post.title,
-      listingImage: post.images?.[0] || post.image || "",
-    });
-    const id = ++eventId.current;
-    setLiveEvents((prev) => [{ id, icon: "💰", text: `Offer received on ${post.title}` }, ...prev].slice(0, 20));
-    setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
+    offerInFlight.current.add(postId);
+    setOfferSendingId(postId);
+    try {
+      // Buyers cannot write tradePosts (firestore.rules); the server route bumps the counter and notifies the seller.
+      const result = await submitTradeOffer({
+        getIdToken: () => user.getIdToken(),
+        postId,
+        requestId: globalThis.crypto?.randomUUID?.(),
+      });
+      if (!result.ok) {
+        lastOfferTime.current = 0; // nothing was sent, so don't make the user wait out the cooldown
+        showToast(result.message, "error");
+        return;
+      }
+      showToast(result.message, result.kind);
+      setSwipedId(null);
+      playOffer();
+      confetti({ particleCount: 30, spread: 50, origin: { y: 0.5 } });
+      if (result.offers !== null) {
+        setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, offers: result.offers } : p)));
+      }
+      const id = ++eventId.current;
+      setLiveEvents((prev) => [{ id, icon: "💰", text: `Offer received on ${post.title}` }, ...prev].slice(0, 20));
+      setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
+    } finally {
+      offerInFlight.current.delete(postId);
+      setOfferSendingId(null);
+    }
   }
 
   async function toggleWatchlist(post: any) {
@@ -945,8 +968,8 @@ export default function TradeFeedPage() {
                               <>
                                 {stripeCheckoutVisible && post.price && <button onClick={() => { setCheckoutPost(post); setSwipedId(null); }}
                                   className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white">🛒 Buy</button>}
-                                <button onClick={() => { sendOffer(post.id); setSwipedId(null); }}
-                                  className="rounded-xl bg-white/[0.04] border border-white/[0.06] px-4 py-2.5 text-xs font-bold text-sky-400">💰 Offer</button>
+                                <button onClick={() => { void sendOffer(post.id); }} disabled={offerSendingId === post.id}
+                                  className="rounded-xl bg-white/[0.04] border border-white/[0.06] px-4 py-2.5 text-xs font-bold text-sky-400 disabled:opacity-50">{offerSendingId === post.id ? "Sending…" : "💰 Offer"}</button>
                               </>
                             )}
                           </div>

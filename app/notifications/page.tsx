@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
@@ -10,12 +10,12 @@ import {
   doc,
   getDocs,
   limit,
-  onSnapshot,
   orderBy,
   query,
   startAfter,
   updateDoc,
   where,
+  type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { AuthGatePlaceholder, useRequireAuth } from "../lib/use-require-auth";
@@ -25,6 +25,11 @@ import {
   extractEmailsFromText,
   sanitizePublicText,
 } from "../lib/public-display";
+import {
+  NOTIFICATIONS_MAX_LIMIT,
+  NOTIFICATIONS_PAGE_SIZE,
+} from "../lib/firestore-query-limits";
+import { DASHBOARD_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 interface NotificationItem {
   id: string;
@@ -53,7 +58,9 @@ const TYPE_META: Record<string, { icon: string; color: string }> = {
   dispute_opened: { icon: "⚠️", color: "bg-red-500/20" },
 };
 
-const PAGE_SIZE = 20;
+function mapNotificationDocs(docs: QueryDocumentSnapshot[]): NotificationItem[] {
+  return docs.map((d) => ({ id: d.id, ...d.data() } as NotificationItem));
+}
 
 function formatTime(seconds: number): string {
   const now = Math.floor(Date.now() / 1000);
@@ -69,10 +76,11 @@ export default function NotificationsPage() {
   const { user, authReady } = useRequireAuth("/notifications");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastDoc, setLastDoc] = useState<any>(null);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [publicHandles, setPublicHandles] = useState<Record<string, string>>({});
+  const loadedMoreRef = useRef(false);
 
   async function fetchPublicHandle(email: string) {
     if (!email || publicHandles[email]) return;
@@ -89,31 +97,48 @@ export default function NotificationsPage() {
       setLoading(false);
       return;
     }
+    const email = user.email;
+    let mounted = true;
+    loadedMoreRef.current = false;
     setLoading(true);
-    const q = query(
+
+    const firstPageQuery = query(
       collection(db, "notifications"),
-      where("targetEmail", "==", user.email),
+      where("targetEmail", "==", email),
       orderBy("createdAt", "desc"),
-      limit(PAGE_SIZE)
+      limit(NOTIFICATIONS_PAGE_SIZE)
     );
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const items: NotificationItem[] = [];
-        snap.forEach((d) => {
-          items.push({ id: d.id, ...d.data() } as NotificationItem);
+
+    async function fetchNotifications() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(firstPageQuery);
+        if (!mounted) return;
+        const items = mapNotificationDocs(snap.docs);
+        setNotifications((prev) => {
+          if (!loadedMoreRef.current || prev.length <= items.length) return items;
+          const ids = new Set(items.map((n) => n.id));
+          return [...items, ...prev.filter((n) => !ids.has(n.id))].slice(
+            0,
+            NOTIFICATIONS_MAX_LIMIT
+          );
         });
-        setNotifications(items);
-        setLastDoc(snap.docs[snap.docs.length - 1] || null);
-        setHasMore(snap.docs.length === PAGE_SIZE);
+        if (!loadedMoreRef.current) {
+          setLastDoc(snap.docs[snap.docs.length - 1] || null);
+          setHasMore(snap.docs.length === NOTIFICATIONS_PAGE_SIZE);
+        }
         setLoading(false);
-      },
-      (err) => {
-        console.error("Notifications snapshot error:", err);
-        setLoading(false);
+      } catch (err) {
+        console.error("Notifications fetch error:", err);
+        if (mounted) setLoading(false);
       }
-    );
-    return unsub;
+    }
+
+    const stop = startVisibilityPolledFetch(fetchNotifications, DASHBOARD_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, [user?.email]);
 
   useEffect(() => {
@@ -126,21 +151,38 @@ export default function NotificationsPage() {
 
   async function loadMore() {
     if (!lastDoc || !user?.email || loadingMore) return;
+    if (notifications.length >= NOTIFICATIONS_MAX_LIMIT) {
+      setHasMore(false);
+      return;
+    }
     setLoadingMore(true);
     try {
+      const remaining = NOTIFICATIONS_MAX_LIMIT - notifications.length;
+      const pageLimit = Math.min(NOTIFICATIONS_PAGE_SIZE, remaining);
       const q = query(
         collection(db, "notifications"),
         where("targetEmail", "==", user.email),
         orderBy("createdAt", "desc"),
         startAfter(lastDoc),
-        limit(PAGE_SIZE)
+        limit(pageLimit)
       );
       const snap = await getDocs(q);
-      const items: NotificationItem[] = [];
-      snap.forEach((d) => items.push({ id: d.id, ...d.data() } as NotificationItem));
-      setNotifications((prev) => [...prev, ...items]);
-      setLastDoc(snap.docs[snap.docs.length - 1] || null);
-      setHasMore(snap.docs.length === PAGE_SIZE);
+      const items = mapNotificationDocs(snap.docs);
+      loadedMoreRef.current = true;
+      setNotifications((prev) => {
+        const ids = new Set(prev.map((n) => n.id));
+        const merged = [...prev];
+        for (const item of items) {
+          if (!ids.has(item.id)) merged.push(item);
+        }
+        return merged.slice(0, NOTIFICATIONS_MAX_LIMIT);
+      });
+      setLastDoc(snap.docs[snap.docs.length - 1] || lastDoc);
+      const nextCount = Math.min(
+        notifications.length + items.length,
+        NOTIFICATIONS_MAX_LIMIT
+      );
+      setHasMore(snap.docs.length === pageLimit && nextCount < NOTIFICATIONS_MAX_LIMIT);
     } catch (e) {
       console.error("Load more error:", e);
     }

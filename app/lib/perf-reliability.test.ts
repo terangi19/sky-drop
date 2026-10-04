@@ -91,6 +91,8 @@ describe("performance reliability locks", () => {
     expect(src("app/dashboard/applications/page.tsx")).toContain("limit(DASHBOARD_APPLICATIONS_LIMIT)");
     expect(src("app/admin/disputes/page.tsx")).toContain("limit(ADMIN_DISPUTES_LIMIT)");
     expect(src("app/admin/verification/page.tsx")).toContain("limit(ADMIN_PENDING_REVIEW_LIMIT)");
+    expect(src("app/notifications/page.tsx")).toContain("limit(NOTIFICATIONS_PAGE_SIZE)");
+    expect(src("app/notifications/page.tsx")).toContain("NOTIFICATIONS_MAX_LIMIT");
     expect(BROWSE_LISTINGS_LIMIT).toBeLessThanOrEqual(120);
     expect(SELLER_LISTINGS_LIMIT).toBeLessThanOrEqual(100);
     expect(SEARCH_LISTINGS_LIMIT).toBeLessThanOrEqual(400);

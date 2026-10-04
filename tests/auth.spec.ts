@@ -57,6 +57,11 @@ test.describe("Authentication", () => {
     await password.fill("password1");
     await expect(page.getByText("Enter a valid email address.")).toHaveCount(0);
     await expect(page.getByText(/Password must be at least 8 characters/)).toHaveCount(0);
+    await expect(page.getByText(/at least 3 of/i)).toBeVisible();
+    await expect(submit).toBeDisabled();
+
+    await password.fill("Password1");
+    await expect(page.getByText(/at least 3 of/i)).toHaveCount(0);
     await expect(submit).toBeEnabled();
   });
 
@@ -118,6 +123,7 @@ test.describe("Authentication", () => {
     "/reports",
     "/dashboard/applications",
     "/wanted/create",
+    "/profile/settings",
   ] as const;
 
   for (const route of gatedPrivateRoutes) {

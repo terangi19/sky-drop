@@ -68,7 +68,28 @@ type BatchResponse = {
   emailToUid?: Record<string, string>;
 };
 
-async function fetchPublicProfilesBatch(payload: {
+/** Matches server MAX_EMAILS so a large inbox is not silently truncated. */
+const PUBLIC_PROFILES_EMAIL_CHUNK = 20;
+
+function chunkStrings(values: string[], size: number): string[][] {
+  const chunks: string[][] = [];
+  for (let i = 0; i < values.length; i += size) {
+    chunks.push(values.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function mergeBatchResponses(parts: BatchResponse[]): BatchResponse {
+  const profiles: Record<string, PublicSellerProfile> = {};
+  const emailToUid: Record<string, string> = {};
+  for (const part of parts) {
+    Object.assign(profiles, part.profiles || {});
+    Object.assign(emailToUid, part.emailToUid || {});
+  }
+  return { profiles, emailToUid };
+}
+
+async function fetchPublicProfilesBatchOnce(payload: {
   uids: string[];
   emails: string[];
 }): Promise<BatchResponse> {
@@ -79,6 +100,24 @@ async function fetchPublicProfilesBatch(payload: {
   });
   if (!res.ok) return { profiles: {}, emailToUid: {} };
   return (await res.json()) as BatchResponse;
+}
+
+async function fetchPublicProfilesBatch(payload: {
+  uids: string[];
+  emails: string[];
+}): Promise<BatchResponse> {
+  const emailChunks = chunkStrings(payload.emails, PUBLIC_PROFILES_EMAIL_CHUNK);
+  const requests =
+    emailChunks.length === 0
+      ? [{ uids: payload.uids, emails: [] as string[] }]
+      : emailChunks.map((emails, index) => ({
+          uids: index === 0 ? payload.uids : [],
+          emails,
+        }));
+  const parts = await Promise.all(
+    requests.map((part) => fetchPublicProfilesBatchOnce(part))
+  );
+  return mergeBatchResponses(parts);
 }
 
 /**
