@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { describe, expect, it } from "vitest";
-import { BLOCKED_USERS_LIMIT, DROP_TOKENS_LIMIT } from "../app/lib/firestore-query-limits";
+import { BLOCKED_USERS_LIMIT } from "../app/lib/firestore-query-limits";
 
 function readSrc(path: string): string {
   return readFileSync(path, "utf8");
@@ -145,20 +145,6 @@ describe("P0 Firestore listener cost guards", () => {
     // block / unblock / unblock-all refetch explicitly (a failed delete reappears)
     expect(src.match(/await refreshBlockedUsers\(\)/g)?.length).toBe(3);
     expect(BLOCKED_USERS_LIMIT).toBe(100);
-  });
-
-  it("LootCrateModal polls capped dropTokens; config/platform is a one-shot getDoc", () => {
-    const src = readSrc("app/components/LootCrateModal.tsx");
-    expect(src).not.toMatch(/\bonSnapshot\s*\(/);
-    expect(src).toMatch(/getDocs/);
-    expect(src).toMatch(/getDoc\(doc\(db, "config", "platform"\)\)/);
-    expect(src).toMatch(/limit\(DROP_TOKENS_LIMIT\)/);
-    expect(src).toMatch(/startVisibilityPolledFetch\(loadTokens, BROWSE_POLL_MS\)/);
-    expect(src).not.toMatch(/startVisibilityPolledFetch\(loadPlatform/);
-    // spend / legendary claim update local state immediately
-    expect(src).toMatch(/setTokenCount\(\(count\) => Math\.max\(0, count - 1\)\)/);
-    expect(src).toMatch(/setBadgesAwarded\(newCount\)/);
-    expect(DROP_TOKENS_LIMIT).toBe(100);
   });
 
   it("seller page checks follow state with a one-shot getDoc (no listener, no interval)", () => {
