@@ -1366,7 +1366,8 @@ function hasRepeatedIdentityTail(text: string): boolean {
     "to",
     "used",
   ]);
-  const words = (text.toLowerCase().match(/[a-z0-9]+/g) || []).filter(
+  const tokens: string[] = (text.toLowerCase().match(/[a-z0-9]+/g)) ?? [];
+  const words = tokens.filter(
     (word) => word.length > 2 && !ignored.has(word)
   );
   if (words.length < 7) return false;

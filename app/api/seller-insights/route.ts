@@ -5,73 +5,36 @@ import { getAdminApp } from "../../lib/firebase-admin";
 
 export async function GET(req: NextRequest) {
   try {
-    console.log('[Seller Insights API] Request received');
     const auth = getAuth(getAdminApp());
     const db = getFirestore(getAdminApp());
 
     const authHeader = req.headers.get("authorization");
-    console.log('[Seller Insights API] Auth header:', authHeader ? 'present' : 'missing');
     if (!authHeader?.startsWith("Bearer ")) {
-      console.error('[Seller Insights API] Invalid auth header format');
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const token = authHeader.replace("Bearer ", "");
-    console.log('[Seller Insights API] Verifying token...');
     const decoded = await auth.verifyIdToken(token);
     const userEmail = decoded.email;
-    console.log('[Seller Insights API] User email:', userEmail);
 
     if (!userEmail) {
-      console.error('[Seller Insights API] No email in decoded token');
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch all user listings (both seller and wanted)
-    console.log('[Seller Insights API] Fetching listings for seller:', userEmail);
     const listingsSnap = await db
       .collection("listings")
       .where("sellerEmail", "==", userEmail)
       .get();
 
-    console.log('[Seller Insights API] Total listings count:', listingsSnap.docs.length);
     const allListings = listingsSnap.docs.map(doc => {
       const data = doc.data() as any;
       // Normalize type field — trim whitespace/newlines that may have been saved by Firebase Console
       if (typeof data.type === 'string') data.type = data.type.trim();
       return { id: doc.id, ...data };
     });
-    
-    // Log specific problematic listings for audit
-    const problematicIds = [
-      "VrU6tTAxNRJVJvAPbZ42", // "Wanted: BMW 335i"
-      "Uq99yYW6QnK00WZcPtTM", // "Bmw chrome rims" 1
-      "mkP7sEixMcXpQ4PnWqPG", // "Bmw chrome rims" 2
-      "sL0VHPsUy78ywXEuQHcm", // "Bmw chrome rims" 3
-    ];
-    
-    console.log('[Seller Insights API] Audit - Checking problematic listings:');
-    for (const id of problematicIds) {
-      const listing = allListings.find(l => l.id === id);
-      if (listing) {
-        console.log('[Seller Insights API] Listing found:', {
-          listingId: listing.id,
-          title: listing.title,
-          type: listing.type,
-          status: listing.status,
-          sellerEmail: listing.sellerEmail,
-          updatedAt: listing.updatedAt?.toMillis?.() || listing.createdAt?.toMillis?.() || null,
-        });
-      } else {
-        console.log('[Seller Insights API] Listing NOT found:', id);
-      }
-    }
-    
-    // Separate seller and wanted listings (type already normalized above)
+
     const sellerListings = allListings.filter(l => l.type !== "wanted");
     const wantedListings = allListings.filter(l => l.type === "wanted");
-    
-    console.log('[Seller Insights API] Seller listings:', sellerListings.length, 'Wanted listings:', wantedListings.length);
     
     // Generate insights separately for each type
     const sellerInsights = generateSellerInsights(sellerListings);
@@ -157,17 +120,7 @@ function sellerInsightPriority(type: string): number {
 function generateSellerInsights(listings: any[]): any[] {
   const candidates: any[] = [];
 
-  console.log('[Seller Insights Engine] Processing', listings.length, 'seller listings');
-
   for (const listing of listings) {
-    console.log('[Seller Insights Engine] Processing listing:', {
-      listingId: listing.id,
-      title: listing.title,
-      type: listing.type,
-      isWanted: listing.type === "wanted",
-      recommendationEngine: "seller"
-    });
-
     const views    = (listing.views    as number) || 0;
     const watchers = (listing.watchers as number) || 0;
     const messages = (listing.messages as number) || 0;
@@ -281,7 +234,6 @@ function generateSellerInsights(listings: any[]): any[] {
     if (listingInsights.length > 0) {
       listingInsights.sort((a, b) => sellerInsightPriority(a.type) - sellerInsightPriority(b.type));
       const best = listingInsights[0];
-      console.log('[Seller Insights Engine] Adding insight for listing:', listing.id, 'Type:', best.type);
       candidates.push(best);
     }
   }
@@ -289,7 +241,6 @@ function generateSellerInsights(listings: any[]): any[] {
   // Sort all candidates by priority, return top 5
   candidates.sort((a, b) => sellerInsightPriority(a.type) - sellerInsightPriority(b.type));
   const results = candidates.slice(0, 5);
-  console.log('[Seller Insights Engine] Generated', results.length, 'insights from seller listings');
   return results;
 }
 
@@ -312,8 +263,6 @@ function wantedInsightPriority(type: string): number {
 function generateWantedInsights(listings: any[]): any[] {
   const candidates: any[] = [];
 
-  console.log('[Wanted Insights Engine] Processing', listings.length, 'wanted listings');
-
   // Group by normalised title — show one insight per unique item being searched
   const titleGroups = new Map<string, any[]>();
   for (const listing of listings) {
@@ -322,8 +271,6 @@ function generateWantedInsights(listings: any[]): any[] {
     titleGroups.get(key)!.push(listing);
   }
 
-  console.log('[Wanted Insights Engine] Grouped', listings.length, 'listings into', titleGroups.size, 'unique titles');
-
   for (const [normalizedTitle, groupListings] of titleGroups.entries()) {
     // Representative listing = most recent in group
     const listing = groupListings.sort((a, b) => {
@@ -331,12 +278,6 @@ function generateWantedInsights(listings: any[]): any[] {
       const bTime = b.createdAt?.toMillis?.() || 0;
       return bTime - aTime;
     })[0];
-
-    console.log('[Wanted Insights Engine] Processing title group:', {
-      normalizedTitle,
-      groupSize: groupListings.length,
-      selectedListingId: listing.id,
-    });
 
     const createdAt = listing.createdAt?.toMillis?.() || Date.now();
     const days = Math.floor((Date.now() - createdAt) / (1000 * 60 * 60 * 24));
@@ -437,7 +378,6 @@ function generateWantedInsights(listings: any[]): any[] {
         best.groupSize = groupListings.length;
         best.groupListingIds = groupListings.map((l: any) => l.id);
       }
-      console.log('[Wanted Insights Engine] Adding insight for title group:', normalizedTitle, 'Type:', best.type, 'Group size:', groupListings.length);
       candidates.push(best);
     }
   }
@@ -445,6 +385,5 @@ function generateWantedInsights(listings: any[]): any[] {
   // Sort by priority, cap at 5
   candidates.sort((a, b) => wantedInsightPriority(a.type) - wantedInsightPriority(b.type));
   const results = candidates.slice(0, 5);
-  console.log('[Wanted Insights Engine] Generated', results.length, 'insights from', titleGroups.size, 'unique title groups');
   return results;
 }

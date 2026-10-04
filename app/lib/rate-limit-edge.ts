@@ -73,4 +73,6 @@ export const STRICT_API_ROUTES: StrictApiRoute[] = [
   { prefix: "/api/clear-verified-phone", key: "clear-phone", max: 10, windowMs: 60_000 },
   { prefix: "/api/security-health", key: "security-health", max: 20, windowMs: 60_000 },
   { prefix: "/api/knowledge", key: "knowledge", max: 60, windowMs: 60_000 },
+  { prefix: "/api/public-profiles", key: "public-profiles", max: 30, windowMs: 60_000 },
+  { prefix: "/api/listing-watchlist-count", key: "watchlist-count", max: 20, windowMs: 60_000 },
 ];

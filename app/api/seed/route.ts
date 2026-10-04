@@ -30,6 +30,16 @@ const listings = [
 
 export async function GET(req: NextRequest) {
   try {
+    const allowSeed =
+      process.env.ALLOW_ADMIN_SEED === "true" ||
+      (process.env.VERCEL_ENV !== "production" && process.env.NODE_ENV !== "production");
+    if (!allowSeed) {
+      return NextResponse.json(
+        { error: "Seed is disabled in production." },
+        { status: 410 }
+      );
+    }
+
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -81,6 +91,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, count: listings.length, sellers: sellers.length });
   } catch (e: any) {
     console.error("Seed error:", e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: "Seed failed" }, { status: 500 });
   }
 }

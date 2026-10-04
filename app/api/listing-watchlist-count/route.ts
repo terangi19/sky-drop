@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+
+function watchlistVoteId(uid: string, listingId: string): string {
+  return `${encodeURIComponent(uid)}:${encodeURIComponent(listingId)}`;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,18 +47,46 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getAdminDb();
-    const ref = db.collection("listings").doc(listingId);
-    const snap = await ref.get();
-    if (!snap.exists) {
+    const listingRef = db.collection("listings").doc(listingId);
+    const voteRef = db.collection("watchlistCountVotes").doc(
+      watchlistVoteId(decoded.uid, listingId)
+    );
+
+    const result = await db.runTransaction(async (tx) => {
+      const listingSnap = await tx.get(listingRef);
+      if (!listingSnap.exists) {
+        throw new Error("LISTING_NOT_FOUND");
+      }
+      const voteSnap = await tx.get(voteRef);
+      const current = Math.max(0, Number(listingSnap.data()?.watchlistCount) || 0);
+
+      if (delta === 1) {
+        if (voteSnap.exists) {
+          return { watchlistCount: current };
+        }
+        tx.set(voteRef, {
+          uid: decoded.uid,
+          listingId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+        tx.update(listingRef, { watchlistCount: current + 1 });
+        return { watchlistCount: current + 1 };
+      }
+
+      if (!voteSnap.exists) {
+        return { watchlistCount: current };
+      }
+      tx.delete(voteRef);
+      const after = Math.max(0, current - 1);
+      tx.update(listingRef, { watchlistCount: after });
+      return { watchlistCount: after };
+    });
+
+    return NextResponse.json(result);
+  } catch (e) {
+    if (e instanceof Error && e.message === "LISTING_NOT_FOUND") {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
-
-    const before = Math.max(0, Number(snap.data()?.watchlistCount) || 0);
-    const after = Math.max(0, before + delta);
-    await ref.update({ watchlistCount: after });
-
-    return NextResponse.json({ watchlistCount: after });
-  } catch (e) {
     console.error("[listing-watchlist-count]", e);
     return NextResponse.json(
       { error: "Failed to update watchlist count" },

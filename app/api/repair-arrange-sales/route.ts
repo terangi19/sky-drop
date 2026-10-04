@@ -16,9 +16,8 @@ export async function POST(req: NextRequest) {
     let decoded;
     try {
       decoded = await verifyIdToken(authHeader.slice(7));
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Invalid or expired token";
-      return NextResponse.json({ error: message }, { status: 401 });
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
     const email = decoded.email || "";
@@ -29,8 +28,7 @@ export async function POST(req: NextRequest) {
     const repaired = await repairMissingArrangePurchasesForSeller(email);
     return NextResponse.json({ success: true, repaired });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Repair failed";
-    console.error("[repair-arrange-sales]", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[repair-arrange-sales]", e);
+    return NextResponse.json({ error: "Repair failed" }, { status: 500 });
   }
 }
