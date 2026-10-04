@@ -13,7 +13,7 @@ import ArrangePurchaseModal from "../../../components/ArrangePurchaseModal";
 import { showToast } from "../../../components/Toast";
 import { createNotification } from "../../../lib/notifications";
 import { User } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, limit, query, where, Timestamp, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, query, where, Timestamp, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../../../lib/firebase";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
@@ -224,6 +224,8 @@ export default function ListingPage() {
   const refetchQuestionsRef = useRef<() => Promise<void>>(async () => {});
   const nativeActionsRef = useRef<HTMLDivElement | null>(null);
   const [stickyBarVisible, setStickyBarVisible] = useState(true);
+  // null = unknown (signed in, Firestore read pending); false for guests / not saved
+  const [savedToWatchlist, setSavedToWatchlist] = useState<boolean | null>(null);
   const [showArrangeModal, setShowArrangeModal] = useState(false);
   /** Authoritative buyer checkout mode — API/Firestore server, never stale snapshot cache alone. */
   const authoritativePaymentTypeRef = useRef<"stripe" | "contact" | null>(null);
@@ -954,27 +956,84 @@ export default function ListingPage() {
     };
   }, [listing]);
 
-  async function saveToWatchlist() {
-    if (!listing) return;
-    const uid = requireWatchlistAccount(user);
-    if (!uid) return;
-    const existingWatchlist = JSON.parse(localStorage.getItem("watchlist") || "[]");
-    const alreadySaved = existingWatchlist.find((item: any) => item.id === listing.id);
-    if (alreadySaved) {
-      showToast("Already in watchlist", "info");
+  // Seed Save/Saved state from the account watchlist (source of truth), not localStorage.
+  useEffect(() => {
+    if (!listing?.id) {
+      setSavedToWatchlist(null);
       return;
     }
+    const uid = user?.uid;
+    if (!uid) {
+      setSavedToWatchlist(false);
+      return;
+    }
+    let cancelled = false;
+    setSavedToWatchlist(null);
+    getDoc(doc(db, "users", uid, "watchlist", listing.id))
+      .then((snap) => {
+        if (!cancelled) setSavedToWatchlist(snap.exists());
+      })
+      .catch(() => {
+        if (!cancelled) setSavedToWatchlist(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, listing?.id]);
+
+  async function toggleWatchlist() {
+    if (!listing) return;
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return; // #59: guest -> login redirect, no toast, no heart fill
+
+    const ref = doc(db, "users", uid, "watchlist", listing.id);
+
+    if (savedToWatchlist) {
+      try {
+        await deleteDoc(ref);
+      } catch (e) {
+        console.error(e);
+        showToast("Could not remove from watchlist", "error");
+        return;
+      }
+      // Best-effort: remove the price-alert index doc other surfaces create.
+      deleteDoc(doc(db, "watchlist", `${uid}_${listing.id}`)).catch(() => {});
+      try {
+        const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
+        localStorage.setItem(
+          "watchlist",
+          JSON.stringify(existing.filter((item: { id?: string }) => item.id !== listing.id))
+        );
+      } catch {}
+      void adjustListingWatchlistCount(listing.id, -1);
+      setListing((prev) =>
+        prev
+          ? { ...prev, watchlistCount: Math.max(0, (Number((prev as any).watchlistCount) || 0) - 1) }
+          : prev
+      );
+      setSavedToWatchlist(false);
+      showToast("Removed from watchlist", "info");
+      return;
+    }
+
     try {
-      const snap = await getDoc(doc(db, "users", uid, "watchlist", listing.id));
+      const snap = await getDoc(ref);
       if (snap.exists()) {
+        setSavedToWatchlist(true);
         showToast("Already in watchlist", "info");
         return;
       }
     } catch (e) {
       console.error(e);
     }
-    localStorage.setItem("watchlist", JSON.stringify([...existingWatchlist, listing]));
-    setDoc(doc(db, "users", uid, "watchlist", listing.id), {
+
+    try {
+      const existingWatchlist = JSON.parse(localStorage.getItem("watchlist") || "[]");
+      if (!existingWatchlist.find((item: { id?: string }) => item.id === listing.id)) {
+        localStorage.setItem("watchlist", JSON.stringify([...existingWatchlist, listing]));
+      }
+    } catch {}
+    setDoc(ref, {
       id: listing.id, title: listing.title, price: listing.price, imageUrl: listing.imageUrl || listing.image || "",
       savedPrice: listing.price,
       savedAt: new Date().toISOString(),
@@ -985,6 +1044,7 @@ export default function ListingPage() {
         ? { ...prev, watchlistCount: Math.max(0, (Number((prev as any).watchlistCount) || 0) + 1) }
         : prev
     );
+    setSavedToWatchlist(true);
     showToast("Added to watchlist!");
   }
 
@@ -2719,11 +2779,17 @@ Service Status: 🟢 Inquiry Active`;
 
             {/* 9. WATCHLIST & SHARE */}
             <div className="flex gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-1.5">
-              <button onClick={saveToWatchlist} className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)] flex-1">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <button
+                type="button"
+                onClick={() => void toggleWatchlist()}
+                disabled={savedToWatchlist === null && Boolean(user?.uid)}
+                aria-pressed={savedToWatchlist === true}
+                className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)] flex-1 disabled:opacity-50"
+              >
+                <svg className="h-4 w-4" fill={savedToWatchlist ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
-                Save to Watchlist
+                {savedToWatchlist ? "Remove from Watchlist" : "Save to Watchlist"}
               </button>
               <button onClick={async () => {
                 try {
