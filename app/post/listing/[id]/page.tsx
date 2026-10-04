@@ -46,6 +46,7 @@ import {
 import RefundStatusCard from "../../../components/RefundStatusCard";
 import { ReviewStars } from "../../../components/SellerReviewStars";
 import { adjustListingWatchlistCount } from "../../../lib/listing-watchlist-count";
+import { requireWatchlistAccount } from "../../../lib/require-watchlist-account";
 import ServicePricingBadge from "../../../components/ServicePricingBadge";
 import { formatServicePriceDisplay } from "../../../lib/service-pricing";
 import {
@@ -955,31 +956,29 @@ export default function ListingPage() {
 
   async function saveToWatchlist() {
     if (!listing) return;
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return;
     const existingWatchlist = JSON.parse(localStorage.getItem("watchlist") || "[]");
     const alreadySaved = existingWatchlist.find((item: any) => item.id === listing.id);
     if (alreadySaved) {
       showToast("Already in watchlist", "info");
       return;
     }
-    if (user?.uid) {
-      try {
-        const snap = await getDoc(doc(db, "users", user.uid, "watchlist", listing.id));
-        if (snap.exists()) {
-          showToast("Already in watchlist", "info");
-          return;
-        }
-      } catch (e) {
-        console.error(e);
+    try {
+      const snap = await getDoc(doc(db, "users", uid, "watchlist", listing.id));
+      if (snap.exists()) {
+        showToast("Already in watchlist", "info");
+        return;
       }
+    } catch (e) {
+      console.error(e);
     }
     localStorage.setItem("watchlist", JSON.stringify([...existingWatchlist, listing]));
-    if (user?.uid) {
-      setDoc(doc(db, "users", user.uid, "watchlist", listing.id), {
-        id: listing.id, title: listing.title, price: listing.price, imageUrl: listing.imageUrl || listing.image || "",
-        savedPrice: listing.price,
-        savedAt: new Date().toISOString(),
-      }).catch((e) => console.error("Watchlist save failed:", e));
-    }
+    setDoc(doc(db, "users", uid, "watchlist", listing.id), {
+      id: listing.id, title: listing.title, price: listing.price, imageUrl: listing.imageUrl || listing.image || "",
+      savedPrice: listing.price,
+      savedAt: new Date().toISOString(),
+    }).catch((e) => console.error("Watchlist save failed:", e));
     void adjustListingWatchlistCount(listing.id, 1);
     setListing((prev) =>
       prev

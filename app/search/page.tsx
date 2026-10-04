@@ -26,6 +26,7 @@ import {
 } from "../lib/listing-type-config";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { adjustListingWatchlistCount } from "../lib/listing-watchlist-count";
+import { requireWatchlistAccount } from "../lib/require-watchlist-account";
 import { rankListingsBySearch } from "../lib/marketplace-fuzzy-search";
 import { normalizeMarketplaceSearchQuery, processVoiceSearchTranscript } from "../lib/voice-search-pipeline";
 import { logVoiceSearch } from "../lib/voice-search-logger";
@@ -197,13 +198,14 @@ export default function SearchPage() {
   const isInWatchlist = (id: string) => watchlist.includes(id);
 
   const toggleWatchlist = async (item: Listing) => {
-    if (!user?.uid) return;
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return;
     const adding = !isInWatchlist(item.id);
     const newWatchlist = adding
       ? [...watchlist, item.id]
       : watchlist.filter((id) => id !== item.id);
     setWatchlist(newWatchlist);
-    localStorage.setItem(`watchlist_${user.uid}`, JSON.stringify(newWatchlist));
+    localStorage.setItem(`watchlist_${uid}`, JSON.stringify(newWatchlist));
     void adjustListingWatchlistCount(item.id, adding ? 1 : -1);
 
     try {
@@ -215,14 +217,14 @@ export default function SearchPage() {
           image: item.images?.[0] || item.imageUrl || "",
           savedAt: serverTimestamp(),
         };
-        await setDoc(doc(db, "users", user.uid, "watchlist", item.id), watchData);
-        await setDoc(doc(db, "watchlist", `${user.uid}_${item.id}`), {
+        await setDoc(doc(db, "users", uid, "watchlist", item.id), watchData);
+        await setDoc(doc(db, "watchlist", `${uid}_${item.id}`), {
           ...watchData,
-          userId: user.uid,
+          userId: uid,
         });
       } else {
-        await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id));
-        await deleteDoc(doc(db, "watchlist", `${user.uid}_${item.id}`));
+        await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
+        await deleteDoc(doc(db, "watchlist", `${uid}_${item.id}`));
       }
     } catch (e) {
       console.error("Search watchlist sync failed:", e);
