@@ -947,6 +947,25 @@ describe("Firestore Security Rules", () => {
       );
     });
 
+    it("non-owners cannot write trade post offers (the counter is bumped by /api/trade-offer)", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("tradePosts").doc("offer-post").set({
+          title: "Post",
+          sellerId: "offer-alice",
+          sellerEmail: "offer-alice@test.com",
+          offers: 0,
+        });
+      });
+      const bob = testEnv
+        .authenticatedContext("offer-bob", {
+          email: "offer-bob@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(bob.collection("tradePosts").doc("offer-post").update({ offers: 1 }));
+      await assertFails(bob.collection("tradePosts").doc("offer-post").update({ offers: 999999 }));
+    });
+
     it("clients cannot mint hustler commissions or read every hustler click", async () => {
       const alice = testEnv
         .authenticatedContext("hustler-alice", {
