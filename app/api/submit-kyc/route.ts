@@ -10,6 +10,7 @@ import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
 import { notifyKycSubmittedToAdmins } from "../../lib/admin-alerts";
 import { getFirebaseStorageBucket } from "../../lib/firebase-storage-config";
+import { disposableEmailBlock } from "../../lib/disposable-email-gate";
 
 export const runtime = "nodejs";
 
@@ -56,6 +57,11 @@ export async function POST(req: NextRequest) {
         },
         { status: 403 }
       );
+    }
+
+    {
+      const blocked = disposableEmailBlock(decoded.email);
+      if (blocked) return blocked;
     }
 
     const formData = await req.formData();
