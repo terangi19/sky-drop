@@ -157,7 +157,7 @@ describe("trade-offer per-buyer counting", () => {
     await expect(second.json()).resolves.toEqual({
       success: true,
       offers: 3,
-      notified: false,
+      notified: true,
       duplicate: true,
     });
 
