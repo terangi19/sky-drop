@@ -36,6 +36,7 @@ import {
   listingWatchlistCount,
   listingWatchlistGlowIntensity,
 } from "../lib/listing-watchlist-count";
+import { requireWatchlistAccount } from "../lib/require-watchlist-account";
 import {
   citiesForRegionFromListings,
   listingMatchesCity,
@@ -48,7 +49,12 @@ import HotThisWeek from "../components/HotThisWeek";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
-import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
+import {
+  BROWSE_POLL_MS,
+  BROWSE_SWR_TTL_MS,
+  dedupeAsync,
+  startVisibilityPolledFetch,
+} from "../lib/polled-firestore";
 import {
   emptyListBody,
   emptyListCtaLabel,
@@ -110,13 +116,19 @@ export default function WantedPage() {
     async function fetchListings() {
       if (!mounted) return;
       try {
-        const snap = await getDocs(q);
+        const items = await dedupeAsync(
+          "browse:type:wanted",
+          BROWSE_SWR_TTL_MS,
+          async () => {
+            const snap = await getDocs(q);
+            return snap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as any))
+              .filter((i: any) => isListingVisibleInMarketplace(i))
+              .sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0))
+              .slice(0, 60);
+          }
+        );
         if (!mounted) return;
-        const items: any[] = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as any))
-          .filter((i: any) => isListingVisibleInMarketplace(i))
-          .sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0))
-          .slice(0, 60);
         setListings(items);
         setLoadingListings(false);
       } catch (err) {
@@ -142,17 +154,17 @@ export default function WantedPage() {
   }
 
   async function toggleWatchlist(item: any) {
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return;
     const wasSaved = isInWatchlist(item.id);
 
-    if (user?.uid) {
-      try {
-        const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
-        if (snap.exists()) {
-          await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id));
-        }
-      } catch (e) {
-        console.error(e);
+    try {
+      const snap = await getDoc(doc(db, "users", uid, "watchlist", item.id));
+      if (snap.exists()) {
+        await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
       }
+    } catch (e) {
+      console.error(e);
     }
 
     const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
@@ -166,19 +178,17 @@ export default function WantedPage() {
     } else {
       existing.unshift(item);
       localStorage.setItem("watchlist", JSON.stringify(existing));
-      if (user?.uid) {
-        setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
-          id: item.id,
-          title: item.title,
-          price: item.price,
-          imageUrl: item.imageUrl || item.image || "",
-          savedPrice: item.price,
-          savedAt: new Date().toISOString(),
-        }).catch((e) => {
-          console.error("Watchlist save failed:", e);
-          showToast("Failed to save to watchlist", "error");
-        });
-      }
+      setDoc(doc(db, "users", uid, "watchlist", item.id), {
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        imageUrl: item.imageUrl || item.image || "",
+        savedPrice: item.price,
+        savedAt: new Date().toISOString(),
+      }).catch((e) => {
+        console.error("Watchlist save failed:", e);
+        showToast("Failed to save to watchlist", "error");
+      });
       showToast("Added to watchlist!");
       void adjustListingWatchlistCount(item.id, 1);
     }

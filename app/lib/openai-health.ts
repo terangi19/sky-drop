@@ -4,7 +4,8 @@
  */
 import "server-only";
 
-import { checkOpenAiSpendGate, isOpenAiEnabled } from "./openai-spend-guard";
+import { isOpenAiEnabled } from "./openai-spend-guard";
+import { checkGlobalBudgetCaps } from "./openai-spending";
 
 export { skyAiRuleFallbackText } from "./sky-ai-rule-fallback";
 
@@ -26,7 +27,8 @@ export type OpenAiHealth = {
 
 let successCache: { at: number; result: OpenAiHealth } | null = null;
 let failureCache: { at: number; result: OpenAiHealth } | null = null;
-const SUCCESS_CACHE_MS = 5 * 60_000;
+/** Aligned with the client status TTL. Spend is re-checked; billed calls still gate live. */
+const SUCCESS_CACHE_MS = 30_000;
 const FAILURE_CACHE_MS = 20_000;
 
 export function isCriticalOpenAiIssue(issue: OpenAiHealthIssue | undefined): boolean {
@@ -53,19 +55,41 @@ export async function checkOpenAiHealth(): Promise<OpenAiHealth> {
     return { configured: true, ready: false, issue: "disabled", model };
   }
 
-  const gate = await checkOpenAiSpendGate();
-  if (!gate.allowed) {
-    const issue: OpenAiHealthIssue =
-      gate.code === "openai_disabled" ? "disabled" : "budget_exceeded";
-    return { configured: true, ready: false, issue, model };
-  }
-
   const now = Date.now();
   if (successCache && now - successCache.at < SUCCESS_CACHE_MS) {
     return successCache.result;
   }
   if (failureCache && now - failureCache.at < FAILURE_CACHE_MS) {
     return failureCache.result;
+  }
+
+  // Global USD caps only — per-user/IP caps still apply on billed calls.
+  // Status must not wait on extra Firestore identity reads or an OpenAI ping.
+  try {
+    const gate = await checkGlobalBudgetCaps();
+    if (!gate.allowed) {
+      const result: OpenAiHealth = {
+        configured: true,
+        ready: false,
+        issue: "budget_exceeded",
+        model,
+      };
+      failureCache = { at: now, result };
+      successCache = null;
+      return result;
+    }
+  } catch (err) {
+    // Fail closed: tracker/admin errors must not report openaiReady.
+    console.warn("[openai-health] budget check failed; treating as not ready", err);
+    const result: OpenAiHealth = {
+      configured: true,
+      ready: false,
+      issue: "budget_exceeded",
+      model,
+    };
+    failureCache = { at: now, result };
+    successCache = null;
+    return result;
   }
 
   // Non-billing health check: key present + spend allowed. Chat surfaces auth/quota errors.

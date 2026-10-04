@@ -43,6 +43,13 @@ const nextConfig = {
       process.env.NEXT_PUBLIC_AWHINA_VISION_LISTING_ENABLED === "true"
         ? "true"
         : "false",
+    // Funnel analytics writes default OFF for closed beta.
+    // Set FUNNEL_EVENTS_ENABLED=true or NEXT_PUBLIC_FUNNEL_EVENTS_ENABLED=true and redeploy.
+    NEXT_PUBLIC_FUNNEL_EVENTS_ENABLED:
+      process.env.NEXT_PUBLIC_FUNNEL_EVENTS_ENABLED === "true" ||
+      process.env.FUNNEL_EVENTS_ENABLED === "true"
+        ? "true"
+        : "false",
   },
 
   images: {
@@ -187,7 +194,29 @@ const nextConfig = {
 
       {
 
-        source: "/((?!api|_next/static|_next/image|favicon|manifest).*)",
+        // Prerendered anonymous shell (client Firebase auth). Browsers revalidate
+        // (max-age=0); CDN may hold 60s. `/` is not geo-blocked. CSRF is issued via
+        // Set-Cookie (typically uncached) or recovered from POST /api/csrf.
+        source: "/",
+
+        headers: [
+
+          {
+
+            key: "Cache-Control",
+
+            value: "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
+
+          },
+
+        ],
+
+      },
+
+      {
+
+        // `.+` so exact `/` is not also matched (would override the public CDN cache).
+        source: "/((?!api|_next/static|_next/image|favicon|manifest).+)",
 
         headers: [
 

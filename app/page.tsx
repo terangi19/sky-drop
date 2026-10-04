@@ -38,7 +38,6 @@ import { LoadingCard } from "./components/LoadingSpinner";
 import EmptyState from "./components/EmptyState";
 import { funnel } from "./lib/funnel-events";
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -46,12 +45,9 @@ import {
   getDocs,
   Timestamp,
   limit,
-  onSnapshot,
   orderBy,
   query,
-  serverTimestamp,
   setDoc,
-  where,
 } from "firebase/firestore";
 
 import { auth, db, storage, onAuthStateChanged } from "./lib/firebase";
@@ -60,8 +56,19 @@ import { isListingVisibleInMarketplace } from "./lib/listing-availability";
 import ListingImage, { listingHasImage } from "./components/ListingImage";
 import { isHomeBrowseListing, isPhysicalHomeCategoryListing } from "./lib/listing-types";
 import { isDemoListing } from "./lib/marketplace-display";
+import {
+  formatMarketplaceListingCount,
+  resolvedMarketplaceListingCount,
+} from "./lib/marketplace-listing-count";
 import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
+import { requireWatchlistAccount } from "./lib/require-watchlist-account";
 import { useSellerListingMeta } from "./lib/useSellerListingMeta";
+import { LISTINGS_POLL_MS } from "./lib/firestore-query-limits";
+import {
+  HOME_SWR_TTL_MS,
+  dedupeAsync,
+  startVisibilityPolledFetch,
+} from "./lib/polled-firestore";
 import { sellerMessagesUrl } from "./lib/public-display";
 
 interface Listing {
@@ -220,7 +227,6 @@ export default function Home() {
 
   const lastOfferTime = useRef(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
-  const [authReady, setAuthReady] = useState(false);
   const [listingsRetry, setListingsRetry] = useState(0);
   const {
     sellerReviewStats,
@@ -243,9 +249,10 @@ export default function Home() {
   const isInWatchlistForCards = useCallback(
     (id: string) => {
       void watchlistTick;
+      if (!user?.uid) return false;
       return isInWatchlist(id);
     },
-    [watchlistTick]
+    [watchlistTick, user?.uid]
   );
 
   const activeCategories = useMemo(() => {
@@ -258,7 +265,6 @@ export default function Home() {
     }
     return trendingCategories.filter((c) => top3.has(c.name) || (counts[c.name] || 0) > 0);
   }, [listings]);
-  const [animatedCount, setAnimatedCount] = useState(0);
   const [showAttentionModal, setShowAttentionModal] = useState(false);
   const [showAttentionBanner, setShowAttentionBanner] = useState(true);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -337,7 +343,6 @@ export default function Home() {
         try { localStorage.removeItem("recentlyViewed"); } catch {}
       }
       setUser(currentUser);
-      setAuthReady(true);
     });
     return () => {
       mounted = false;
@@ -345,142 +350,126 @@ export default function Home() {
     };
   }, []);
 
-  // Fetch listings with getDocs + polling instead of real-time for cost optimization
+  // Public marketplace rows — do not wait on Firebase auth. Module SWR + visibility
+  // poller skip remount / tab-switch duplicate reads of the bounded 150-doc set.
   useEffect(() => {
-    if (!authReady) return;
     let mounted = true;
-    let inFlight: Promise<void> | null = null;
-    let queuedRefresh = false;
+    const forceRefresh = listingsRetry > 0;
 
     async function fetchListings() {
       if (!mounted) return;
-      // Dedupe overlapping calls from interval + visibility + effect remount/retry
-      if (inFlight) {
-        queuedRefresh = true;
-        return inFlight;
-      }
+      try {
+        const filtered = await dedupeAsync(
+          "home:listings-tradeposts:v1",
+          HOME_SWR_TTL_MS,
+          async () => {
+            const [listingsSnap, tradePostsSnap] = await Promise.all([
+              getDocs(
+                query(
+                  collection(db, "listings"),
+                  orderBy("createdAt", "desc"),
+                  limit(100)
+                )
+              ),
+              getDocs(
+                query(
+                  collection(db, "tradePosts"),
+                  orderBy("createdAt", "desc"),
+                  limit(50)
+                )
+              ),
+            ]);
 
-      inFlight = (async () => {
-        try {
-          const [listingsSnap, tradePostsSnap] = await Promise.all([
-            getDocs(
-              query(
-                collection(db, "listings"),
-                orderBy("createdAt", "desc"),
-                limit(100)
-              )
-            ),
-            getDocs(
-              query(
-                collection(db, "tradePosts"),
-                orderBy("createdAt", "desc"),
-                limit(50)
-              )
-            ),
-          ]);
+            const listingItems = listingsSnap.docs.map((d) => {
+              const data = d.data();
+              return {
+                id: d.id,
+                title: data.title,
+                price: data.price,
+                image: data.image,
+                imageUrl: data.imageUrl,
+                images: data.images,
+                category: data.category,
+                condition: data.condition,
+                location: data.location,
+                sellerEmail: data.sellerEmail,
+                sellerUsername: data.sellerUsername,
+                sellerId:
+                  data.sellerId ||
+                  data.userId ||
+                  data.ownerId ||
+                  data.sellerUid ||
+                  data.uid,
+                userId: data.userId,
+                ownerId: data.ownerId,
+                sellerUid: data.sellerUid,
+                createdAt: data.createdAt,
+                status: data.status,
+                type: data.type,
+                saleType: data.saleType,
+                pricingType: data.pricingType,
+                paymentType: data.paymentType,
+                stockQuantity: data.stockQuantity,
+                views: data.views,
+                watchlistCount: data.watchlistCount,
+                expiresAt: data.expiresAt,
+                promotedUntil: data.promotedUntil,
+                promoted: data.promoted,
+                isDemo: data.isDemo,
+              };
+            });
+            const tradeItems = tradePostsSnap.docs.map((d) => {
+              const data = d.data();
+              return {
+                id: d.id,
+                title: data.title,
+                price: data.price,
+                image: data.image,
+                imageUrl: data.imageUrl,
+                images: data.images,
+                sellerEmail: data.sellerEmail,
+                sellerUsername: data.sellerUsername,
+                sellerId: data.sellerId || data.userId || data.ownerId,
+                createdAt: data.createdAt,
+                status: data.status,
+                type: data.type,
+                views: data.views,
+                watchlistCount: data.watchlistCount,
+              };
+            });
 
-          if (!mounted) return;
+            const combined = [...listingItems, ...tradeItems];
+            const visible = combined.filter(
+              (i: any) => i.status !== "flagged" && i.status !== "pending_review"
+            );
+            visible.sort(
+              (a: any, b: any) =>
+                (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+            );
+            return visible.slice(0, 100);
+          },
+          forceRefresh
+        );
 
-          // Map fields the marketplace card needs (do not strip watchlistCount/views)
-          const listingItems = listingsSnap.docs.map((d) => {
-            const data = d.data();
-            return {
-              id: d.id,
-              title: data.title,
-              price: data.price,
-              image: data.image,
-              imageUrl: data.imageUrl,
-              images: data.images,
-              category: data.category,
-              condition: data.condition,
-              location: data.location,
-              sellerEmail: data.sellerEmail,
-              sellerUsername: data.sellerUsername,
-              sellerId:
-                data.sellerId ||
-                data.userId ||
-                data.ownerId ||
-                data.sellerUid ||
-                data.uid,
-              userId: data.userId,
-              ownerId: data.ownerId,
-              sellerUid: data.sellerUid,
-              createdAt: data.createdAt,
-              status: data.status,
-              type: data.type,
-              saleType: data.saleType,
-              pricingType: data.pricingType,
-              paymentType: data.paymentType,
-              stockQuantity: data.stockQuantity,
-              views: data.views,
-              watchlistCount: data.watchlistCount,
-              expiresAt: data.expiresAt,
-              promotedUntil: data.promotedUntil,
-              promoted: data.promoted,
-              isDemo: data.isDemo,
-            };
-          });
-          const tradeItems = tradePostsSnap.docs.map((d) => {
-            const data = d.data();
-            return {
-              id: d.id,
-              title: data.title,
-              price: data.price,
-              image: data.image,
-              imageUrl: data.imageUrl,
-              images: data.images,
-              sellerEmail: data.sellerEmail,
-              sellerUsername: data.sellerUsername,
-              sellerId: data.sellerId || data.userId || data.ownerId,
-              createdAt: data.createdAt,
-              status: data.status,
-              type: data.type,
-              views: data.views,
-              watchlistCount: data.watchlistCount,
-            };
-          });
-
-          const combined = [...listingItems, ...tradeItems];
-          const filtered = combined.filter((i: any) => i.status !== "flagged" && i.status !== "pending_review");
-          filtered.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
-          setListings(filtered.slice(0, 100));
-          setLoadError(false);
+        if (!mounted) return;
+        setListings(filtered);
+        setLoadError(false);
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch listings:", error);
+        if (mounted) {
+          setLoadError(true);
           setLoading(false);
-        } catch (error) {
-          console.error("Failed to fetch listings:", error);
-          if (mounted) {
-            setLoadError(true);
-            setLoading(false);
-          }
-        } finally {
-          inFlight = null;
-          if (queuedRefresh && mounted) {
-            queuedRefresh = false;
-            void fetchListings();
-          }
         }
-      })();
-
-      return inFlight;
+      }
     }
 
-    fetchListings();
-    // Refresh every 5 minutes; also refetch when tab becomes visible
-    const interval = setInterval(fetchListings, 300000);
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && mounted) {
-        fetchListings();
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
+    const stop = startVisibilityPolledFetch(fetchListings, LISTINGS_POLL_MS);
     return () => {
       mounted = false;
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      stop();
     };
-  }, [user, authReady, listingsRetry]);
+  }, [listingsRetry]);
 
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
@@ -583,10 +572,12 @@ export default function Home() {
   }, [router]);
 
     const saveToWatchlist = useCallback(async (item: any) => {
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return;
     // Check Firestore for duplicate (in case user is on a different device)
-    if (user?.uid) {
+    if (uid) {
       try {
-        const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
+        const snap = await getDoc(doc(db, "users", uid, "watchlist", item.id));
         if (snap.exists()) {
           showToast("Already in watchlist", "info");
           return;
@@ -625,12 +616,10 @@ export default function Home() {
      )
    );
 
-   if (user?.uid) {
-     setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
+     setDoc(doc(db, "users", uid, "watchlist", item.id), {
        id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
        savedAt: new Date().toISOString(),
        }).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
-     }
 
      void adjustListingWatchlistCount(item.id, 1);
      setListings((prev) =>
@@ -645,22 +634,22 @@ export default function Home() {
   }, [user]);
 
   async function toggleWatchlist(item: any) {
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return;
     const wasSaved = JSON.parse(localStorage.getItem("watchlist") || "[]").some(
       (fav: any) => fav.id === item.id
     );
     const now = new Date().toISOString();
 
-    if (user?.uid) {
-      try {
-        const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
-        if (snap.exists()) {
-          const { deleteDoc } = await import("firebase/firestore");
-          await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id));
-          await deleteDoc(doc(db, "watchlist", `${user.uid}_${item.id}`));
-        }
-      } catch (e) {
-        console.error(e);
+    try {
+      const snap = await getDoc(doc(db, "users", uid, "watchlist", item.id));
+      if (snap.exists()) {
+        const { deleteDoc } = await import("firebase/firestore");
+        await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
+        await deleteDoc(doc(db, "watchlist", `${uid}_${item.id}`));
       }
+    } catch (e) {
+      console.error(e);
     }
 
     const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
@@ -683,23 +672,21 @@ export default function Home() {
     } else {
       existing.unshift(item);
       localStorage.setItem("watchlist", JSON.stringify(existing));
-      if (user?.uid) {
-        const watchData = {
-          id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
-          savedPrice: item.price,
-          savedAt: now,
-          sellerEmail: item.sellerEmail || "",
-          sellerUsername: item.sellerUsername || "",
-          sellerId: item.sellerId || "",
-        };
-        setDoc(doc(db, "users", user.uid, "watchlist", item.id), watchData).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
-        setDoc(doc(db, "watchlist", `${user.uid}_${item.id}`), {
-          ...watchData,
-          userId: user.uid,
-          userEmail: user.email,
-          listingId: item.id,
-        }).catch((e) => { console.error("Watchlist index save failed:", e); });
-      }
+      const watchData = {
+        id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
+        savedPrice: item.price,
+        savedAt: now,
+        sellerEmail: item.sellerEmail || "",
+        sellerUsername: item.sellerUsername || "",
+        sellerId: item.sellerId || "",
+      };
+      setDoc(doc(db, "users", uid, "watchlist", item.id), watchData).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
+      setDoc(doc(db, "watchlist", `${uid}_${item.id}`), {
+        ...watchData,
+        userId: uid,
+        userEmail: user?.email || "",
+        listingId: item.id,
+      }).catch((e) => { console.error("Watchlist index save failed:", e); });
       showToast("Added to watchlist!");
       void adjustListingWatchlistCount(item.id, 1);
       setListings((prev) =>
@@ -833,21 +820,12 @@ export default function Home() {
       sortBy,
     ]);
 
-  // Animate listing count
-  useEffect(() => {
-    const target = filteredListings.length;
-    const start = animatedCount;
-    const diff = target - start;
-    if (diff === 0) return;
-    const duration = 300;
-    const startTime = performance.now();
-    const tick = () => {
-      const pct = Math.min((performance.now() - startTime) / duration, 1);
-      setAnimatedCount(Math.round(start + diff * pct));
-      if (pct < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }, [filteredListings.length]);
+  const knownListingCount = resolvedMarketplaceListingCount({
+    loading,
+    count: filteredListings.length,
+    previousKnownCount: listings.length > 0 ? filteredListings.length : null,
+  });
+  const listingCountLabel = formatMarketplaceListingCount(knownListingCount);
 
   const submitOffer = async () => {
     if (!offerAmount || !offerListing || !user?.email) return;
@@ -1127,15 +1105,36 @@ export default function Home() {
             <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)] sm:text-xl">
               {selectedCategory !== "All" ? selectedCategory : "Latest listings"}
             </h2>
-            {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) ? (
+            {loadError ? null : (selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) ? (
               <div className="flex items-center gap-2 rounded-md bg-[var(--soft-card)] px-2.5 py-1 border border-[var(--card-border)]">
                 <span className="text-[10px] font-semibold text-[var(--muted)] uppercase tracking-wider">Results</span>
-                <span className="text-sm font-semibold text-[var(--foreground)]">{animatedCount}</span>
+                {knownListingCount == null ? (
+                  <span
+                    className="inline-block h-3.5 w-6 animate-pulse rounded bg-[var(--card-border)]"
+                    aria-busy="true"
+                    aria-label="Loading listing count"
+                    data-listing-count="loading"
+                  />
+                ) : (
+                  <span
+                    className="text-sm font-semibold text-[var(--foreground)]"
+                    data-listing-count={knownListingCount}
+                  >
+                    {knownListingCount}
+                  </span>
+                )}
               </div>
-            ) : (
-              <p className="text-[12px] text-[var(--muted)]">
-                {animatedCount} listing{animatedCount !== 1 ? "s" : ""}
+            ) : listingCountLabel ? (
+              <p className="text-[12px] text-[var(--muted)]" data-listing-count={knownListingCount}>
+                {listingCountLabel}
               </p>
+            ) : (
+              <span
+                className="inline-block h-3 w-16 animate-pulse rounded bg-[var(--card-border)]"
+                aria-busy="true"
+                aria-label="Loading listing count"
+                data-listing-count="loading"
+              />
             )}
             <Link
               href={user ? "/post/ai" : "/signup"}

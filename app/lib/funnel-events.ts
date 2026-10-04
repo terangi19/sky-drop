@@ -1,5 +1,6 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
+import { isFunnelEventsEnabled } from "./funnel-events-flags";
 
 export type FunnelEventName =
   | "listing_form_started"
@@ -56,8 +57,10 @@ function getSessionId(): string {
  * Write a single funnel event to Firestore.
  * Fire-and-forget — never throws, never blocks UI.
  * Session-scoped dedup for high-frequency events (viewed, form_started).
+ * Gated by FUNNEL_EVENTS_ENABLED / NEXT_PUBLIC_FUNNEL_EVENTS_ENABLED (default off).
  */
 export function trackFunnelEvent(payload: FunnelEventPayload): void {
+  if (!isFunnelEventsEnabled()) return;
   if (!payload.userId) return;
 
   const dedupEvents: FunnelEventName[] = ["listing_form_started", "listing_detail_viewed"];

@@ -6,8 +6,9 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { User } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, limit, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 import { getLevelInfo, setUserLevel } from "../lib/xp";
 import { trackChallenge } from "../lib/challenges";
 import { isAdminEmail } from "../lib/admin-check";
@@ -59,12 +60,11 @@ export default function DashboardPage() {
       }
     }
 
-    fetchProfile();
-    const interval = setInterval(fetchProfile, 60000); // Refresh every 60 seconds
+    const stop = startVisibilityPolledFetch(fetchProfile, BROWSE_POLL_MS);
 
     return () => {
       mounted = false;
-      clearInterval(interval);
+      stop();
     };
   }, [user?.uid]);
 
@@ -143,16 +143,14 @@ export default function DashboardPage() {
       }
     }
 
-    fetchDashboardData();
-    fetchSellerInsights();
-    const interval = setInterval(() => {
-      fetchDashboardData();
-      fetchSellerInsights();
-    }, 60000); // Refresh every 60 seconds
+    const stop = startVisibilityPolledFetch(async () => {
+      await fetchDashboardData();
+      await fetchSellerInsights();
+    }, BROWSE_POLL_MS);
 
     return () => {
       mounted = false;
-      clearInterval(interval);
+      stop();
     };
   }, [user?.email]);
 

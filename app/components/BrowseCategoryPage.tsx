@@ -57,7 +57,18 @@ import {
 } from "../lib/nz-region-cities";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
-import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
+import {
+  BROWSE_POLL_MS,
+  BROWSE_SWR_TTL_MS,
+  dedupeAsync,
+  startVisibilityPolledFetch,
+} from "../lib/polled-firestore";
+import {
+  formatMarketplaceListingCount,
+  isAuthoritativeListingSnapshot,
+  resolvedMarketplaceListingCount,
+} from "../lib/marketplace-listing-count";
+import { requireWatchlistAccount } from "../lib/require-watchlist-account";
 
 function categoryExtraSearchFields(
   configKey: BrowseCategoryKey,
@@ -165,18 +176,34 @@ export default function BrowseCategoryPage({ configKey }: Props) {
     async function fetchListings() {
       if (!mounted) return;
       try {
-        const snap = await getDocs(q);
-        if (!mounted) return;
-        const items: any[] = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as any))
-          .filter((i: any) => isListingVisibleInMarketplace(i));
-        items.sort(
-          (a: any, b: any) =>
-            (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+        const items = await dedupeAsync(
+          `browse:type:${config.listingType}`,
+          BROWSE_SWR_TTL_MS,
+          async () => {
+            const snap = await getDocs(q);
+            if (!isAuthoritativeListingSnapshot(snap)) {
+              throw new Error("listing-snapshot-not-authoritative");
+            }
+            const mapped: any[] = snap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as any))
+              .filter((i: any) => isListingVisibleInMarketplace(i));
+            mapped.sort(
+              (a: any, b: any) =>
+                (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+            );
+            return mapped;
+          }
         );
+        if (!mounted) return;
         setListings(items);
         setLoading(false);
       } catch (err) {
+        if (
+          err instanceof Error &&
+          err.message === "listing-snapshot-not-authoritative"
+        ) {
+          return;
+        }
         console.error(`Failed to load ${config.listingType} listings:`, err);
         if (mounted) setLoading(false);
       }
@@ -199,17 +226,17 @@ export default function BrowseCategoryPage({ configKey }: Props) {
   }
 
   async function toggleWatchlist(item: any) {
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return;
     const wasSaved = isInWatchlist(item.id);
 
-    if (user?.uid) {
-      try {
-        const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
-        if (snap.exists()) {
-          await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id));
-        }
-      } catch (e) {
-        console.error(e);
+    try {
+      const snap = await getDoc(doc(db, "users", uid, "watchlist", item.id));
+      if (snap.exists()) {
+        await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
       }
+    } catch (e) {
+      console.error(e);
     }
 
     const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
@@ -223,19 +250,17 @@ export default function BrowseCategoryPage({ configKey }: Props) {
     } else {
       existing.unshift(item);
       localStorage.setItem("watchlist", JSON.stringify(existing));
-      if (user?.uid) {
-        setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
-          id: item.id,
-          title: item.title,
-          price: item.price,
-          imageUrl: item.imageUrl || item.image || "",
-          savedPrice: item.price,
-          savedAt: new Date().toISOString(),
-        }).catch((e) => {
-          console.error("Watchlist save failed:", e);
-          showToast("Failed to save to watchlist", "error");
-        });
-      }
+      setDoc(doc(db, "users", uid, "watchlist", item.id), {
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        imageUrl: item.imageUrl || item.image || "",
+        savedPrice: item.price,
+        savedAt: new Date().toISOString(),
+      }).catch((e) => {
+        console.error("Watchlist save failed:", e);
+        showToast("Failed to save to watchlist", "error");
+      });
       showToast("Added to watchlist!");
       void adjustListingWatchlistCount(item.id, 1);
     }
@@ -327,7 +352,14 @@ export default function BrowseCategoryPage({ configKey }: Props) {
     return top.map((l: any) => l.title).join(" · ");
   }, [listings]);
 
-  const filterCountLabel = `${filteredListings.length} ${filteredListings.length === 1 ? config.itemSingular : config.itemPlural}`;
+  const knownListingCount = resolvedMarketplaceListingCount({
+    loading,
+    count: filteredListings.length,
+  });
+  const filterCountLabel = formatMarketplaceListingCount(knownListingCount, {
+    singular: config.itemSingular,
+    plural: config.itemPlural,
+  });
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white transition-colors duration-300">
@@ -547,16 +579,20 @@ export default function BrowseCategoryPage({ configKey }: Props) {
                   </div>
                 </>
               )}
-              <span className="text-[11px] text-zinc-500">
-                {filterCountLabel}
-                {searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
-                {config.filterMode === "region" && selectedRegion !== "All"
+              <span
+                className="text-[11px] text-zinc-500"
+                data-listing-count={knownListingCount ?? "loading"}
+                {...(knownListingCount == null ? { "aria-busy": true, "aria-label": "Loading listing count" } : {})}
+              >
+                {filterCountLabel ?? ""}
+                {filterCountLabel && searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
+                {filterCountLabel && config.filterMode === "region" && selectedRegion !== "All"
                   ? ` in ${selectedRegion}`
                   : ""}
-                {config.filterMode === "region" && selectedCity !== "All"
+                {filterCountLabel && config.filterMode === "region" && selectedCity !== "All"
                   ? ` · ${selectedCity}`
                   : ""}
-                {config.filterMode === "category" && selectedCategory !== "All"
+                {filterCountLabel && config.filterMode === "category" && selectedCategory !== "All"
                   ? ` in ${selectedCategory}`
                   : ""}
               </span>
@@ -587,7 +623,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
         />
 
         {loading ? (
-          <div className={`${LISTING_GRID_MT} mt-12`}>
+          <div className={`${LISTING_GRID_MT} mt-12`} data-listing-count="loading" aria-busy="true">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="h-64 animate-pulse rounded-2xl bg-white/[0.04]" />
             ))}
@@ -646,16 +682,19 @@ export default function BrowseCategoryPage({ configKey }: Props) {
                   <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
                     {config.listingsHeading}
                   </h2>
-                  <p className="text-[11px] text-zinc-500">
-                    {filterCountLabel} found
-                    {searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
-                    {config.filterMode === "region" && selectedRegion !== "All"
+                  <p
+                    className="text-[11px] text-zinc-500"
+                    data-listing-count={knownListingCount ?? "loading"}
+                  >
+                    {filterCountLabel ? `${filterCountLabel} found` : ""}
+                    {filterCountLabel && searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
+                    {filterCountLabel && config.filterMode === "region" && selectedRegion !== "All"
                       ? ` · ${selectedRegion}`
                       : ""}
-                    {config.filterMode === "region" && selectedCity !== "All"
+                    {filterCountLabel && config.filterMode === "region" && selectedCity !== "All"
                       ? ` · ${selectedCity}`
                       : ""}
-                    {config.filterMode === "category" && selectedCategory !== "All"
+                    {filterCountLabel && config.filterMode === "category" && selectedCategory !== "All"
                       ? ` · ${selectedCategory}`
                       : ""}
                   </p>

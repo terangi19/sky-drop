@@ -10,7 +10,12 @@ import { db } from "../lib/firebase";
 import { LISTING_GRID, PAGE_SHELL_WIDE } from "../lib/page-layout";
 import { sellerProfileDisplayName } from "../lib/public-display";
 import { BROWSE_LISTINGS_LIMIT } from "../lib/firestore-query-limits";
-import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
+import {
+  BROWSE_POLL_MS,
+  BROWSE_SWR_TTL_MS,
+  dedupeAsync,
+  startVisibilityPolledFetch,
+} from "../lib/polled-firestore";
 
 const CATEGORIES = ["All", "IT & Tech", "Sales & Marketing", "Accounting & Finance", "Construction & Trades", "Healthcare & Education", "Hospitality & Tourism", "Other"];
 
@@ -30,9 +35,17 @@ export default function JobsPage() {
     async function fetchListings() {
       if (!mounted) return;
       try {
-        const snap = await getDocs(q);
+        const items = await dedupeAsync(
+          "browse:type:job",
+          BROWSE_SWR_TTL_MS,
+          async () => {
+            const snap = await getDocs(q);
+            return snap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as any))
+              .filter((i: any) => i.status === "live");
+          }
+        );
         if (!mounted) return;
-        const items: any[] = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any)).filter((i: any) => i.status === "live");
         setListings(items);
       } catch (err) {
         console.error("Failed to load jobs:", err);

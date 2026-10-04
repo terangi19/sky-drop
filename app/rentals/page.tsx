@@ -34,6 +34,7 @@ import {
   adjustListingWatchlistCount,
   listingWatchlistCount,
 } from "../lib/listing-watchlist-count";
+import { requireWatchlistAccount } from "../lib/require-watchlist-account";
 import ListingImage, { listingHasImage } from "../components/ListingImage";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 import HotThisWeek from "../components/HotThisWeek";
@@ -51,7 +52,12 @@ import {
   formatListingPriceMeta,
 } from "../lib/listing-price-display";
 import { LoadingCard } from "../components/LoadingSpinner";
-import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
+import {
+  BROWSE_POLL_MS,
+  BROWSE_SWR_TTL_MS,
+  dedupeAsync,
+  startVisibilityPolledFetch,
+} from "../lib/polled-firestore";
 
 const CATEGORIES = browseFilterCategories("rental");
 
@@ -116,15 +122,22 @@ export default function RentalsPage() {
     async function fetchListings() {
       if (!mounted) return;
       try {
-        const snap = await getDocs(q);
-        if (!mounted) return;
-        const items: any[] = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as any))
-          .filter((i: any) => isListingVisibleInMarketplace(i));
-        items.sort(
-          (a: any, b: any) =>
-            (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+        const items = await dedupeAsync(
+          "browse:type:rental",
+          BROWSE_SWR_TTL_MS,
+          async () => {
+            const snap = await getDocs(q);
+            const mapped: any[] = snap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as any))
+              .filter((i: any) => isListingVisibleInMarketplace(i));
+            mapped.sort(
+              (a: any, b: any) =>
+                (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+            );
+            return mapped;
+          }
         );
+        if (!mounted) return;
         setListings(items);
         setLoading(false);
       } catch (err) {
@@ -146,42 +159,42 @@ export default function RentalsPage() {
   }
 
   async function toggleWatchlist(item: any) {
+    const uid = requireWatchlistAccount(user);
+    if (!uid) return;
     const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
     const index = existing.findIndex((fav: any) => fav.id === item.id);
 
     if (index >= 0) {
       existing.splice(index, 1);
       localStorage.setItem("watchlist", JSON.stringify(existing));
-      if (user?.uid) {
-        try {
-          const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
-          if (snap.exists()) {
-            await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id));
-            void adjustListingWatchlistCount(item.id, -1);
-          }
-        } catch (e) {
-          console.error(e);
+      try {
+        const snap = await getDoc(doc(db, "users", uid, "watchlist", item.id));
+        if (snap.exists()) {
+          await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
+          void adjustListingWatchlistCount(item.id, -1);
         }
+      } catch (e) {
+        console.error(e);
       }
       showToast("Removed from watchlist", "info");
     } else {
       existing.unshift(item);
       localStorage.setItem("watchlist", JSON.stringify(existing));
-      if (user?.uid) {
-        try {
-          await setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
-            id: item.id,
-            title: item.title,
-            price: item.price,
-            imageUrl: item.imageUrl || item.image || "",
-            savedPrice: item.price,
-            savedAt: new Date().toISOString(),
-          });
-          void adjustListingWatchlistCount(item.id, 1);
-        } catch (e) {
-          console.error("Watchlist save failed:", e);
-          showToast("Failed to save to watchlist", "error");
-        }
+      try {
+        await setDoc(doc(db, "users", uid, "watchlist", item.id), {
+          id: item.id,
+          title: item.title,
+          price: item.price,
+          imageUrl: item.imageUrl || item.image || "",
+          savedPrice: item.price,
+          savedAt: new Date().toISOString(),
+        });
+        void adjustListingWatchlistCount(item.id, 1);
+      } catch (e) {
+        console.error("Watchlist save failed:", e);
+        showToast("Failed to save to watchlist", "error");
+        setWatchlistTick((t) => t + 1);
+        return;
       }
       showToast("Added to watchlist!");
     }

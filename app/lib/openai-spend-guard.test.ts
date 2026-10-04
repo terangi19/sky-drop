@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  __failOpenAiSpendingForTests,
   __resetOpenAiSpendingForTests,
   __setOpenAiSpendingForTests,
   getConfigLimits,
 } from "./openai-spending";
 import {
   OPENAI_BUDGET_EXCEEDED_CODE,
+  OPENAI_BUDGET_UNAVAILABLE_CODE,
   OPENAI_DISABLED_CODE,
   checkOpenAiSpendGate,
   gateOpenAiCall,
@@ -63,6 +65,22 @@ describe("OpenAI spend guards", () => {
   it("honors OPENAI_ENABLED=false kill switch without calling OpenAI", async () => {
     process.env.OPENAI_ENABLED = "false";
     expect(isOpenAiEnabled()).toBe(false);
+
+    let billed = false;
+    await expect(
+      withOpenAiSpendContext({ uid: "user-1", ip: "203.0.113.10" }, () =>
+        gateOpenAiCall(async () => {
+          billed = true;
+          return { ok: true };
+        })
+      )
+    ).rejects.toMatchObject({ code: OPENAI_DISABLED_CODE });
+    expect(billed).toBe(false);
+  });
+
+  it("keeps OPENAI_ENABLED=false ahead of a tracker error", async () => {
+    process.env.OPENAI_ENABLED = "false";
+    __failOpenAiSpendingForTests(new Error("Firestore unavailable"));
 
     let billed = false;
     await expect(
@@ -175,6 +193,65 @@ describe("OpenAI spend guards", () => {
     expect(after.allowed).toBe(true);
   });
 
+  it("soft-fails record usage after a successful billed call; next gate fail-closes", async () => {
+    __setOpenAiSpendingForTests({ dailySpendUSD: 0 });
+
+    let billed = false;
+    const result = await withOpenAiSpendContext({ uid: "user-1", ip: "203.0.113.10" }, () =>
+      gateOpenAiCall(
+        async () => {
+          billed = true;
+          __failOpenAiSpendingForTests(new Error("Firestore write failed"));
+          return { ok: true };
+        },
+        () => ({ model: "gpt-4o-mini", inputTokens: 10, outputTokens: 5 })
+      )
+    );
+    expect(result).toEqual({ ok: true });
+    expect(billed).toBe(true);
+
+    const next = await withOpenAiSpendContext({ uid: "user-1", ip: "203.0.113.10" }, () =>
+      checkOpenAiSpendGate()
+    );
+    expect(next.allowed).toBe(false);
+    expect(next.code).toBe(OPENAI_BUDGET_UNAVAILABLE_CODE);
+  });
+
+  it("blocks billed OpenAI when the spend tracker errors (fail-closed)", async () => {
+    __failOpenAiSpendingForTests(new Error("Firestore unavailable"));
+
+    const gate = await withOpenAiSpendContext({ uid: "user-1", ip: "203.0.113.10" }, () =>
+      checkOpenAiSpendGate()
+    );
+    expect(gate.allowed).toBe(false);
+    expect(gate.code).toBe(OPENAI_BUDGET_UNAVAILABLE_CODE);
+    expect(gate.reason).toMatch(/tracker unavailable/i);
+
+    let billed = false;
+    await expect(
+      withOpenAiSpendContext({ uid: "user-1", ip: "203.0.113.10" }, () =>
+        gateOpenAiCall(async () => {
+          billed = true;
+          return { text: "should never run" };
+        })
+      )
+    ).rejects.toMatchObject({
+      code: OPENAI_BUDGET_UNAVAILABLE_CODE,
+      status: 503,
+    });
+    expect(billed).toBe(false);
+  });
+
+  it("skips billed OpenAI health pings when the spend tracker errors", async () => {
+    __failOpenAiSpendingForTests(new Error("admin read failed"));
+    const health = await withOpenAiSpendContext({ uid: null, ip: "203.0.113.10" }, () =>
+      checkOpenAiHealth()
+    );
+    expect(health.configured).toBe(true);
+    expect(health.ready).toBe(false);
+    expect(health.issue).toBe("budget_exceeded");
+  });
+
   it("skips billed OpenAI health pings when the budget is exceeded", async () => {
     process.env.OPENAI_DAILY_LIMIT_USD = "1";
     __setOpenAiSpendingForTests({ dailySpendUSD: 1 });
@@ -185,4 +262,47 @@ describe("OpenAI spend guards", () => {
     expect(health.ready).toBe(false);
     expect(health.issue).toBe("budget_exceeded");
   });
+
+  it("does not re-check spend while the success cache is warm", async () => {
+    __setOpenAiSpendingForTests({ dailySpendUSD: 0 });
+    const first = await checkOpenAiHealth();
+    expect(first.ready).toBe(true);
+
+    __setOpenAiSpendingForTests({ dailySpendUSD: 50 });
+    process.env.OPENAI_DAILY_LIMIT_USD = "50";
+    const t0 = Date.now();
+    const cached = await checkOpenAiHealth();
+    expect(cached.ready).toBe(true);
+    expect(Date.now() - t0).toBeLessThan(20);
+  });
+
+  it("honors OPENAI_ENABLED=false even when a ready result is cached", async () => {
+    __setOpenAiSpendingForTests({ dailySpendUSD: 0 });
+    expect((await checkOpenAiHealth()).ready).toBe(true);
+
+    process.env.OPENAI_ENABLED = "false";
+    const health = await checkOpenAiHealth();
+    expect(health.ready).toBe(false);
+    expect(health.issue).toBe("disabled");
+  });
+
+  it("keeps openaiReady global: per-IP caps still block billed calls only", async () => {
+    process.env.OPENAI_PER_IP_DAILY_REQUESTS = "1";
+    __setOpenAiSpendingForTests({
+      dailySpendUSD: 0,
+      ipDailyRequests: { "203.0.113.10": 1 },
+    });
+
+    const health = await withOpenAiSpendContext({ uid: null, ip: "203.0.113.10" }, () =>
+      checkOpenAiHealth()
+    );
+    expect(health.ready).toBe(true);
+
+    const gate = await withOpenAiSpendContext({ uid: null, ip: "203.0.113.10" }, () =>
+      checkOpenAiSpendGate()
+    );
+    expect(gate.allowed).toBe(false);
+    expect(gate.code).toBe(OPENAI_BUDGET_EXCEEDED_CODE);
+  });
 });
+
