@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { User } from "firebase/auth";
-import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, Timestamp, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, limit, query, setDoc, Timestamp, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { BLOCKED_USERS_LIMIT } from "../lib/firestore-query-limits";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
@@ -25,20 +26,47 @@ export default function BlockedPage() {
     return () => unsub();
   }, []);
 
-  // Live snapshot of blocked users
+  // Blocked users: capped one-shot getDocs on mount / uid change (no live listener, no interval).
+  // Block / unblock / unblock-all refetch explicitly, so the list never waits on a poll.
+  async function fetchBlockedUsers(uid: string): Promise<{ uid: string; email: string }[]> {
+    const snap = await getDocs(query(collection(db, "users", uid, "blocked"), limit(BLOCKED_USERS_LIMIT)));
+    return snap.docs.map((d) => ({
+      uid: d.id,
+      email: (d.data().blockedEmail as string) || d.id,
+    }));
+  }
+
   useEffect(() => {
     if (!user?.uid) { setLoading(false); return; }
-    const q = query(collection(db, "users", user.uid, "blocked"));
-    const unsub = onSnapshot(q, (snap) => {
-      const items = snap.docs.map((d) => ({
-        uid: d.id,
-        email: (d.data().blockedEmail as string) || d.id,
-      }));
-      setBlockedUsers(items);
-      setLoading(false);
-    });
-    return () => unsub();
+    const uid = user.uid;
+    let mounted = true;
+
+    async function loadBlocked() {
+      try {
+        const items = await fetchBlockedUsers(uid);
+        if (!mounted) return;
+        setBlockedUsers(items);
+      } catch (error) {
+        console.error("Blocked users fetch error:", error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    void loadBlocked();
+    return () => {
+      mounted = false;
+    };
   }, [user?.uid]);
+
+  async function refreshBlockedUsers() {
+    if (!user?.uid) return;
+    try {
+      setBlockedUsers(await fetchBlockedUsers(user.uid));
+    } catch (error) {
+      console.error("Blocked users refresh error:", error);
+    }
+  }
 
   async function blockUser() {
     const cleanEmail = email.trim().toLowerCase();
@@ -55,10 +83,12 @@ export default function BlockedPage() {
     const ref = doc(db, "users", user!.uid, "blocked", uid);
     await setDoc(ref, { blockedUid: uid, blockedEmail: cleanEmail, createdAt: Timestamp.now() });
     setEmail("");
+    await refreshBlockedUsers();
   }
 
   async function unblockUser(uid: string) {
     await deleteDoc(doc(db, "users", user!.uid, "blocked", uid));
+    await refreshBlockedUsers();
   }
 
   async function clearAll() {
@@ -66,6 +96,7 @@ export default function BlockedPage() {
       try { await deleteDoc(doc(db, "users", user!.uid, "blocked", b.uid)); } catch {}
     }
     setClearConfirm(false);
+    await refreshBlockedUsers();
   }
 
   const filtered = useMemo(() => {

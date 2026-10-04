@@ -13,7 +13,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  onSnapshot,
   limit,
   orderBy,
   query,
@@ -227,13 +226,22 @@ export default function SellerPage() {
     }
   }, [profile, routeSlug, router]);
 
-  // Follow check
+  // Follow check: one-shot getDoc (no live listener, no interval).
+  // toggleFollow sets `following` from the /api/follow response, so no re-read is needed.
   useEffect(() => {
     if (!currentUser?.uid || !sellerUid) { setFollowing(false); return; }
-    const unsub = onSnapshot(doc(db, "followers", `${sellerUid}_${currentUser.uid}`), (d) => {
-      setFollowing(d.exists());
-    });
-    return () => unsub();
+    let cancelled = false;
+    getDoc(doc(db, "followers", `${sellerUid}_${currentUser.uid}`))
+      .then((d) => {
+        if (!cancelled) setFollowing(d.exists());
+      })
+      .catch((e) => {
+        console.error("Follow status check failed:", e);
+        if (!cancelled) setFollowing(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [currentUser?.uid, sellerUid]);
 
   // Follower count comes from public profile API (updated after follow/unfollow)
