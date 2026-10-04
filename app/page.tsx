@@ -11,7 +11,7 @@ import {
 } from "react";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { AWHINA_NAME } from "./lib/awhina-brand";
 import Navbar from "./components/Navbar";
@@ -62,6 +62,7 @@ import {
 } from "./lib/marketplace-listing-count";
 import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
 import { requireWatchlistAccount } from "./lib/require-watchlist-account";
+import { HOME_RESET_EVENT, homeCategoryHref, resolveHomeCategoryParam } from "./lib/home-category-param";
 import { useSellerListingMeta } from "./lib/useSellerListingMeta";
 import { LISTINGS_POLL_MS } from "./lib/firestore-query-limits";
 import {
@@ -215,6 +216,35 @@ export default function Home() {
 
   const [sortBy, setSortBy] =
     useState("newest");
+
+  // Chips <-> ?category= (shareable: /?category=Tech). Param is the source of truth on load / nav.
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get("category");
+  useEffect(() => {
+    const next = resolveHomeCategoryParam(categoryParam, trendingCategories.map((c) => c.name));
+    setSelectedCategory((prev) => (prev === next ? prev : next));
+  }, [categoryParam]);
+
+  const setCategoryAndUrl = useCallback(
+    (name: string) => {
+      setSelectedCategory(name);
+      router.replace(homeCategoryHref(searchParams.toString(), name), { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  // Sky Drop logo (href="/") fires this so a same-page click also clears search/condition/region/sort.
+  useEffect(() => {
+    const reset = () => {
+      setSelectedCategory("All");
+      setSelectedCondition("All");
+      setSelectedRegion("All");
+      setSearch("");
+      setSortBy("newest");
+    };
+    window.addEventListener(HOME_RESET_EVENT, reset);
+    return () => window.removeEventListener(HOME_RESET_EVENT, reset);
+  }, []);
 
   const [user, setUser] =
     useState<User | null>(null);
@@ -515,8 +545,8 @@ export default function Home() {
 
   const applySavedSearch = useCallback((saved: { query: string; category: string }) => {
     setSearch(saved.query);
-    setSelectedCategory(saved.category);
-  }, []);
+    setCategoryAndUrl(saved.category);
+  }, [setCategoryAndUrl]);
 
   async function deleteListing(id: string) {
 
@@ -1069,7 +1099,7 @@ export default function Home() {
               <div className="hero-search-pills mt-2.5 flex justify-center">
                 <div className="mobile-h-scroll max-w-full px-0.5">
                   <button
-                    onClick={() => setSelectedCategory("All")}
+                    onClick={() => setCategoryAndUrl("All")}
                     className={`mobile-chip border transition-colors duration-150 ${
                       selectedCategory === "All"
                         ? "border-sky-500/30 bg-sky-500/10 text-[var(--foreground)]"
@@ -1081,7 +1111,7 @@ export default function Home() {
                   {activeCategories.map((cat) => (
                     <button
                       key={cat.name}
-                      onClick={() => setSelectedCategory(cat.name)}
+                      onClick={() => setCategoryAndUrl(cat.name)}
                       className={`mobile-chip border transition-colors duration-150 ${
                         selectedCategory === cat.name
                           ? "border-sky-500/30 bg-sky-500/10 text-[var(--foreground)]"
@@ -1178,7 +1208,7 @@ export default function Home() {
               <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
             {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) && (
-              <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); setSortBy("newest"); }}
+              <button onClick={() => { setCategoryAndUrl("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); setSortBy("newest"); }}
                 className="rounded-full border border-sky-500/30 bg-sky-500/10 px-4 py-2 text-xs font-medium text-sky-400 transition hover:border-sky-500/40 hover:text-sky-300">
                 Clear
               </button>
@@ -1238,7 +1268,7 @@ export default function Home() {
                 }
                 actionLabel="Clear filters"
                 onAction={() => {
-                  setSelectedCategory("All");
+                  setCategoryAndUrl("All");
                   setSelectedCondition("All");
                   setSelectedRegion("All");
                   setSearch("");
