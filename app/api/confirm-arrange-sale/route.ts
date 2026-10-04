@@ -12,6 +12,30 @@ import { incrementProfileSalesCount } from "../../lib/seller-sales-admin";
 
 const CONFIRMABLE_STATUSES = new Set(["arrange_requested", "pending"]);
 
+/** User-facing errors thrown by this route and assertListingAvailableForPurchase. */
+function confirmArrangeSaleClientError(msg: string): NextResponse {
+  switch (msg) {
+    case "Purchase not found":
+      return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
+    case "Listing not found":
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    case "Only the seller can confirm this sale":
+      return NextResponse.json({ error: "Only the seller can confirm this sale" }, { status: 403 });
+    case "This is not an Arrange Purchase order":
+      return NextResponse.json({ error: "This is not an Arrange Purchase order" }, { status: 400 });
+    case "This purchase cannot be confirmed":
+      return NextResponse.json({ error: "This purchase cannot be confirmed" }, { status: 400 });
+    case "This listing has already been sold":
+      return NextResponse.json({ error: "This listing has already been sold" }, { status: 400 });
+    case "This listing is no longer available":
+      return NextResponse.json({ error: "This listing is no longer available" }, { status: 400 });
+    case "This item is out of stock":
+      return NextResponse.json({ error: "This item is out of stock" }, { status: 400 });
+    default:
+      return NextResponse.json({ error: "Failed to confirm sale" }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     requireAdminForCheckout();
@@ -155,7 +179,6 @@ export async function POST(req: NextRequest) {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to confirm sale";
     console.error("[confirm-arrange-sale]", msg);
-    const status = msg.includes("not found") ? 404 : msg.includes("Only the seller") ? 403 : 400;
-    return NextResponse.json({ error: msg }, { status });
+    return confirmArrangeSaleClientError(msg);
   }
 }

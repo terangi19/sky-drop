@@ -561,19 +561,19 @@ export async function POST(req: NextRequest) {
       success: true,
       listingId,
     });
-  } catch (e: any) {
-    console.error("[create-listing] Error:", e?.message || e);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "";
+    console.error("[create-listing] Error:", message || e);
     if (e instanceof CsrfError) {
       return NextResponse.json({ error: "CSRF token validation failed" }, { status: 403 });
     }
-    const message = e instanceof Error ? e.message : "Failed to create listing";
-    const safeMessage =
-      message.includes("Firestore") || message.includes("PERMISSION_DENIED")
-        ? "Could not save listing. Try again or contact support."
-        : message.length < 200
-          ? message
-          : "Failed to create listing";
-    return NextResponse.json({ error: safeMessage }, { status: 500 });
+    if (message.includes("Firestore") || message.includes("PERMISSION_DENIED")) {
+      return NextResponse.json(
+        { error: "Could not save listing. Try again or contact support." },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ error: "Failed to create listing" }, { status: 500 });
   }
 }
 
