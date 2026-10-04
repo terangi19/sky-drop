@@ -1,43 +1,31 @@
 name: Security rules
 
+# Runs the emulator-backed rules suites (tests/firestore-rules.test.ts,
+# tests/storage-rules.test.ts) plus the security gate unit tests via
+# `npm run test:rules:emulator`. No path filter on purpose: the gate suites
+# scan app/**, so any app change can break them, and the whole job is ~2 min.
 on:
   pull_request:
-    paths:
-      - "firestore.rules"
-      - "storage.rules"
-      - "tests/firestore-rules.test.ts"
-      - "tests/storage-rules.test.ts"
-      - "tests/security-launch-gates.test.ts"
-      - "app/lib/profile-security.test.ts"
-      - "app/lib/kyc-storage.server.test.ts"
-      - "firebase.json"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/security-rules.yml"
   push:
     branches:
       - main
-    paths:
-      - "firestore.rules"
-      - "storage.rules"
-      - "tests/firestore-rules.test.ts"
-      - "tests/storage-rules.test.ts"
-      - "tests/security-launch-gates.test.ts"
-      - "app/lib/profile-security.test.ts"
-      - "app/lib/kyc-storage.server.test.ts"
-      - "firebase.json"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/security-rules.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: security-rules-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   adversarial-rules:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      CI: "true"
+      # Never let the emulator CLI try to reach a real project/telemetry.
+      FIREBASE_TELEMETRY_COLLECTION_ENABLED: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -49,4 +37,13 @@ jobs:
           distribution: temurin
           java-version: "21"
       - run: npm ci
-      - run: npm run test:rules:emulator
+      # Emulator JARs (~100 MB) are downloaded to ~/.cache/firebase/emulators.
+      # Key on the lockfile because firebase-tools pins the JAR versions.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            firebase-emulators-${{ runner.os }}-
+      - name: Rules + security suites on Firestore/Storage emulators
+        run: npm run test:rules:emulator
