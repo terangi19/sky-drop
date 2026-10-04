@@ -3,6 +3,12 @@ import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebas
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
 import { FieldValue } from "firebase-admin/firestore";
+import {
+  hasHighestBidder,
+  isOwnListing,
+  isSameBidder,
+  resolveSellerUid,
+} from "../../lib/auction-bidder-identity";
 
 const MIN_BID_INCREMENT = 1;
 
@@ -74,12 +80,30 @@ export async function POST(req: NextRequest) {
 
       const listing = snap.data() || {};
       const currentBid = listing.currentBid || listing.startingBid || 0;
-      const highestBidder = listing.highestBidder || "";
+      const highestBidder = typeof listing.highestBidder === "string" ? listing.highestBidder : "";
+      const highestBidderUid =
+        typeof listing.highestBidderUid === "string" ? listing.highestBidderUid : "";
       const auctionEndsAt = listing.auctionEndsAt?.toMillis?.() || listing.auctionEndsAt;
       const reservePrice = listing.reservePrice || 0;
-      const sellerEmail = listing.sellerEmail || "";
+      const sellerEmail = typeof listing.sellerEmail === "string" ? listing.sellerEmail : "";
+      const sellerUid = resolveSellerUid(listing);
+      const bidderUid = decoded.uid;
+      const bidderEmail = typeof decoded.email === "string" ? decoded.email : "";
+      const priorWasUs = isSameBidder({
+        bidderUid,
+        bidderEmail,
+        highestBidderUid,
+        highestBidderEmail: highestBidder,
+      });
 
-      if (decoded.email === sellerEmail) {
+      if (
+        isOwnListing({
+          bidderUid,
+          bidderEmail,
+          sellerUid,
+          sellerEmail,
+        })
+      ) {
         throw new Error("Cannot bid on your own listing");
       }
 
@@ -102,15 +126,16 @@ export async function POST(req: NextRequest) {
         const currentMaxBid = listing.currentMaxBid || 0;
         const secondMaxBid = listing.secondMaxBid || 0;
 
-        if (!highestBidder) {
+        if (!hasHighestBidder(highestBidderUid, highestBidder)) {
           if (amount < (listing.startingBid || 0)) {
             throw new Error(`Bid must be at least $${listing.startingBid || 0}`);
           }
           changes.currentBid = listing.startingBid || 0;
           changes.currentMaxBid = amount;
           changes.secondMaxBid = 0;
-          changes.highestBidder = decoded.email;
-        } else if (highestBidder === decoded.email) {
+          changes.highestBidder = bidderEmail;
+          changes.highestBidderUid = bidderUid;
+        } else if (priorWasUs) {
           if (amount <= currentMaxBid) {
             throw new Error(`Your max bid is already $${currentMaxBid} or higher`);
           }
@@ -126,7 +151,8 @@ export async function POST(req: NextRequest) {
             changes.currentBid = newPrice;
             changes.currentMaxBid = amount;
             changes.secondMaxBid = Math.max(secondMaxBid, currentMaxBid);
-            changes.highestBidder = decoded.email;
+            changes.highestBidder = bidderEmail;
+            changes.highestBidderUid = bidderUid;
           } else if (amount > secondMaxBid) {
             const inc = getBidIncrement(currentBid);
             const newPrice = Math.min(currentMaxBid, amount + inc);
@@ -141,7 +167,7 @@ export async function POST(req: NextRequest) {
         }
         changes.bidCount = (listing.bidCount || 0) + 1;
       } else {
-        if (decoded.email === highestBidder) {
+        if (priorWasUs) {
           throw new Error("You are already the highest bidder");
         }
         const minNext = getMinimumNextBid(currentBid);
@@ -149,7 +175,8 @@ export async function POST(req: NextRequest) {
           throw new Error(`Minimum bid is $${minNext}`);
         }
         changes.currentBid = amount;
-        changes.highestBidder = decoded.email;
+        changes.highestBidder = bidderEmail;
+        changes.highestBidderUid = bidderUid;
         changes.bidCount = (listing.bidCount || 0) + 1;
       }
 
@@ -167,16 +194,23 @@ export async function POST(req: NextRequest) {
       const bidHistoryRef = db.collection("bidHistory").doc();
       transaction.create(bidHistoryRef, {
         listingId,
-        bidderEmail: decoded.email,
+        bidderEmail,
+        bidderUid,
         sellerEmail,
+        sellerUid: sellerUid || null,
         amount,
         autoBid,
         createdAt: FieldValue.serverTimestamp(),
       });
 
+      const weBecameHighest = changes.highestBidder === bidderEmail;
+      const priorEmail = highestBidder;
+      const outbidUser =
+        weBecameHighest && priorEmail && !priorWasUs ? priorEmail : null;
+
       return {
         currentBid: changes.currentBid !== undefined ? changes.currentBid : currentBid,
-        outbidUser: changes.highestBidder === decoded.email && highestBidder && highestBidder !== decoded.email ? null : (changes.highestBidder !== decoded.email && highestBidder === decoded.email ? highestBidder : null),
+        outbidUser,
         newMaxBid: changes.currentMaxBid !== undefined ? changes.currentMaxBid : undefined,
       };
     });

@@ -226,13 +226,13 @@ export async function POST(req: NextRequest) {
     if (e instanceof CsrfError) {
       return NextResponse.json({ error: "CSRF token validation failed" }, { status: 403 });
     }
-    const message = e instanceof Error ? e.message : "Failed to save profile";
+    const message = e instanceof Error ? e.message : "";
     if (message.includes("NOT_FOUND") || message.includes("404")) {
       return NextResponse.json(
         { error: "Profile document missing — try saving again." },
         { status: 500 }
       );
     }
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save profile" }, { status: 500 });
   }
 }

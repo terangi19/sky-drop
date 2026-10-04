@@ -305,6 +305,6 @@ export async function POST(req: NextRequest) {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to arrange purchase";
     console.error("[arrange-purchase]", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "Failed to arrange purchase" }, { status: 500 });
   }
 }
