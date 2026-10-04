@@ -21,7 +21,11 @@ vi.mock("../app/lib/firebase-admin", () => ({
   verifyIdToken: (...args: unknown[]) => verifyIdTokenMock(...args),
   getAdminDb: () => ({
     collection: (name: string) => ({
-      doc: (id?: string) => ({ id: id ?? "generated-bid", collection: name }),
+      doc: (id?: string) => ({
+        id: id ?? "generated-bid",
+        collection: name,
+        get: async () => ({ exists: true, data: () => ({}) }),
+      }),
     }),
     runTransaction: async (
       fn: (tx: {
@@ -72,6 +76,7 @@ describe("place-bid identity", () => {
   beforeEach(() => {
     state.exists = true;
     state.listing = {
+      saleType: "auction",
       sellerUid: "seller-1",
       sellerEmail: "seller@example.test",
       startingBid: 10,
@@ -85,6 +90,7 @@ describe("place-bid identity", () => {
 
   it("T1 rejects a self-bid when sellerUid matches, even if emails differ", async () => {
     state.listing = {
+      saleType: "auction",
       sellerUid: "seller-1",
       sellerEmail: "old-seller@example.test",
       startingBid: 10,
@@ -100,6 +106,7 @@ describe("place-bid identity", () => {
 
   it("T2 rejects a legacy email self-bid when no seller uid is stored", async () => {
     state.listing = {
+      saleType: "auction",
       sellerEmail: "Seller@Example.test",
       startingBid: 10,
       currentBid: 10,
@@ -113,6 +120,7 @@ describe("place-bid identity", () => {
 
   it("T3 rejects when highestBidderUid already matches, even if the email changed", async () => {
     state.listing = {
+      saleType: "auction",
       sellerUid: "seller-1",
       sellerEmail: "seller@example.test",
       highestBidderUid: "buyer-1",
@@ -129,6 +137,7 @@ describe("place-bid identity", () => {
 
   it("T4 rejects a legacy email already-highest bid", async () => {
     state.listing = {
+      saleType: "auction",
       sellerUid: "seller-1",
       sellerEmail: "seller@example.test",
       highestBidder: "Buyer@Example.test",
@@ -144,6 +153,7 @@ describe("place-bid identity", () => {
 
   it("T5 stamps the winner with both uid and email and returns the prior email", async () => {
     state.listing = {
+      saleType: "auction",
       sellerUid: "seller-1",
       sellerEmail: "seller@example.test",
       highestBidderUid: "prior-1",
@@ -170,6 +180,7 @@ describe("place-bid identity", () => {
 
   it("T6 writes bidderUid and bidderEmail on bidHistory", async () => {
     state.listing = {
+      saleType: "auction",
       sellerUid: "seller-1",
       sellerId: "legacy-seller",
       sellerEmail: "seller@example.test",
@@ -190,6 +201,7 @@ describe("place-bid identity", () => {
 
   it("T6b stores sellerUid null when the listing has no seller uid", async () => {
     state.listing = {
+      saleType: "auction",
       sellerEmail: "seller@example.test",
       startingBid: 10,
       currentBid: 10,
@@ -207,6 +219,7 @@ describe("place-bid identity", () => {
 
   it("does not treat a copied highest-bidder email as the current winner when uids differ", async () => {
     state.listing = {
+      saleType: "auction",
       sellerUid: "seller-1",
       sellerEmail: "seller@example.test",
       highestBidderUid: "prior-1",

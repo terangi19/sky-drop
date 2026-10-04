@@ -7,11 +7,17 @@ const h = vi.hoisted(() => ({
   enforceProtection: vi.fn(async () => ({ allowed: true, blocked: false })),
   createSystemNotification: vi.fn(async () => undefined),
   txUpdate: vi.fn(),
+  txSet: vi.fn(),
   post: null as null | Record<string, unknown>,
   profile: null as null | Record<string, unknown>,
 }));
 
-vi.mock("firebase-admin/firestore", () => ({ FieldValue: { increment: (n: number) => ({ __inc: n }) } }));
+vi.mock("firebase-admin/firestore", () => ({
+  FieldValue: {
+    increment: (n: number) => ({ __inc: n }),
+    serverTimestamp: () => ({ __serverTimestamp: true }),
+  },
+}));
 vi.mock("../../lib/firebase-admin", () => ({
   verifyIdToken: h.verifyIdToken,
   isAdminInitialized: h.isAdminInitialized,
@@ -21,10 +27,22 @@ vi.mock("../../lib/firebase-admin", () => ({
         __name: name,
         __id: id,
         get: async () => ({ exists: !!h.profile, data: () => h.profile }),
+        collection: (sub: string) => ({
+          doc: (subId: string) => ({ __name: sub, __id: subId, __parent: id }),
+        }),
       }),
     }),
     runTransaction: async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn({ get: async () => ({ exists: !!h.post, data: () => h.post }), update: h.txUpdate }),
+      fn({
+        get: async (ref: { __name?: string }) => {
+          if (ref?.__name === "offerers") {
+            return { exists: false, data: () => null, get: () => undefined };
+          }
+          return { exists: !!h.post, data: () => h.post, get: (field: string) => h.post?.[field] };
+        },
+        update: h.txUpdate,
+        set: h.txSet,
+      }),
   }),
 }));
 vi.mock("../../lib/rate-limit", () => ({ rateLimit: h.rateLimit }));
