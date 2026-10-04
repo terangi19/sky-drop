@@ -78,6 +78,7 @@ test.describe("Security — Authentication & Authorization", () => {
       { method: "GET", path: "/api/seller-insights", data: {} },
       { method: "POST", path: "/api/submit-job-application", data: { listingId: "test" } },
       { method: "POST", path: "/api/create-trade-post", data: { title: "test" } },
+      { method: "POST", path: "/api/trade-offer", data: { postId: "test" } },
       { method: "POST", path: "/api/send-email", data: { to: "test@test.com", subject: "test", body: "test" } },
       { method: "POST", path: "/api/send-notification-email", data: { to: "test@test.com", subject: "test", html: "<p>x</p>" } },
       { method: "POST", path: "/api/send-push", data: { targetEmail: "test@test.com", title: "t", message: "m" } },
