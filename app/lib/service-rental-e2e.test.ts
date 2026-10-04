@@ -154,6 +154,8 @@ describe("global search includes services/rentals", () => {
       description: "Portraits and events",
       category: "Photography",
       type: "service",
+      // M1: multi-token queries need every token in title/category/type/location (not just description).
+      location: "Auckland",
     };
     const rental = {
       id: "2",
