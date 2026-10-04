@@ -28,6 +28,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileKey, setTurnstileKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [redirectTo] = useState(() =>
@@ -77,6 +78,14 @@ export default function SignupPage() {
     return () => unsubscribe();
   }, []);
 
+  // Turnstile tokens are single-use: once createSkyDropAccount has sent one for
+  // verification, clear it and remount the widget so the next attempt gets a
+  // fresh challenge instead of "Security check failed".
+  function resetTurnstile() {
+    setTurnstileToken("");
+    setTurnstileKey((k) => k + 1);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setAttemptedSubmit(true);
@@ -96,12 +105,16 @@ export default function SignupPage() {
     if (submitInFlight.current) return;
     submitInFlight.current = true;
     setLoading(true);
+    let turnstileSpent = false;
     try {
       const result = await createSkyDropAccount({
         email,
         password,
         turnstileToken,
         inviteCode: inviteCode || undefined,
+        onTurnstileSpent: () => {
+          turnstileSpent = true;
+        },
       });
       setVerificationDeliveryFailed(!result.verificationSent);
       setShowVerificationSent(true);
@@ -110,6 +123,9 @@ export default function SignupPage() {
       setResendTimer(60);
     } catch (error) {
       showToast(signupAuthError(error), "error");
+      // Disposable email, email-already-in-use, weak-password (server policy),
+      // network and profile-setup failures all happen after the token was spent.
+      if (turnstileSpent) resetTurnstile();
     } finally {
       submitInFlight.current = false;
       setLoading(false);
@@ -359,6 +375,7 @@ export default function SignupPage() {
               </label>
 
               <TurnstileWidget
+                key={turnstileKey}
                 onToken={setTurnstileToken}
                 onExpire={() => setTurnstileToken("")}
               />
