@@ -1328,6 +1328,184 @@ describe("Firestore Security Rules", () => {
       );
     });
 
+    it("owner cannot write referral credit fields and can set referralCode only once", async () => {
+      const signup = testEnv
+        .authenticatedContext("referral-signup", {
+          email: "referral-signup@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertSucceeds(
+        signup.collection("profiles").doc("referral-signup").set({
+          email: "referral-signup@test.com",
+          phone: "",
+          referralCode: "SIGNUP1",
+          username: "referralsignup",
+        })
+      );
+
+      const denied = testEnv
+        .authenticatedContext("referral-create-denied", {
+          email: "referral-create-denied@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        denied.collection("profiles").doc("referral-create-denied").set({
+          email: "referral-create-denied@test.com",
+          username: "referraldenied",
+          referredBy: "STOLEN",
+        })
+      );
+
+      const counted = testEnv
+        .authenticatedContext("referral-create-count", {
+          email: "referral-create-count@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        counted.collection("profiles").doc("referral-create-count").set({
+          email: "referral-create-count@test.com",
+          username: "referralcount",
+          referralSignups: 9,
+        })
+      );
+
+      const linked = testEnv
+        .authenticatedContext("referral-create-uid", {
+          email: "referral-create-uid@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      await assertFails(
+        linked.collection("profiles").doc("referral-create-uid").set({
+          email: "referral-create-uid@test.com",
+          username: "referraluid",
+          referredByUid: "someone-else",
+        })
+      );
+
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("profiles").doc("referral-update-alice").set({
+          email: "referral-update-alice@test.com",
+          username: "referralupdate",
+        });
+        await ctx.firestore().collection("profiles").doc("referral-empty-alice").set({
+          email: "referral-empty-alice@test.com",
+          username: "referralempty",
+          referralCode: "",
+        });
+        await ctx.firestore().collection("profiles").doc("referral-set-alice").set({
+          email: "referral-set-alice@test.com",
+          username: "referralset",
+          referralCode: "KEEPME",
+        });
+      });
+
+      const updater = testEnv
+        .authenticatedContext("referral-update-alice", {
+          email: "referral-update-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      const emptyCode = testEnv
+        .authenticatedContext("referral-empty-alice", {
+          email: "referral-empty-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      const existingCode = testEnv
+        .authenticatedContext("referral-set-alice", {
+          email: "referral-set-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+
+      await assertFails(
+        updater.collection("profiles").doc("referral-update-alice").update({
+          referralSignups: 3,
+        })
+      );
+      await assertFails(
+        updater.collection("profiles").doc("referral-update-alice").update({
+          referredBy: "CODE1",
+        })
+      );
+      await assertFails(
+        updater.collection("profiles").doc("referral-update-alice").update({
+          referredByUid: "referrer-1",
+        })
+      );
+      await assertSucceeds(
+        updater.collection("profiles").doc("referral-update-alice").update({
+          referralCode: "FRESH1",
+        })
+      );
+      await assertSucceeds(
+        emptyCode.collection("profiles").doc("referral-empty-alice").update({
+          referralCode: "FRESH2",
+        })
+      );
+      await assertFails(
+        existingCode.collection("profiles").doc("referral-set-alice").update({
+          referralCode: "CHANGED",
+        })
+      );
+    });
+
+    it("RV1-RV4 view counters are not client-writable", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("listings").doc("view-listing").set({
+          title: "Viewed item",
+          sellerId: "view-alice",
+          sellerEmail: "view-alice@test.com",
+          views: 3,
+        });
+        await ctx.firestore().collection("tradePosts").doc("view-post").set({
+          title: "Viewed post",
+          sellerId: "view-alice",
+          sellerEmail: "view-alice@test.com",
+          views: 1,
+        });
+      });
+
+      const alice = testEnv
+        .authenticatedContext("view-alice", {
+          email: "view-alice@test.com",
+          email_verified: true,
+        })
+        .firestore();
+      const bob = testEnv
+        .authenticatedContext("view-bob", {
+          email: "view-bob@test.com",
+          email_verified: true,
+        })
+        .firestore();
+
+      await assertFails(
+        bob.collection("listings").doc("view-listing").update({ views: 4 })
+      );
+      await assertFails(
+        bob.collection("listings").doc("view-listing").update({
+          views: 4,
+          updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+        })
+      );
+      await assertFails(
+        bob.collection("tradePosts").doc("view-post").update({ views: 999999 })
+      );
+      await assertFails(
+        alice.collection("tradePosts").doc("view-post").update({ views: 5 })
+      );
+      await assertSucceeds(
+        alice.collection("listings").doc("view-listing").update({ title: "Viewed item (updated)" })
+      );
+      await assertSucceeds(
+        alice.collection("tradePosts").doc("view-post").update({ title: "Viewed post (updated)" })
+      );
+    });
+
     it("permits an authenticated admin claim without weakening non-admin denial", async () => {
       const admin = firestoreFor(ADMIN);
 

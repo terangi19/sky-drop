@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
-import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminAuth, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
+import {
+  REFERRAL_MAX_ACCOUNT_AGE_MS,
+  isFreshAccount,
+  isSelfReferral,
+  pickOldestProfile,
+  referralEventId,
+} from "../../lib/referral-claim";
+
+const REFERRAL_SIGNUP_MESSAGE = "Someone signed up using your referral code!";
+
+function accountCreationMs(creationTime: string | undefined): number | null {
+  if (!creationTime) return null;
+  const ms = Date.parse(creationTime);
+  return Number.isFinite(ms) ? ms : null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,43 +55,106 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ tracked: false });
     }
 
+    const uidLimit = await rateLimit(`track-referral-uid:${decoded.uid}`, 3, 60 * 60_000);
+    if (!uidLimit.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
+    const userRecord = await getAdminAuth().getUser(decoded.uid);
+    const createdMs = accountCreationMs(userRecord.metadata?.creationTime);
+    if (
+      createdMs == null ||
+      !isFreshAccount(createdMs, Date.now(), REFERRAL_MAX_ACCOUNT_AGE_MS)
+    ) {
+      return NextResponse.json({ tracked: false });
+    }
+
     const db = getAdminDb();
     const referrerSnap = await db
       .collection("profiles")
       .where("referralCode", "==", code)
-      .limit(1)
+      .limit(5)
       .get();
 
     if (referrerSnap.empty) {
       return NextResponse.json({ tracked: false });
     }
 
-    const referrerDoc = referrerSnap.docs[0];
-    const referrerData = referrerDoc.data();
-    const referrerEmail = typeof referrerData.email === "string" ? referrerData.email : "";
-    const referredEmail = decoded.email || "";
+    if (referrerSnap.size > 1) {
+      console.warn("[track-referral] duplicate referral code holders", {
+        count: referrerSnap.size,
+      });
+    }
 
-    if (!referrerEmail || referrerEmail === referredEmail) {
+    const holders = referrerSnap.docs.map((docSnap) => {
+      const data = docSnap.data() ?? {};
+      return {
+        id: docSnap.id,
+        ref: docSnap.ref,
+        createdAt: data.createdAt,
+        memberSince: data.memberSince,
+        email: typeof data.email === "string" ? data.email : "",
+      };
+    });
+    const referrer = pickOldestProfile(holders);
+    if (!referrer) {
       return NextResponse.json({ tracked: false });
     }
 
-    await referrerDoc.ref.update({ referralSignups: FieldValue.increment(1) });
+    const referrerEmail = referrer.email;
+    const referredEmail = decoded.email || "";
 
-    await db.collection("referralEvents").add({
-      type: "signup",
-      referrerEmail,
-      referredEmail,
-      createdAt: new Date(),
+    if (
+      isSelfReferral({
+        referrerUid: referrer.id,
+        refereeUid: decoded.uid,
+        referrerEmail,
+        refereeEmail: referredEmail,
+      })
+    ) {
+      return NextResponse.json({ tracked: false });
+    }
+
+    const eventRef = db.collection("referralEvents").doc(referralEventId(decoded.uid));
+    const refereeRef = db.collection("profiles").doc(decoded.uid);
+
+    const created = await db.runTransaction(async (tx) => {
+      const eventSnap = await tx.get(eventRef);
+      const refereeSnap = await tx.get(refereeRef);
+      if (eventSnap.exists) return false;
+      const refereeData = refereeSnap.data() ?? {};
+      if (refereeData.referredBy) return false;
+
+      tx.create(eventRef, {
+        type: "signup",
+        referrerUid: referrer.id,
+        referrerEmail,
+        refereeUid: decoded.uid,
+        referredEmail,
+        code,
+        rewardedAt: null,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      tx.update(referrer.ref, { referralSignups: FieldValue.increment(1) });
+      tx.set(
+        refereeRef,
+        { referredBy: code, referredByUid: referrer.id },
+        { merge: true }
+      );
+      return true;
     });
+
+    if (!created) {
+      return NextResponse.json({ tracked: false });
+    }
 
     await db.collection("notifications").add({
       type: "referral",
       targetEmail: referrerEmail,
-      fromEmail: referredEmail,
-      title: "🎉 You referred someone!",
-      message: `${referredEmail} signed up using your referral code!`,
+      title: REFERRAL_SIGNUP_MESSAGE,
+      message: REFERRAL_SIGNUP_MESSAGE,
       read: false,
-      createdAt: new Date(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     return NextResponse.json({ tracked: true, referredBy: code });

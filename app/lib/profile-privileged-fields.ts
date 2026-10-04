@@ -29,6 +29,9 @@ export const CLIENT_FORBIDDEN_PROFILE_FIELDS = [
   "restricted",
   "bannedAt",
   "banReason",
+  "referredBy",
+  "referredByUid",
+  "referralSignups",
 ] as const;
 
 export function stripClientForbiddenProfileFields(
