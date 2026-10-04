@@ -1,3 +1,4 @@
+import { fetchWithIdToken } from "./api-auth";
 import { getListingOwnerId } from "./listing-owner";
 import {
   getSellerDisplayName,
@@ -71,7 +72,7 @@ async function fetchPublicProfilesBatch(payload: {
   uids: string[];
   emails: string[];
 }): Promise<BatchResponse> {
-  const res = await fetch("/api/public-profiles", {
+  const res = await fetchWithIdToken("/api/public-profiles", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

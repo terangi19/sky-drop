@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     console.error("[verify-email-token]", e);
     if (e.code === "auth/user-not-found") {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json({ error: "Invalid or expired verification link" }, { status: 400 });
     }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
