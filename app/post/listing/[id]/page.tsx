@@ -2779,18 +2779,20 @@ Service Status: 🟢 Inquiry Active`;
 
             {/* 9. WATCHLIST & SHARE */}
             <div className="flex gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-1.5">
-              <button
-                type="button"
-                onClick={() => void toggleWatchlist()}
-                disabled={savedToWatchlist === null && Boolean(user?.uid)}
-                aria-pressed={savedToWatchlist === true}
-                className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)] flex-1 disabled:opacity-50"
-              >
-                <svg className="h-4 w-4" fill={savedToWatchlist ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-                {savedToWatchlist ? "Remove from Watchlist" : "Save to Watchlist"}
-              </button>
+              {!isExpired && (
+                <button
+                  type="button"
+                  onClick={() => void toggleWatchlist()}
+                  disabled={savedToWatchlist === null && Boolean(user?.uid)}
+                  aria-pressed={savedToWatchlist === true}
+                  className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)] flex-1 disabled:opacity-50"
+                >
+                  <svg className="h-4 w-4" fill={savedToWatchlist ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  {savedToWatchlist ? "Remove from Watchlist" : "Save to Watchlist"}
+                </button>
+              )}
               <button onClick={async () => {
                 try {
                   await navigator.share({ title: listing.title, text: `${listing.title} — $${listing.price} on Sky Drop`, url: window.location.href });

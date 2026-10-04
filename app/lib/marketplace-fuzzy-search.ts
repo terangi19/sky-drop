@@ -67,6 +67,7 @@ function levenshtein(a: string, b: string): number {
 function tokenSimilarity(a: string, b: string): number {
   const al = a.toLowerCase();
   const bl = b.toLowerCase();
+  if (!al || !bl) return 0;
   if (al === bl) return 1;
   if (al.includes(bl) || bl.includes(al)) return 0.88;
   const dist = levenshtein(al, bl);
@@ -74,6 +75,150 @@ function tokenSimilarity(a: string, b: string): number {
   const levScore = maxLen > 0 ? 1 - dist / maxLen : 0;
   const phonScore = phoneticSimilarity(al, bl);
   return Math.max(levScore, phonScore);
+}
+
+/**
+ * Identity text = fields that say WHAT the listing is: title, vehicle make/model, category,
+ * type (+ its service/rental synonyms) and location. Free text (description) and keyword
+ * arrays (tags / keywords / searchKeywords / aiKeywords) are deliberately excluded.
+ */
+function listingIdentityText(listing: ListingSearchRecord): string {
+  const type = String(listing.type ?? "").toLowerCase();
+  const typeSynonyms =
+    type === "service" ? ["service", "provider", "hire"] : type === "rental" ? ["rental", "rent", "hire"] : [];
+  return [
+    listing.title,
+    listing.vehicleMake,
+    listing.vehicleModel,
+    listing.make,
+    listing.model,
+    listing.category,
+    listing.type,
+    ...typeSynonyms,
+    listing.location,
+  ]
+    .filter((x) => x != null && x !== "")
+    .map(String)
+    .join(" ");
+}
+
+/**
+ * Filler words ignored by the multi-token coverage gate (they say nothing about WHAT the
+ * item is, and rarely appear in titles). Deliberately small and conservative: no product,
+ * brand, colour, size or category words. Ignoring a word only ever LOOSENS the gate; the
+ * remaining content tokens must still all be covered.
+ */
+const COVERAGE_STOPWORDS: ReadonlySet<string> = new Set([
+  "for", "the", "and", "with", "near", "sale", "cheap", "used", "new", "best",
+  "good", "great", "buy", "selling", "wanted", "secondhand",
+]);
+
+/** Two-word filler phrases removed before single-word stopword filtering. */
+const COVERAGE_STOP_PHRASES: ReadonlyArray<readonly [string, string]> = [
+  ["second", "hand"],
+  ["brand", "new"],
+];
+
+/** Tokens the coverage gate must see in the listing's identity text (len >= 3, not filler). */
+function contentTokensForCoverage(tokens: string[]): string[] {
+  const lower = tokens.map((x) => x.toLowerCase());
+  const out: string[] = [];
+  for (let i = 0; i < lower.length; i++) {
+    const next = lower[i + 1];
+    if (next && COVERAGE_STOP_PHRASES.some(([x, y]) => lower[i] === x && next === y)) {
+      i++;
+      continue;
+    }
+    const t = lower[i];
+    if (t.length >= 3 && !COVERAGE_STOPWORDS.has(t)) out.push(t);
+  }
+  return out;
+}
+
+/** True when a and b have the same length (>= 4) and differ only by one adjacent swap ("lmap"/"lamp"). */
+function isAdjacentTransposition(a: string, b: string): boolean {
+  if (a.length !== b.length || a.length < 4 || a === b) return false;
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  return (
+    i + 1 < a.length && a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2)
+  );
+}
+
+/** Vowel-less shorthand: "dsk" (3-4 letters, a-z only) is the consonant skeleton of "desk". */
+function isConsonantSkeletonOf(token: string, word: string): boolean {
+  if (token.length < 3 || token.length > 4 || !/^[a-z]+$/.test(token) || !/^[a-z]+$/.test(word)) return false;
+  if (/[aeiou]/.test(token) || word.length <= token.length) return false;
+  return word.replace(/[aeiou]/g, "") === token;
+}
+
+export type TokenCoverageDecision = {
+  token: string;
+  covered: boolean;
+  via: "substring" | "similarity" | "plural" | "transposition" | "skeleton" | "none";
+  word?: string;
+  similarity?: number;
+};
+
+/**
+ * Does the identity text cover this query token? (token is already lower-case, len >= 3)
+ *  - substring of the identity text; or
+ *  - best word similarity (existing tokenSimilarity): >= 0.8 for tokens of length >= 4,
+ *    >= 0.9 for length 3, only against words of comparable length (shorter/longer >= 0.8); or
+ *  - light plural/suffix match (short side is a prefix; 1 extra char if the shorter side is 3 chars, <= 2 if >= 4); or
+ *  - (length >= 4) a single adjacent-letter swap ("lmap" ~ "lamp"); or
+ *  - (length 3-4) a vowel-less skeleton ("dsk" ~ "desk").
+ */
+function explainTokenCoverage(identityText: string, token: string): TokenCoverageDecision {
+  const t = token.toLowerCase();
+  const hay = identityText.toLowerCase();
+  if (hay.includes(t)) return { token: t, covered: true, via: "substring" };
+  const need = t.length >= 4 ? 0.8 : 0.9;
+  let best: TokenCoverageDecision = { token: t, covered: false, via: "none", similarity: 0 };
+  for (const ht of hay.split(/\s+/).filter(Boolean)) {
+    const sim = tokenSimilarity(t, ht);
+    // Length guard: tokenSimilarity scores ANY containment as 0.88, so without this a short
+    // identity word ("one", "ent") would "cover" a long nonsense token ("nonexistent").
+    const comparable = Math.min(t.length, ht.length) / Math.max(t.length, ht.length) >= 0.8;
+    if (comparable && sim >= need) return { token: t, covered: true, via: "similarity", word: ht, similarity: sim };
+    const [short, long] = t.length <= ht.length ? [t, ht] : [ht, t];
+    const extra = long.length - short.length;
+    if (short.length >= 3 && extra <= (short.length >= 4 ? 2 : 1) && long.startsWith(short)) {
+      return { token: t, covered: true, via: "plural", word: ht, similarity: sim };
+    }
+    if (isAdjacentTransposition(t, ht)) return { token: t, covered: true, via: "transposition", word: ht, similarity: sim };
+    if (isConsonantSkeletonOf(t, ht)) return { token: t, covered: true, via: "skeleton", word: ht, similarity: sim };
+    if (sim > (best.similarity ?? 0)) best = { token: t, covered: false, via: "none", word: ht, similarity: sim };
+  }
+  return best;
+}
+
+/**
+ * Per-token coverage decisions for a multi-token query (exported for tests / diagnostics).
+ * Returns [] when the query has fewer than 2 content tokens (gate does not apply).
+ */
+export function explainMultiTokenCoverage(
+  listing: ListingSearchRecord,
+  tokens: string[]
+): TokenCoverageDecision[] {
+  const content = contentTokensForCoverage(tokens);
+  if (content.length < 2) return [];
+  const identityText = listingIdentityText(listing);
+  return content.map((t) => explainTokenCoverage(identityText, t));
+}
+
+/**
+ * Multi-token queries must cover EVERY content token (len >= 3, filler words like "for sale"
+ * ignored) in the listing's identity text (see listingIdentityText), with typo tolerance
+ * (explainTokenCoverage). Description and keyword arrays alone must NOT clear minScore
+ * ("...for Sky Drop messaging..." pollution). Fewer than 2 content tokens => gate off, i.e.
+ * the original single-token behaviour.
+ */
+function meetsMultiTokenTitleCoverage(
+  listing: ListingSearchRecord,
+  tokens: string[]
+): boolean {
+  return explainMultiTokenCoverage(listing, tokens).every((d) => d.covered);
 }
 
 function fieldWeight(field: string): number {
@@ -171,9 +316,13 @@ export function scoreListingMatch(
   const blob = buildListingSearchBlob(listing);
   if (!blob) return 0;
 
+  // M1: multi-token queries need title coverage for every significant token, so
+  // description / aiKeywords pollution ("...Sky Drop messaging...") cannot clear minScore.
+  if (!meetsMultiTokenTitleCoverage(listing, tokens)) return 0;
+
   const make = String(listing.vehicleMake ?? listing.make ?? "").toLowerCase();
   const model = String(listing.vehicleModel ?? listing.model ?? "").toLowerCase();
-  const blobTokens = blob.split(/\s+/);
+  const blobTokens = blob.split(/\s+/).filter(Boolean);
   let score = 0;
 
   // Full phrase bonus
