@@ -139,7 +139,11 @@ function closestKnownToken(word: string, dictionary: Set<string>): string | null
   return best;
 }
 
-function correctWordToken(word: string, corrections: VoiceSearchCorrection[]): string {
+function correctWordToken(
+  word: string,
+  corrections: VoiceSearchCorrection[],
+  opts?: { allowBrandFuzzy?: boolean }
+): string {
   const lower = word.toLowerCase();
   const direct = STT_WORD_FIXES[lower];
   if (direct && direct !== lower) {
@@ -147,16 +151,19 @@ function correctWordToken(word: string, corrections: VoiceSearchCorrection[]): s
     return direct;
   }
 
-  const brand = closestKnownToken(lower, KNOWN_BRANDS);
-  if (brand && brand !== lower) {
-    corrections.push({ from: word, to: brand, reason: "brand_fuzzy" });
-    return brand;
-  }
+  // Default true (voice). Typed search passes false so nonsense is never rewritten to a brand.
+  if (opts?.allowBrandFuzzy !== false) {
+    const brand = closestKnownToken(lower, KNOWN_BRANDS);
+    if (brand && brand !== lower) {
+      corrections.push({ from: word, to: brand, reason: "brand_fuzzy" });
+      return brand;
+    }
 
-  const model = closestKnownToken(lower, KNOWN_MODELS);
-  if (model && model !== lower) {
-    corrections.push({ from: word, to: model, reason: "model_fuzzy" });
-    return model;
+    const model = closestKnownToken(lower, KNOWN_MODELS);
+    if (model && model !== lower) {
+      corrections.push({ from: word, to: model, reason: "model_fuzzy" });
+      return model;
+    }
   }
 
   return word;
@@ -208,7 +215,11 @@ function confidenceFrom(
 /* ── Public API ── */
 
 /** Full voice search pipeline — use this instead of raw STT text. */
-export function processVoiceSearchTranscript(raw: string): VoiceSearchIntent | null {
+export function processVoiceSearchTranscript(
+  raw: string,
+  opts?: { allowBrandFuzzy?: boolean }
+): VoiceSearchIntent | null {
+  const allowBrandFuzzy = opts?.allowBrandFuzzy !== false;
   const trimmed = raw.trim();
   if (!trimmed) return null;
 
@@ -231,7 +242,9 @@ export function processVoiceSearchTranscript(raw: string): VoiceSearchIntent | n
   const rawTokens = tokenize(extractSearchQuery(corrected));
   if (rawTokens.length === 0) return null;
 
-  const tokens = rawTokens.map((t) => correctWordToken(t, corrections));
+  const tokens = rawTokens.map((t) =>
+    correctWordToken(t, corrections, { allowBrandFuzzy })
+  );
   corrected = tokens.join(" ");
 
   const searchQuery = tokens.join(" ").trim();
@@ -253,10 +266,38 @@ export function processVoiceSearchTranscript(raw: string): VoiceSearchIntent | n
   };
 }
 
-/** Normalize any search box / URL query through the same correction pipeline. */
+/**
+ * Typed search box / URL `q` — STT word fixes only, never brand_fuzzy / model_fuzzy.
+ * (Voice transcripts use processVoiceSearchTranscript with the default full pipeline.)
+ */
 export function normalizeMarketplaceSearchQuery(query: string): string {
-  const intent = processVoiceSearchTranscript(query);
+  const intent = processVoiceSearchTranscript(query, { allowBrandFuzzy: false });
   return intent?.searchQuery ?? normalizeText(query);
+}
+
+/** Light display/rank query for typed search without any voice corrections. */
+export function typedSearchQuery(query: string): string {
+  return normalizeText(query);
+}
+
+/**
+ * /search page: decide typed vs voice. `heard` present => voice (full pipeline incl.
+ * brand_fuzzy on the heard transcript). No `heard` => typed (no brand_fuzzy/model_fuzzy).
+ */
+export function resolveSearchPageQuery(
+  query: string,
+  heardRaw: string
+): { isVoice: boolean; intent: VoiceSearchIntent | null; rankQuery: string } {
+  const heard = heardRaw.trim();
+  const isVoice = Boolean(heard);
+  if (!query.trim()) return { isVoice, intent: null, rankQuery: "" };
+  const intent = processVoiceSearchTranscript(isVoice ? heard : query, {
+    allowBrandFuzzy: isVoice,
+  });
+  const rankQuery = isVoice
+    ? intent?.searchQuery || normalizeMarketplaceSearchQuery(query)
+    : typedSearchQuery(query);
+  return { isVoice, intent, rankQuery };
 }
 
 /** True when text looks like a product/search query (not a page nav). */
