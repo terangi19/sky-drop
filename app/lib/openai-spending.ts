@@ -454,15 +454,10 @@ export interface SpendingAlertResult {
   message?: string;
 }
 
-export async function checkSpendingLimits(
-  uid: string | null,
-  ip: string
-): Promise<{ allowed: boolean; reason?: string }> {
-  assertTrackerAvailableForCheck();
-  const config = getConfig();
-  const spending = await getSpendingRecord();
-
-  // Check daily limit
+function evaluateGlobalBudgetCaps(
+  spending: SpendingRecord,
+  config: SpendingConfig
+): { allowed: boolean; reason?: string } {
   if (spending.dailySpendUSD >= config.dailyLimitUSD) {
     logSecurityWarning("openai_daily_limit_exceeded", "OpenAI daily spend limit exceeded", {
       metadata: {
@@ -473,7 +468,6 @@ export async function checkSpendingLimits(
     return { allowed: false, reason: "Daily spend limit exceeded" };
   }
 
-  // Check monthly limit
   if (spending.monthlySpendUSD >= config.monthlyLimitUSD) {
     logSecurityWarning("openai_monthly_limit_exceeded", "OpenAI monthly spend limit exceeded", {
       metadata: {
@@ -484,9 +478,33 @@ export async function checkSpendingLimits(
     return { allowed: false, reason: "Monthly spend limit exceeded" };
   }
 
-  // Check per-user limits
-  if (uid) {
-    const userSpending = await getUserSpending(uid);
+  return { allowed: true };
+}
+
+/** Daily/monthly USD caps only — used by `/api/sky-ai/status`. Billed calls still use `checkSpendingLimits`. */
+export async function checkGlobalBudgetCaps(): Promise<{ allowed: boolean; reason?: string }> {
+  assertTrackerAvailableForCheck();
+  const config = getConfig();
+  const spending = await getSpendingRecord();
+  return evaluateGlobalBudgetCaps(spending, config);
+}
+
+export async function checkSpendingLimits(
+  uid: string | null,
+  ip: string
+): Promise<{ allowed: boolean; reason?: string }> {
+  assertTrackerAvailableForCheck();
+  const config = getConfig();
+  const [spending, userSpending, ipSpending] = await Promise.all([
+    getSpendingRecord(),
+    uid ? getUserSpending(uid) : Promise.resolve(null),
+    ip ? getIPSpending(ip) : Promise.resolve(null),
+  ]);
+
+  const global = evaluateGlobalBudgetCaps(spending, config);
+  if (!global.allowed) return global;
+
+  if (uid && userSpending) {
     if (userSpending.dailyTokens >= config.perUserDailyLimitTokens) {
       return { allowed: false, reason: "Daily token limit exceeded for this user" };
     }
@@ -495,9 +513,7 @@ export async function checkSpendingLimits(
     }
   }
 
-  // Check per-IP limits
-  const ipSpending = await getIPSpending(ip);
-  if (ipSpending.dailyRequests >= config.perIPDailyLimitRequests) {
+  if (ipSpending && ipSpending.dailyRequests >= config.perIPDailyLimitRequests) {
     return { allowed: false, reason: "Daily request limit exceeded for this IP" };
   }
 

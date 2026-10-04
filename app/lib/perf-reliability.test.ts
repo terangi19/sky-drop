@@ -167,6 +167,26 @@ describe("performance reliability locks", () => {
     expect(client).toContain("if (inflight) return inflight");
   });
 
+  it("does not block /api/sky-ai/status on a hung Upstash or extra spend Firestore", () => {
+    const route = src("app/api/sky-ai/status/route.ts");
+    expect(route).toContain('fallback: "memory"');
+    expect(route).toContain("Server-Timing");
+    expect(route).toContain("s-maxage=15");
+
+    const health = src("app/lib/openai-health.ts");
+    const fnStart = health.indexOf("export async function checkOpenAiHealth");
+    const fn = health.slice(fnStart);
+    expect(fn).toContain("checkGlobalBudgetCaps");
+    expect(fn.indexOf("if (successCache")).toBeLessThan(fn.indexOf("checkGlobalBudgetCaps"));
+    expect(fn).not.toMatch(/models\.list|chat\.completions|api\.openai\.com/);
+
+    const upstash = src("app/lib/rate-limit-upstash.ts");
+    expect(upstash).toContain("UPSTASH_LIMIT_TIMEOUT_MS");
+    expect(upstash).toContain("UPSTASH_CIRCUIT_COOLDOWN_MS");
+    expect(upstash).toContain("retry: { retries: 0");
+    expect(upstash).toContain("analytics: false");
+  });
+
   it("loads homepage listings without waiting on Firebase auth", () => {
     const file = src("app/page.tsx");
     expect(file).not.toMatch(/if \(!authReady\) return/);
