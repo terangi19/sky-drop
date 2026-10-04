@@ -46,6 +46,7 @@ export default function LoginPage() {
   );
   const [user, setUser] = useState<User | null>(null);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileKey, setTurnstileKey] = useState(0);
   const [authLoading, setAuthLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const hasRedirected = useRef(false);
@@ -78,6 +79,13 @@ export default function LoginPage() {
     router.replace(redirectTo || "/");
   }, [user, redirectTo, router]);
 
+  // Turnstile tokens are single-use: after verifyTurnstileToken has consumed one,
+  // clear it and remount the widget so the next attempt gets a fresh challenge.
+  function resetTurnstile() {
+    setTurnstileToken("");
+    setTurnstileKey((k) => k + 1);
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() || !password) return;
@@ -91,6 +99,7 @@ export default function LoginPage() {
       const ok = await verifyTurnstileToken(turnstileToken);
       if (!ok) {
         showToast("Security check failed. Please try again.", "error");
+        resetTurnstile();
         return;
       }
     }
@@ -103,6 +112,8 @@ export default function LoginPage() {
       // persisted sessions resolving after a refresh.
     } catch (error) {
       showToast(loginAuthError(error), "error");
+      // The token was already consumed by the successful verify above.
+      resetTurnstile();
     } finally {
       setLoading(false);
     }
@@ -213,6 +224,7 @@ export default function LoginPage() {
               </div>
 
               <TurnstileWidget
+                key={turnstileKey}
                 onToken={setTurnstileToken}
                 onExpire={() => setTurnstileToken("")}
               />
