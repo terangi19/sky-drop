@@ -143,6 +143,14 @@ export type CreateAccountInput = {
   turnstileToken: string;
   username?: string;
   inviteCode?: string;
+  /**
+   * Called immediately before the single-use Turnstile token is sent for
+   * verification. Once this has fired the token is spent, so the caller must
+   * clear it and remount the widget before the next attempt. It does NOT fire
+   * for failures caught by the local checks that run first (weak password,
+   * disposable email, bad username), where the token is still unspent.
+   */
+  onTurnstileSpent?: () => void;
 };
 
 export type CreateAccountResult = {
@@ -154,19 +162,12 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<C
   const email = input.email.trim();
   const password = input.password;
 
-  const turnstileOk = await verifyTurnstileToken(input.turnstileToken);
-  if (!turnstileOk) {
-    throw new Error("Security check failed. Please try again.");
-  }
-
+  // Run every check that does not need the Turnstile token FIRST. The token is
+  // single-use: verifying it spends it, so a weak password, a blocked/disposable
+  // email or a bad username must be rejected before it is consumed.
   const passwordValidation = validatePasswordStrength(password);
   if (!passwordValidation.valid) {
     throw new Error(passwordValidation.error || "Password does not meet requirements");
-  }
-
-  const emailCheck = await checkEmailAllowed(email);
-  if (!emailCheck.ok) {
-    throw new Error(emailCheck.error);
   }
 
   const preferredUsername = input.username?.trim()
@@ -177,6 +178,19 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<C
     if (!usernameValidation.valid) {
       throw new Error(usernameValidation.error);
     }
+  }
+
+  const emailCheck = await checkEmailAllowed(email);
+  if (!emailCheck.ok) {
+    throw new Error(emailCheck.error);
+  }
+
+  // Turnstile is still verified on every attempt, and still before any Firebase
+  // account is created.
+  input.onTurnstileSpent?.();
+  const turnstileOk = await verifyTurnstileToken(input.turnstileToken);
+  if (!turnstileOk) {
+    throw new Error("Security check failed. Please try again.");
   }
 
   const cred = await createUserWithEmailAndPassword(auth, email, password);
