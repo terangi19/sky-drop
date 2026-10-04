@@ -218,6 +218,9 @@ export function phoneticNormalize(text: string): string {
 export function phoneticSimilarity(a: string, b: string): number {
   const na = phoneticNormalize(a);
   const nb = phoneticNormalize(b);
+  // Empty / single-char norms must never match: "bmw".includes("") === true would
+  // score every brand 0.8 for junk like "###" or "zzzz" (which normalizes to "z").
+  if (!na || !nb || na.length < 2 || nb.length < 2) return 0;
   if (na === nb) return 1.0;
   if (na.includes(nb) || nb.includes(na)) return 0.8;
   const dist = levenshtein(na, nb);

@@ -149,14 +149,18 @@ function matchTypeFromScore(score: number): RankedListing["matchType"] {
   return "partial";
 }
 
-/** Score a single listing against a search intent or query string. */
+/**
+ * Score a single listing against a search intent or query string.
+ * A plain string is treated as TYPED text (no brand_fuzzy/model_fuzzy); pass a
+ * VoiceSearchIntent from processVoiceSearchTranscript for the full voice pipeline.
+ */
 export function scoreListingMatch(
   listing: ListingSearchRecord,
   queryOrIntent: string | VoiceSearchIntent
 ): number {
   const intent =
     typeof queryOrIntent === "string"
-      ? processVoiceSearchTranscript(queryOrIntent)
+      ? processVoiceSearchTranscript(queryOrIntent, { allowBrandFuzzy: false })
       : queryOrIntent;
 
   const query =
@@ -270,7 +274,7 @@ export function rankListingsBySearch(
   const minScore = options?.minScore ?? 1.8;
   const intent =
     typeof queryOrIntent === "string"
-      ? processVoiceSearchTranscript(queryOrIntent)
+      ? processVoiceSearchTranscript(queryOrIntent, { allowBrandFuzzy: false })
       : queryOrIntent;
 
   const query = intent?.searchQuery ?? normalizeMarketplaceSearchQuery(String(queryOrIntent));

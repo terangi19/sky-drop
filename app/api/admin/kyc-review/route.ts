@@ -4,6 +4,7 @@ import { AdminAuthError, requireAdminFromRequest } from "../../../lib/admin-requ
 import { writeAuditLog } from "../../../lib/admin-utils";
 import { verifiedFlagAfterUpdate } from "../../../lib/seller-verified";
 import { sendEmail as sendEmailTransport } from "../../../lib/email-transport";
+import { referralEventId } from "../../../lib/referral-claim";
 
 type KycReviewAction = "approve" | "reject" | "revoke";
 
@@ -175,38 +176,50 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Referral reward
-      const referredBy = profile?.referredBy;
-      if (referredBy && profile?.phoneVerified) {
-        const referrerSnap = await db
-          .collection("profiles")
-          .where("referralCode", "==", referredBy)
-          .limit(1)
-          .get();
-        if (!referrerSnap.empty) {
-          const referrer = referrerSnap.docs[0];
-          const referrerData = referrer.data();
-          for (let i = 0; i < 3; i++) {
-            await db.collection("dropTokens").add({
-              ownerId: referrer.id,
-              ownerEmail: referrerData.email || "",
-              originDropId: "referral_reward",
-              status: "available",
-              createdAt: now,
-            });
-          }
-          if (referrerData.email) {
-            await db.collection("notifications").add({
-              type: "referral_reward",
-              targetEmail: referrerData.email,
-              fromEmail: admin.email!,
-              title: "🎁 Referral Reward Earned!",
-              message: "Your referral completed verification — you earned 3 Drop Tokens!",
-              read: false,
-              createdAt: now,
-            });
-          }
+      // Referral reward. Legacy referees (referredBy set, no signup event) are not paid.
+      const eventId = referralEventId(uid);
+      const eventRef = db.collection("referralEvents").doc(eventId);
+      const payout = await db.runTransaction(async (tx) => {
+        const eventSnap = await tx.get(eventRef);
+        if (!eventSnap.exists) return null;
+        const event = eventSnap.data() ?? {};
+        if (event.rewardedAt) return null;
+        if (profile?.phoneVerified !== true) return null;
+        const referrerUid = typeof event.referrerUid === "string" ? event.referrerUid.trim() : "";
+        if (!referrerUid || referrerUid === uid) return null;
+        const referrerRef = db.collection("profiles").doc(referrerUid);
+        const referrerSnap = await tx.get(referrerRef);
+        if (!referrerSnap.exists) return null;
+        const referrerData = referrerSnap.data() ?? {};
+        const referrerEmail = typeof referrerData.email === "string" ? referrerData.email : "";
+
+        for (let i = 0; i < 3; i++) {
+          tx.create(db.collection("dropTokens").doc(), {
+            ownerId: referrerUid,
+            ownerEmail: referrerEmail,
+            originDropId: "referral_reward",
+            status: "available",
+            createdAt: now,
+            referralEventId: eventId,
+          });
         }
+        tx.update(eventRef, {
+          rewardedAt: now,
+          rewardedBy: admin.uid,
+        });
+        return { referrerEmail };
+      });
+
+      if (payout?.referrerEmail) {
+        await db.collection("notifications").add({
+          type: "referral_reward",
+          targetEmail: payout.referrerEmail,
+          fromEmail: admin.email!,
+          title: "🎁 Referral Reward Earned!",
+          message: "Your referral completed verification — you earned 3 Drop Tokens!",
+          read: false,
+          createdAt: now,
+        });
       }
 
       await writeAuditLog({
