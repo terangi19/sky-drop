@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
     const { decision, offers, counted } = outcome;
 
     if (!counted) {
-      return NextResponse.json({ success: true, offers, notified: false, duplicate: true });
+      return NextResponse.json({ success: true, offers, notified: true, duplicate: true });
     }
 
     // Counter is committed; notification is best-effort but reported honestly to the client.
