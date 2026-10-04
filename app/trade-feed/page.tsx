@@ -19,6 +19,7 @@ import confetti from "canvas-confetti";
 import { playOffer, playSuccess, playClick } from "../lib/sounds";
 import { createNotification } from "../lib/notifications";
 import { submitTradeOffer } from "../lib/trade-offer-client";
+import { submitTradeFeedRequest } from "../lib/trade-feed-request-client";
 import { useProfile } from "../contexts/ProfileContext";
 import { REVIEW_STAR_CLASS } from "../components/SellerReviewStars";
 import {
@@ -116,6 +117,10 @@ export default function TradeFeedPage() {
   const shoutsAtBottom = useRef(true);
   const lastShoutTime = useRef(0);
   const lastOfferTime = useRef(0);
+  const shoutInFlight = useRef(false);
+  const postInFlight = useRef(false);
+  const deleteInFlight = useRef(new Set<string>());
+  const replyInFlight = useRef(new Set<string>());
   const offerInFlight = useRef(new Set<string>());
   const [offerSendingId, setOfferSendingId] = useState<string | null>(null);
   const lastPostTime = useRef(0);
@@ -382,6 +387,7 @@ export default function TradeFeedPage() {
   async function sendShout(text?: string) {
     const msg = (text || shoutText).trim();
     if (!msg || !user?.email) return;
+    if (shoutInFlight.current) return;
     if (Date.now() - lastShoutTime.current < 2000) {
       showToast("Please wait before sending another message", "info");
       return;
@@ -392,22 +398,48 @@ export default function TradeFeedPage() {
       return;
     }
     lastShoutTime.current = Date.now();
+    shoutInFlight.current = true;
     try {
-      const token = await user.getIdToken();
-      await fetch("/api/create-trade-shout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
+      const result = await submitTradeFeedRequest({
+        action: "shout",
+        getIdToken: () => user.getIdToken(),
+        body: {
           text: msg,
           world: selectedWorld.length === 1 && selectedWorld[0] !== "all" ? selectedWorld[0] : "__general__",
-        }),
+        },
       });
-    } catch (e) { console.error("Failed to send shout:", e); }
-    if (!text) setShoutText("");
-    playClick();
+      if (!result.ok) {
+        if (result.code !== "rate_limited") lastShoutTime.current = 0; // nothing was sent
+        showToast(result.message, "error"); // keep the typed text so the user can retry
+        return;
+      }
+      if (!text) setShoutText((cur) => (cur.trim() === msg ? "" : cur));
+      playClick();
+    } finally {
+      shoutInFlight.current = false;
+    }
+  }
+
+  async function deleteShout(id: string) {
+    try {
+      await deleteDoc(doc(db, "tradeShouts", id));
+    } catch (e) {
+      console.error("Failed to delete shout:", e);
+      showToast("Couldn't delete your message. Please try again.", "error");
+    }
   }
 
   async function postTrade() {
+    if (postInFlight.current) return;
+    postInFlight.current = true;
+    try {
+      await submitPost();
+    } finally {
+      postInFlight.current = false;
+    }
+  }
+
+  async function submitPost() {
     if (!user?.email || !title) return;
     if (Date.now() - lastPostTime.current < 10000) {
       showToast("Please wait 10 seconds between posts", "info");
@@ -429,6 +461,7 @@ export default function TradeFeedPage() {
         const nsfwResult = await checkImage(file);
         if (!nsfwResult.safe) {
           showToast(`"${file.name}" flagged: ${nsfwResult.reason}. Remove it and try again.`, "error");
+          lastPostTime.current = 0;
           setPosting(false);
           return;
         }
@@ -436,11 +469,10 @@ export default function TradeFeedPage() {
         const snap = await uploadBytes(storageRef, file);
         images.push(await getDownloadURL(snap.ref));
       }
-      const token = await user.getIdToken();
-      await fetch("/api/create-trade-post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
+      const result = await submitTradeFeedRequest({
+        action: "post",
+        getIdToken: () => user.getIdToken(),
+        body: {
           type, title, price: price || "", message: message || "",
           world: selectedWorld.length === 1 ? selectedWorld[0] : null,
           category: selectedFilter !== "All" ? selectedFilter : null,
@@ -448,37 +480,58 @@ export default function TradeFeedPage() {
           pickupAvailable, shippingAvailable, pickupArea,
           shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
           freeShipping: shippingAvailable ? freeShipping : false,
-        }),
+        },
       });
-      setTitle(""); setPrice(""); setMessage(""); setImageFiles([]); setImagePreviews([]); setShowComposer(false);
-      setPickupAvailable(false); setShippingAvailable(false); setPickupArea(""); setShippingFee(""); setFreeShipping(false);
-    } catch (e) { console.error(e); }
+      if (!result.ok) {
+        // Keep the composer open with the user's text/images so they can retry.
+        if (result.code !== "rate_limited") lastPostTime.current = 0;
+        showToast(result.message, "error");
+      } else {
+        setTitle(""); setPrice(""); setMessage(""); setImageFiles([]); setImagePreviews([]); setShowComposer(false);
+        setPickupAvailable(false); setShippingAvailable(false); setPickupArea(""); setShippingFee(""); setFreeShipping(false);
+      }
+    } catch (e) {
+      console.error(e);
+      lastPostTime.current = 0;
+      showToast("Couldn't upload your images. Please try again.", "error");
+    }
     setPosting(false);
   }
 
   async function deleteTrade(id: string) {
     if (!confirm("Delete this trade post? This cannot be undone.")) return;
     const post = posts.find((p) => p.id === id);
-    if (!post || post.sellerEmail !== user?.email) {
+    if (!post || !user || post.sellerEmail !== user.email) {
       showToast("You can only delete your own posts", "error");
       return;
     }
+    if (deleteInFlight.current.has(id)) return;
+    deleteInFlight.current.add(id);
     try {
-      const token = await user!.getIdToken();
-      await fetch("/api/manage-trade-post", {
-        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action: "delete", postId: id }),
+      const result = await submitTradeFeedRequest({
+        action: "delete",
+        getIdToken: () => user.getIdToken(),
+        body: { action: "delete", postId: id },
       });
-    } catch (e) { console.error(e); }
+      // On success the post disappears via the tradePosts snapshot; on failure it stays and we say why.
+      if (!result.ok) showToast(result.message, "error");
+    } finally {
+      deleteInFlight.current.delete(id);
+    }
   }
 
   async function updateTradeStatus(id: string, status: string) {
+    if (!user) return;
     try {
-      const token = await user!.getIdToken();
-      await fetch("/api/manage-trade-post", {
-        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action: "status", postId: id, status }),
+      const result = await submitTradeFeedRequest({
+        action: "status",
+        getIdToken: () => user.getIdToken(),
+        body: { action: "status", postId: id, status },
       });
+      if (!result.ok) {
+        showToast(result.message, "error");
+        return;
+      }
       showToast(`Marked as ${status}`, "success");
       playSuccess();
       confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
@@ -487,14 +540,20 @@ export default function TradeFeedPage() {
 
   async function addReply(postId: string, text: string) {
     if (!text.trim() || !user?.email) return;
+    if (replyInFlight.current.has(postId)) return;
     const tradePost = posts.find((p: { id?: string }) => p.id === postId);
+    replyInFlight.current.add(postId);
     try {
-      const token = await user.getIdToken();
-      await fetch("/api/manage-trade-post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action: "reply", postId, text: text.trim() }),
+      const result = await submitTradeFeedRequest({
+        action: "reply",
+        getIdToken: () => user.getIdToken(),
+        body: { action: "reply", postId, text: text.trim() },
       });
+      if (!result.ok) {
+        // Reply was not saved: keep the typed text, don't notify the seller, don't show a live event.
+        showToast(result.message, "error");
+        return;
+      }
       await createNotification({
         type: "message",
         targetEmail: tradePost?.sellerEmail || "",
@@ -508,7 +567,11 @@ export default function TradeFeedPage() {
       const id = ++eventId.current;
       setLiveEvents((prev) => [{ id, icon: "💬", text: `New reply on ${tradePost?.title || "a trade"}` }, ...prev].slice(0, 20));
       setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      replyInFlight.current.delete(postId);
+    }
   }
 
   async function sendOffer(postId: string) {
@@ -1212,7 +1275,7 @@ export default function TradeFeedPage() {
                           <p className="text-sm text-zinc-500 break-words mt-0.5">{s.text}</p>
                         </div>
                         {user?.email === s.by && (
-                          <button onClick={(e) => { e.stopPropagation(); deleteDoc(doc(db, "tradeShouts", s.id)); }}
+                          <button onClick={(e) => { e.stopPropagation(); void deleteShout(s.id); }}
                             className="absolute right-1 top-1 hidden group-hover:flex h-5 w-5 items-center justify-center rounded bg-white/[0.04] text-[10px] text-zinc-600 hover:text-red-400 transition"
                             title="Delete">✕</button>
                         )}
