@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useId } from "react";
+import { HOME_RESET_EVENT } from "../lib/home-category-param";
 
 const SIZE_MAP = {
   sm: {
@@ -202,7 +203,12 @@ export default function SkyDropLogo({
 
   if (href) {
     return (
-      <Link href={href} className={layoutClass} aria-label="Sky Drop home">
+      <Link
+        href={href}
+        className={layoutClass}
+        aria-label="Sky Drop home"
+        onClick={href === "/" ? () => window.dispatchEvent(new CustomEvent(HOME_RESET_EVENT)) : undefined}
+      >
         {content}
       </Link>
     );
