@@ -74,6 +74,7 @@ import { listingMessageSellerHref } from "../../../lib/listing-message-href";
 import { MOBILE_STICKY_CTA } from "../../../lib/page-layout";
 import { DETAIL_POLL_MS, startVisibilityPolledFetch } from "../../../lib/polled-firestore";
 import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
+import { hasCountedListingView, markListingViewCounted } from "../../../lib/listing-view-dedupe";
 import { V1_ARRANGE_SAFETY_ONE_LINER } from "../../../lib/conversation-safety";
 import EmptyState from "../../../components/EmptyState";
 
@@ -832,17 +833,20 @@ export default function ListingPage() {
     } catch {}
   }, [listing]);
 
-  // View counter + funnel event (debounced, once per session per listing)
+  // View counter + funnel event (debounced; view POST is once per tab session per listing)
   const viewedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!listingId || viewedRef.current.has(listingId)) return;
     viewedRef.current.add(listingId);
     const timer = setTimeout(() => {
-      fetch("/api/listing-view", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listingId }),
-      }).catch((e) => console.error("Failed to increment view count:", e));
+      if (!hasCountedListingView(listingId)) {
+        markListingViewCounted(listingId);
+        fetch("/api/listing-view", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listingId }),
+        }).catch((e) => console.error("Failed to increment view count:", e));
+      }
       if (user?.uid) {
         trackFunnelEvent({
           event: "listing_detail_viewed",
