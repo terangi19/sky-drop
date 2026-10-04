@@ -24,7 +24,6 @@ import { getFreshIdToken } from "../../../lib/api-auth";
 import {
   LISTING_ORDERS_LIMIT,
   LISTING_QNA_LIMIT,
-  LISTING_REPORTS_LIMIT,
   SELLER_OTHER_LISTINGS_FETCH_LIMIT,
   SELLER_REVIEWS_LIMIT,
   SELLER_SALES_LIMIT,
@@ -193,7 +192,6 @@ export default function ListingPage() {
   const [offerSent, setOfferSent] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(null);
-  const [sellerReportsCount, setSellerReportsCount] = useState(0);
   const [showReportModal, setShowReportModal] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [messageSent, setMessageSent] = useState(false);
@@ -613,10 +611,9 @@ export default function ListingPage() {
           .catch((e) => console.error("Failed to fetch seller profile:", e));
       }
 
-      if (!sellerEmail) return;
-      getDocs(query(collection(db, "reports"), where("reportedUserEmail", "==", sellerEmail), where("status", "==", "pending"), limit(LISTING_REPORTS_LIMIT))).then((reportsSnap) => {
-        if (mounted) setSellerReportsCount(reportsSnap.size);
-      }).catch((e) => console.error("Failed to fetch reports:", e));
+      // Note: no client read of the `reports` collection here. firestore.rules only
+      // lets admins (and a report's own reporter) read it, so a public listing page
+      // query was always denied ("Missing or insufficient permissions").
     }
 
     const stop = startVisibilityPolledFetch(fetchListing, DETAIL_POLL_MS);
@@ -1065,10 +1062,13 @@ export default function ListingPage() {
       hasBio: !!sellerProfile.bio,
       hasPhoto: !!sellerProfile.photoURL,
       memberSince: memberDate,
-      reportsCount: sellerReportsCount,
+      // Reports are private (admin/reporter only). The old client count was always
+      // denied and stayed 0, so this is behaviour-neutral; a public count would need
+      // a server-provided aggregate.
+      reportsCount: 0,
       salesCount: sellerReviewData?.count || 0,
     });
-  }, [sellerProfile, sellerReportsCount, sellerReviewData?.count]);
+  }, [sellerProfile, sellerReviewData?.count]);
 
   const isFullyVerified = useMemo(
     () => (sellerProfile ? isFullyVerifiedSeller(sellerProfile) : false),
