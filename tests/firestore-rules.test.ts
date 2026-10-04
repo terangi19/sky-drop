@@ -1387,16 +1387,17 @@ describe("Firestore Security Rules", () => {
       );
 
       await testEnv.withSecurityRulesDisabled(async (ctx) => {
-        await ctx.firestore().collection("profiles").doc("referral-update-alice").set({
+        const db = ctx.firestore();
+        await db.collection("profiles").doc("referral-update-alice").set({
           email: "referral-update-alice@test.com",
           username: "referralupdate",
         });
-        await ctx.firestore().collection("profiles").doc("referral-empty-alice").set({
+        await db.collection("profiles").doc("referral-empty-alice").set({
           email: "referral-empty-alice@test.com",
           username: "referralempty",
           referralCode: "",
         });
-        await ctx.firestore().collection("profiles").doc("referral-set-alice").set({
+        await db.collection("profiles").doc("referral-set-alice").set({
           email: "referral-set-alice@test.com",
           username: "referralset",
           referralCode: "KEEPME",
@@ -1456,13 +1457,14 @@ describe("Firestore Security Rules", () => {
 
     it("RV1-RV4 view counters are not client-writable", async () => {
       await testEnv.withSecurityRulesDisabled(async (ctx) => {
-        await ctx.firestore().collection("listings").doc("view-listing").set({
+        const db = ctx.firestore();
+        await db.collection("listings").doc("view-listing").set({
           title: "Viewed item",
           sellerId: "view-alice",
           sellerEmail: "view-alice@test.com",
           views: 3,
         });
-        await ctx.firestore().collection("tradePosts").doc("view-post").set({
+        await db.collection("tradePosts").doc("view-post").set({
           title: "Viewed post",
           sellerId: "view-alice",
           sellerEmail: "view-alice@test.com",
