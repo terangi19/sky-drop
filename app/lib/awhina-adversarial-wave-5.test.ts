@@ -1543,7 +1543,7 @@ describe("adversarial NZ wave5 — semantic correction + pending-slot traps", ()
   it.fails("FAIL: wait 1 battery is fine but need 2 cards corrects qty, not price 1/2", () => {
     const r = interpretSemanticTurn({
       message: "wait 1 battery is fine but need 2 cards",
-      pendingSlot: "extras",
+      pendingSlot: "quantity",
       canonical: {
         title: "Canon 6D",
         listingType: "wanted",
