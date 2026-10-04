@@ -847,3 +847,327 @@ Safe-ish additions vs Wave 2: **real city names** on short physical (Queenstown 
 Still unsafe, and newly unsafe: digital products, mixed sell/rent/wanted/service-in-one-message, `neg` / nearest offer / starting-bid, `dunners` / `wellie` on services, lot/x2/set-of bundles, Brand New vs smashed, prompt/instruction leaks, and **any 4+ turn undo** (identity, qty, location slang).
 
 Do not delete these `it.fails` to fake green. Do not patch individual Wave 3 strings in production. Wave 1 and Wave 2 FAIL markers were not weakened.
+
+---
+
+# Wave 5
+
+**Launch-readiness: still NOT SAFE TO LAUNCH.** Wave 1–4 + PR #35 re-score gaps in classes 3/4/5/7 are not gone. Wave 5 deepens only those still-FAIL classes with new NZ strings (not copies of Waves 1–4). No production code was changed. Wave 1–4 and re-score `it.fails` / FAIL markers were not weakened.
+
+Coverage added (sibling `app/lib/awhina-adversarial-wave-5.test.ts`, same `processCanonicalAwhina` harness):
+
+- **Class 3 Wanted:** WTB Canon 5D Nelson; ISO camping fridge 12v Invercargill + battery; post-ad kayak Gisborne; DJI Mini 2 around vs max Rotorua; ISO e-bike not-selling-mine New Plymouth; Steam Deck Napier no-scams≠lecture; `wtb iphone se 2020 akl max 280`; long Marshall DSL40 budget walk + footswitch; ISO Husqvarna westie extra chain; ISO high chair Whangarei desperate-instruction; looking-for Canon 50mm around vs paid history Blenheim; multi6 Canon 6D budget+battery+cards Te Puke; multi5 ISO fridge then not-a-sale
+- **Class 4 Rentals:** Navara just-hiring Rotorua; 1bed Napier bond weeks; concrete mixer dual-rate Gisborne; Hiace hire Invercargill; 3bed Nelson townhouse bond weeks; cherry picker daily **and** weekly Palmy; room New Plymouth `240pw` vs bond `$960`; Jimny hire-or-sell (hire wins); tinnie hire Taupo scratched hull; 5bed Hastings no daily; multi6 mixer rate+bond+westie
+- **Class 5 Identity wipe:** 8-turn S22→S23 undo→S23 re-change + crack/chargers/Porirua; 6-turn Switch Lite→OLED undo→OLED; 7-turn Civic Type R→Accord undo→Accord; 8-turn Sony A7III→A7IV pending-slot + `dont put a7iii`; 4-turn S23 storage/colour then `and cracked screen tho` must not replace draft
+- **Class 7 Contradictions / model-as-price:** S23 Ultra 256→512 green hairline one-shot; S23 128/black→256→512 cream flipflops; iPhone 14 last-confirmed 256 wins; Series S 512 white→1TB black; Air Max 90 infrared $95 (90 is model); Pixel 8 $620 (8 is model); GoPro Hero 11 $280 (11 is model); Jordan size 11 $140 (11 is size); STI `50k` slang asking vs 330i `50k kays` odo
+- **Pending-slot traps:** pending price must not eat `a7iv` as $4; pending colour must not eat `512gb`; live 2-turn Sony / Marshall checks
+- **NZ places:** nelson / napier / gisborne / invercargill / rotorua / new plymouth / whangarei / hastings / blenheim / greymouth / porirua / whanganui / levin / kerikeri / te puke / lower hutt
+- **VERIFY:** Wanted≠sale **and** Wanted≠education lecture; no instruction leak (`no scams` / `dont put my max` / `dont mention I'm desperate`); no paid/was in public ad; defects preserved (scratch, crack, hairline, rust, mould) once
+
+Vitest evidence (`./node_modules/.bin/vitest run app/lib/awhina-adversarial-wave-5.test.ts`, v4.1.8):
+
+- First run against `cursor/awhina-rescore-w28-584e` (expected semantics vs production): **24 passed, 44 failed** (68 tests).
+- After recording breaks with `it.fails` / `FAIL:` on that branch: **24 passed | 44 expected fail (68)**.
+- **Rebased onto `main` @ `6e6fd19` (#50):** same expected semantics vs current production: **13 passed, 55 failed** (68). Extra fails are live `it()` cases from the older tip (Wanted fill, property weekly, model-as-price fill, parser). Recorded as additional `it.fails` / `FAIL:` so CI completes. Original 44 FAIL markers were not deleted. Combined Waves 1–3 on main + Wave 5: see scoreboard below.
+
+## Wave 5 — what passed on this branch
+
+- Parser: `google pixel 8` / `gopro hero 11` / `air max 90 infrared` / `sony a7iv` are not asking $8 / $11 / $90 / $4 when no dollar amount is present. Cherry picker `180 a day or 750 a week` is not qty `$6`. `ISO camping fridge 12v around 250 invercargill` → **250** (not 12v). `pixel 8 128gb 620 hastings` → **620**.
+- Input normalize keeps nelson / napier / gisborne / invercargill / rotorua / new plymouth / whangarei / hastings / blenheim / greymouth / porirua / whanganui / levin / kerikeri / te puke / lower hutt, plus WTB/ISO tokens.
+- Semantic fact model: “not selling / just hiring” stay out of `publicFacts` on a hire Navara; **scratched hull** is harvested as `negativeCondition` (fill still mangles the tinnie — see failures).
+- Semantic layer: pending **price** + `wait it's a7iv not a7iii` is **not** eaten as $4/$7.
+- **Live 2-turn pending-slot traps:** sparse Sony A7III + `wait it's a7iv` does **not** become $4 or wipe Sony; Marshall $480 + `nah 430 firm` keeps Marshall identity and sets **$430**.
+
+## Wave 5 — failures (locked expected semantics)
+
+Each item: input → actual → expected → what failed → likely subsystem.
+
+### P1. FAIL: `"max 280"` / `"under 900 nelson"` / `"under 400 gisborne"` / `"max 300"` wanted budgets
+
+- **Actual (main @ 6e6fd19):** `around 250 invercargill` now parses **250** (live `it()`). `max`/`under` still → `null`
+- **Expected:** `"280"` / `"900"` / `"400"` / `"300"` (`max`/`under` = budget cap; not SE / 5D / Mini 2)
+- **Subsystem:** listing-facts / wanted-budget / `extractPriceFromMessage`
+
+### P2. FAIL: `"gopro hero 11 280 palmy"` / `"air max 90 … 95 greymouth"` / `"jordan 1 chicago size 11 140 wellie"`
+
+- **Actual:** parser → `null` (Air Max fill also has **no price**, extras `size:90`)
+- **Expected:** `280` / `95` / `140`; 11/90 are model or size
+- **Subsystem:** price extract / model-as-price / NZ place next to asking (`palmy` / `greymouth` / `wellie`)
+
+### P3. FAIL: `"sti 50k greymouth"` slang asking → 50000
+
+- **Actual:** parser → `null`; fill price **50000** but location **dropped**, title `Sti`
+- **Expected:** vehicle STI/WRX, $50000, Greymouth
+- **Subsystem:** input-normalize / price extract (same class as Wave 2 `gtr 50k akl`)
+
+### P4. FAIL: `"240pw bond $960"` weekly 240 beats bond dollars
+
+- **Actual:** parser → **960** (bond dollars win)
+- **Expected:** `240` not `960`
+- **Subsystem:** price extract / rental bond vs rent
+
+### W5-1. FAIL: wanted-wtb-canon-nelson-no-scams
+
+- **Input:** `WTB canon 5d mark iii under 900 nelson no timewasters serious only no scams`
+- **Actual:** wanted Canon 5D $900 Nelson; extras dump `no timewasters serious only`; reply asks **asking price** (sale voice)
+- **Expected:** wanted, budget 900, Nelson; instructions stripped; Wanted≠sale voice
+- **Failed:** instruction leak (same class as Wave 2 Axela / Wave-R Karcher)
+- **Subsystem:** orchestration-boundary
+
+### W5-2. FAIL: wanted-iso-camping-fridge-invercargill
+
+- **Actual:** wanted, title dumps `Around 250 Invercargill`, **no budget**, battery kept
+- **Expected:** wanted fridge, budget 250, Invercargill, battery requirement
+- **Failed:** `around` budget dropped (parser null)
+- **Subsystem:** wanted-budget / composer
+
+### W5-3. FAIL: wanted-drone-around-vs-max-rotorua — **critical**
+
+- **Input:** `looking for a dji mini 2 around 280 rotorua max 300 no scams`
+- **Actual:** **physical** `Dji Mini 2 Around 280 Max 300`, no price
+- **Expected:** wanted DJI Mini, budget **300** (max beats around), Rotorua; not a sale
+- **Failed:** looking-for routed as sell; last-confirmed budget ignored
+- **Subsystem:** semantic-intent / find-vs-wanted / authority
+
+### W5-4. FAIL: wanted-ebike-not-selling-mine-npl
+
+- **Actual:** wanted Electric Bike $800; title **Brand New**; **New Plymouth missing**
+- **Expected:** wanted e-bike, budget 800, New Plymouth; not New; not a sale
+- **Failed:** invented Brand New; NPL dropped
+- **Subsystem:** input-normalize / composer / condition
+
+### W5-5. FAIL: wanted-long-marshall-amp-budget-walk — **critical**
+
+- **Actual:** wanted, price **430 OK**, Auckland; title is the command blob `just say wanted marshall amp oh wait budget is 430…`; extras `storage:430GB`, `the is fine is cracked`, `No timewasters prefer with footswitch`
+- **Expected:** Wanted Marshall DSL40, $430 not 500/450/480, West Auckland, footswitch; instructions stripped; 430 is not storage
+- **Failed:** instruction leak into title; budget hallucinated as 430GB; crack-cabinet mangled
+- **Subsystem:** composer / listing-facts merge / orchestration-boundary
+
+### W5-6. FAIL: wanted-iso-chainsaw-westie-extra-chain
+
+- **Actual:** wanted Husqvarna $180 Auckland; extras `No timewasters preferably with extra`
+- **Expected:** instructions out of extras/public; extra chain as requirement
+- **Subsystem:** orchestration-boundary
+
+### W5-7. FAIL: wanted-iso-highchair-whangarei-serious-only
+
+- **Actual:** wanted High Chair $80 Whangarei; extras `No timewasters desperate no mould`
+- **Expected:** mould as requirement; desperate/serious-only stripped
+- **Subsystem:** orchestration-boundary / composer
+
+### W5-8. FAIL: wanted-around-vs-paid-history-lens — **critical**
+
+- **Input:** `looking for a canon 50mm around 220 blenheim paid 400 last time dont put what i paid no scams`
+- **Actual:** **physical** `Canon 50mm Around 220 Blenheim`, no budget
+- **Expected:** wanted lens, budget 220 not 400, Blenheim; no paid leak
+- **Failed:** looking-for as sell (same class as Wave 4 Dyson)
+- **Subsystem:** semantic-intent / find-vs-wanted
+
+### W5-9. FAIL: rental-navara-just-hiring-not-sale — **critical**
+
+- **Actual:** rental **equipment** (not vehicle), title 2020 Nissan Navara, daily 160, **invented weekly 1120**, bond 550
+- **Expected:** vehicle hire, $160/day, bond 550, Rotorua, no invented weekly
+- **Failed:** vehicle vs equipment subtype; weekly invented as 160×7
+- **Subsystem:** domain-knowledge / rental rate inference
+
+### W5-10. FAIL: rental-concrete-mixer-dual-rate-gisborne
+
+- **Actual:** equipment, title Concrete Mixer, **daily=weekly=280** (weekly copied onto daily; 65 lost)
+- **Expected:** daily 65 **and** weekly 280, Gisborne, bond 150
+- **Failed:** dual-rate collapse (same class as Wave 4 scaffold / Wave-R spa)
+- **Subsystem:** listing-facts merge / rental rate inference
+
+### W5-11. FAIL: rental-hiace-hire-not-sale
+
+- **Actual:** rental **equipment**, title `2015 Toyota` (Hiace dropped), daily 110, invented weekly 770, **Invercargill missing**
+- **Expected:** vehicle hire Toyota Hiace 2015, $110/day, bond 400, Invercargill
+- **Subsystem:** domain-knowledge / composer / input-normalize
+
+### W5-12. FAIL: rental-cherry-picker-daily-and-weekly
+
+- **Actual:** title `180 Day OR 750 Week` (identity gone), daily **and** weekly **750**
+- **Expected:** Cherry picker identity, daily 180 **and** weekly 750, Palmy
+- **Failed:** identity replaced by rate waffle; dual-rate collapse
+- **Subsystem:** composer / rental rate inference
+
+### W5-13. FAIL: rental-room-npl-bond-dollars-not-weekly
+
+- **Actual:** property, weekly **240** and deposit **960** (bond-vs-rent numbers OK) but title `Brand New Plymouth 240 Per Week`, condition **New**, location missing
+- **Expected:** room/flat identity, weekly 240, bond 960, no daily, New Plymouth, not Brand New
+- **Failed:** “New Plymouth” glued into Brand New; town dropped
+- **Subsystem:** composer / condition / input-normalize
+
+### W5-14. FAIL: rental-jimny-hire-or-sell-hire-wins — **critical**
+
+- **Actual:** rental **equipment**, waffle title `Might Sell OR 2018 Jimny…`, daily 90, invented weekly 630
+- **Expected:** vehicle hire Suzuki Jimny 2018, $90/day, bond 350, Hamilton, not a $22000 sale
+- **Failed:** mixed sell/hire; confirmed hire ignored for subtype; weekly invented
+- **Subsystem:** semantic-intent / domain-knowledge
+
+### W5-15. FAIL: rental-tinnie-hire-taupo-not-sale — **critical**
+
+- **Actual:** equipment, title includes `Not`, extras `the for sale is scratched`
+- **Expected:** tinnie/boat hire, $80/day, bond 200, Taupo, scratch as defect (not “the for sale is scratched”)
+- **Failed:** mangled defect; not-for-sale residue in title
+- **Subsystem:** seller-evidence / description-writer
+
+### W5-16. FAIL: rental-5bed-hastings-no-daily
+
+- **Actual:** property, 5-bed, weekly 890, deposit 3560; **Hastings missing**; extras `No avail now or end`
+- **Expected:** Hastings kept; instructions stripped; no daily
+- **Subsystem:** input-normalize / orchestration-boundary
+
+### W5-17. FAIL: multi8-identity-change-undo-rechange-s22 — **critical**
+
+- **Transcript:** S22 380 Levin → S23 256 green 520 → undo S22 → re-change S23 256 → 490 → crack → 2 chargers → pickup Porirua
+- **Actual:** **new listing** titled `Comes With 2 Chargers`
+- **Expected:** S23, 256GB, $490, Porirua, crack + 2 chargers; S22/380 gone
+- **Failed:** later accessory/location follow-up starts a new draft
+- **Subsystem:** draft-transition / authority / pending-slots
+
+### W5-18. FAIL: multi6-switch-lite-oled-undo-rechange
+
+- **Actual:** new listing `Kickstand Tho`
+- **Expected:** same Switch OLED, $300, Greymouth, scratch; Lite gone
+- **Subsystem:** draft-transition / pending-slots
+
+### W5-19. FAIL: multi7-civic-type-r-accord-undo — **critical**
+
+- **Actual:** new **physical** `Still Whanganui`
+- **Expected:** Honda Accord 2016, 110000 km, $11500, Whanganui, rust; Type R gone
+- **Subsystem:** draft-transition / listing-identity-conflict
+
+### W5-20. FAIL: multi8-pending-slot-must-not-eat-a7iv — **critical**
+
+- **Transcript:** Sony A7III Kerikeri → wait A7IV → 1800 → black → scratched hotshoe → pickup lower hutt → dont put a7iii → nah still 1800 firm
+- **Actual:** title **`Hotshoe Tho`**, identity gone (price 1800 happens to stick on the junk draft)
+- **Expected:** Sony A7IV, $1800, Lower Hutt, scratch; A7III/instruction stripped
+- **Failed:** 2-turn pending-slot trap *does* pass; 8-turn + instruction follow-up does not (same class as Wave 4 MacBook M1)
+- **Subsystem:** draft-transition / orchestration-boundary / pending-slots
+
+### W5-21. FAIL: multi4-followup-crack-must-not-wipe-s23 — **critical**
+
+- **Transcript:** S23 256 green Levin 490 → wait 512 cream → and cracked screen tho → pickup still levin
+- **Actual:** listingFill **gone**; reply `Pickup enabled`
+- **Expected:** same S23, 512GB cream, $490, Levin, crack
+- **Failed:** defect follow-up wipes the draft (`And Cracked Screen Tho` class)
+- **Subsystem:** draft-transition / pending-slots
+
+### W5-22. FAIL: multi6-wanted-canon-budget-battery
+
+- **Actual:** last turn **physical** `Wait 1 Battery IS Fine But Need 2 Cards`
+- **Expected:** wanted Canon 6D, budget 600, 1 battery + 2 cards, Te Puke
+- **Failed:** qty correction treated as a new sale title
+- **Subsystem:** semantic-intent / pending-slots / find-vs-wanted
+
+### W5-23. FAIL: multi5-wanted-iso-fridge-then-not-a-sale
+
+- **Actual:** last turn **rental equipment** `Mine Looking TO Buy`
+- **Expected:** wanted fridge, budget 220, Gisborne, rust requirement; not a sale
+- **Failed:** “not selling mine looking to buy” hijacked to rental
+- **Subsystem:** semantic-intent / find-vs-wanted / draft-transition
+
+### W5-24. FAIL: multi6-rental-mixer-rate-bond-location
+
+- **Actual:** after `pickup westie`, **physical** `Bond 150` priced 150, Auckland
+- **Expected:** same equipment rental, $65/day **and** $280/week, bond 150, West Auckland
+- **Failed:** short location slang as new listing (Wave 2/4 trailer nah class)
+- **Subsystem:** draft-transition / authority / pending-slots
+
+### W5-25. FAIL: physical-s23-ultra-contradiction-one-shot
+
+- **Actual:** title `Samsung S23 Ultra 256gb`, $890 Dunedin, colour Green, **storage 256GB**, battery 91 kept; 512 dumped
+- **Expected:** 512GB, green, battery 91%, hairline, $890; 256 gone
+- **Failed:** first storage wins (same class as Wave 1 iPhone 128→256)
+- **Subsystem:** listing-facts merge / authority
+
+### W5-26. FAIL: physical-storage-colour-flipflops-s23
+
+- **Actual:** title **`cream`**, price **256**, colour still Black, storage still 128GB
+- **Expected:** S23 identity kept, $490, 512GB, cream; 128/black gone
+- **Failed:** 256 as price; identity wiped to colour word; first storage locked (Wave 2 S24 class)
+- **Subsystem:** authority / semantic-intent / pending-slots
+
+### W5-27. FAIL: physical-last-confirmed-storage-wins-iphone14
+
+- **Actual:** title `iPhone 14 128gb`, $800, colour Green, **storage 128GB**; Levin missing
+- **Expected:** 256GB green $800 Levin; last `nah 256` wins
+- **Failed:** first storage wins; town dropped
+- **Subsystem:** listing-facts merge / authority
+
+### W5-28. FAIL: physical-series-s-1tb-colour-flip
+
+- **Actual:** price **360 OK**, colour field Black, extras still `colour:White`, title still `512 White Porirua 380`; 1TB not in extras
+- **Expected:** Xbox Series S, 1TB, black, $360; 512/white/380 gone
+- **Failed:** last colour applied to the field but extras/title keep the first facts; 1TB dropped
+- **Subsystem:** listing-facts merge / composer
+
+### W5-29. FAIL: physical-air-max-90-infrared-not-price
+
+- **Actual:** title dumps the whole line including `95 Greymouth`; extras `size:90`; **no price**
+- **Expected:** Air Max 90, $95, Greymouth; 90 is model not size/price
+- **Subsystem:** model-as-price / composer / price extract
+
+### P5. FAIL (main rebase): `"2012 bmw 330i 50k kays wellington 8500"` / `"580 a week bond 3 weeks"` / `"just hiring 90 a day"`
+
+- **Actual:** parser → `null` / `null` / **22000**
+- **Expected:** `8500` (50k is odo) / `580` not `$3` / `90` not 2018/22000
+- **Subsystem:** price extract / rental rates / last-confirmed hire asking
+
+### P6. FAIL (main rebase): pending colour `'512gb actually'` eaten
+
+- **Actual:** `interpretSemanticTurn` blob is `price:128` (512 dropped)
+- **Expected:** 512 as storage, not colour/price
+- **Subsystem:** pending-slots / semantic-intent
+
+### W5-30. FAIL (main rebase): wanted-looking-for-kayak-gisborne-post-ad / wanted-steam-deck-no-scams-not-lecture
+
+- **Actual:** intent **education**, no fill (`Stay on Sky Drop Messages…`)
+- **Expected:** wanted Kayak $400 Gisborne / wanted Steam Deck $550 Napier; Wanted≠lecture
+- **Subsystem:** semantic-intent / find-vs-wanted / education routing
+
+### W5-31. FAIL (main rebase): wanted-wtb-iphone-se-max-akl
+
+- **Actual:** **physical** iPhone SE, asking **2020** (year as price)
+- **Expected:** wanted iPhone, Auckland, $280
+- **Subsystem:** find-vs-wanted / model-as-price
+
+### W5-32. FAIL (main rebase): rental-1bed-napier-bond-weeks / rental-3bed-nelson-bond-weeks
+
+- **Actual:** Napier copies daily=weekly **440**, deposit **4**; Nelson title `Listing`, subtype **equipment**, daily=weekly **580**, deposit **3**
+- **Expected:** property weekly 440/580, no daily, bond not weeks-as-dollars, townhouse/3bed identity
+- **Subsystem:** domain-knowledge / rental rate inference / composer
+
+### W5-33. FAIL (main rebase): physical-pixel-8 / gopro-11 / jordan-size-11 fill asking
+
+- **Actual:** Pixel asking **8**; GoPro asking **11**; Jordan **no price**, extras `size:1`
+- **Expected:** $620 / $280 / $140; 8/11 are model or size
+- **Subsystem:** model-as-price / composer / price extract
+
+### Semantic / correction layer
+
+- **no scams / serious only / no timewasters** still not `sellerInstructions` on WTB Canon.
+- **dont put my max** on the long Marshall wanted ramble is not an instruction; historical 500/480 not classified as beaten.
+- **actually wait it IS the s23 256** is parsed as `price:256` (256 as asking, S23 identity missed).
+- **wait 1 battery is fine but need 2 cards** is not a qty correction (not marked CORRECTION).
+
+## Wave 5 launch notes
+
+Safe-ish on current `main`: **2-turn** A7IV identity phrase is not eaten as $4; Marshall `nah 430 firm` keeps identity; parser `around 250` budget; NZ place normalize; Pixel 8 **parser** 620 when a trailing number is present (fill still prices **8**).
+
+Still unsafe, and newly unsafe at this depth on main: explicit **post a wanted ad** kayak / Steam Deck `no scams` route to **education**; WTB iPhone SE year-as-price; property 1bed Napier / 3bed Nelson still copy daily=weekly and treat bond-weeks as dollars; Pixel/GoPro/Jordan **fill** model-as-price; **any ≥4 turn that changes identity, qty, or location slang**; looking-for + around/max still becomes a **sale** (DJI, 50mm lens); WTB/ISO still leak `no timewasters` into extras; vehicle-hire subtype still **equipment** with invented weekly = daily×7; dual-rate still copies the larger number onto both slots; cherry picker identity replaced by rate waffle; New Plymouth → Brand New; follow-up `and cracked screen tho` **deletes the draft**; last-confirmed storage/colour still loses to the first fact; `50k` slang asking still parser-null (fill may price it and drop the town).
+
+Do not delete these `it.fails` to fake green. Do not patch individual Wave 5 strings in production. Wave 1, Wave 2, and Wave 3 FAIL markers on main were not weakened. Wave 4 / PR #35 files are not on main and were not invented here.
+No production code was changed.
+
+## Wave 5 scoreboard
+
+| Suite | Measured on |
+|---|---|
+| Wave 5 first run (rescore branch) | **24 passed, 44 failed** (68) on `cursor/awhina-rescore-w28-584e` |
+| Wave 5 after `it.fails` (rescore branch) | **24 passed \| 44 expected-fail (68)** |
+| Wave 5 first run vs `main` @ `6e6fd19` | **13 passed, 55 failed** (68) |
+| Wave 5 after extra `it.fails` on main | **13 passed \| 55 expected-fail (68)** |
+| Waves 1–3 on main (unchanged) | still wired in `test:awhina:adversarial` |
+
+Classes 3/4/5/7 remain **FAIL**. Fixer still owns production. This PR is tests/docs only.

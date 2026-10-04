@@ -60,7 +60,11 @@ Before any billed OpenAI API call is made, `gateOpenAiCall` / `createGatedOpenAI
 
 If any limit is exceeded, the billed call is **not** made. Āwhina chat/vision/description
 fall back to existing rule-based / local paths. Routes without a local fallback return
-HTTP 503 with `code: "openai_budget_exceeded"` (or `"openai_disabled"`).
+HTTP 503 with `code: "openai_budget_exceeded"` (or `"openai_disabled"` / `"openai_budget_unavailable"`).
+
+**Fail-closed tracker:** if `checkSpendingLimits` / Firestore / admin read fails, billed
+OpenAI is blocked (`openai_budget_unavailable`). Do not call OpenAI during a tracker
+outage. Healthy + under-budget traffic is unchanged.
 
 ### 2. Post-Request Recording
 
@@ -142,11 +146,15 @@ Current pricing models (can be updated in `openai-spending.ts`):
 ✅ Automatic fallback - Service continues even when AI disabled
 ✅ Budget alerting - Admins notified before budget exhausted
 
+**Fail-closed (closed beta):** tracker read/admin errors block billed OpenAI. Awhina
+uses rule-based fallback; other routes return HTTP 503 `openai_budget_unavailable`.
+
 ### What's Not Protected
 
 ⚠️ Token estimation accuracy - Uses rough 4 chars/token estimate when usage not returned
 ⚠️ Concurrent requests - Multiple simultaneous requests could briefly exceed limits
 ⚠️ API key exposure - Still need to protect OPENAI_API_KEY environment variable
+⚠️ Post-call record failures - usage already billed; the next check fail-closes if the tracker is still down
 
 ## Estimated Protection Coverage
 
@@ -240,3 +248,4 @@ To test spending protection:
 3. Confirm OpenAI usage dashboard does not increment for the blocked request.
 
 4. Regression: `npx vitest run app/lib/openai-spend-guard.test.ts`
+   (includes fail-closed: simulated tracker error must not invoke the billed callback)

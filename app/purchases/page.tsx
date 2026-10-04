@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
 import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildPurchasesInsight } from "../lib/awhina-insights";
-import { collection, doc, limit, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
+import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { AuthGatePlaceholder, useRequireAuth } from "../lib/use-require-auth";
 import { getFreshIdToken } from "../lib/api-auth";
@@ -23,6 +23,8 @@ import { REFUND_BADGE_CLASS } from "../lib/refund-display";
 import { getBuyerNextAction } from "../lib/purchase-order-actions";
 import { normalizePurchaseStatus, purchaseStatusLabel } from "../lib/purchase-status";
 import { canBuyerReview } from "../lib/order-reviews";
+import { DASHBOARD_ORDERS_LIMIT } from "../lib/firestore-query-limits";
+import { DASHBOARD_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 interface Purchase {
   id: string;
@@ -223,27 +225,50 @@ export default function PurchasesPage() {
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeDescription, setDisputeDescription] = useState("");
   const [disputeSending, setDisputeSending] = useState(false);
+  const reloadPurchases = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     if (!user?.email) return;
-    const q = query(collection(db, "purchases"), where("buyerEmail", "==", user.email), orderBy("createdAt", "desc"), limit(100));
-    const unsub = onSnapshot(q, (snap) => {
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Purchase));
-      items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
-      setPurchases(items);
-      setLoading(false);
-    }, (err) => {
-      console.error("Failed to load purchases:", err);
-      if (err.code === "permission-denied") {
-        setError("You don't have permission to view purchases. Please sign in again.");
-      } else if (err.code === "unavailable") {
-        setError("Service temporarily unavailable. Please try again.");
-      } else {
-        setError(`Could not load purchases: ${err.message || "Check your connection."}`);
+    const buyerEmail = user.email;
+    let mounted = true;
+    const q = query(
+      collection(db, "purchases"),
+      where("buyerEmail", "==", buyerEmail),
+      orderBy("createdAt", "desc"),
+      limit(DASHBOARD_ORDERS_LIMIT)
+    );
+
+    async function fetchPurchases() {
+      if (!mounted) return;
+      try {
+        const snap = await getDocs(q);
+        if (!mounted) return;
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Purchase));
+        items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+        setPurchases(items);
+        setError("");
+        setLoading(false);
+      } catch (err: unknown) {
+        console.error("Failed to load purchases:", err);
+        const code = (err as { code?: string })?.code;
+        const message = (err as { message?: string })?.message;
+        if (code === "permission-denied") {
+          setError("You don't have permission to view purchases. Please sign in again.");
+        } else if (code === "unavailable") {
+          setError("Service temporarily unavailable. Please try again.");
+        } else {
+          setError(`Could not load purchases: ${message || "Check your connection."}`);
+        }
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
-    });
-    return () => unsub();
+    }
+
+    reloadPurchases.current = fetchPurchases;
+    const stop = startVisibilityPolledFetch(fetchPurchases, DASHBOARD_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, [user?.email]);
 
   async function updateStatus(id: string, status: string) {
@@ -266,6 +291,7 @@ export default function PurchasesPage() {
       showToast(data.error || "Could not update order", "error");
       return;
     }
+    void reloadPurchases.current();
 
     showToast(
       status === "delivered" ? "Receipt confirmed — seller will be notified." :
@@ -316,6 +342,7 @@ export default function PurchasesPage() {
       }
       setEditAddress(null);
       setNewAddress("");
+      void reloadPurchases.current();
     } catch (e: any) { console.error("Failed to update address:", e); showToast(e.message || "Failed to save address", "error"); }
   }
 
@@ -723,6 +750,7 @@ export default function PurchasesPage() {
                   setReviewModal(null);
                   setReviewRating(0);
                   setReviewText("");
+                  void reloadPurchases.current();
                 } catch (e) {
                   console.error(e);
                   showToast("Failed to submit review", "error");
@@ -791,6 +819,7 @@ export default function PurchasesPage() {
                   });
                   setDisputeModal(null);
                   showToast("Dispute opened. Admin will review shortly.");
+                  void reloadPurchases.current();
                 } catch (e) {
                   console.error(e);
                   showToast(e instanceof Error ? e.message : "Failed to open dispute. Try again.", "error");

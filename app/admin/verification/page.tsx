@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import { showToast } from "../../components/Toast";
 import { adminFetch } from "../../lib/admin-fetch.client";
 import {
   collection,
-  onSnapshot,
+  getDocs,
+  limit,
   orderBy,
   query,
   where,
@@ -21,6 +22,8 @@ import {
   onAuthStateChanged,
 } from "../../lib/firebase";
 import { isAdminEmail } from "../../lib/admin-check";
+import { ADMIN_PENDING_REVIEW_LIMIT } from "../../lib/firestore-query-limits";
+import { DASHBOARD_POLL_MS, startVisibilityPolledFetch } from "../../lib/polled-firestore";
 
 type Tab = "listings" | "digital";
 
@@ -32,6 +35,7 @@ export default function AdminVerificationPage() {
   const [pendingListings, setPendingListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [rejectInputs, setRejectInputs] = useState<Record<string, string>>({});
+  const reloadTab = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
@@ -39,29 +43,52 @@ export default function AdminVerificationPage() {
   }, []);
 
   useEffect(() => {
-    if (tab === "digital") {
-      setLoading(true);
-      const q = query(collection(db, "tradePosts"), where("type", "==", "digital"));
-      const unsub = onSnapshot(q, (snap) => {
-        setDigitalListings(snap.docs.filter((d) => d.data().status === "pending_review").map((d) => ({ id: d.id, ...d.data() })));
-        setLoading(false);
-      }, (err) => {
-        console.error("Failed to load digital listings:", err);
-        setLoading(false);
-      });
-      return () => unsub();
-    } else if (tab === "listings") {
-      setLoading(true);
-      const q = query(collection(db, "listings"), where("status", "==", "pending_review"), orderBy("createdAt", "desc"));
-      const unsub = onSnapshot(q, (snap) => {
-        setPendingListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setLoading(false);
-      }, (err) => {
-        console.error("Failed to load pending listings:", err);
-        setLoading(false);
-      });
-      return () => unsub();
+    let mounted = true;
+    setLoading(true);
+
+    async function fetchTab() {
+      if (!mounted) return;
+      try {
+        if (tab === "digital") {
+          const q = query(
+            collection(db, "tradePosts"),
+            where("type", "==", "digital"),
+            limit(ADMIN_PENDING_REVIEW_LIMIT)
+          );
+          const snap = await getDocs(q);
+          if (!mounted) return;
+          setDigitalListings(
+            snap.docs
+              .filter((d) => d.data().status === "pending_review")
+              .map((d) => ({ id: d.id, ...d.data() }))
+          );
+        } else {
+          const q = query(
+            collection(db, "listings"),
+            where("status", "==", "pending_review"),
+            orderBy("createdAt", "desc"),
+            limit(ADMIN_PENDING_REVIEW_LIMIT)
+          );
+          const snap = await getDocs(q);
+          if (!mounted) return;
+          setPendingListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        }
+        if (mounted) setLoading(false);
+      } catch (err) {
+        console.error(
+          tab === "digital" ? "Failed to load digital listings:" : "Failed to load pending listings:",
+          err
+        );
+        if (mounted) setLoading(false);
+      }
     }
+
+    reloadTab.current = fetchTab;
+    const stop = startVisibilityPolledFetch(fetchTab, DASHBOARD_POLL_MS);
+    return () => {
+      mounted = false;
+      stop();
+    };
   }, [tab]);
 
   const isAdmin = isAdminEmail(user?.email);
@@ -74,6 +101,7 @@ export default function AdminVerificationPage() {
         body: JSON.stringify({ uid: profileId, action: "approve" }),
       });
       showToast("KYC approved.", "success");
+      void reloadTab.current();
     } catch (e) {
       console.error(e);
       showToast(e instanceof Error ? e.message : "Approve failed", "error");
@@ -90,6 +118,7 @@ export default function AdminVerificationPage() {
       });
       setRejectInputs((prev) => { const next = { ...prev }; delete next[profileId]; return next; });
       showToast("KYC rejected.", "success");
+      void reloadTab.current();
     } catch (e) {
       console.error(e);
       showToast(e instanceof Error ? e.message : "Reject failed", "error");
@@ -104,6 +133,7 @@ export default function AdminVerificationPage() {
         body: JSON.stringify({ listingId, action: "approve", type: "digital" }),
       });
       showToast("Digital listing approved.", "success");
+      void reloadTab.current();
     } catch (e) {
       console.error(e);
       showToast(e instanceof Error ? e.message : "Approve failed", "error");
@@ -120,6 +150,7 @@ export default function AdminVerificationPage() {
       });
       setRejectInputs((prev) => { const next = { ...prev }; delete next[`dig_${listingId}`]; return next; });
       showToast("Digital listing rejected.", "success");
+      void reloadTab.current();
     } catch (e) {
       console.error(e);
       showToast(e instanceof Error ? e.message : "Reject failed", "error");
@@ -134,6 +165,7 @@ export default function AdminVerificationPage() {
         body: JSON.stringify({ listingId, action: "approve", type: "listing" }),
       });
       showToast("Listing approved.", "success");
+      void reloadTab.current();
     } catch (e) {
       console.error(e);
       showToast(e instanceof Error ? e.message : "Approve failed", "error");
@@ -150,6 +182,7 @@ export default function AdminVerificationPage() {
       });
       setRejectInputs((prev) => { const next = { ...prev }; delete next[`lst_${listingId}`]; return next; });
       showToast("Listing rejected.", "success");
+      void reloadTab.current();
     } catch (e) {
       console.error(e);
       showToast(e instanceof Error ? e.message : "Reject failed", "error");
