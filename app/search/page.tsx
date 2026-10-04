@@ -28,7 +28,7 @@ import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { adjustListingWatchlistCount } from "../lib/listing-watchlist-count";
 import { requireWatchlistAccount } from "../lib/require-watchlist-account";
 import { rankListingsBySearch } from "../lib/marketplace-fuzzy-search";
-import { normalizeMarketplaceSearchQuery, processVoiceSearchTranscript } from "../lib/voice-search-pipeline";
+import { resolveSearchPageQuery } from "../lib/voice-search-pipeline";
 import { logVoiceSearch } from "../lib/voice-search-logger";
 import type { Listing } from "../../types/firestore";
 import { db } from "../lib/firebase";
@@ -252,10 +252,13 @@ export default function SearchPage() {
     // TODO: Implement delete
   };
 
-  const filteredListings = useMemo(() => {
-    const normalizedQuery = query ? normalizeMarketplaceSearchQuery(query) : "";
-    const searchIntent = query ? processVoiceSearchTranscript(heardRaw || query) : null;
+  // Typed (/search?q=) vs voice (/search?q=&heard=): brand_fuzzy only for voice.
+  const { isVoice, intent: searchIntent, rankQuery } = useMemo(
+    () => resolveSearchPageQuery(query, heardRaw),
+    [query, heardRaw]
+  );
 
+  const filteredListings = useMemo(() => {
     let base = listings.filter((listing) => {
       const matchesPrice = listingMatchesPriceFilter(listing, minPrice, maxPrice);
       const matchesCondition = listingMatchesConditionFilter(listing, condition);
@@ -290,11 +293,13 @@ export default function SearchPage() {
       );
     });
 
-    if (normalizedQuery) {
+    if (query.trim()) {
       // Use higher relevance threshold to exclude unrelated listings
-      const ranked = rankListingsBySearch(base, searchIntent ?? normalizedQuery, { minScore: 3.0 });
+      const ranked = rankQuery
+        ? rankListingsBySearch(base, searchIntent ?? rankQuery, { minScore: 3.0 })
+        : [];
       if (ranked.length > 0) {
-        if (searchIntent && heardRaw) {
+        if (searchIntent && isVoice) {
           logVoiceSearch(searchIntent, {
             source: "search_page",
             resultCount: ranked.length,
@@ -323,7 +328,7 @@ export default function SearchPage() {
       });
     }
     return sorted;
-  }, [listings, query, heardRaw, categoryFilter, minPrice, maxPrice, condition, location, sortBy, saleType, typeFilter, servicePricingFilter, rentalPeriodFilter]);
+  }, [listings, query, isVoice, searchIntent, rankQuery, categoryFilter, minPrice, maxPrice, condition, location, sortBy, saleType, typeFilter, servicePricingFilter, rentalPeriodFilter]);
 
   const sellerMetaListings = useMemo(
     () => filteredListings.slice(0, 24),
@@ -340,11 +345,15 @@ export default function SearchPage() {
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-              {query ? `Results for "${normalizeMarketplaceSearchQuery(query)}"` : "All Listings"}
+              {query ? `Results for "${query}"` : "All Listings"}
             </h1>
-            {heardRaw && heardRaw.toLowerCase() !== normalizeMarketplaceSearchQuery(query) && (
+            {isVoice && heardRaw.trim().toLowerCase() !== query.trim().toLowerCase() && (
               <p className="mt-1 text-xs text-sky-400/90">
                 Heard: &ldquo;{heardRaw}&rdquo;
+                {searchIntent?.searchQuery &&
+                  searchIntent.searchQuery !== heardRaw.trim().toLowerCase() && (
+                    <> · Showing: &ldquo;{searchIntent.searchQuery}&rdquo;</>
+                  )}
               </p>
             )}
             <p className="mt-2 text-sm text-[var(--muted)]">
@@ -581,7 +590,7 @@ export default function SearchPage() {
             title="No listings found"
             description={
               query
-                ? `No results for “${normalizeMarketplaceSearchQuery(query)}”. Try widening filters or browsing the marketplace.`
+                ? `No results for “${query}”. Try widening filters or browsing the marketplace.`
                 : "No listings match your current search. Try clearing filters or browsing all listings."
             }
             actionLabel="Browse all listings"
