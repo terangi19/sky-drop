@@ -186,6 +186,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ended: endedCount, unpaid: unpaidCount });
   } catch (e: any) {
     console.error("[cron-expire-auctions] Error:", e);
-    return NextResponse.json({ error: e.message || "Unknown error" }, { status: 500 });
+    return NextResponse.json({ error: "Cron failed" }, { status: 500 });
   }
 }

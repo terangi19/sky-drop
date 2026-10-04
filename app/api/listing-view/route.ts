@@ -30,17 +30,22 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getAdminDb();
-    const ref = db.collection("listings").doc(listingId);
-    const snap = await ref.get();
-    if (!snap.exists) {
-      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    try {
+      // Single write (no pre-read); update() fails with NOT_FOUND (gRPC code 5) if the listing is gone.
+      // onListingUpdated no-ops when only views change.
+      await db
+        .collection("listings")
+        .doc(listingId)
+        .update({ views: FieldValue.increment(1) });
+    } catch (e: unknown) {
+      const code = (e as { code?: number | string })?.code;
+      if (code === 5 || code === "not-found") {
+        return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+      }
+      throw e;
     }
 
-    const before = Number(snap.data()?.views) || 0;
-    // Still writes listings.views for display; onListingUpdated no-ops when only views change.
-    await ref.update({ views: FieldValue.increment(1) });
-
-    return NextResponse.json({ views: before + 1 });
+    return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[listing-view]", e);
     return NextResponse.json({ error: "Failed to record view" }, { status: 500 });
