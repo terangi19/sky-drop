@@ -473,16 +473,19 @@ export default function Navbar() {
                 </Link>
               )}
               <div className="relative group px-0.5">
-                <Link href="/" className={`flex items-center gap-1 ${navLinkBase} ${browseActive ? navLinkActive : navLinkIdle}`}>
+                <button type="button" aria-haspopup="true" className={`flex items-center gap-1 ${navLinkBase} ${browseActive ? navLinkActive : navLinkIdle}`}>
                   <span>Browse</span>
-                  <svg className="h-3 w-3 opacity-70 transition-transform duration-200 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                </Link>
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 rounded-xl border border-[var(--border)] bg-[var(--dropdown-bg)] p-1.5 shadow-[var(--shadow-lg)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 translate-y-1 group-hover:translate-y-0 z-50">
-                  {BROWSE_LINKS.map((item) => (
-                    <Link key={item.label} href={item.href} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-[var(--dropdown-hover)] transition-colors duration-150">
-                      <div><div className="text-sm font-medium">{item.label}</div><div className="text-[11px] text-[var(--muted)]">{item.desc}</div></div>
-                    </Link>
-                  ))}
+                  <svg className="h-3 w-3 opacity-70 transition-transform duration-200 group-hover:rotate-180 group-focus-within:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {/* pt-2 bridge keeps the hover hit-area continuous: no dead zone between trigger and panel */}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 w-56 pt-2 opacity-0 invisible translate-y-1 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 z-50">
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--dropdown-bg)] p-1.5 shadow-[var(--shadow-lg)]">
+                    {BROWSE_LINKS.map((item) => (
+                      <Link key={item.label} href={item.href} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-[var(--dropdown-hover)] transition-colors duration-150">
+                        <div><div className="text-sm font-medium">{item.label}</div><div className="text-[11px] text-[var(--muted)]">{item.desc}</div></div>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </div>
               {user && (
