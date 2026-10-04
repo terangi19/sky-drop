@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
+import { getAdminDb, isAdminInitialized, verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { pickPublicProfileFields } from "../../lib/public-profile-fields";
+import { selectPublicProfileLookups } from "../../lib/public-profile-lookups";
 
 const MAX_UIDS = 40;
 const MAX_EMAILS = 40;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Batch public profiles by UID (and optionally seller email for legacy listings).
- * Used by listing-card enrichment to avoid N+1 client profile reads
+ * Batch public profiles by UID (and optionally seller email for signed-in callers).
+ * Email lookups are an account-existence oracle — unauthenticated requests
+ * resolve UIDs only. Used by listing-card enrichment to avoid N+1 client profile reads
  * (profiles are owner-only in Firestore rules).
  */
 export async function POST(req: NextRequest) {
@@ -31,21 +33,36 @@ export async function POST(req: NextRequest) {
     const rawUids = Array.isArray(body?.uids) ? (body.uids as unknown[]) : [];
     const rawEmails = Array.isArray(body?.emails) ? (body.emails as unknown[]) : [];
 
-    const uids: string[] = [
-      ...new Set(
-        rawUids
-          .map((u) => String(u || "").trim())
-          .filter((u) => u.length > 0 && u.length < 128)
-      ),
-    ].slice(0, MAX_UIDS);
+    let authenticated = false;
+    const authHeader = req.headers.get("authorization");
+    if (authHeader?.startsWith("Bearer ") && isAdminInitialized()) {
+      try {
+        await verifyIdToken(authHeader.slice(7));
+        authenticated = true;
+      } catch {
+        authenticated = false;
+      }
+    }
 
-    const emails: string[] = [
-      ...new Set(
-        rawEmails
-          .map((e) => String(e || "").trim().toLowerCase())
-          .filter((e) => e.length > 3 && e.length < 254 && EMAIL_RE.test(e))
-      ),
-    ].slice(0, MAX_EMAILS);
+    const selected = selectPublicProfileLookups({
+      uids: [
+        ...new Set(
+          rawUids
+            .map((u) => String(u || "").trim())
+            .filter((u) => u.length > 0 && u.length < 128)
+        ),
+      ].slice(0, MAX_UIDS),
+      emails: [
+        ...new Set(
+          rawEmails
+            .map((e) => String(e || "").trim().toLowerCase())
+            .filter((e) => e.length > 3 && e.length < 254 && EMAIL_RE.test(e))
+        ),
+      ].slice(0, MAX_EMAILS),
+      authenticated,
+    });
+    const uids = selected.uids;
+    const emails = selected.emails;
 
     if (uids.length === 0 && emails.length === 0) {
       return NextResponse.json({ profiles: {}, emailToUid: {} });
