@@ -454,26 +454,48 @@ export interface SpendingAlertResult {
   message?: string;
 }
 
+/**
+ * Over-cap checks run on EVERY billed OpenAI gate (and every status refresh), so
+ * logging each one would write a `securityEvents` doc per blocked request. Mirror
+ * rate-limit.ts (BLOCKED_KEY_CACHE): at most one event per type per 60 s per
+ * instance. The request is still blocked every time; only the audit write/log is
+ * deduped.
+ */
+const OVER_CAP_LOG_WINDOW_MS = 60_000;
+const overCapLastLoggedAt = new Map<string, number>();
+
+function logOverCapOnce(
+  type: "openai_daily_limit_exceeded" | "openai_monthly_limit_exceeded",
+  message: string,
+  metadata: Record<string, unknown>
+): void {
+  const now = Date.now();
+  const last = overCapLastLoggedAt.get(type);
+  if (last !== undefined && now - last < OVER_CAP_LOG_WINDOW_MS) return;
+  overCapLastLoggedAt.set(type, now);
+  logSecurityWarning(type, message, { metadata });
+}
+
+export function __resetOverCapLogDedupeForTests(): void {
+  overCapLastLoggedAt.clear();
+}
+
 function evaluateGlobalBudgetCaps(
   spending: SpendingRecord,
   config: SpendingConfig
 ): { allowed: boolean; reason?: string } {
   if (spending.dailySpendUSD >= config.dailyLimitUSD) {
-    logSecurityWarning("openai_daily_limit_exceeded", "OpenAI daily spend limit exceeded", {
-      metadata: {
-        dailySpend: spending.dailySpendUSD,
-        dailyLimit: config.dailyLimitUSD,
-      },
+    logOverCapOnce("openai_daily_limit_exceeded", "OpenAI daily spend limit exceeded", {
+      dailySpend: spending.dailySpendUSD,
+      dailyLimit: config.dailyLimitUSD,
     });
     return { allowed: false, reason: "Daily spend limit exceeded" };
   }
 
   if (spending.monthlySpendUSD >= config.monthlyLimitUSD) {
-    logSecurityWarning("openai_monthly_limit_exceeded", "OpenAI monthly spend limit exceeded", {
-      metadata: {
-        monthlySpend: spending.monthlySpendUSD,
-        monthlyLimit: config.monthlyLimitUSD,
-      },
+    logOverCapOnce("openai_monthly_limit_exceeded", "OpenAI monthly spend limit exceeded", {
+      monthlySpend: spending.monthlySpendUSD,
+      monthlyLimit: config.monthlyLimitUSD,
     });
     return { allowed: false, reason: "Monthly spend limit exceeded" };
   }
