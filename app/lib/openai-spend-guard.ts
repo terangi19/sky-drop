@@ -12,7 +12,11 @@
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 import OpenAI from "openai";
-import { checkSpendingLimits, recordSpending } from "./openai-spending";
+import {
+  WHISPER_TOKENS_PER_SECOND,
+  checkSpendingLimits,
+  recordSpending,
+} from "./openai-spending";
 
 export const OPENAI_BUDGET_EXCEEDED_CODE = "openai_budget_exceeded" as const;
 export const OPENAI_BUDGET_UNAVAILABLE_CODE = "openai_budget_unavailable" as const;
@@ -221,6 +225,34 @@ function usageFromResponses(
   };
 }
 
+/**
+ * whisper-1 is billed per audio second, but the tracker is token-based. ESTIMATE:
+ * assume about 64 kbps (8000 bytes/s), conservative versus typical browser
+ * webm/opus, so duration and therefore cost are not under-estimated, then map
+ * seconds to synthetic input tokens
+ * (WHISPER_TOKENS_PER_SECOND per second; priced at $0.006/min in openai-spending.ts).
+ * Unknown/missing size is charged as 60 s. Minimum charge is 1 s.
+ */
+export const WHISPER_ASSUMED_BYTES_PER_SECOND = 8000;
+export const WHISPER_UNKNOWN_SIZE_SECONDS = 60;
+
+export function estimateTranscriptionUsage(body: unknown): {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+} {
+  const size = (body as { file?: { size?: unknown } } | null | undefined)?.file?.size;
+  const seconds =
+    typeof size === "number" && Number.isFinite(size) && size > 0
+      ? Math.max(1, Math.ceil(size / WHISPER_ASSUMED_BYTES_PER_SECOND))
+      : WHISPER_UNKNOWN_SIZE_SECONDS;
+  return {
+    model: "whisper-1",
+    inputTokens: seconds * WHISPER_TOKENS_PER_SECOND,
+    outputTokens: 0,
+  };
+}
+
 /** Gated OpenAI SDK client — billed methods cannot bypass spend checks. */
 export function createGatedOpenAI(
   options?: ConstructorParameters<typeof OpenAI>[0]
@@ -253,7 +285,7 @@ export function createGatedOpenAI(
   client.audio.transcriptions.create = ((body: unknown, requestOptions?: unknown) => {
     return gateOpenAiCall(
       () => transcribeCreate(body as never, requestOptions as never),
-      () => ({ model: "whisper-1", inputTokens: 0, outputTokens: 0 })
+      () => estimateTranscriptionUsage(body)
     );
   }) as typeof client.audio.transcriptions.create;
 
