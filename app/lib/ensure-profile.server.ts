@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getServerDb } from "./firebase-admin";
+import { sanitizeAuthorNameForWrite } from "./safe-display-name";
 
 type AuthProfileIdentity = {
   uid: string;
@@ -74,7 +75,7 @@ export async function ensureProfileForAuthenticatedUser(identity: AuthProfileIde
       ...(existingProfile || {}),
       email: String(existingProfile?.email || email),
       username,
-      displayName: String(existingProfile?.displayName || ""),
+      displayName: sanitizeAuthorNameForWrite(existingProfile?.displayName, email),
       phone: String(existingProfile?.phone || ""),
       phoneVerified: existingProfile?.phoneVerified === true,
       emailVerified: identity.emailVerified === true,

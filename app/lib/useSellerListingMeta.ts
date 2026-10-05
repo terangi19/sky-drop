@@ -12,7 +12,9 @@ import { isFullyVerifiedSeller } from "./seller-verified";
 import { bumpDevRequestStat } from "./dev-request-instrumentation";
 
 function safeUsername(value: unknown): string | null {
-  return isSafePublicHandle(String(value || ""));
+  const handle = isSafePublicHandle(String(value || ""));
+  if (!handle || handle.includes("@")) return null;
+  return handle;
 }
 
 type ListingSellerInput = {

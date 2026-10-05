@@ -16,6 +16,8 @@ import { createNotification } from "../lib/notifications";
 import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
 import { sellerMessagesUrl, sellerProfileSlug } from "../lib/public-display";
+import { safeDisplayName } from "../lib/safe-display-name";
+import { useProfile } from "../contexts/ProfileContext";
 import OrderReviewModal from "../components/OrderReviewModal";
 import RefundStatusCard from "../components/RefundStatusCard";
 import HistoricalOrdersNotice from "../components/HistoricalOrdersNotice";
@@ -208,6 +210,7 @@ const FILTER_TABS = [
 
 export default function PurchasesPage() {
   const { user, authReady } = useRequireAuth("/purchases");
+  const { username } = useProfile();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -307,7 +310,7 @@ export default function PurchasesPage() {
     try {
       if (status === "delivered") {
         if (user?.uid) await awardXP(user.uid, 25);
-        const buyerLabel = user?.email ? user.email.split("@")[0] : "Buyer";
+        const buyerLabel = safeDisplayName(username, user?.email, "Buyer");
         await createNotification({
           targetEmail: purchase.sellerEmail,
           fromEmail: user?.email || purchase.buyerEmail,

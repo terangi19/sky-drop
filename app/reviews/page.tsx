@@ -25,6 +25,7 @@ import {
 
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { sellerProfileDisplayName } from "../lib/public-display";
+import { safeDisplayName } from "../lib/safe-display-name";
 
 interface Review {
   id: string;
@@ -34,6 +35,8 @@ interface Review {
   sellerEmail?: string;
   buyerEmail?: string;
   reviewer?: string;
+  reviewerName?: string;
+  reviewerEmail?: string;
   listingId?: string;
   listingTitle?: string;
   reviewText?: string;
@@ -165,7 +168,11 @@ export default function ReviewsPage() {
 
                         <p className="mt-1 text-sm text-[var(--muted)]">
                           Reviewed by{" "}
-                          {review.reviewer?.split("@")[0] || review.buyerEmail?.split("@")[0] || "Verified Buyer"}
+                          {safeDisplayName(
+                            review.reviewerName ?? review.reviewer,
+                            review.reviewerEmail ?? review.buyerEmail,
+                            "Verified Buyer"
+                          )}
                         </p>
                       </div>
 

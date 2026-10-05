@@ -19,6 +19,7 @@ import {
   validateUsername,
 } from "./username";
 import { interpretEmailCheckResponse } from "./signup-email-check";
+import { sanitizeAuthorNameForWrite } from "./safe-display-name";
 
 function candidateUsername(base: string, attempt: number): string {
   if (attempt === 0) return base;
@@ -47,7 +48,12 @@ async function createProfileWithReservedUsername(
       transaction.set(usernameRef, { uid }, { merge: true });
       transaction.set(
         doc(db, "profiles", uid),
-        { ...profileData, email, username: userPicked },
+        {
+          ...profileData,
+          email,
+          username: userPicked,
+          displayName: sanitizeAuthorNameForWrite(profileData.displayName, email),
+        },
         { merge: true }
       );
       return userPicked;
@@ -62,7 +68,12 @@ async function createProfileWithReservedUsername(
         transaction.set(usernameRef, { uid }, { merge: true });
         transaction.set(
           doc(db, "profiles", uid),
-          { ...profileData, email, username },
+          {
+            ...profileData,
+            email,
+            username,
+            displayName: sanitizeAuthorNameForWrite(profileData.displayName, email),
+          },
           { merge: true }
         );
         return username;

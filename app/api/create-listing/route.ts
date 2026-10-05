@@ -21,6 +21,7 @@ import { validateListingForPublish } from "../../lib/listing-validation";
 import { runMatchmaking } from "../../lib/sky-ai-matchmaking";
 import { stripeListingPublishErrorAsync } from "../../lib/stripe-connect-account";
 import { disposableEmailBlock } from "../../lib/disposable-email-gate";
+import { isEmailDerivedName } from "../../lib/safe-display-name";
 
 const SCAM_KEYWORDS = [
   "bank transfer only", "crypto only", "pay outside", "whatsapp",
@@ -478,7 +479,7 @@ export async function POST(req: NextRequest) {
       images: strippedClient.images || [],
       imageUrl: (Array.isArray(strippedClient.images) ? strippedClient.images[0] : "") || "",
       sellerEmail: token.email,
-      sellerUsername: strippedClient.sellerUsername || token.email?.split("@")[0] || "",
+      sellerUsername: "",
       sellerId: token.uid,
       status,
       views: 0,
@@ -500,10 +501,15 @@ export async function POST(req: NextRequest) {
     if (profileUsername && !profileUsername.includes("@")) {
       finalData.sellerUsername = profileUsername;
     } else {
-      const clientU = String(finalData.sellerUsername || "").trim();
-      const local = String(token.email || "").split("@")[0] || "";
-      if (!clientU || clientU.toLowerCase() === local.toLowerCase()) {
-        finalData.sellerUsername = local;
+      const clientU = String(strippedClient.sellerUsername || "").trim();
+      if (
+        clientU &&
+        !clientU.includes("@") &&
+        !isEmailDerivedName(clientU, token.email)
+      ) {
+        finalData.sellerUsername = clientU.slice(0, 60);
+      } else {
+        finalData.sellerUsername = "";
       }
     }
 

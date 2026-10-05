@@ -70,6 +70,7 @@ import {
   sellerMessagesUrl,
   sellerProfileSlug,
 } from "../../../lib/public-display";
+import { safeDisplayName } from "../../../lib/safe-display-name";
 import { listingMessageSellerHref } from "../../../lib/listing-message-href";
 import { MOBILE_STICKY_CTA } from "../../../lib/page-layout";
 import { DETAIL_POLL_MS, startVisibilityPolledFetch } from "../../../lib/polled-firestore";
@@ -2687,7 +2688,7 @@ Service Status: 🟢 Inquiry Active`;
                       <span className="text-sm mt-0.5">❓</span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-[var(--foreground)]">{q.question}</p>
-                        <p className="mt-1 text-xs text-[var(--muted)]">{q.askerName || q.askerEmail?.split("@")[0]} · {q.createdAt?.toDate?.() ? new Date(q.createdAt.toDate()).toLocaleDateString() : ""}</p>
+                        <p className="mt-1 text-xs text-[var(--muted)]">{safeDisplayName(q.askerName, q.askerEmail, "Sky Drop member")} · {q.createdAt?.toDate?.() ? new Date(q.createdAt.toDate()).toLocaleDateString() : ""}</p>
                       </div>
                     </div>
 
@@ -2757,7 +2758,6 @@ Service Status: 🟢 Inquiry Active`;
                             action: "ask",
                             listingId: listing.id,
                             question: questionText,
-                            askerName: user.email?.split("@")[0] || "Someone",
                           }),
                         });
                         if (!res.ok) throw new Error("Failed");

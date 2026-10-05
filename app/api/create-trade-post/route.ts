@@ -3,6 +3,7 @@ import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebas
 import { FieldValue } from "firebase-admin/firestore";
 import { enforceProtection } from "../../lib/enforce-protection";
 import { parseIpFromRequest } from "../../lib/geo-check";
+import { authorNameForWrite, chosenUsernameForWrite, loadAuthorFields } from "../../lib/public-author.server";
 
 const BADGE_TYPES = new Set(["epic", "legendary"]);
 /** Same shape trade-offer accepts. Anything else is ignored (treated as no requestId). */
@@ -82,8 +83,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const sellerUsername =
-      typeof body.sellerUsername === "string" ? body.sellerUsername.trim() : sellerEmail;
+    const author = await loadAuthorFields(db, token.uid);
+    const sellerUsername = chosenUsernameForWrite(author, sellerEmail);
+    const sellerName = authorNameForWrite(author, sellerEmail);
 
     const postData: Record<string, unknown> = {
       title,
@@ -94,6 +96,7 @@ export async function POST(req: NextRequest) {
       sellerEmail,
       sellerId: token.uid,
       sellerUsername,
+      sellerName,
       createdAt: FieldValue.serverTimestamp(),
       replies: [],
       images: Array.isArray(body.images) ? body.images.filter((u: unknown) => typeof u === "string").slice(0, 8) : [],

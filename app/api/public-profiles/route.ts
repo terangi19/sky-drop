@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb, isAdminInitialized, verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
-import { pickPublicProfileFields } from "../../lib/public-profile-fields";
+import { decoratePublicProfile, pickPublicProfileFields } from "../../lib/public-profile-fields";
 import { selectPublicProfileLookups } from "../../lib/public-profile-lookups";
 
 const MAX_UIDS = 40;
@@ -137,7 +137,8 @@ export async function POST(req: NextRequest) {
 
       for (const snap of uidSnaps) {
         if (!snap.exists) continue;
-        profiles[snap.id] = pickPublicProfileFields(snap.id, snap.data() || {});
+        const raw = snap.data() || {};
+        profiles[snap.id] = decoratePublicProfile(pickPublicProfileFields(snap.id, raw), raw);
       }
 
       for (const snap of emailSnaps) {
@@ -147,7 +148,7 @@ export async function POST(req: NextRequest) {
           if (!email) continue;
           emailToUid[email] = doc.id;
           if (!profiles[doc.id]) {
-            profiles[doc.id] = pickPublicProfileFields(doc.id, data);
+            profiles[doc.id] = decoratePublicProfile(pickPublicProfileFields(doc.id, data), data);
           }
         }
       }
