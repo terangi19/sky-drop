@@ -25,6 +25,10 @@
  * It does NOT rewrite profiles.username, the usernames collection, or a stored
  * name that already equals that profile's own username. It does not change
  * tradeShouts.by or reply `by` (Firestore rules still key ownership on email).
+ *
+ * tradePosts.replies is rewritten inside a Firestore transaction (re-read,
+ * transform, write) so a reply committed during --apply is not overwritten
+ * by a stale copy of the array.
  */
 
 import {
@@ -291,6 +295,11 @@ type LooseDoc = {
   data: () => Record<string, unknown>;
 };
 
+type LooseTxn = {
+  get: (ref: unknown) => Promise<{ data: () => Record<string, unknown> | undefined }>;
+  update: (ref: unknown, data: Record<string, unknown>) => void;
+};
+
 type LooseDb = {
   collection: (name: string) => {
     orderBy: (field: string) => LooseQuery;
@@ -305,6 +314,7 @@ type LooseDb = {
     update: (ref: unknown, data: Record<string, unknown>) => void;
     commit: () => Promise<void>;
   };
+  runTransaction?: <T>(fn: (tx: LooseTxn) => Promise<T>) => Promise<T>;
 };
 
 export type ScrubSummaryRow = {
@@ -400,6 +410,35 @@ async function replyProfiles(
   return out;
 }
 
+/**
+ * Re-read the post inside a transaction, then write the scrubbed replies from
+ * that snapshot. A batch update of the array read earlier would drop any reply
+ * committed in between. The Admin SDK retries this callback on contention.
+ */
+export async function commitTradePostReplies(
+  db: LooseDb,
+  ref: unknown,
+  args: { profile?: ScrubProfile | null; cache: Map<string, ScrubProfile | null> }
+): Promise<{ plan: ScrubPlan; wrote: boolean }> {
+  if (typeof db.runTransaction !== "function") {
+    throw new Error("tradePosts replies rewrite requires a Firestore transaction");
+  }
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data() || {};
+    const profilesByEmail = await replyProfiles(db, args.cache, data);
+    const plan = planScrub({
+      collection: "tradePosts",
+      data,
+      profile: args.profile ?? null,
+      profilesByEmail,
+    });
+    const mutation = mutationForPlan(plan, true);
+    if (mutation) tx.update(ref, mutation);
+    return { plan, wrote: mutation != null };
+  });
+}
+
 export async function scrubCollection(
   db: LooseDb,
   collection: string,
@@ -448,10 +487,17 @@ export async function scrubCollection(
       row.wouldUpdate += 1;
       const mutation = mutationForPlan(plan, options.apply);
       if (!mutation) continue;
-      batch.update(doc.ref, mutation);
-      pending += 1;
-      row.updated += 1;
-      if (plan.unresolved) {
+      let wrote = false;
+      if (collection === "tradePosts" && Object.prototype.hasOwnProperty.call(mutation, "replies")) {
+        await flush();
+        wrote = (await commitTradePostReplies(db, doc.ref, { profile, cache })).wrote;
+      } else {
+        batch.update(doc.ref, mutation);
+        pending += 1;
+        wrote = true;
+      }
+      if (wrote) row.updated += 1;
+      if (wrote && plan.unresolved) {
         const email =
           asString(data.by) ||
           asString(data.sellerEmail) ||
