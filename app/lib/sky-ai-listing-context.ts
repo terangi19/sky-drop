@@ -1,9 +1,16 @@
 import { hasActiveListingDraft } from "./sky-ai-draft-merge";
 import { scrubLegacyFormPollution } from "./listing-draft-confirmed";
 import type { SkyAiListingContext } from "./sky-ai-types";
+import {
+  SKY_AI_LISTING_DRAFT_KEY,
+  SKY_AI_LISTING_DRAFT_OWNER_KEY,
+  SKY_AI_LISTING_DRAFT_RESET_EVENT,
+  currentDraftOwnerStamp,
+  removeStoredListingDraft,
+} from "./sky-ai-draft-owner";
 
-const STORAGE_KEY = "skyAiListingDraft";
-export const SKY_AI_LISTING_DRAFT_RESET_EVENT = "sky-ai-listing-draft-reset";
+const STORAGE_KEY = SKY_AI_LISTING_DRAFT_KEY;
+export { SKY_AI_LISTING_DRAFT_RESET_EVENT };
 
 function createDraftId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -23,9 +30,12 @@ export function syncListingDraftToSkyAi(draft: SkyAiListingContext) {
     const hasData = hasActiveListingDraft(draft);
     if (!hasData) {
       sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(SKY_AI_LISTING_DRAFT_OWNER_KEY);
       return;
     }
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+    const owner = currentDraftOwnerStamp();
+    if (owner) sessionStorage.setItem(SKY_AI_LISTING_DRAFT_OWNER_KEY, owner);
   } catch {
     /* ignore */
   }
@@ -43,13 +53,10 @@ export function readListingDraftFromSkyAi(): SkyAiListingContext | null {
   }
 }
 
-/** Clear prior Sky AI draft (explicit NEW sell / replaceDraft). */
-export function clearListingDraftFromSkyAi() {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.removeItem(STORAGE_KEY);
-    window.dispatchEvent(new CustomEvent(SKY_AI_LISTING_DRAFT_RESET_EVENT));
-  } catch {
-    /* ignore */
-  }
+/**
+ * Clear prior Sky AI draft (explicit NEW sell / replaceDraft).
+ * `silent` skips the reset event (used right before navigating away after a publish).
+ */
+export function clearListingDraftFromSkyAi(opts?: { silent?: boolean }) {
+  removeStoredListingDraft(opts);
 }
