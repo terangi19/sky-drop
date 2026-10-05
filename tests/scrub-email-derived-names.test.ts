@@ -108,6 +108,49 @@ describe("planScrub", () => {
     });
   });
 
+  it("neutralises email-derived reviewerUsername and buyerName unless they are the profile username", () => {
+    const keptHandle = planScrub({
+      collection: "reviews",
+      data: {
+        reviewer: "Happy buyer",
+        reviewerEmail: "john.smith@example.com",
+        reviewerUsername: "johnsmith",
+        buyerName: "johnsmith",
+      },
+      profile: john,
+    });
+    expect(keptHandle.update).toBeNull();
+
+    const replaced = planScrub({
+      collection: "reviews",
+      data: {
+        reviewer: "Happy buyer",
+        reviewerEmail: "john.smith@example.com",
+        reviewerUsername: "john.smith",
+        buyerName: "john.smith@example.com",
+      },
+      profile: { ...john, displayName: "Aroha" },
+    });
+    expect(replaced.update).toEqual({
+      reviewerUsername: "johnsmith",
+      buyerName: "Aroha",
+    });
+
+    const noProfile = planScrub({
+      collection: "reviews",
+      data: {
+        reviewerUsername: "jane@example.com",
+        buyerName: "jane",
+        reviewerEmail: "jane@example.com",
+      },
+      profile: null,
+    });
+    expect(noProfile.update).toEqual({
+      reviewerUsername: "",
+      buyerName: "Sky Drop member",
+    });
+  });
+
   it("starts under tsx without importing the server-only Admin helper", () => {
     const src = readFileSync(path.join(process.cwd(), "scripts/scrub-email-derived-names.ts"), "utf8");
     const importLines = src

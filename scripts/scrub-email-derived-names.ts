@@ -115,6 +115,19 @@ function storedProfileHandle(profile?: ScrubProfile | null): string {
   return username;
 }
 
+function planGuardedReplacement(
+  update: Record<string, unknown>,
+  field: string,
+  value: unknown,
+  email: string,
+  profile: ScrubProfile | null | undefined,
+  next: string
+) {
+  if (typeof value !== "string" || !isEmailDerivedName(value, email)) return;
+  if (equalsProfileUsername(value, profile)) return;
+  if (next !== value) update[field] = next;
+}
+
 function planSellerFields(
   data: Record<string, unknown>,
   email: string,
@@ -224,6 +237,22 @@ export function planScrub(input: ScrubInput): ScrubPlan {
         update.reviewer = VERIFIED_BUYER;
       }
     }
+    planGuardedReplacement(
+      update,
+      "reviewerUsername",
+      data.reviewerUsername,
+      email,
+      profile,
+      storedProfileHandle(profile)
+    );
+    planGuardedReplacement(
+      update,
+      "buyerName",
+      data.buyerName,
+      email,
+      profile,
+      sellerLabel(profile, email)
+    );
   }
 
   return {
