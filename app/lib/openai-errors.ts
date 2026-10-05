@@ -11,6 +11,7 @@ export function openaiErrorResponse(err: unknown): {
   const blocked = err as { code?: string; message?: string; userMessage?: string; status?: number };
   if (
     blocked?.code === "openai_budget_exceeded" ||
+    blocked?.code === "openai_budget_unavailable" ||
     blocked?.code === "openai_disabled"
   ) {
     return {
@@ -21,7 +22,9 @@ export function openaiErrorResponse(err: unknown): {
         blocked.message ||
         (blocked.code === "openai_disabled"
           ? "Āwhina AI is temporarily paused."
-          : "Āwhina AI is in limited mode because the OpenAI budget has been reached."),
+          : blocked.code === "openai_budget_unavailable"
+            ? "Āwhina AI is in limited mode because spend tracking is unavailable."
+            : "Āwhina AI is in limited mode because the OpenAI budget has been reached."),
     };
   }
 
