@@ -11,6 +11,7 @@ import {
   createSkyAiConversation,
   loadSkyAiMessages,
 } from "../../lib/sky-ai-firestore";
+import { skyAiHistoryKeep } from "../../lib/sky-ai-history-window";
 import { mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
 import { type SkyAiListingFill } from "../../lib/sky-ai-listing-fill";
 import type { SkyAiHistoryItem, SkyAiListingContext } from "../../lib/sky-ai-types";
@@ -553,10 +554,10 @@ async function handleSkyAiPost(
 
     if (uid && conversationId) {
       try {
-        const stored = await loadSkyAiMessages(conversationId, uid, 30);
-        // Trim OpenAI context — sell/profile keep a few turns for follow-ups
-        const keep =
-          pathname.startsWith("/post/ai") || pathname.startsWith("/profile") ? 10 : 6;
+        // Trim OpenAI context — sell/profile keep a few turns for follow-ups.
+        // Read only the window we keep (was limitToLast(30) then slice(-keep)).
+        const keep = skyAiHistoryKeep(pathname);
+        const stored = await loadSkyAiMessages(conversationId, uid, keep);
         history = stored
           .map((m) => ({ role: m.role, content: m.content }))
           .slice(-keep);
