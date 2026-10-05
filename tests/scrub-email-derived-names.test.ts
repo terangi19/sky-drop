@@ -1,9 +1,12 @@
+import { readFileSync } from "fs";
+import path from "path";
 import { describe, expect, it } from "vitest";
 import {
   mutationForPlan,
   planScrub,
   type ScrubProfile,
 } from "../scripts/scrub-email-derived-names";
+import { scrubAdminConfigured } from "../scripts/lib/scrub-admin";
 
 const john: ScrubProfile = {
   uid: "uid-john",
@@ -103,6 +106,32 @@ describe("planScrub", () => {
       reviewer: "Verified Buyer",
       reviewerName: "Verified Buyer",
     });
+  });
+
+  it("starts under tsx without importing the server-only Admin helper", () => {
+    const src = readFileSync(path.join(process.cwd(), "scripts/scrub-email-derived-names.ts"), "utf8");
+    const importLines = src
+      .split("\n")
+      .filter((line) => /^\s*(import|const|await import)\b/.test(line) || line.includes(" from ") || line.includes("import("));
+    const imports = importLines.join("\n");
+    expect(imports).not.toMatch(/app\/lib\/firebase-admin/);
+    expect(imports).not.toMatch(/["']server-only["']/);
+    expect(imports).toContain("./lib/scrub-admin");
+    expect(src).toContain("DRY-RUN — no writes");
+    expect(src).toContain('argv.includes("--apply")');
+
+    const savedAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+    const savedAdc = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    delete process.env.FIREBASE_SERVICE_ACCOUNT;
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    try {
+      expect(scrubAdminConfigured()).toBe(false);
+    } finally {
+      if (savedAccount === undefined) delete process.env.FIREBASE_SERVICE_ACCOUNT;
+      else process.env.FIREBASE_SERVICE_ACCOUNT = savedAccount;
+      if (savedAdc === undefined) delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      else process.env.GOOGLE_APPLICATION_CREDENTIALS = savedAdc;
+    }
   });
 
   it("dry-run produces zero writes", () => {

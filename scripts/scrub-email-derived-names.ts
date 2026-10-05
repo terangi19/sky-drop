@@ -8,7 +8,15 @@
  *   npx tsx scripts/scrub-email-derived-names.ts --limit 50 --collection tradeShouts
  *   npx tsx scripts/scrub-email-derived-names.ts --apply
  *
- * Credentials come from the environment only (FIREBASE_SERVICE_ACCOUNT or ADC).
+ * Admin init lives in scripts/lib/scrub-admin.ts (firebase-admin SDK only).
+ * Do not import app/lib/firebase-admin.ts from this script: that module
+ * imports `server-only`, which throws under plain `npx tsx`. The Next.js
+ * server helper is unchanged and still rejects client imports.
+ *
+ * Dry-run unless --apply is present. Credentials come from the environment
+ * only (FIREBASE_SERVICE_ACCOUNT or ADC). With neither set, the process
+ * exits before any read or write and prints
+ * "Firebase Admin is not configured. Set FIREBASE_SERVICE_ACCOUNT or ADC, then re-run."
  * Logs counts, document ids, and masked emails (j***@d***.com). Never logs
  * credentials or full email addresses.
  *
@@ -465,13 +473,13 @@ function parseArgs(argv: string[]): { apply: boolean; limit?: number; collection
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const { getAdminDb, isAdminInitialized } = await import("../app/lib/firebase-admin");
-  if (!isAdminInitialized()) {
-    console.error("Firebase Admin is not configured. Set FIREBASE_SERVICE_ACCOUNT or ADC, then re-run.");
+  const { openScrubDb, scrubAdminConfigured, SCRUB_ADMIN_MISSING } = await import("./lib/scrub-admin");
+  if (!scrubAdminConfigured()) {
+    console.error(SCRUB_ADMIN_MISSING);
     process.exit(1);
   }
   console.log(args.apply ? "APPLY — writing scrub updates" : "DRY-RUN — no writes");
-  const db = getAdminDb() as unknown as LooseDb;
+  const db = openScrubDb() as unknown as LooseDb;
   const rows: ScrubSummaryRow[] = [];
   for (const collection of args.collections) {
     rows.push(await scrubCollection(db, collection, { apply: args.apply, limit: args.limit }));
