@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
   verifyIdToken: vi.fn(),
   isAdminInitialized: vi.fn(() => true),
-  enforceProtection: vi.fn(async () => ({ allowed: true, blocked: false })),
+  enforceProtection: vi.fn(async (..._args: unknown[]) => ({ allowed: true, blocked: false })),
   add: vi.fn(async () => ({ id: "post-1" })),
 }));
 
