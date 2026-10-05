@@ -70,6 +70,19 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getAdminDb();
+
+    // Restricted accounts cannot bid (same rule as /api/trade-offer). Fail closed.
+    try {
+      const bidderProfile = await db.collection("profiles").doc(decoded.uid).get();
+      const p = bidderProfile.data() || {};
+      if (p.restricted === true || p.restricted === "true") {
+        return NextResponse.json({ error: "Your account is restricted. You cannot bid." }, { status: 403 });
+      }
+    } catch (e) {
+      console.error("[place-bid] profile read failed:", e);
+      return NextResponse.json({ error: "Failed to place bid" }, { status: 503 });
+    }
+
     const listingRef = db.collection("listings").doc(listingId);
 
     const result = await db.runTransaction(async (transaction) => {
@@ -79,6 +92,9 @@ export async function POST(req: NextRequest) {
       }
 
       const listing = snap.data() || {};
+      if (listing.saleType !== "auction" && listing.saleType !== "auction_buy_now") {
+        throw new Error("This listing is not an auction");
+      }
       const currentBid = listing.currentBid || listing.startingBid || 0;
       const highestBidder = typeof listing.highestBidder === "string" ? listing.highestBidder : "";
       const highestBidderUid =
@@ -221,6 +237,7 @@ export async function POST(req: NextRequest) {
     const knownErrors = [
       "Listing not found", "Listing is no longer available", "Auction has ended",
       "Cannot bid on your own listing", "You are already the highest bidder",
+      "This listing is not an auction",
     ];
     const isKnownError = knownErrors.some((k) => message.startsWith(k) || message === k) ||
       message.startsWith("Minimum bid") || message.startsWith("Bid must meet") ||

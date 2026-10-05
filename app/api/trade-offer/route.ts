@@ -101,24 +101,32 @@ export async function POST(req: NextRequest) {
         buyerLabel = typeof p.username === "string" ? p.username : "";
       }
     } catch (e) {
-      console.error("[trade-offer] profile read failed (fail-open):", e);
+      console.error("[trade-offer] profile read failed:", e);
+      return NextResponse.json({ error: "Please try again", code: "profile_unavailable" }, { status: 503 });
     }
 
-    // Validate against the live post and bump the counter atomically (no client-supplied count).
+    // Count and notify a buyer once per post per 24h. offerers/* is Admin SDK only.
     const postRef = db.collection("tradePosts").doc(postId);
+    const offererRef = postRef.collection("offerers").doc(decoded.uid);
     const outcome = await db.runTransaction(async (tx) => {
       const snap = await tx.get(postRef);
-      const decision = decideTradeOffer(snap.exists ? snap.data() : null, {
-        uid: decoded.uid,
-        email: buyerEmail,
-      });
-      if (decision.ok === false) return { decision, offers: 0 };
+      const offerer = await tx.get(offererRef);
+      const decision = decideTradeOffer(snap.exists ? snap.data() : null, { uid: decoded.uid, email: buyerEmail });
+      if (decision.ok === false) return { decision, offers: 0, counted: false };
       const current = Number(snap.data()?.offers);
-      tx.update(postRef, { offers: FieldValue.increment(1) });
-      return { decision, offers: (Number.isFinite(current) && current > 0 ? current : 0) + 1 };
+      const base = Number.isFinite(current) && current > 0 ? current : 0;
+      const last = offerer.exists ? offerer.get("lastOfferAt")?.toMillis?.() ?? 0 : 0;
+      const counted = !offerer.exists || Date.now() - last > 24 * 60 * 60 * 1000;
+      if (counted) tx.update(postRef, { offers: FieldValue.increment(1) });
+      tx.set(offererRef, { lastOfferAt: FieldValue.serverTimestamp() }, { merge: true });
+      return { decision, offers: base + (counted ? 1 : 0), counted };
     });
     if (outcome.decision.ok === false) return failure(outcome.decision);
-    const { decision, offers } = outcome;
+    const { decision, offers, counted } = outcome;
+
+    if (!counted) {
+      return NextResponse.json({ success: true, offers, notified: true, duplicate: true });
+    }
 
     // Counter is committed; notification is best-effort but reported honestly to the client.
     let notified = true;
