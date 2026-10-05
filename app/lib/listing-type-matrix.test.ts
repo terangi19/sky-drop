@@ -518,3 +518,40 @@ describe("canonical vehicle vs physical semantics", () => {
     ).toBe(true);
   });
 });
+
+describe("M5 search Condition select values actually filter", () => {
+  const phys = (condition: string | null) => ({ type: "physical", condition });
+
+  it.each([
+    ["Used - Good", true],
+    ["Used - Like New", true],
+    ["Used - Fair", true],
+    ["Used", true],
+    ["used - good", true],
+    ["New", false],
+    ["", false],
+    [null, false],
+  ])("Used umbrella: stored %s -> %s", (stored, expected) => {
+    expect(listingMatchesConditionFilter(phys(stored), "Used")).toBe(expected);
+  });
+
+  it("New matches New only", () => {
+    expect(listingMatchesConditionFilter(phys("New"), "New")).toBe(true);
+    expect(listingMatchesConditionFilter(phys("Used - Like New"), "New")).toBe(false);
+  });
+
+  it.each(["Used - Like New", "Used - Good", "Used - Fair"])("graded option %s matches only its own grade", (grade) => {
+    for (const stored of ["Used - Like New", "Used - Good", "Used - Fair", "New", "Used"]) {
+      expect(listingMatchesConditionFilter(phys(stored), grade)).toBe(stored === grade);
+    }
+    expect(listingMatchesConditionFilter(phys(grade.toLowerCase()), grade)).toBe(true);
+    expect(listingMatchesConditionFilter(phys(`  ${grade} `), grade)).toBe(true);
+  });
+
+  it("all / empty filter and services unchanged", () => {
+    expect(listingMatchesConditionFilter(phys("Used - Good"), "all")).toBe(true);
+    expect(listingMatchesConditionFilter(phys("Used - Good"), "")).toBe(true);
+    expect(listingMatchesConditionFilter(phys(null), "all")).toBe(true);
+    expect(listingMatchesConditionFilter({ type: "service", condition: "New" }, "Used - Good")).toBe(true);
+  });
+});
