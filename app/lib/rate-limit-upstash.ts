@@ -190,6 +190,31 @@ export async function rateLimitUpstash(
   );
 }
 
+export type UpstashSetNxResult = "set" | "exists" | "degraded";
+
+/**
+ * `SET key "1" EX ttl NX` through the same module-level client, 500 ms deadline and 30 s circuit
+ * as `rateLimitUpstash`. "degraded" = Upstash unset/open circuit/timeout/network error/non-2xx
+ * (opens the circuit); the caller decides what to do (idempotency fails open to memory).
+ */
+export async function upstashSetNx(key: string, ttlSec: number): Promise<UpstashSetNxResult> {
+  if (isUpstashCircuitOpen()) return "degraded";
+  const redis = getUpstashRedis();
+  if (!redis) return "degraded";
+  try {
+    const res = await withDeadline(
+      redis.set(`sd:${key}`, "1", { nx: true, ex: ttlSec }),
+      UPSTASH_LIMIT_TIMEOUT_MS,
+      "upstash-timeout"
+    );
+    return res === "OK" ? "set" : "exists";
+  } catch (err) {
+    openCircuit();
+    console.warn(`[rate-limit] Upstash error, falling back to in-memory: ${formatUpstashErrorForLog(err)}`);
+    return "degraded";
+  }
+}
+
 /** Error name/message plus nested cause code or message only — never url, token, headers, or env. */
 export function formatUpstashErrorForLog(err: unknown): string {
   const name = err instanceof Error ? err.name : "Error";
