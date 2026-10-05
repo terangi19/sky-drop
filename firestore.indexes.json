@@ -152,6 +152,22 @@
 
     {
 
+      "collectionGroup": "tradeShouts",
+
+      "queryScope": "COLLECTION",
+
+      "fields": [
+
+        { "fieldPath": "world", "order": "ASCENDING" },
+
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+
+      ]
+
+    },
+
+    {
+
       "collectionGroup": "dropTokens",
 
       "queryScope": "COLLECTION",

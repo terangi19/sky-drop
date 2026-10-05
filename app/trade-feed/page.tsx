@@ -30,6 +30,7 @@ import {
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 import { requireWatchlistAccount } from "../lib/require-watchlist-account";
+import { TRADE_SHOUT_LIMIT, expiredOwnShoutIds, orderShoutsOldestFirst } from "../lib/trade-shouts";
 
 const CheckoutModal = dynamic(() => import("../components/CheckoutModal"), { ssr: false });
 const PromoteModal = dynamic(() => import("../components/PromoteModal"), { ssr: false });
@@ -126,7 +127,7 @@ export default function TradeFeedPage() {
   const lastPostTime = useRef(0);
   const knownSoldIds = useRef(new Set<string>());
   const knownHotIds = useRef(new Set<string>());
-  const knownShoutCount = useRef(0);
+  const knownShoutIds = useRef(new Set<string>());
   const lastClaimUsername = useRef<string | null>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -306,9 +307,10 @@ export default function TradeFeedPage() {
 
   // Shouts → live events
   useEffect(() => {
-    if (shouts.length > knownShoutCount.current) {
-      const newShouts = shouts.slice(knownShoutCount.current);
-      knownShoutCount.current = shouts.length;
+    // Track by id: the shout window is capped (newest N), so once it is full the length no longer grows.
+    const newShouts = shouts.filter((s) => !knownShoutIds.current.has(s.id));
+    if (newShouts.length > 0) {
+      newShouts.forEach((s) => knownShoutIds.current.add(s.id));
       for (const s of newShouts) {
         const id = ++eventId.current;
         const name = (s.by || "?").split("@")[0];
@@ -336,32 +338,35 @@ export default function TradeFeedPage() {
   // Shouts — real-time world chat
   useEffect(() => {
     const worldFilter = selectedWorld.length === 1 && selectedWorld[0] !== "all" ? selectedWorld[0] : "__general__";
-    const q = query(collection(db, "tradeShouts"), where("world", "==", worldFilter), limit(50));
+    // Newest N for this world (needs the tradeShouts world ASC + createdAt DESC index in firestore.indexes.json).
+    const q = query(collection(db, "tradeShouts"), where("world", "==", worldFilter), orderBy("createdAt", "desc"), limit(TRADE_SHOUT_LIMIT));
     const unsub = onSnapshot(q, (snap) => {
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      items.sort((a: any, b: any) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
-      setShouts(items);
+      setShouts(orderShoutsOldestFirst(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
     });
     return () => unsub();
   }, [selectedWorld]);
 
-  // Shoutbox auto-clear old shouts (older than 1 hour) every 5 minutes
+  // Shoutbox auto-clear: every 5 minutes delete the signed-in user's OWN shouts older than 1 hour.
+  // firestore.rules only let an author delete their own shout, so other people's expired shouts are
+  // removed when their authors are online (or by a server-side TTL/cron, not by this client).
+  // No query: it works on the shouts already loaded, so it costs no extra reads.
+  const shoutsRef = useRef<any[]>([]);
+  shoutsRef.current = shouts;
   useEffect(() => {
+    if (!user?.email) return;
     const interval = setInterval(async () => {
       try {
-        const cutoff = Date.now() / 1000 - 3600;
-        const q = query(collection(db, "tradeShouts"), where("createdAt", "<", cutoff), limit(50));
-        const snap = await getDocs(q);
-        if (snap.empty) return;
+        const ids = expiredOwnShoutIds(shoutsRef.current, user.email, Date.now());
+        if (ids.length === 0) return;
         const batch = writeBatch(db);
-        snap.docs.forEach((d) => batch.delete(doc(db, "tradeShouts", d.id)));
+        ids.forEach((id) => batch.delete(doc(db, "tradeShouts", id)));
         await batch.commit();
       } catch (e) {
         console.error("Shoutbox auto-clear failed:", e);
       }
     }, 300000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user?.email]);
 
   // Auto-scroll shoutbox to bottom
   useEffect(() => {
