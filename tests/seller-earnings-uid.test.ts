@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
   verifyIdToken: vi.fn(),
   isAdminInitialized: vi.fn(() => true),
-  isAdminUser: vi.fn(async () => false),
+  isAdminUser: vi.fn(async (..._args: unknown[]) => false),
   queries: [] as Array<{ field: string; value: string }>,
   sellerIdDocs: [] as Array<Record<string, unknown>>,
   emailDocs: [] as Array<Record<string, unknown>>,

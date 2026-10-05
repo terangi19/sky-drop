@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ProtectionResult } from "../../lib/enforce-protection";
 
 const h = vi.hoisted(() => ({
   verifyIdToken: vi.fn(),
   isAdminInitialized: vi.fn(() => true),
   rateLimit: vi.fn(async () => ({ allowed: true, remaining: 1, limit: 1 })),
-  enforceProtection: vi.fn(async () => ({ allowed: true, blocked: false })),
+  enforceProtection: vi.fn(async (..._args: unknown[]): Promise<ProtectionResult> => ({ allowed: true, blocked: false })),
   createSystemNotification: vi.fn(async () => undefined),
   txUpdate: vi.fn(),
   txSet: vi.fn(),
