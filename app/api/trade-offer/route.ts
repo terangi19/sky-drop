@@ -13,6 +13,7 @@ import {
   parseTradeOfferBody,
   type TradeOfferFailure,
 } from "../../lib/trade-offer-validation";
+import { SAFE_NAME_FALLBACK, resolvePublicAuthorName } from "../../lib/safe-display-name";
 
 function failure(f: TradeOfferFailure) {
   return NextResponse.json({ error: f.error, code: f.code }, { status: f.status });
@@ -98,7 +99,12 @@ export async function POST(req: NextRequest) {
             { status: 403 }
           );
         }
-        buyerLabel = typeof p.username === "string" ? p.username : "";
+        const resolved = resolvePublicAuthorName({
+          displayName: p.displayName,
+          username: p.username,
+          email: buyerEmail,
+        });
+        buyerLabel = resolved === SAFE_NAME_FALLBACK ? "" : resolved;
       }
     } catch (e) {
       console.error("[trade-offer] profile read failed:", e);

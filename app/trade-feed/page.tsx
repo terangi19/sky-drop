@@ -27,9 +27,23 @@ import {
   resolveSellerCardDisplayName,
   resolveSellerCardProfileSlug,
 } from "../lib/public-display";
+import { SAFE_NAME_FALLBACK, safeDisplayName } from "../lib/safe-display-name";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 import { requireWatchlistAccount } from "../lib/require-watchlist-account";
+
+function visibleHandle(value: unknown): string {
+  const raw = String(value || "").trim().replace(/^@/, "");
+  if (!raw || raw.includes("@")) return "";
+  return raw;
+}
+
+/** Old docs only have `by` (an email). New docs carry byName. Never show the local part. */
+function authorLabel(item: { byName?: unknown; username?: unknown; by?: unknown } | null | undefined): string {
+  if (!item) return SAFE_NAME_FALLBACK;
+  const email = typeof item.by === "string" ? item.by : null;
+  return safeDisplayName(item.byName ?? item.username, email);
+}
 
 const CheckoutModal = dynamic(() => import("../components/CheckoutModal"), { ssr: false });
 const PromoteModal = dynamic(() => import("../components/PromoteModal"), { ssr: false });
@@ -185,6 +199,7 @@ export default function TradeFeedPage() {
   const [sellerBadges, setSellerBadges] = useState<Record<string, string>>({});
   const [sellerHandles, setSellerHandles] = useState<Record<string, string>>({});
   const [sellerDisplayNames, setSellerDisplayNames] = useState<Record<string, string>>({});
+  const [sellerPublicNames, setSellerPublicNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
@@ -253,6 +268,7 @@ export default function TradeFeedPage() {
       const badges: Record<string, string> = {};
       const handles: Record<string, string> = {};
       const displayNames: Record<string, string> = {};
+      const publicNames: Record<string, string> = {};
       try {
         const profiles = await fetchSellerProfilesByListing(
           posts.map((p: { sellerEmail?: string; sellerId?: string; userId?: string }) => ({
@@ -263,12 +279,14 @@ export default function TradeFeedPage() {
         );
         profiles.forEach((data, key) => {
           if (data.profileBadge) badges[key] = data.profileBadge as string;
-          const username = String(data.username || "").trim();
-          if (username && !username.includes("@")) handles[key] = username.replace(/^@/, "");
-          const displayName = String(data.displayName || data.name || "").trim();
-          if (displayName && !displayName.includes("@")) {
-            displayNames[key] = displayName.replace(/^@/, "");
-          }
+          // Profile username is the public /seller slug, including auto-assigned handles.
+          // Only drop raw emails. The server publicName prefers displayName, then that slug.
+          const username = visibleHandle(data.username);
+          if (username) handles[key] = username;
+          const displayName = visibleHandle(data.displayName || data.name);
+          if (displayName) displayNames[key] = displayName;
+          const publicName = visibleHandle(data.publicName);
+          if (publicName && publicName !== SAFE_NAME_FALLBACK) publicNames[key] = publicName;
         });
       } catch {
         /* optional */
@@ -276,6 +294,7 @@ export default function TradeFeedPage() {
       setSellerBadges(badges);
       setSellerHandles(handles);
       setSellerDisplayNames(displayNames);
+      setSellerPublicNames(publicNames);
     };
     fetchBadges();
   }, [posts.length]);
@@ -311,7 +330,7 @@ export default function TradeFeedPage() {
       knownShoutCount.current = shouts.length;
       for (const s of newShouts) {
         const id = ++eventId.current;
-        const name = (s.by || "?").split("@")[0];
+        const name = authorLabel(s);
         setLiveEvents((prev) => [{ id, icon: "💬", text: `${name}: "${(s.text || "").slice(0, 60)}"` }, ...prev].slice(0, 20));
         setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
       }
@@ -559,7 +578,7 @@ export default function TradeFeedPage() {
         targetEmail: tradePost?.sellerEmail || "",
         fromEmail: user.email,
         title: "New reply on your trade",
-        message: `${username || user.email?.split("@")[0] || "Someone"}: ${text.trim().slice(0, 100)}`,
+        message: `${safeDisplayName(username, user.email, "Someone")}: ${text.trim().slice(0, 100)}`,
         listingId: postId,
         listingTitle: tradePost?.title || "a trade",
       }).catch((err) => console.error("Failed to add notification:", err));
@@ -992,12 +1011,19 @@ export default function TradeFeedPage() {
                   const postOffers = post.offers || 0;
                   const isPopular = post.promotedUntil?.toMillis?.() > Date.now() || postViews >= 10;
                   const imgs = post.images || (post.image ? [post.image] : []);
-                  const sellerName = resolveSellerCardDisplayName(
+                  const cardName = resolveSellerCardDisplayName(
                     post,
                     sellerHandles,
                     "Seller",
                     sellerDisplayNames
                   );
+                  const preferredPublic =
+                    sellerPublicNames[post.sellerId || ""] ||
+                    sellerPublicNames[post.userId || ""] ||
+                    sellerPublicNames[post.sellerEmail || ""] ||
+                    "";
+                  const sellerName =
+                    preferredPublic && !preferredPublic.includes("@") ? preferredPublic : cardName;
                   const sellerSlug = resolveSellerCardProfileSlug(post, sellerHandles);
 
                   return (
@@ -1061,7 +1087,7 @@ export default function TradeFeedPage() {
                           <h3 className="mt-1.5 text-[15px] font-bold text-[var(--foreground)] leading-snug tracking-tight">{post.title}</h3>
                           {post.message && !isExpanded && <p className="mt-0.5 text-sm text-zinc-500 truncate">{post.message}</p>}
                           {replies.length > 0 && !isExpanded && (
-                            <p className="mt-0.5 text-xs text-zinc-600 truncate">💬 {replies[replies.length - 1].username || replies[replies.length - 1].by?.split("@")[0] || "Someone"}: {replies[replies.length - 1].text}</p>
+                            <p className="mt-0.5 text-xs text-zinc-600 truncate">💬 {authorLabel(replies[replies.length - 1])}: {replies[replies.length - 1].text}</p>
                           )}
 
                           {/* Price + Stats */}
@@ -1141,7 +1167,7 @@ export default function TradeFeedPage() {
                         <div className="ml-[88px] mt-3 space-y-2.5">
                           {replies.slice(-3).map((r: any, i: number) => (
                             <div key={i} className="group flex items-center gap-2 rounded-xl border border-white/[0.03] bg-white/[0.01] px-4 py-2.5">
-                              <span className="text-xs font-medium text-[var(--foreground)]">{r.by?.split("@")[0]}:</span>
+                              <span className="text-xs font-medium text-[var(--foreground)]">{authorLabel(r)}:</span>
                               <span className="text-xs text-zinc-500">{r.text}</span>
                               <div className="flex gap-1 ml-auto">
                                 {["👍", "❤️", "😮", "😂"].map((emoji) => (
@@ -1265,11 +1291,11 @@ export default function TradeFeedPage() {
                     <div key={s.id} className="group relative rounded-lg px-2 py-2 transition hover:bg-white/[0.02]">
                       <div className="flex items-start gap-2.5">
                         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-500 text-xs font-bold text-white mt-0.5">
-                          {(s.by?.split("@")[0] || "?").charAt(0).toUpperCase()}
+                          {(authorLabel(s) || "?").charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-baseline gap-2">
-                            <span className="text-sm font-bold text-[var(--foreground)]">{s.by?.split("@")[0]}</span>
+                            <span className="text-sm font-bold text-[var(--foreground)]">{authorLabel(s)}</span>
                             <span className="text-[11px] text-zinc-600">{s.createdAt?.seconds ? formatTime(s.createdAt) : ""}</span>
                           </div>
                           <p className="text-sm text-zinc-500 break-words mt-0.5">{s.text}</p>

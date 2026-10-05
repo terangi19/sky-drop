@@ -283,6 +283,50 @@ describe("resolveSellerCardDisplayName", () => {
     ).toBe("SkyDavis");
   });
 
+  it("keeps a profile username that matches the email local part", () => {
+    expect(
+      resolveSellerCardDisplayName(
+        {
+          sellerEmail: "john.smith@example.com",
+          username: "johnsmith",
+          sellerUsername: "john.smith",
+        },
+        {}
+      )
+    ).toBe("johnsmith");
+  });
+
+  it("drops a client sellerUsername that is email-derived and differs from the profile username", () => {
+    expect(
+      resolveSellerCardDisplayName(
+        {
+          sellerEmail: "john.smith@example.com",
+          username: "KiwiTrader",
+          sellerUsername: "john.smith",
+        },
+        {}
+      )
+    ).toBe("KiwiTrader");
+    expect(
+      resolveSellerCardDisplayName(
+        {
+          sellerEmail: "john.smith@example.com",
+          sellerUsername: "john.smith",
+        },
+        {}
+      )
+    ).toBe("Seller");
+  });
+
+  it("keeps a live profile handle even when it was auto-assigned from the email", () => {
+    expect(
+      resolveSellerCardDisplayName(
+        { sellerId: "uid-1", sellerEmail: "johnsmith@example.com", sellerUsername: "john.smith" },
+        { "uid-1": "johnsmith" }
+      )
+    ).toBe("johnsmith");
+  });
+
   it("listing username beats listing displayName", () => {
     expect(
       resolveSellerCardDisplayName(

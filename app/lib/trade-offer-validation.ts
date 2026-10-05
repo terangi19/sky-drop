@@ -5,6 +5,8 @@
  * without mocks and the module is safe to import from client code.
  */
 
+import { isEmailDerivedName } from "./safe-display-name";
+
 export type TradeOfferFailure = {
   ok: false;
   status: number;
@@ -141,16 +143,15 @@ export function decideTradeOffer(
   };
 }
 
-/** Seller notification body. Buyer label is derived server-side (profile username or email local part). */
+/** Seller notification body. Buyer label is a safe profile name, never an email prefix. */
 export function buildTradeOfferNotification(input: {
   buyerLabel: unknown;
   buyerEmail: string;
   postTitle: string;
 }): { title: string; message: string } {
+  const raw = sanitizeNotificationText(input.buyerLabel, 40);
   const label =
-    sanitizeNotificationText(input.buyerLabel, 40) ||
-    sanitizeNotificationText(input.buyerEmail.split("@")[0], 40) ||
-    "Someone";
+    raw && !raw.includes("@") && !isEmailDerivedName(raw, input.buyerEmail) ? raw : "Someone";
   return {
     title: "New offer received! 💰",
     message: `${label} sent an offer on "${input.postTitle}".`,

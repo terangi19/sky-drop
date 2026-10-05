@@ -102,9 +102,10 @@ describe("notification text", () => {
     expect(sanitizeNotificationText(null, 10)).toBe("");
   });
 
-  it("uses the profile username, else the email local part, else 'Someone'", () => {
+  it("uses a safe profile username, else 'Someone' — never the email local part", () => {
     expect(buildTradeOfferNotification({ buyerLabel: "kiwi_trader", buyerEmail: "k@x.com", postTitle: "Card" }).message).toBe('kiwi_trader sent an offer on "Card".');
-    expect(buildTradeOfferNotification({ buyerLabel: "", buyerEmail: "kiwi@x.com", postTitle: "Card" }).message).toBe('kiwi sent an offer on "Card".');
+    expect(buildTradeOfferNotification({ buyerLabel: "", buyerEmail: "kiwi@x.com", postTitle: "Card" }).message).toBe('Someone sent an offer on "Card".');
+    expect(buildTradeOfferNotification({ buyerLabel: "kiwi", buyerEmail: "kiwi@x.com", postTitle: "Card" }).message).toBe('Someone sent an offer on "Card".');
     expect(buildTradeOfferNotification({ buyerLabel: "", buyerEmail: "@x.com", postTitle: "Card" }).message).toBe('Someone sent an offer on "Card".');
     expect(buildTradeOfferNotification({ buyerLabel: "", buyerEmail: "a@b.com", postTitle: "T" }).title).toBe("New offer received! 💰");
   });

@@ -3,6 +3,7 @@ import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebas
 import { FieldValue } from "firebase-admin/firestore";
 import { enforceProtection } from "../../lib/enforce-protection";
 import { parseIpFromRequest } from "../../lib/geo-check";
+import { authorNameForWrite, loadAuthorFields } from "../../lib/public-author.server";
 
 const ALLOWED_STATUSES = new Set(["live", "sold", "completed", "closed"]);
 
@@ -81,7 +82,14 @@ export async function POST(req: NextRequest) {
       }
       const post = snap.data()!;
       const replies = Array.isArray(post.replies) ? [...post.replies] : [];
-      replies.push({ text: replyText, by: token.email, at: new Date().toISOString() });
+      const author = await loadAuthorFields(db, token.uid);
+      replies.push({
+        text: replyText,
+        by: token.email,
+        byId: token.uid,
+        byName: authorNameForWrite(author, token.email),
+        at: new Date().toISOString(),
+      });
       await ref.update({ replies, updatedAt: FieldValue.serverTimestamp() });
 
       // Also send message to seller
