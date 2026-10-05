@@ -476,7 +476,7 @@ export default function Navbar() {
                 </button>
                 {/* pt-2 bridge keeps the hover hit-area continuous: no dead zone between trigger and panel */}
                 <div className="absolute top-full left-1/2 -translate-x-1/2 w-56 pt-2 opacity-0 invisible translate-y-1 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 z-50">
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--dropdown-bg)] p-1.5 shadow-[var(--shadow-lg)]">
+                  <div className="app-menu-panel rounded-xl border border-[var(--border)] bg-[var(--dropdown-bg)] p-1.5 shadow-[var(--shadow-lg)]">
                     {BROWSE_LINKS.map((item) => (
                       <Link key={item.label} href={item.href} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-[var(--dropdown-hover)] transition-colors duration-150">
                         <div><div className="text-sm font-medium">{item.label}</div><div className="text-[11px] text-[var(--muted)]">{item.desc}</div></div>

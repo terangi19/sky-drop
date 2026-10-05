@@ -127,7 +127,7 @@ export default function LoginPage() {
     : "/forgot-password";
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#090d14] text-white">
+    <main className="login-dark-surface relative min-h-screen overflow-x-hidden bg-[#090d14] text-white">
       <Navbar />
 
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[28.75rem] flex-col justify-center px-4 py-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-12">
