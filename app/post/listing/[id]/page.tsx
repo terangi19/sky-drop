@@ -75,7 +75,7 @@ import { listingMessageSellerHref } from "../../../lib/listing-message-href";
 import { MOBILE_STICKY_CTA } from "../../../lib/page-layout";
 import { DETAIL_POLL_MS, startVisibilityPolledFetch } from "../../../lib/polled-firestore";
 import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
-import { hasCountedListingView, markListingViewCounted } from "../../../lib/listing-view-dedupe";
+import { scheduleListingView } from "../../../lib/listing-view-dedupe";
 import { V1_ARRANGE_SAFETY_ONE_LINER } from "../../../lib/conversation-safety";
 import EmptyState from "../../../components/EmptyState";
 
@@ -834,20 +834,27 @@ export default function ListingPage() {
     } catch {}
   }, [listing]);
 
-  // View counter + funnel event (debounced; view POST is once per tab session per listing)
+  // View counter: one POST per tab session per listing, 3s after mount. Keyed on listingId ONLY, so
+  // auth state / listing load finishing inside the 3s window (signed-in users, typed listings)
+  // cannot cancel the pending POST. There is no verified-email gate (the route takes no auth, only an IP rate limit).
+  useEffect(
+    () =>
+      scheduleListingView(listingId, (id) => {
+        fetch("/api/listing-view", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listingId: id }),
+        }).catch((e) => console.error("Failed to increment view count:", e));
+      }),
+    [listingId]
+  );
+
+  // Funnel event (debounced, once per mount; unchanged behaviour, flag-gated by trackFunnelEvent)
   const viewedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!listingId || viewedRef.current.has(listingId)) return;
     viewedRef.current.add(listingId);
     const timer = setTimeout(() => {
-      if (!hasCountedListingView(listingId)) {
-        markListingViewCounted(listingId);
-        fetch("/api/listing-view", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ listingId }),
-        }).catch((e) => console.error("Failed to increment view count:", e));
-      }
       if (user?.uid) {
         trackFunnelEvent({
           event: "listing_detail_viewed",

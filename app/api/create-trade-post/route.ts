@@ -6,6 +6,14 @@ import { parseIpFromRequest } from "../../lib/geo-check";
 import { authorNameForWrite, chosenUsernameForWrite, loadAuthorFields } from "../../lib/public-author.server";
 
 const BADGE_TYPES = new Set(["epic", "legendary"]);
+/** Same shape trade-offer accepts. Anything else is ignored (treated as no requestId). */
+const REQUEST_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
+
+function acceptedRequestId(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const candidate = value.trim();
+  return REQUEST_ID_RE.test(candidate) ? candidate : undefined;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,7 +55,7 @@ export async function POST(req: NextRequest) {
       uid: token.uid,
       email: token.email,
       ip,
-      requestId: typeof body.requestId === "string" ? body.requestId : undefined,
+      requestId: acceptedRequestId(body.requestId),
       turnstileToken: typeof body.turnstileToken === "string" ? body.turnstileToken : undefined,
     });
 

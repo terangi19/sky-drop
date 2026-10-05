@@ -30,7 +30,7 @@ import {
 } from "./abuse-decision-engine";
 import { verifyTurnstileToken, isTurnstileConfigured } from "./turnstile";
 import { getAdminDb, isAdminInitialized } from "./firebase-admin";
-import { isUpstashEnabled } from "./rate-limit-upstash";
+import { isUpstashEnabled, upstashSetNx } from "./rate-limit-upstash";
 import { rateLimit } from "./rate-limit";
 import { registerAction } from "./account-graph";
 
@@ -38,29 +38,22 @@ import { registerAction } from "./account-graph";
 const IDEMPOTENCY_TTL_SEC = 90;
 const idempotencyStore = new Map<string, number>();
 
-async function checkIdempotency(requestId: string): Promise<boolean> {
+export async function checkIdempotency(requestId: string, uid?: string): Promise<boolean> {
+  // sd:idem:<uid>:<requestId> in Redis (upstashSetNx adds the sd: prefix). No uid → bare requestId.
+  const scope = uid ? `${uid}:${requestId}` : requestId;
   if (isUpstashEnabled()) {
-    try {
-      const url = process.env.UPSTASH_REDIS_REST_URL;
-      const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-      if (url && token) {
-        const res = await fetch(`${url}/set/${requestId}/true/EX/${IDEMPOTENCY_TTL_SEC}/NX`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        // Redis returns "OK" if key was set, null if key already exists (NX)
-        return data === "OK";
-      }
-    } catch {}
-    // If Redis fails, fall through to in-memory
+    // Shared 500 ms deadline + 30 s circuit (same as rateLimit). Fail-open: if Upstash is
+    // degraded, fall through to the per-instance in-memory check below (never block on Redis).
+    const outcome = await upstashSetNx(`idem:${scope}`, IDEMPOTENCY_TTL_SEC);
+    if (outcome !== "degraded") return outcome === "set";
   }
-  // Fallback: in-memory check
+  // Fallback: in-memory check (same scope, so an outage still isolates keys by uid)
   const now = Date.now();
-  const stored = idempotencyStore.get(requestId);
+  const stored = idempotencyStore.get(scope);
   if (stored && (now - stored) < IDEMPOTENCY_TTL_SEC * 1000) {
     return false;
   }
-  idempotencyStore.set(requestId, now);
+  idempotencyStore.set(scope, now);
   return true;
 }
 
@@ -127,7 +120,7 @@ export async function enforceProtection(
 
   // 1. Idempotency check
   if (cfg.requireIdempotency && ctx.requestId) {
-    if (!(await checkIdempotency(ctx.requestId))) {
+    if (!(await checkIdempotency(ctx.requestId, ctx.uid))) {
       return {
         allowed: false,
         blocked: true,
