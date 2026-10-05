@@ -32,6 +32,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useProfile } from "../contexts/ProfileContext";
 import { isAdminEmail } from "../lib/admin-check";
 import { blockedEmailsFromDocs } from "../lib/messages-unread";
+import { startVisibilityPolledFetch } from "../lib/polled-firestore";
 import { useFeedback } from "../contexts/FeedbackContext";
 import AccountMenuContent from "./AccountMenu";
 import { AppMenuPanel } from "./ui/AppMenu";
@@ -232,17 +233,13 @@ export default function Navbar() {
       return inFlight;
     }
 
-    fetchUnreadCounts();
-    const interval = setInterval(fetchUnreadCounts, UNREAD_COUNTS_POLL_MS);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void fetchUnreadCounts();
-    };
-    document.addEventListener("visibilitychange", onVisible);
+    // Shared poller: immediate fetch, 30 s interval, paused while hidden, and a refocus
+    // within VISIBILITY_REFETCH_MIN_MS of the last fetch is skipped (tab-switch churn).
+    const stop = startVisibilityPolledFetch(fetchUnreadCounts, UNREAD_COUNTS_POLL_MS);
 
     return () => {
       mounted = false;
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisible);
+      stop();
     };
   }, [user]);
 
