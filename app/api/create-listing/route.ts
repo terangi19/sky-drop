@@ -19,6 +19,7 @@ import {
 } from "../../lib/listing-type-config";
 import { validateListingForPublish } from "../../lib/listing-validation";
 import { runMatchmaking } from "../../lib/sky-ai-matchmaking";
+import { savedSearchMatchesListing } from "../../lib/saved-search-match";
 import { stripeListingPublishErrorAsync } from "../../lib/stripe-connect-account";
 import { disposableEmailBlock } from "../../lib/disposable-email-gate";
 
@@ -67,11 +68,7 @@ async function runCreateListingSideEffects(opts: {
       const s = doc.data();
       const userEmail = s.userEmail;
       if (!userEmail || typeof userEmail !== "string") continue;
-      const q = String(s.query || "").toLowerCase();
-      const cat = String(s.category || "All").toLowerCase();
-      const matchesQuery = !q || titleLower.includes(q);
-      const matchesCategory = cat === "all" || categoryLower === cat;
-      if (matchesQuery && matchesCategory) {
+      if (savedSearchMatchesListing(s, { titleLower, categoryLower })) {
         notifications.push(
           createSystemNotification({
             targetEmail: userEmail,
