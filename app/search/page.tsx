@@ -25,14 +25,12 @@ import {
   listingSupportsRentalRatePeriodFilter,
 } from "../lib/listing-type-config";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
-import { adjustListingWatchlistCount } from "../lib/listing-watchlist-count";
 import { requireWatchlistAccount } from "../lib/require-watchlist-account";
+import { setListingWatchlistSaved, useWatchlistSaved } from "../lib/watchlist-client";
 import { rankListingsBySearch } from "../lib/marketplace-fuzzy-search";
 import { resolveSearchPageQuery } from "../lib/voice-search-pipeline";
 import { logVoiceSearch } from "../lib/voice-search-logger";
 import type { Listing } from "../../types/firestore";
-import { db } from "../lib/firebase";
-import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import EmptyState from "../components/EmptyState";
 import { LoadingCard } from "../components/LoadingSpinner";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
@@ -58,7 +56,8 @@ export default function SearchPage() {
   const { listings, loading, error: listingsError } = useListings();
   const skipNextUrlSyncRef = useRef(true);
 
-  const [watchlist, setWatchlist] = useState<string[]>([]);
+  // Firestore is the source of truth; the per-uid cache only paints hearts.
+  const isInWatchlist = useWatchlistSaved(user?.uid);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [condition, setCondition] = useState("all");
@@ -133,21 +132,11 @@ export default function SearchPage() {
   useEffect(() => {
     if (!user) {
       const resetState = window.requestAnimationFrame(() => {
-        setWatchlist([]);
         setSavedSearches([]);
       });
       return () => window.cancelAnimationFrame(resetState);
     }
-    let nextWatchlist: string[] = [];
     let nextSavedSearches: SavedSearch[] = [];
-    const saved = localStorage.getItem(`watchlist_${user.uid}`);
-    if (saved) {
-      try {
-        nextWatchlist = JSON.parse(saved) as string[];
-      } catch (e) {
-        console.error("Failed to parse watchlist:", e);
-      }
-    }
     const savedSearchesData = localStorage.getItem(`savedSearches_${user.uid}`);
     if (savedSearchesData) {
       try {
@@ -157,7 +146,6 @@ export default function SearchPage() {
       }
     }
     const syncSavedState = window.requestAnimationFrame(() => {
-      setWatchlist(nextWatchlist);
       setSavedSearches(nextSavedSearches);
     });
     return () => window.cancelAnimationFrame(syncSavedState);
@@ -195,40 +183,17 @@ export default function SearchPage() {
     setSearchSaved(false);
   };
 
-  const isInWatchlist = (id: string) => watchlist.includes(id);
-
   const toggleWatchlist = async (item: Listing) => {
     const uid = requireWatchlistAccount(user);
-    if (!uid) return;
-    const adding = !isInWatchlist(item.id);
-    const newWatchlist = adding
-      ? [...watchlist, item.id]
-      : watchlist.filter((id) => id !== item.id);
-    setWatchlist(newWatchlist);
-    localStorage.setItem(`watchlist_${uid}`, JSON.stringify(newWatchlist));
-    void adjustListingWatchlistCount(item.id, adding ? 1 : -1);
-
-    try {
-      if (adding) {
-        const watchData = {
-          listingId: item.id,
-          title: item.title || "",
-          price: item.price ?? "",
-          image: item.images?.[0] || item.imageUrl || "",
-          savedAt: serverTimestamp(),
-        };
-        await setDoc(doc(db, "users", uid, "watchlist", item.id), watchData);
-        await setDoc(doc(db, "watchlist", `${uid}_${item.id}`), {
-          ...watchData,
-          userId: uid,
-        });
-      } else {
-        await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
-        await deleteDoc(doc(db, "watchlist", `${uid}_${item.id}`));
-      }
-    } catch (e) {
-      console.error("Search watchlist sync failed:", e);
-    }
+    if (!uid) return; // #59: guest -> login redirect
+    // Intent = what the heart showed; Firestore decides if anything changes.
+    // (Writes the same account doc + price-alert index doc as every other surface.)
+    await setListingWatchlistSaved({
+      uid,
+      item,
+      save: !isInWatchlist(item.id),
+      ownerEmail: user?.email,
+    });
   };
 
   const handleBuyNow = (item: Listing) => {
