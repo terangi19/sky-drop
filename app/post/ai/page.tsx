@@ -2543,6 +2543,9 @@ export default function AIPostPage() {
           listingType: publishType,
         });
         showToast("Listing created!", "success");
+        // Published: the stored AI draft is spent. Without this the next /post/ai visit in this tab
+        // re-opened the just-published listing via "Edit details". Silent: we navigate away below.
+        clearListingDraftFromSkyAi({ silent: true });
       }
       setImagePreviews([]); setImageFiles([]); setExistingImages([]); setExistingThumbnails([]);
       // Preserve form state for easier duplicate listings
