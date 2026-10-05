@@ -14,7 +14,7 @@
 export type TradeFeedAction = "shout" | "post" | "delete" | "status" | "reply";
 
 export type TradeFeedClientResult =
-  | { ok: true; id: string | null }
+  | { ok: true; id: string | null; duplicate?: true }
   | { ok: false; code: string; message: string; retryable: boolean };
 
 export const TRADE_FEED_ENDPOINTS: Record<TradeFeedAction, string> = {
@@ -64,7 +64,11 @@ export function interpretTradeFeedResponse(
     if (!obj || obj.success !== true) {
       return { ok: false, code: "bad_response", message: copy.generic, retryable: true };
     }
-    return { ok: true, id: typeof obj.id === "string" && obj.id ? obj.id : null };
+    return {
+      ok: true,
+      id: typeof obj.id === "string" && obj.id ? obj.id : null,
+      ...(obj.duplicate === true ? { duplicate: true as const } : {}),
+    };
   }
   switch (status) {
     case 401:

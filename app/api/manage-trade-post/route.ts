@@ -3,6 +3,7 @@ import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebas
 import { FieldValue } from "firebase-admin/firestore";
 import { enforceProtection } from "../../lib/enforce-protection";
 import { parseIpFromRequest } from "../../lib/geo-check";
+import { isDuplicateReply } from "../../lib/trade-reply-dedupe";
 
 const ALLOWED_STATUSES = new Set(["live", "sold", "completed", "closed"]);
 
@@ -75,14 +76,25 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "postId and text required" }, { status: 400 });
       }
       const ref = db.collection("tradePosts").doc(postId);
-      const snap = await ref.get();
-      if (!snap.exists) {
+      // Read-check-append in one transaction so two concurrent identical replies cannot both pass the duplicate check.
+      const outcome = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return { kind: "missing" as const };
+        const post = snap.data()!;
+        const replies = Array.isArray(post.replies) ? [...post.replies] : [];
+        if (isDuplicateReply(replies, token.email, replyText, Date.now())) return { kind: "duplicate" as const };
+        replies.push({ text: replyText, by: token.email, at: new Date().toISOString() });
+        tx.update(ref, { replies, updatedAt: FieldValue.serverTimestamp() });
+        return { kind: "added" as const, post };
+      });
+      if (outcome.kind === "missing") {
         return NextResponse.json({ error: "Post not found" }, { status: 404 });
       }
-      const post = snap.data()!;
-      const replies = Array.isArray(post.replies) ? [...post.replies] : [];
-      replies.push({ text: replyText, by: token.email, at: new Date().toISOString() });
-      await ref.update({ replies, updatedAt: FieldValue.serverTimestamp() });
+      if (outcome.kind === "duplicate") {
+        // Repeat click on the same quick reply: nothing stored, no inbox message; the client skips the notification too.
+        return NextResponse.json({ success: true, duplicate: true });
+      }
+      const post = outcome.post;
 
       // Also send message to seller
       const participants = [token.email, post.sellerEmail].filter(Boolean);
