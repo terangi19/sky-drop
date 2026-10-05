@@ -39,6 +39,7 @@ import {
   resolveConversationOrderStatus,
   shouldHideSupersededPaidOrderCard,
 } from "../lib/conversation-order-status";
+import { buildConversationPurchasesQuery } from "../lib/conversation-purchase-query";
 import { isRefundedStatus } from "../lib/refund-display";
 import BraveWarning from "../components/BraveWarning";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -1538,10 +1539,8 @@ function MessagesPage() {
       return;
     }
 
-    const q = query(
-      collection(db, "purchases"),
-      where("listingId", "==", chatListingId)
-    );
+    // Bounded + rules-compliant: see buildConversationPurchasesQuery.
+    const q = buildConversationPurchasesQuery(db, chatListingId, user.email, chatUser);
 
     const unsub = onSnapshot(
       q,
