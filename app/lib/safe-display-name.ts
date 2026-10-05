@@ -11,6 +11,16 @@
 export const SAFE_NAME_FALLBACK = "Sky Drop member";
 
 const MAX_PUBLIC_NAME = 60;
+/**
+ * Cap before any regex or comparison loop. Callers may pass uncapped request
+ * bodies; a few hundred characters is enough for a real name, and the old
+ * unanchored email scan was quadratic on long inputs that could never match.
+ */
+const MAX_NAME_INPUT = 200;
+
+function capNameInput(name: string): string {
+  return name.length > MAX_NAME_INPUT ? name.slice(0, MAX_NAME_INPUT) : name;
+}
 
 function isEmailLikeValue(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -41,13 +51,13 @@ function normalizeCandidate(name: string): string {
  */
 export function isEmailDerivedName(name: unknown, email?: string | null): boolean {
   if (typeof name !== "string") return false;
-  if (!name.trim()) return false;
-  const candidate = normalizeCandidate(name);
+  const capped = capNameInput(name);
+  if (!capped.trim()) return false;
+  const candidate = normalizeCandidate(capped);
   if (!candidate) return false;
-  if (candidate.includes("@") || isEmailLikeValue(candidate) || isEmailLikeValue(name)) {
+  if (candidate.includes("@") || isEmailLikeValue(candidate) || isEmailLikeValue(capped)) {
     return true;
   }
-  if (/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(candidate)) return true;
   if (typeof email !== "string" || !email.includes("@")) return false;
 
   const emailNfc = email.normalize("NFC");
@@ -80,7 +90,7 @@ export function isEmailDerivedName(name: unknown, email?: string | null): boolea
  */
 export function isAutoAssignedUsername(name: unknown, email?: string | null): boolean {
   if (typeof name !== "string" || typeof email !== "string" || !email.includes("@")) return false;
-  const candidate = normalizeCandidate(name).toLowerCase();
+  const candidate = normalizeCandidate(capNameInput(name)).toLowerCase();
   if (!candidate || candidate.includes("@")) return false;
   const base = defaultUsernameFromEmailLocal(email.normalize("NFC")).toLowerCase();
   if (!base) return false;
@@ -95,7 +105,7 @@ export function isAutoAssignedUsername(name: unknown, email?: string | null): bo
 
 function cleanedPublicLabel(name: unknown): string {
   if (typeof name !== "string") return "";
-  const candidate = normalizeCandidate(name);
+  const candidate = normalizeCandidate(capNameInput(name));
   if (!candidate || candidate.includes("@") || isEmailLikeValue(candidate)) return "";
   return candidate.slice(0, MAX_PUBLIC_NAME);
 }

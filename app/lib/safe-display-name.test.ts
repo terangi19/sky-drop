@@ -170,6 +170,31 @@ describe("resolvePublicProfileName", () => {
   });
 });
 
+describe("bounded input", () => {
+  it("finishes 100k-character checks well under 250ms with the same outcomes as normal names", () => {
+    const noAt = "a".repeat(100_000);
+    const emailShaped = `a@${".".repeat(100_000)} x`;
+    const started = performance.now();
+    const noAtDerived = isEmailDerivedName(noAt);
+    const emailShapedDerived = isEmailDerivedName(emailShaped);
+    const noAtDisplay = safeDisplayName(noAt);
+    const emailShapedDisplay = safeDisplayName(emailShaped);
+    const noAtWrite = sanitizeAuthorNameForWrite(noAt, null);
+    const emailShapedWrite = sanitizeAuthorNameForWrite(emailShaped, "a@example.com");
+    const elapsed = performance.now() - started;
+
+    expect(elapsed).toBeLessThan(250);
+    expect(noAtDerived).toBe(false);
+    expect(noAtDisplay).toBe("a".repeat(60));
+    expect(noAtWrite).toBe("a".repeat(60));
+    expect(emailShapedDerived).toBe(true);
+    expect(emailShapedDisplay).toBe(SAFE_NAME_FALLBACK);
+    expect(emailShapedWrite).toBe("");
+    expect(safeDisplayName("Aroha Tāne")).toBe("Aroha Tāne");
+    expect(isEmailDerivedName("jsmith")).toBe(false);
+  });
+});
+
 describe("sanitizeAuthorNameForWrite", () => {
   it("returns empty for blank or email-derived candidates and keeps safe names", () => {
     expect(sanitizeAuthorNameForWrite("", "a@b.com")).toBe("");
