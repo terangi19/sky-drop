@@ -89,11 +89,30 @@ describe("GET /api/seller-earnings uid bind", () => {
     h.emailDocs = [{ total: 40 }, { price: 10 }, { total: 5 }, { total: 999 }];
     const res = await getEarnings();
     expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toEqual({ total: 55 });
+    await expect(res.json()).resolves.toEqual({ total: 1054 });
     expect(h.queries).toEqual([
       { field: "sellerId", value: "seller-1" },
       { field: "sellerEmail", value: "Seller@Example.test" },
     ]);
+  });
+
+  it("sums every matching sale, not just the first three", async () => {
+    h.sellerIdDocs = Array.from({ length: 12 }, (_, i) => ({ total: 10 * (i + 1) }));
+    const res = await getEarnings();
+    expect(res.status).toBe(200);
+    // 10 + 20 + ... + 120
+    await expect(res.json()).resolves.toEqual({ total: 780 });
+  });
+
+  it("falls back to price per doc, accepts numeric strings, and ignores corrupt amounts", async () => {
+    h.sellerIdDocs = [{ total: "25.5" }, { price: 4 }, { total: 0, price: 6 }, {}, { total: "abc" }, { total: 10 }];
+    const res = await getEarnings();
+    await expect(res.json()).resolves.toEqual({ total: 45.5 });
+  });
+
+  it("returns 0 for a seller with no sales", async () => {
+    const res = await getEarnings();
+    await expect(res.json()).resolves.toEqual({ total: 0 });
   });
 
   it("does not require email when uid is present", async () => {
