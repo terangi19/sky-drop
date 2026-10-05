@@ -761,10 +761,10 @@ export default function ListingPage() {
     const run = () => {
       (async () => {
         try {
-          const [reviewSnap, salesSnap] = await Promise.all([
-            getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", listing.sellerEmail), limit(SELLER_REVIEWS_LIMIT))),
-            getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", listing.sellerEmail), where("status", "in", ["delivered", "completed"]), limit(SELLER_SALES_LIMIT))),
-          ]);
+          // `reviews` is publicly readable (firestore.rules: allow read: if true).
+          const reviewSnap = await getDocs(
+            query(collection(db, "reviews"), where("sellerEmail", "==", listing.sellerEmail), limit(SELLER_REVIEWS_LIMIT))
+          );
           const ratings: number[] = [];
           reviewSnap.docs.forEach((d) => {
             const r = d.data().rating;
@@ -773,7 +773,6 @@ export default function ListingPage() {
           if (mounted && ratings.length > 0) {
             setSellerReviewData({ avg: ratings.reduce((a, b) => a + b, 0) / ratings.length, count: ratings.length });
           }
-          if (mounted) setSellerSalesCount(salesSnap.size);
         } catch (e) { console.error(e); }
       })();
     };
@@ -789,6 +788,37 @@ export default function ListingPage() {
       }
     };
   }, [listing?.sellerEmail]);
+
+  // Seller's completed-sales count. `purchases` is readable only by the buyer or the seller
+  // (firestore.rules), so this query is only legal when the viewer IS the seller. Guests and
+  // other signed-in users used to run it anyway and got "Missing or insufficient permissions".
+  const sellerEmailForSales = listing?.sellerEmail;
+  const viewerEmailForSales = user?.email;
+  useEffect(() => {
+    if (!sellerEmailForSales || !viewerEmailForSales || viewerEmailForSales !== sellerEmailForSales) return;
+    let mounted = true;
+    const run = () => {
+      (async () => {
+        try {
+          const salesSnap = await getDocs(
+            query(collection(db, "purchases"), where("sellerEmail", "==", sellerEmailForSales), where("status", "in", ["delivered", "completed"]), limit(SELLER_SALES_LIMIT))
+          );
+          if (mounted) setSellerSalesCount(salesSnap.size);
+        } catch (e) { console.error(e); }
+      })();
+    };
+    const ric = typeof requestIdleCallback !== "undefined"
+      ? requestIdleCallback(run, { timeout: 1200 })
+      : window.setTimeout(run, 0);
+    return () => {
+      mounted = false;
+      if (typeof cancelIdleCallback !== "undefined" && typeof ric === "number") {
+        try { cancelIdleCallback(ric as number); } catch { /* ignore */ }
+      } else {
+        clearTimeout(ric as number);
+      }
+    };
+  }, [sellerEmailForSales, viewerEmailForSales]);
 
   // Fetch seller's other listings (deferred — not needed for Message Seller CTA)
   useEffect(() => {
