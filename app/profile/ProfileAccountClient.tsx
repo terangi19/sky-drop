@@ -65,9 +65,9 @@ import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import EmptyState from "../components/EmptyState";
 import { LISTING_GRID, PAGE_PADDING } from "../lib/page-layout";
-import { isInWatchlist as checkLocalWatchlist, saveRecentlyViewed } from "../lib/listing-card-utils";
-import { adjustListingWatchlistCount } from "../lib/listing-watchlist-count";
+import { saveRecentlyViewed } from "../lib/listing-card-utils";
 import { requireWatchlistAccount } from "../lib/require-watchlist-account";
+import { setListingWatchlistSaved, useWatchlistSaved } from "../lib/watchlist-client";
 import {
   consumePendingProfileFill,
   mergeProfileFill,
@@ -278,6 +278,7 @@ const [activeTab, setActiveTab] = useState("account");
   const [profileReviews, setProfileReviews] = useState<ProfileReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [watchlistTick, setWatchlistTick] = useState(0);
+  const isInWatchlist = useWatchlistSaved(user?.uid);
   const [themeIsLight, setThemeIsLight] = useState(false);
 
 const tabGroups = [
@@ -1297,36 +1298,17 @@ const tabGroups = [
     setThemeIsLight(nextLight);
   }
 
-  function isInWatchlist(id: string) {
-    void watchlistTick;
-    if (!user?.uid) return false;
-    return checkLocalWatchlist(id);
-  }
-
   async function toggleWatchlist(item: Record<string, unknown> & { id: string }) {
     const uid = requireWatchlistAccount(user);
-    if (!uid) return;
-    const adding = !isInWatchlist(item.id);
-    try {
-      const existing = JSON.parse(localStorage.getItem("watchlist") || "[]") as { id: string }[];
-      const next = adding
-        ? [...existing.filter((w) => w.id !== item.id), { id: item.id }]
-        : existing.filter((w) => w.id !== item.id);
-      localStorage.setItem("watchlist", JSON.stringify(next));
-      setWatchlistTick((n) => n + 1);
-      adjustListingWatchlistCount(item.id, adding ? 1 : -1);
-      if (adding) {
-        await setDoc(doc(db, "users", uid, "watchlist", item.id), {
-          listingId: item.id,
-          addedAt: serverTimestamp(),
-        });
-      } else {
-        await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
-      }
-      showToast(adding ? "Saved to watchlist" : "Removed from watchlist", adding ? "success" : "info");
-    } catch {
-      showToast("Could not update watchlist", "error");
-    }
+    if (!uid) return; // #59: guest -> login redirect
+    // Intent = what the heart showed; Firestore decides if anything changes.
+    await setListingWatchlistSaved({
+      uid,
+      item,
+      save: !isInWatchlist(item.id),
+      ownerEmail: user?.email,
+    });
+    setWatchlistTick((n) => n + 1);
   }
 
   async function handleStripeConnect() {

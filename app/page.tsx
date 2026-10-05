@@ -41,7 +41,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
   getDocs,
   Timestamp,
   limit,
@@ -60,8 +59,8 @@ import {
   formatMarketplaceListingCount,
   resolvedMarketplaceListingCount,
 } from "./lib/marketplace-listing-count";
-import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
 import { requireWatchlistAccount } from "./lib/require-watchlist-account";
+import { setListingWatchlistSaved, useWatchlistSaved } from "./lib/watchlist-client";
 import { HOME_RESET_EVENT, homeCategoryHref, resolveHomeCategoryParam } from "./lib/home-category-param";
 import { useSellerListingMeta } from "./lib/useSellerListingMeta";
 import { LISTINGS_POLL_MS } from "./lib/firestore-query-limits";
@@ -162,12 +161,6 @@ function timeAgo(seconds: number): string {
     try {
       return JSON.parse(localStorage.getItem("recentlyViewed") || "[]");
     } catch { return []; }
-  }
-
-  function isInWatchlist(itemId: string): boolean {
-    try {
-      return JSON.parse(localStorage.getItem("watchlist") || "[]").some((w: any) => w.id === itemId);
-    } catch { return false; }
   }
 
 function saveRecentlyViewed(item: any) {
@@ -273,17 +266,8 @@ export default function Home() {
   const [showSaveSearch, setShowSaveSearch] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Listing | null>(null);
   const [promoteItem, setPromoteItem] = useState<any>(null);
-  const [watchlistTick, setWatchlistTick] = useState(0);
-
-  // Tick refreshes heart state without remounting the whole grid/images
-  const isInWatchlistForCards = useCallback(
-    (id: string) => {
-      void watchlistTick;
-      if (!user?.uid) return false;
-      return isInWatchlist(id);
-    },
-    [watchlistTick, user?.uid]
-  );
+  // Saved hearts: Firestore is the source of truth; the per-uid cache only paints them.
+  const isInWatchlistForCards = useWatchlistSaved(user?.uid);
 
   const activeCategories = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -601,133 +585,26 @@ export default function Home() {
     );
   }, [router]);
 
-    const saveToWatchlist = useCallback(async (item: any) => {
-    const uid = requireWatchlistAccount(user);
-    if (!uid) return;
-    // Check Firestore for duplicate (in case user is on a different device)
-    if (uid) {
-      try {
-        const snap = await getDoc(doc(db, "users", uid, "watchlist", item.id));
-        if (snap.exists()) {
-          showToast("Already in watchlist", "info");
-          return;
-        }
-       } catch (e) { console.error(e); }
-    }
-
-    const existingWatchlist =
-     JSON.parse(
-       localStorage.getItem(
-         "watchlist"
-       ) || "[]"
-     );
-
-   const alreadySaved =
-     existingWatchlist.find(
-       (fav: any) =>
-         fav.id === item.id
-     );
-
-   if (alreadySaved) {
-     showToast("Already in watchlist", "info");
-     return;
-   }
-
-   const updatedWatchlist =
-     [
-       ...existingWatchlist,
-       item,
-     ];
-
-   localStorage.setItem(
-     "watchlist",
-     JSON.stringify(
-       updatedWatchlist
-     )
-   );
-
-     setDoc(doc(db, "users", uid, "watchlist", item.id), {
-       id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
-       savedAt: new Date().toISOString(),
-       }).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
-
-     void adjustListingWatchlistCount(item.id, 1);
-     setListings((prev) =>
-       prev.map((l) =>
-         l.id === item.id
-           ? { ...l, watchlistCount: Math.max(0, (Number((l as any).watchlistCount) || 0) + 1) }
-           : l
-       )
-     );
-     setWatchlistTick((t) => t + 1);
-     showToast("Added to watchlist!");
-  }, [user]);
-
   async function toggleWatchlist(item: any) {
     const uid = requireWatchlistAccount(user);
-    if (!uid) return;
-    const wasSaved = JSON.parse(localStorage.getItem("watchlist") || "[]").some(
-      (fav: any) => fav.id === item.id
+    if (!uid) return; // #59: guests go to login, no toast / heart fill
+    // Intent = what the heart showed. Firestore decides whether anything changes,
+    // so a stale/empty local cache can't double-add or bump watchlistCount twice.
+    const result = await setListingWatchlistSaved({
+      uid,
+      item,
+      save: !isInWatchlistForCards(item.id),
+      ownerEmail: user?.email,
+    });
+    if (!result.ok || !result.changed) return;
+    const delta = result.saved ? 1 : -1;
+    setListings((prev) =>
+      prev.map((l) =>
+        l.id === item.id
+          ? { ...l, watchlistCount: Math.max(0, (Number((l as any).watchlistCount) || 0) + delta) }
+          : l
+      )
     );
-    const now = new Date().toISOString();
-
-    try {
-      const snap = await getDoc(doc(db, "users", uid, "watchlist", item.id));
-      if (snap.exists()) {
-        const { deleteDoc } = await import("firebase/firestore");
-        await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
-        await deleteDoc(doc(db, "watchlist", `${uid}_${item.id}`));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
-    const index = existing.findIndex((fav: any) => fav.id === item.id);
-
-    if (index >= 0) {
-      existing.splice(index, 1);
-      localStorage.setItem("watchlist", JSON.stringify(existing));
-      showToast("Removed from watchlist", "info");
-      if (wasSaved) {
-        void adjustListingWatchlistCount(item.id, -1);
-        setListings((prev) =>
-          prev.map((l) =>
-            l.id === item.id
-              ? { ...l, watchlistCount: Math.max(0, (Number((l as any).watchlistCount) || 0) - 1) }
-              : l
-          )
-        );
-      }
-    } else {
-      existing.unshift(item);
-      localStorage.setItem("watchlist", JSON.stringify(existing));
-      const watchData = {
-        id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
-        savedPrice: item.price,
-        savedAt: now,
-        sellerEmail: item.sellerEmail || "",
-        sellerUsername: item.sellerUsername || "",
-        sellerId: item.sellerId || "",
-      };
-      setDoc(doc(db, "users", uid, "watchlist", item.id), watchData).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
-      setDoc(doc(db, "watchlist", `${uid}_${item.id}`), {
-        ...watchData,
-        userId: uid,
-        userEmail: user?.email || "",
-        listingId: item.id,
-      }).catch((e) => { console.error("Watchlist index save failed:", e); });
-      showToast("Added to watchlist!");
-      void adjustListingWatchlistCount(item.id, 1);
-      setListings((prev) =>
-        prev.map((l) =>
-          l.id === item.id
-            ? { ...l, watchlistCount: Math.max(0, (Number((l as any).watchlistCount) || 0) + 1) }
-            : l
-        )
-      );
-    }
-    setWatchlistTick((t) => t + 1);
   }
 
   const filteredListings =

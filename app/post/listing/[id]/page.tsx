@@ -15,6 +15,8 @@ import { createNotification } from "../../../lib/notifications";
 import { User } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, limit, query, where, Timestamp, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../../../lib/firebase";
+import { addToWatchlistCache, removeFromWatchlistCache } from "../../../lib/watchlist-cache";
+import { buildWatchlistIndexDoc } from "../../../lib/watchlist-sync";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
 import { isFullyVerifiedSeller, profileEmailVerified } from "../../../lib/seller-verified";
@@ -979,7 +981,11 @@ export default function ListingPage() {
     setSavedToWatchlist(null);
     getDoc(doc(db, "users", uid, "watchlist", listing.id))
       .then((snap) => {
-        if (!cancelled) setSavedToWatchlist(snap.exists());
+        if (cancelled) return;
+        setSavedToWatchlist(snap.exists());
+        // Keep the per-account heart cache in step with the source of truth.
+        if (snap.exists()) addToWatchlistCache(uid, listing.id);
+        else removeFromWatchlistCache(uid, listing.id);
       })
       .catch(() => {
         if (!cancelled) setSavedToWatchlist(false);
@@ -1006,13 +1012,7 @@ export default function ListingPage() {
       }
       // Best-effort: remove the price-alert index doc other surfaces create.
       deleteDoc(doc(db, "watchlist", `${uid}_${listing.id}`)).catch(() => {});
-      try {
-        const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
-        localStorage.setItem(
-          "watchlist",
-          JSON.stringify(existing.filter((item: { id?: string }) => item.id !== listing.id))
-        );
-      } catch {}
+      removeFromWatchlistCache(uid, listing.id);
       void adjustListingWatchlistCount(listing.id, -1);
       setListing((prev) =>
         prev
@@ -1035,17 +1035,17 @@ export default function ListingPage() {
       console.error(e);
     }
 
-    try {
-      const existingWatchlist = JSON.parse(localStorage.getItem("watchlist") || "[]");
-      if (!existingWatchlist.find((item: { id?: string }) => item.id === listing.id)) {
-        localStorage.setItem("watchlist", JSON.stringify([...existingWatchlist, listing]));
-      }
-    } catch {}
+    addToWatchlistCache(uid, listing.id);
     setDoc(ref, {
       id: listing.id, title: listing.title, price: listing.price, imageUrl: listing.imageUrl || listing.image || "",
       savedPrice: listing.price,
       savedAt: new Date().toISOString(),
     }).catch((e) => console.error("Watchlist save failed:", e));
+    // Price-drop alert index (same doc the other surfaces write); best effort.
+    setDoc(
+      doc(db, "watchlist", `${uid}_${listing.id}`),
+      buildWatchlistIndexDoc(uid, listing, user?.email, new Date().toISOString())
+    ).catch(() => {});
     void adjustListingWatchlistCount(listing.id, 1);
     setListing((prev) =>
       prev

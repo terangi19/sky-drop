@@ -84,9 +84,14 @@ describe("watchlist UI gates guests before success toasts", () => {
     const src = readFileSync(path.join(process.cwd(), "app/page.tsx"), "utf8");
     const toggle = src.slice(src.indexOf("async function toggleWatchlist"));
     const gateAt = toggle.indexOf("requireWatchlistAccount");
-    const toastAt = toggle.indexOf('showToast("Added to watchlist!")');
+    // The success toast now lives in the shared helper, which needs a uid argument;
+    // the guest gate must still return before that helper is reached.
+    const helperAt = toggle.indexOf("setListingWatchlistSaved(");
     expect(gateAt).toBeGreaterThanOrEqual(0);
-    expect(toastAt).toBeGreaterThan(gateAt);
-    expect(toggle.slice(0, toastAt)).toMatch(/if\s*\(\s*!uid\s*\)\s*return/);
+    expect(helperAt).toBeGreaterThan(gateAt);
+    expect(toggle.slice(0, helperAt)).toMatch(/if\s*\(\s*!uid\s*\)\s*return/);
+    const client = readFileSync(path.join(process.cwd(), "app/lib/watchlist-client.ts"), "utf8");
+    expect(client).toContain('showToast(result.changed ? "Added to watchlist!"');
+    expect(client).toMatch(/uid: string;\s*item: WatchlistItemInput;\s*save: boolean;/);
   });
 });

@@ -29,13 +29,3 @@ export function saveRecentlyViewed(item: Record<string, unknown> & { id: string 
   } as { id: string });
   localStorage.setItem("recentlyViewed", JSON.stringify(recent.slice(0, 8)));
 }
-
-export function isInWatchlist(itemId: string): boolean {
-  try {
-    return JSON.parse(localStorage.getItem("watchlist") || "[]").some(
-      (w: { id: string }) => w.id === itemId
-    );
-  } catch {
-    return false;
-  }
-}
