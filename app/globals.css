@@ -1534,6 +1534,11 @@ select:focus-visible {
 :root.light header.site-navbar .app-menu-panel .bg-sky-500\/10 {
   background-color: rgba(14, 165, 233, 0.1) !important;
 }
+/* Secondary line (e.g. Browse dropdown descriptions): keep the muted tone, still dark-on-white */
+:root.light header.site-navbar .app-menu-panel .text-\[var\(--muted\)\],
+:root.light header.site-navbar .app-menu-panel .text-\[var\(--muted\)\] * {
+  color: var(--muted) !important;
+}
 
 /* Navbar icon buttons — keep subtle light overlays on dark header */
 :root.light header.site-navbar a.rounded-xl.bg-white\/\[0\.08\],
@@ -2651,6 +2656,20 @@ select:focus-visible {
   border-color: var(--accent-primary);
   box-shadow: var(--shadow-focus);
 }
+
+/*
+ * /login renders on a hard-coded dark surface (#090d14 page, #111722 card) in BOTH themes.
+ * The light-theme text remaps above (text-white / text-slate-300 -> --foreground, text-slate-400/500
+ * -> --muted, input placeholder -> --muted) therefore made its copy dark-on-dark (heading + subtitle
+ * ~1.1:1). Re-pin the dark-theme colours for this page only; no effect on the rest of the app.
+ */
+:root.light .login-dark-surface .text-white,
+:root.light .login-dark-surface .hover\:text-white:hover { color: #ffffff !important; }
+:root.light .login-dark-surface .text-slate-300,
+:root.light .login-dark-surface .hover\:text-slate-300:hover { color: #cbd5e1 !important; }
+:root.light .login-dark-surface .text-slate-400 { color: #94a3b8 !important; }
+:root.light .login-dark-surface .text-slate-500 { color: #64748b !important; }
+:root.light .login-dark-surface input::placeholder { color: #64748b !important; opacity: 1 !important; }
 
 .login-page-btn-primary {
   background: linear-gradient(to right, #0ea5e9, #38bdf8);
