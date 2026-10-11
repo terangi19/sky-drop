@@ -197,7 +197,13 @@ async function recomputeReviewAggregates(revieweeId) {
     const q = db.collection("reviews").where("revieweeId", "==", revieweeId).limit(1000);
     await db.runTransaction(async (tx) => {
         const snap = await tx.get(q);
-        const agg = (0, review_aggregates_1.computeReviewAggregates)(snap.docs.map((d) => d.get("rating")));
+        // Seller rating only: reviews this user received as the buyer are excluded (isSellerRatingReview).
+        const agg = (0, review_aggregates_1.computeSellerReviewAggregates)(snap.docs.map((d) => ({
+            rating: d.get("rating"),
+            role: d.get("role"),
+            revieweeEmail: d.get("revieweeEmail"),
+            sellerEmail: d.get("sellerEmail"),
+        })));
         tx.set(profileRef, Object.assign(Object.assign({}, agg), { updatedAt: admin.firestore.FieldValue.serverTimestamp() }), { merge: true });
     });
 }
