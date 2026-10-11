@@ -263,7 +263,7 @@ describe("performance reliability locks", () => {
     expect(route).toMatch(
       /conversationId = await createSkyAiConversation\(uid, email\)/
     );
-    expect(route).toContain("await loadSkyAiMessages(conversationId, uid, 30)");
+    expect(route).toContain("await loadSkyAiMessages(conversationId, uid, keep)");
     const panel = src("app/components/SkyAiChatPanel.tsx");
     expect(panel).toContain("history: user ? undefined : history");
     expect(panel).toContain(

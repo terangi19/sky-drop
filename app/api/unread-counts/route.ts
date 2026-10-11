@@ -45,8 +45,7 @@ export async function GET(req: NextRequest) {
 
     const db = getAdminDb();
 
-    const [blockedSnap, inboxCountSnap, activitySnap] = await Promise.all([
-      db.collection("users").doc(decoded.uid).collection("blocked").limit(100).get(),
+    const [inboxCountSnap, activitySnap] = await Promise.all([
       db
         .collection("messages")
         .where("receiver", "==", email)
@@ -61,20 +60,31 @@ export async function GET(req: NextRequest) {
         .get(),
     ]);
 
-    const blockedEmails = new Set(blockedEmailsFromDocs(blockedSnap.docs));
     let inboxUnread = inboxCountSnap.data().count;
 
-    if (blockedEmails.size > 0 && inboxUnread > 0) {
-      const inboxSnap = await db
-        .collection("messages")
-        .where("receiver", "==", email)
-        .where("read", "==", false)
+    // The blocked list is only needed to discount unread inbox rows from blocked
+    // senders, so skip it (up to 100 reads per poll) when there is nothing unread.
+    if (inboxUnread > 0) {
+      const blockedSnap = await db
+        .collection("users")
+        .doc(decoded.uid)
+        .collection("blocked")
         .limit(100)
         .get();
-      inboxUnread = inboxSnap.docs.filter((d) => {
-        const sender = String(d.data()?.sender || "").trim().toLowerCase();
-        return !!sender && !blockedEmails.has(sender);
-      }).length;
+      const blockedEmails = new Set(blockedEmailsFromDocs(blockedSnap.docs));
+
+      if (blockedEmails.size > 0) {
+        const inboxSnap = await db
+          .collection("messages")
+          .where("receiver", "==", email)
+          .where("read", "==", false)
+          .limit(100)
+          .get();
+        inboxUnread = inboxSnap.docs.filter((d) => {
+          const sender = String(d.data()?.sender || "").trim().toLowerCase();
+          return !!sender && !blockedEmails.has(sender);
+        }).length;
+      }
     }
 
     const inboxReadTime = Date.now() - startTime;

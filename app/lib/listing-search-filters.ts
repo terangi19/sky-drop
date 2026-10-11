@@ -116,7 +116,13 @@ export function listingMatchesConditionFilter(
 ): boolean {
   if (!condition || condition === "all") return true;
   if (!listingSupportsCondition(listing.type)) return true;
-  return (listing.condition || "") === condition;
+  const stored = String(listing.condition || "").trim().toLowerCase();
+  const wanted = String(condition).trim().toLowerCase();
+  if (!stored) return false;
+  // "Used" is an umbrella over every graded value ("Used - Like New" / "- Good" / "- Fair").
+  if (wanted === "used") return stored === "used" || /^used\s*[-\u2013]\s*\S/.test(stored);
+  // New / graded options match their own grade, ignoring case and stray spaces.
+  return stored === wanted;
 }
 
 export function listingMatchesSaleTypeFilter(
