@@ -372,18 +372,14 @@ service cloud.firestore {
 
       allow create: if false;
 
+      // Owner may only change status (e.g. xpValidation marks duplicate badge posts "sold") and updatedAt.
+      // Everything else (replies, offers, createdAt, expiresAt, world, title, images, promotion and
+      // seller identity fields) is written by Admin SDK routes only (create-/manage-trade-post, trade-offer).
       allow update: if request.auth != null
 
         && resource.data.sellerEmail == request.auth.token.email
-          && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny([
-              'sellerId', 'sellerEmail', 'sellerName', 'sellerUid',
-              'featured', 'boosted', 'promoted', 'bumpExpiresAt', 'visibilityRank',
-              'verified', 'adminVerified', 'isDemo', 'demo',
-              'currentBid', 'highestBidder', 'highestBidderId', 'bidCount',
-              'paymentReleased', 'stripePaymentIntentId', 'stripeAccountId',
-              'soldAt', 'views'
-            ]);
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']);
 
       allow delete: if request.auth != null
 
@@ -464,13 +460,15 @@ service cloud.firestore {
 
       allow read: if true;
 
-      allow create: if request.auth != null && isEmailVerified()
+      // Server-only writes: /api/create-trade-shout (Admin SDK) applies auth, rate limit, abuse engine,
+      // Turnstile, the 1-500 char check and serverTimestamp. Clients cannot forge by/byId/byName/createdAt.
+      allow create, update: if false;
 
-        && request.resource.data.by == request.auth.token.email;
-
+      // Author delete: uid for docs that carry byId; legacy docs without byId fall back to email; admins.
       allow delete: if request.auth != null
-
-        && resource.data.by == request.auth.token.email;
+        && ((resource.data.byId is string && resource.data.byId == request.auth.uid)
+          || (!('byId' in resource.data) && resource.data.by == request.auth.token.email)
+          || isAdmin());
 
     }
 

@@ -159,6 +159,7 @@ export async function applyStripeRefundToPurchase(
       orderId: orderId || null,
       listingTitle: String(data.listingTitle || "this item"),
       refundLabel,
+      refundAmount,
       now,
     });
 
@@ -173,6 +174,7 @@ export async function applyStripeRefundToPurchase(
       listingImage: data.listingImage || "",
       orderStatus: "refunded",
       purchaseId,
+      refundAmount,
       text: `Payment refunded for "${data.listingTitle || "this item"}" — ${refundLabel}.`,
       read: false,
       createdAt: now,
@@ -219,6 +221,7 @@ async function markExistingOrderMessagesRefunded(
     orderId: string | null;
     listingTitle: string;
     refundLabel: string;
+    refundAmount: number;
     now: Date;
   }
 ): Promise<void> {
@@ -243,6 +246,7 @@ async function markExistingOrderMessagesRefunded(
       batch.update(doc.ref, {
         orderStatus: "refunded",
         purchaseId: input.purchaseId,
+        refundAmount: input.refundAmount,
         text: `Payment refunded for "${input.listingTitle}" — ${input.refundLabel}.`,
         updatedAt: input.now,
       });

@@ -41,7 +41,7 @@ import {
   shouldHideSupersededPaidOrderCard,
 } from "../lib/conversation-order-status";
 import { buildConversationPurchasesQuery } from "../lib/conversation-purchase-query";
-import { isRefundedStatus } from "../lib/refund-display";
+import { isRefundedStatus, threadRefundCardAmount } from "../lib/refund-display";
 import BraveWarning from "../components/BraveWarning";
 import LoadingSpinner from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
@@ -2259,9 +2259,8 @@ function MessagesPage() {
                                 <div className="w-full max-w-md space-y-2">
                                   <RefundStatusCard
                                     role={isSellerViewer ? "seller" : "buyer"}
-                                    refundAmount={purchaseData?.refundAmount}
+                                    {...threadRefundCardAmount(purchaseData, msg)}
                                     refundedAt={purchaseData?.refundedAt || msg.createdAt}
-                                    total={purchaseData?.total ?? Number(msg.listingPrice)}
                                     variant="compact"
                                   />
                                   <div className="flex justify-end">
