@@ -30,7 +30,6 @@ import {
   Timestamp,
   updateDoc,
   where,
-  writeBatch,
 } from "firebase/firestore";
 import {
   deleteUser,
@@ -1010,18 +1009,6 @@ const tabGroups = [
       // Server already persisted the profile via Admin SDK. Client merge is
       // limited to non-privileged display fields so rules cannot be bypassed.
       await setDoc(doc(db, "profiles", user.uid), clientMerge, { merge: true }).catch(() => {});
-
-      // Update sellerUsername on all listings
-      try {
-        const listingsSnap = await getDocs(query(collection(db, "listings"), where("sellerEmail", "==", user.email)));
-        const batch = writeBatch(db);
-        listingsSnap.docs.forEach((doc_) => batch.update(doc_.ref, { sellerUsername: newUsername }));
-        const tradeSnap = await getDocs(query(collection(db, "tradePosts"), where("sellerEmail", "==", user.email)));
-        tradeSnap.docs.forEach((doc_) => batch.update(doc_.ref, { sellerUsername: newUsername }));
-        await batch.commit();
-      } catch {
-        showToast("Profile saved, but some listings could not be updated.", "info");
-      }
 
       setUsername(newUsername);
       setContextUsername(newUsername);
