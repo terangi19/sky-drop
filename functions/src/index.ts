@@ -77,45 +77,16 @@ export const onListingUpdated = onDocumentUpdated("listings/{listingId}", async 
   }
 });
 
-export const onListingCreated = onDocumentCreated("listings/{listingId}", async (event) => {
-  const data = event.data?.data();
-  const listingId = event.params.listingId;
-  if (!data) return;
-
-  const title = String(data.title || "").toLowerCase();
-  const category = String(data.category || "").toLowerCase();
-  const price = Number(data.price) || 0;
-
-  try {
-    const savedSearches = await db.collection("savedSearches").get();
-    for (const doc of savedSearches.docs) {
-      const search = doc.data();
-      const query = String(search.query || "").toLowerCase();
-      const searchCategory = String(search.category || "").toLowerCase();
-      const userEmail = search.userEmail;
-
-      if (!userEmail || typeof userEmail !== "string") continue;
-      if (searchCategory !== "all" && searchCategory !== category && searchCategory !== "") continue;
-      if (query && !title.includes(query)) continue;
-
-      const minPrice = Number(search.minPrice) || 0;
-      const maxPrice = Number(search.maxPrice) || Infinity;
-      if (price > 0 && (price < minPrice || price > maxPrice)) continue;
-
-      await createNotification({
-        targetEmail: userEmail,
-        fromEmail: "system@skydrop.nz",
-        type: "saved_search_match",
-        title: "New match for your saved search",
-        message: `A new listing "${String(data.title || "")}" matches your search "${search.query || search.category}"`,
-        listingId,
-        listingTitle: String(data.title || ""),
-        listingImage: String((data.images as string[])?.[0] || data.imageUrl || ""),
-      });
-    }
-  } catch (e) {
-    console.error("[onListingCreated] Saved-search notification failed:", e);
-  }
+/**
+ * Saved-search notifications are sent by POST /api/create-listing (it applies the
+ * user's notification preferences, skips the seller's own listing and caps the
+ * fan-out). This trigger used to scan the ENTIRE savedSearches collection and send
+ * a second, duplicate saved-search notification per match, so it is
+ * intentionally a no-op now. Do not re-add a savedSearches read here.
+ * See app/lib/saved-search-match.ts.
+ */
+export const onListingCreated = onDocumentCreated("listings/{listingId}", async () => {
+  return;
 });
 
 export const onMessageCreated = onDocumentCreated("messages/{messageId}", async (event) => {

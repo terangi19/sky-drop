@@ -117,6 +117,7 @@ export async function POST(req: NextRequest) {
         : result.errorCode === "missing_openai_key"
           ? 503
           : result.errorCode === "openai_budget_exceeded" ||
+              result.errorCode === "openai_budget_unavailable" ||
               result.errorCode === "openai_disabled"
             ? 503
           : result.errorCode === "no_images"

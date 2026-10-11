@@ -4,7 +4,7 @@ import type { ProtectionResult } from "../../lib/enforce-protection";
 const h = vi.hoisted(() => ({
   verifyIdToken: vi.fn(),
   isAdminInitialized: vi.fn(() => true),
-  rateLimit: vi.fn(async () => ({ allowed: true, remaining: 1, limit: 1 })),
+  rateLimit: vi.fn(async (_key: string, _max?: number, _windowMs?: number) => ({ allowed: true, remaining: 1, limit: 1 })),
   enforceProtection: vi.fn(async (..._args: unknown[]): Promise<ProtectionResult> => ({ allowed: true, blocked: false })),
   createSystemNotification: vi.fn(async () => undefined),
   txUpdate: vi.fn(),
@@ -65,6 +65,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.isAdminInitialized.mockReturnValue(true);
   h.verifyIdToken.mockResolvedValue({ uid: "buyer-uid", email: "Buyer@Example.com", auth_time: 1 });
+  h.rateLimit.mockReset();
   h.rateLimit.mockResolvedValue({ allowed: true, remaining: 1, limit: 1 });
   h.enforceProtection.mockResolvedValue({ allowed: true, blocked: false });
   h.post = { sellerEmail: "seller@example.com", sellerId: "seller-uid", status: "live", title: "Rare card", offers: 2, images: ["https://x.test/a.jpg"] };
@@ -86,14 +87,57 @@ describe("POST /api/trade-offer", () => {
     expect((await POST(req({}))).status).toBe(400);
   });
 
-  it("429 when the per-user or per-post limit trips, before any write", async () => {
-    h.rateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, limit: 1 });
-    expect((await POST(req({ postId: "p1" }))).status).toBe(429);
-    h.rateLimit.mockResolvedValueOnce({ allowed: true, remaining: 1, limit: 1 }).mockResolvedValueOnce({ allowed: false, remaining: 0, limit: 1 });
-    expect((await POST(req({ postId: "p1" }))).status).toBe(429);
-    expect(h.rateLimit.mock.calls.map((c) => (c as unknown[])[0])).toEqual(
-      expect.arrayContaining(["trade-offer:uid:buyer-uid", "trade-offer:uid-post:buyer-uid:p1"])
+  it("checks the per-post limiter BEFORE the per-user limiter", async () => {
+    expect((await POST(req({ postId: "p1" }))).status).toBe(200);
+    expect(h.rateLimit.mock.calls.map((c) => (c as unknown[])[0])).toEqual([
+      "trade-offer:uid-post:buyer-uid:p1",
+      "trade-offer:uid:buyer-uid",
+    ]);
+    // config passed through unchanged: 3 / 10 min per post, 20 / 1 h per user
+    expect((h.rateLimit.mock.calls[0] as unknown[]).slice(1)).toEqual([3, 10 * 60 * 1000]);
+    expect((h.rateLimit.mock.calls[1] as unknown[]).slice(1)).toEqual([20, 60 * 60 * 1000]);
+  });
+
+  it("429 scope:post + Retry-After 600 when the per-post limit trips; per-user limiter is never called/charged", async () => {
+    h.rateLimit.mockImplementation(async (key: string) =>
+      key.startsWith("trade-offer:uid-post:")
+        ? { allowed: false, remaining: 0, limit: 3 }
+        : { allowed: true, remaining: 19, limit: 20 }
     );
+    const res = await POST(req({ postId: "p1" }));
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("600");
+    expect(await res.json()).toEqual({
+      error: expect.any(String),
+      code: "rate_limited",
+      scope: "post",
+    });
+    expect(h.rateLimit).toHaveBeenCalledTimes(1);
+    expect(h.rateLimit.mock.calls.map((c) => (c as unknown[])[0])).not.toContain("trade-offer:uid:buyer-uid");
+    expect(h.enforceProtection).not.toHaveBeenCalled();
+    expect(h.txUpdate).not.toHaveBeenCalled();
+    expect(h.createSystemNotification).not.toHaveBeenCalled();
+  });
+
+  it("429 scope:user + Retry-After 3600 when the per-user limit trips (after the per-post check passed)", async () => {
+    h.rateLimit.mockImplementation(async (key: string) =>
+      key.startsWith("trade-offer:uid:")
+        ? { allowed: false, remaining: 0, limit: 20 }
+        : { allowed: true, remaining: 2, limit: 3 }
+    );
+    const res = await POST(req({ postId: "p2" }));
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("3600");
+    expect(await res.json()).toEqual({
+      error: expect.any(String),
+      code: "rate_limited",
+      scope: "user",
+    });
+    expect(h.rateLimit.mock.calls.map((c) => (c as unknown[])[0])).toEqual([
+      "trade-offer:uid-post:buyer-uid:p2",
+      "trade-offer:uid:buyer-uid",
+    ]);
+    expect(h.enforceProtection).not.toHaveBeenCalled();
     expect(h.txUpdate).not.toHaveBeenCalled();
   });
 

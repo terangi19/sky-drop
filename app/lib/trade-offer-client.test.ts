@@ -1,10 +1,16 @@
 import fs from "fs";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
-import { interpretTradeOfferResponse, submitTradeOffer } from "./trade-offer-client";
+import {
+  RATE_LIMIT_POST_MESSAGE,
+  formatRetryAfter,
+  interpretTradeOfferResponse,
+  parseRetryAfterSeconds,
+  submitTradeOffer,
+} from "./trade-offer-client";
 
-const json = (status: number, body: unknown) =>
-  ({ status, ok: status >= 200 && status < 300, json: async () => body }) as unknown as Response;
+const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
+  ({ status, ok: status >= 200 && status < 300, headers: new Headers(headers), json: async () => body }) as unknown as Response;
 
 const getIdToken = async () => "id-token";
 
@@ -39,6 +45,48 @@ describe("interpretTradeOfferResponse: success only on 2xx + success:true", () =
     expect(interpretTradeOfferResponse(500, { error: "stack trace leak" })).toMatchObject({ ok: false, message: "Couldn't send your offer. Please try again." });
     expect(interpretTradeOfferResponse(429, {})).toMatchObject({ ok: false, code: "rate_limited" });
     expect(interpretTradeOfferResponse(401, {})).toMatchObject({ ok: false, code: "unauthorized" });
+  });
+});
+
+describe("429 scopes", () => {
+  it("scope:post -> 'already sent offers on this post' message, no time needed", () => {
+    const r = interpretTradeOfferResponse(429, { error: "x", code: "rate_limited", scope: "post" }, "600");
+    expect(r).toMatchObject({ ok: false, code: "rate_limited", scope: "post", retryAfterSec: 600, retryable: false });
+    expect(r.ok === false && r.message).toBe(RATE_LIMIT_POST_MESSAGE);
+    expect(RATE_LIMIT_POST_MESSAGE).toMatch(/already sent offers on this post/);
+  });
+
+  it("scope:user -> time-aware message from Retry-After", () => {
+    const r = interpretTradeOfferResponse(429, { code: "rate_limited", scope: "user" }, "3600");
+    expect(r).toMatchObject({ ok: false, code: "rate_limited", scope: "user", retryAfterSec: 3600 });
+    expect(r.ok === false && r.message).toMatch(/60 minutes/);
+    const noHeader = interpretTradeOfferResponse(429, { code: "rate_limited", scope: "user" });
+    expect(noHeader.ok === false && noHeader.message).toMatch(/later/);
+  });
+
+  it("429 without scope (edge / per-IP limiter) keeps the generic message", () => {
+    const r = interpretTradeOfferResponse(429, { error: "Too many requests" }, "10");
+    expect(r).toMatchObject({ ok: false, code: "rate_limited", retryAfterSec: 10 });
+    expect(r.ok === false && r.scope).toBeUndefined();
+    expect(r.ok === false && r.message).toMatch(/too quickly/);
+  });
+
+  it("ignores a spoofed scope value and junk Retry-After", () => {
+    const r = interpretTradeOfferResponse(429, { scope: "<script>" }, "Wed, 21 Oct 2026 07:28:00 GMT");
+    expect(r.ok === false && r.scope).toBeUndefined();
+    expect(r.ok === false && r.retryAfterSec).toBeUndefined();
+    expect(parseRetryAfterSeconds("-5")).toBeUndefined();
+    expect(parseRetryAfterSeconds("0")).toBeUndefined();
+    expect(parseRetryAfterSeconds(" 600 ")).toBe(600);
+    expect(formatRetryAfter(undefined)).toBe("later");
+    expect(formatRetryAfter(30)).toBe("in up to a minute");
+    expect(formatRetryAfter(600)).toBe("in up to 10 minutes");
+  });
+
+  it("submitTradeOffer reads Retry-After from the response", async () => {
+    const fetchImpl = vi.fn(async () => json(429, { code: "rate_limited", scope: "post" }, { "Retry-After": "600" }));
+    const r = await submitTradeOffer({ getIdToken, postId: "p1", fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(r).toMatchObject({ ok: false, scope: "post", retryAfterSec: 600 });
   });
 });
 
@@ -94,5 +142,21 @@ describe("trade-feed/page.tsx wiring (source guard)", () => {
     expect(body.indexOf("return;", failIdx)).toBeLessThan(body.indexOf("playOffer()"));
     expect(body.indexOf('showToast(result.message, "error")')).toBeGreaterThan(failIdx);
     expect(body).toContain("offerInFlight");
+  });
+
+  it("cooldown is per post (Map keyed by postId), not one global timestamp", () => {
+    expect(src).not.toMatch(/\blastOfferTime\b/);
+    expect(src).toMatch(/lastOfferAtByPost\s*=\s*useRef\(new Map<string, number>\(\)\)/);
+    expect(body).toContain("lastOfferAtByPost.current.get(postId)");
+    expect(body).toContain("lastOfferAtByPost.current.set(postId");
+  });
+
+  it("marks the post 'Offer sent' after any 2xx and disables its offer button", () => {
+    const failIdx = body.indexOf("if (!result.ok)");
+    const markIdx = body.indexOf("setOfferSentPostIds(");
+    expect(markIdx).toBeGreaterThan(body.indexOf("return;", failIdx)); // only on success
+    expect(body).toMatch(/if \(offerSentPostIds\.has\(postId\)\)/);
+    expect(src).toMatch(/disabled=\{offerSendingId === post\.id \|\| offerSentPostIds\.has\(post\.id\)\}/);
+    expect(src).toContain("Offer sent");
   });
 });
