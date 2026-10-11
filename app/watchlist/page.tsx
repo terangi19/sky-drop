@@ -18,6 +18,7 @@ import { formatListingPriceDisplay, listingPrimaryCtaLabel } from "../lib/listin
 import { isMessagingOnlyListingType } from "../lib/listing-type-config";
 import { getComparableListingPrice } from "../lib/listing-search-filters";
 import { WATCHLIST_LIMIT } from "../lib/firestore-query-limits";
+import { purgeLegacyWatchlistKey, removeFromWatchlistCache } from "../lib/watchlist-cache";
 import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 
 interface WatchlistItem {
@@ -60,6 +61,7 @@ export default function WatchlistPage() {
 
   useEffect(() => {
     if (!user?.uid) return;
+    purgeLegacyWatchlistKey(); // un-scoped pre-fix cache: owner unknown, never read
     let mounted = true;
     const q = query(
       collection(db, "users", user.uid, "watchlist"),
@@ -74,7 +76,6 @@ export default function WatchlistPage() {
         if (!mounted) return;
         const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as WatchlistItem));
         setWatchlist(items);
-        try { localStorage.setItem("watchlist", JSON.stringify(items)); } catch (e) { console.error("Failed to save watchlist:", e); }
         setLoading(false);
       } catch {
         if (mounted) setLoading(false);
@@ -131,9 +132,9 @@ export default function WatchlistPage() {
 
     const updated = watchlist.filter((item) => item.id !== id);
     setWatchlist(updated);
-    try { localStorage.setItem("watchlist", JSON.stringify(updated)); } catch (e) { console.error("Failed to save watchlist:", e); }
 
     if (user?.uid) {
+      removeFromWatchlistCache(user.uid, id);
       try {
         await deleteDoc(doc(db, "users", user.uid, "watchlist", id));
         await deleteDoc(doc(db, "watchlist", `${user.uid}_${id}`));
@@ -150,10 +151,10 @@ export default function WatchlistPage() {
         try { await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id)); } catch {}
         try { await deleteDoc(doc(db, "watchlist", `${user.uid}_${item.id}`)); } catch {}
       }
+      removeFromWatchlistCache(user?.uid, item.id);
       void adjustListingWatchlistCount(item.id, -1);
     }
     setWatchlist([]);
-    try { localStorage.setItem("watchlist", "[]"); } catch (e) { console.error("Failed to clear watchlist:", e); }
     setClearConfirm(false);
   };
 
@@ -182,10 +183,10 @@ export default function WatchlistPage() {
     for (const id of selectedItems) {
       try { await deleteDoc(doc(db, "users", user.uid, "watchlist", id)); } catch {}
       try { await deleteDoc(doc(db, "watchlist", `${user.uid}_${id}`)); } catch {}
+      removeFromWatchlistCache(user.uid, id);
       void adjustListingWatchlistCount(id, -1);
     }
     setWatchlist((prev) => prev.filter((i) => !selectedItems.has(i.id)));
-    try { localStorage.setItem("watchlist", JSON.stringify(watchlist.filter((i) => !selectedItems.has(i.id)))); } catch (e) { console.error("Failed to save watchlist:", e); }
     setSelectedItems(new Set());
   };
 

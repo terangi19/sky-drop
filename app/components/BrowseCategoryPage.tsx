@@ -10,15 +10,10 @@ import BrowseAwhinaAssistantPanel from "./BrowseAwhinaAssistantPanel";
 import HotThisWeek from "./HotThisWeek";
 import MarketplaceListingCard from "./MarketplaceListingCard";
 import ListingImage, { listingHasImage } from "./ListingImage";
-import { showToast } from "./Toast";
 import {
   collection,
-  deleteDoc,
-  doc,
-  getDoc,
   getDocs,
   query,
-  setDoc,
   where,
   limit,
   orderBy,
@@ -41,12 +36,10 @@ import {
 } from "../lib/listing-type-config";
 import {
   getRecentlyViewed,
-  isInWatchlist,
   saveRecentlyViewed,
   timeAgo,
 } from "../lib/listing-card-utils";
 import {
-  adjustListingWatchlistCount,
   listingWatchlistCount,
 } from "../lib/listing-watchlist-count";
 import {
@@ -69,6 +62,7 @@ import {
   resolvedMarketplaceListingCount,
 } from "../lib/marketplace-listing-count";
 import { requireWatchlistAccount } from "../lib/require-watchlist-account";
+import { setListingWatchlistSaved, useWatchlistSaved } from "../lib/watchlist-client";
 
 function categoryExtraSearchFields(
   configKey: BrowseCategoryKey,
@@ -135,6 +129,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [watchlistTick, setWatchlistTick] = useState(0);
+  const isInWatchlist = useWatchlistSaved(user?.uid);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const emptyKind: EmptyListKind =
     config.listingType === "service" ||
@@ -227,44 +222,15 @@ export default function BrowseCategoryPage({ configKey }: Props) {
 
   async function toggleWatchlist(item: any) {
     const uid = requireWatchlistAccount(user);
-    if (!uid) return;
-    const wasSaved = isInWatchlist(item.id);
-
-    try {
-      const snap = await getDoc(doc(db, "users", uid, "watchlist", item.id));
-      if (snap.exists()) {
-        await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
-    const index = existing.findIndex((fav: any) => fav.id === item.id);
-
-    if (index >= 0) {
-      existing.splice(index, 1);
-      localStorage.setItem("watchlist", JSON.stringify(existing));
-      showToast("Removed from watchlist", "info");
-      if (wasSaved) void adjustListingWatchlistCount(item.id, -1);
-    } else {
-      existing.unshift(item);
-      localStorage.setItem("watchlist", JSON.stringify(existing));
-      setDoc(doc(db, "users", uid, "watchlist", item.id), {
-        id: item.id,
-        title: item.title,
-        price: item.price,
-        imageUrl: item.imageUrl || item.image || "",
-        savedPrice: item.price,
-        savedAt: new Date().toISOString(),
-      }).catch((e) => {
-        console.error("Watchlist save failed:", e);
-        showToast("Failed to save to watchlist", "error");
-      });
-      showToast("Added to watchlist!");
-      void adjustListingWatchlistCount(item.id, 1);
-    }
-    setWatchlistTick((n) => n + 1);
+    if (!uid) return; // #59: guest -> login redirect
+    // Intent = what the heart showed; Firestore decides if anything changes.
+    await setListingWatchlistSaved({
+      uid,
+      item,
+      save: !isInWatchlist(item.id),
+      ownerEmail: user?.email,
+    });
+    setWatchlistTick((t) => t + 1);
   }
 
   const cityOptions = useMemo(() => {

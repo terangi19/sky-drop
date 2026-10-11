@@ -7,17 +7,12 @@ import type { User } from "firebase/auth";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import MarketplaceListingCard from "../components/MarketplaceListingCard";
-import { showToast } from "../components/Toast";
 import {
   collection,
-  deleteDoc,
-  doc,
-  getDoc,
   getDocs,
   limit,
   orderBy,
   query,
-  setDoc,
   where,
 } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
@@ -26,15 +21,14 @@ import { listingPrimaryActionHref } from "../lib/listing-message-href";
 import { BROWSE_LISTINGS_LIMIT } from "../lib/firestore-query-limits";
 import {
   getRecentlyViewed,
-  isInWatchlist,
   saveRecentlyViewed,
   timeAgo,
 } from "../lib/listing-card-utils";
 import {
-  adjustListingWatchlistCount,
   listingWatchlistCount,
 } from "../lib/listing-watchlist-count";
 import { requireWatchlistAccount } from "../lib/require-watchlist-account";
+import { setListingWatchlistSaved, useWatchlistSaved } from "../lib/watchlist-client";
 import ListingImage, { listingHasImage } from "../components/ListingImage";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 import HotThisWeek from "../components/HotThisWeek";
@@ -94,6 +88,7 @@ export default function RentalsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [watchlistTick, setWatchlistTick] = useState(0);
+  const isInWatchlist = useWatchlistSaved(user?.uid);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
 
   const { sellerReviewStats, sellerBadges, sellerHandles, sellerDisplayNames, sellerAvatars, sellerFullyVerified, sellerMetaReady } = useSellerListingMeta(listings);
@@ -160,44 +155,14 @@ export default function RentalsPage() {
 
   async function toggleWatchlist(item: any) {
     const uid = requireWatchlistAccount(user);
-    if (!uid) return;
-    const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
-    const index = existing.findIndex((fav: any) => fav.id === item.id);
-
-    if (index >= 0) {
-      existing.splice(index, 1);
-      localStorage.setItem("watchlist", JSON.stringify(existing));
-      try {
-        const snap = await getDoc(doc(db, "users", uid, "watchlist", item.id));
-        if (snap.exists()) {
-          await deleteDoc(doc(db, "users", uid, "watchlist", item.id));
-          void adjustListingWatchlistCount(item.id, -1);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-      showToast("Removed from watchlist", "info");
-    } else {
-      existing.unshift(item);
-      localStorage.setItem("watchlist", JSON.stringify(existing));
-      try {
-        await setDoc(doc(db, "users", uid, "watchlist", item.id), {
-          id: item.id,
-          title: item.title,
-          price: item.price,
-          imageUrl: item.imageUrl || item.image || "",
-          savedPrice: item.price,
-          savedAt: new Date().toISOString(),
-        });
-        void adjustListingWatchlistCount(item.id, 1);
-      } catch (e) {
-        console.error("Watchlist save failed:", e);
-        showToast("Failed to save to watchlist", "error");
-        setWatchlistTick((t) => t + 1);
-        return;
-      }
-      showToast("Added to watchlist!");
-    }
+    if (!uid) return; // #59: guest -> login redirect
+    // Intent = what the heart showed; Firestore decides if anything changes.
+    await setListingWatchlistSaved({
+      uid,
+      item,
+      save: !isInWatchlist(item.id),
+      ownerEmail: user?.email,
+    });
     setWatchlistTick((t) => t + 1);
   }
 
