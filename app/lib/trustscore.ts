@@ -1,14 +1,30 @@
+import { parseFirestoreDate } from "./date-format";
+
 interface TimestampLike {
   toMillis: () => number;
   toDate: () => Date;
 }
+
+/**
+ * Account-age input. Callers pass whatever the profile holds: a Firestore Timestamp (client SDK),
+ * Admin JSON `{ _seconds }`, `{ seconds }`, a Date, an ISO string (serialized / legacy profiles,
+ * e.g. "2026-05-30T12:06:41.784Z") or epoch ms.
+ */
+export type TrustMemberSince =
+  | Date
+  | TimestampLike
+  | { seconds?: number; _seconds?: number }
+  | string
+  | number
+  | null
+  | undefined;
 
 export function calculateTrustScore(params: {
   emailVerified?: boolean;
   hasProfile: boolean;
   hasBio: boolean;
   hasPhoto: boolean;
-  memberSince: Date | TimestampLike | null;
+  memberSince: TrustMemberSince;
   reportsCount: number;
   salesCount: number;
 }): { score: number; label: string; color: string } {
@@ -18,16 +34,12 @@ export function calculateTrustScore(params: {
 
   if (params.hasProfile && params.hasBio && params.hasPhoto) score += 10;
 
-  if (params.memberSince) {
-    let ms = 0;
-    if (params.memberSince instanceof Date) {
-      ms = params.memberSince.getTime();
-    } else if ("toMillis" in params.memberSince) {
-      ms = params.memberSince.toMillis?.() || 0;
-    } else if ("getTime" in params.memberSince) {
-      ms = (params.memberSince as unknown as Date).getTime();
-    }
-    const daysOld = (Date.now() - ms) / 86400000;
+  // Safe for every shape: the old `"toMillis" in value` threw a TypeError on ISO strings
+  // ("Cannot use 'in' operator to search for 'toMillis' in 2026-05-30T…"), and an unknown shape
+  // counted as ms = 0 (a 56-year-old account). Unparseable → no account-age bonus.
+  const memberDate = parseFirestoreDate(params.memberSince);
+  if (memberDate) {
+    const daysOld = (Date.now() - memberDate.getTime()) / 86400000;
     if (daysOld > 30) score += 10;
     if (daysOld > 90) score += 5;
   }
