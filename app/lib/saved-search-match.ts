@@ -19,7 +19,10 @@ export type SavedSearchCriteria = {
 export type SavedSearchListingFacts = {
   /** Lower-cased listing title. */
   titleLower: string;
-  /** Lower-cased listing category. */
+  /**
+   * Lower-cased STORED listing category (listings/{id}.category), built with
+   * `storedListingCategoryLower` (vehicles are stored as "Cars").
+   */
   categoryLower: string;
   /** Listing price as stored on the listing doc (route stores a numeric string). */
   price?: unknown;
@@ -50,18 +53,29 @@ export function savedSearchMatchesPrice(
 }
 
 /**
- * Query (if any) must be a case-insensitive substring of the title; category must
- * be "all" (or missing) or equal the listing category, case-insensitively (the
- * route's rule since before #94); and the listing price must satisfy the saved
- * search's optional min/max bounds (the old Cloud Function's rule, see above).
+ * Listing side of the category comparison, copied from the retired Cloud Function
+ * (functions/src/index.ts at 2710505, line 86): `String(data.category || "").toLowerCase()`
+ * applied to the STORED listing category. No trimming.
+ */
+export function storedListingCategoryLower(storedCategory: unknown): string {
+  return String(storedCategory || "").toLowerCase();
+}
+
+/**
+ * Query (if any) must be a case-insensitive substring of the title. The category
+ * must be "all", or empty/missing, or equal the STORED listing category,
+ * case-insensitively with no trimming (old Cloud Function, 2710505
+ * functions/src/index.ts lines 94 and 98). The listing price must satisfy the
+ * saved search's optional min/max bounds (old Cloud Function rule, see above).
  */
 export function savedSearchMatchesListing(
   search: SavedSearchCriteria,
   listing: SavedSearchListingFacts
 ): boolean {
   const q = String(search.query || "").toLowerCase();
-  const cat = String(search.category || "All").toLowerCase();
+  const searchCategory = String(search.category || "").toLowerCase();
   const matchesQuery = !q || listing.titleLower.includes(q);
-  const matchesCategory = cat === "all" || listing.categoryLower === cat;
+  const matchesCategory =
+    searchCategory === "all" || searchCategory === "" || searchCategory === listing.categoryLower;
   return matchesQuery && matchesCategory && savedSearchMatchesPrice(search, listing.price);
 }

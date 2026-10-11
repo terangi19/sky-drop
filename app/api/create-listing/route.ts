@@ -19,7 +19,10 @@ import {
 } from "../../lib/listing-type-config";
 import { validateListingForPublish } from "../../lib/listing-validation";
 import { runMatchmaking } from "../../lib/sky-ai-matchmaking";
-import { savedSearchMatchesListing } from "../../lib/saved-search-match";
+import {
+  savedSearchMatchesListing,
+  storedListingCategoryLower,
+} from "../../lib/saved-search-match";
 import { stripeListingPublishErrorAsync } from "../../lib/stripe-connect-account";
 import { disposableEmailBlock } from "../../lib/disposable-email-gate";
 
@@ -59,7 +62,8 @@ async function runCreateListingSideEffects(opts: {
   listingImage: string;
 }): Promise<void> {
   const titleLower = opts.sanitizedTitle.toLowerCase();
-  const categoryLower = opts.category.toLowerCase();
+  // Match on the STORED category (vehicles are stored as "Cars"), like the old CF.
+  const categoryLower = storedListingCategoryLower(opts.listingWithId.category);
   try {
     const searches = await getAdminDb().collection("savedSearches").limit(500).get();
     const notifications: Array<ReturnType<typeof createSystemNotification>> = [];
