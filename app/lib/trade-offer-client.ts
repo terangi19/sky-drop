@@ -8,9 +8,55 @@
 
 export type TradeOfferClientResult =
   | { ok: true; offers: number | null; notified: boolean; message: string; kind: "success" | "info" }
-  | { ok: false; code: string; message: string; retryable: boolean };
+  | {
+      ok: false;
+      code: string;
+      message: string;
+      retryable: boolean;
+      /** Set on 429 from the route limiters: "post" = per-user-per-post, "user" = per-user. */
+      scope?: "post" | "user";
+      /** Retry-After in seconds when the server sent one (an upper bound, not the exact reset). */
+      retryAfterSec?: number;
+    };
 
 const GENERIC_ERROR = "Couldn't send your offer. Please try again.";
+export const RATE_LIMIT_POST_MESSAGE = "You've already sent offers on this post — the seller has been notified.";
+const RATE_LIMIT_GENERIC_MESSAGE = "You're sending offers too quickly. Please try again later.";
+
+/** Parse a Retry-After header given in seconds. HTTP-date form and junk are ignored. */
+export function parseRetryAfterSeconds(value: string | null | undefined): number | undefined {
+  if (typeof value !== "string" || !/^\s*\d{1,6}\s*$/.test(value)) return undefined;
+  const sec = Number(value.trim());
+  return Number.isFinite(sec) && sec > 0 ? sec : undefined;
+}
+
+/** "in up to N minutes" style wording; Retry-After is an upper bound. */
+export function formatRetryAfter(sec: number | undefined): string {
+  if (!sec) return "later";
+  if (sec <= 60) return "in up to a minute";
+  if (sec < 2 * 60 * 60) return `in up to ${Math.ceil(sec / 60)} minutes`;
+  return `in up to ${Math.ceil(sec / 3600)} hours`;
+}
+
+function rateLimitedResult(body: unknown, retryAfterSec: number | undefined): TradeOfferClientResult {
+  const scope =
+    body && typeof body === "object" ? (body as { scope?: unknown }).scope : undefined;
+  if (scope === "post") {
+    return { ok: false, code: "rate_limited", message: RATE_LIMIT_POST_MESSAGE, retryable: false, scope, retryAfterSec };
+  }
+  if (scope === "user") {
+    return {
+      ok: false,
+      code: "rate_limited",
+      message: `You've sent a lot of offers recently. Please try again ${formatRetryAfter(retryAfterSec)}.`,
+      retryable: false,
+      scope,
+      retryAfterSec,
+    };
+  }
+  // Edge / per-IP limiters: no scope.
+  return { ok: false, code: "rate_limited", message: RATE_LIMIT_GENERIC_MESSAGE, retryable: false, retryAfterSec };
+}
 
 function serverMessage(body: unknown): string {
   if (body && typeof body === "object") {
@@ -28,7 +74,11 @@ function serverCode(body: unknown, fallback: string): string {
   return fallback;
 }
 
-export function interpretTradeOfferResponse(status: number, body: unknown): TradeOfferClientResult {
+export function interpretTradeOfferResponse(
+  status: number,
+  body: unknown,
+  retryAfter?: string | null
+): TradeOfferClientResult {
   if (status >= 200 && status < 300) {
     const obj = body && typeof body === "object" ? (body as Record<string, unknown>) : null;
     if (!obj || obj.success !== true) {
@@ -50,12 +100,7 @@ export function interpretTradeOfferResponse(status: number, body: unknown): Trad
     case 401:
       return { ok: false, code: "unauthorized", message: "Please sign in again to send an offer.", retryable: false };
     case 429:
-      return {
-        ok: false,
-        code: "rate_limited",
-        message: "You're sending offers too quickly. Please try again later.",
-        retryable: false,
-      };
+      return rateLimitedResult(body, parseRetryAfterSeconds(retryAfter));
     case 400:
     case 403:
     case 404:
@@ -94,7 +139,7 @@ export async function submitTradeOffer(deps: {
     } catch {
       body = null;
     }
-    return interpretTradeOfferResponse(res.status, body);
+    return interpretTradeOfferResponse(res.status, body, res.headers?.get?.("Retry-After") ?? null);
   } catch {
     return {
       ok: false,

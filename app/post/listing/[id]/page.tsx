@@ -12,6 +12,7 @@ import JobApplicationModal from "../../../components/JobApplicationModal";
 import ArrangePurchaseModal from "../../../components/ArrangePurchaseModal";
 import { showToast } from "../../../components/Toast";
 import { createNotification } from "../../../lib/notifications";
+import { isReviewReceivedBySeller } from "../../../lib/review-role";
 import { User } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, limit, query, where, Timestamp, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../../../lib/firebase";
@@ -19,6 +20,7 @@ import { addToWatchlistCache, removeFromWatchlistCache } from "../../../lib/watc
 import { buildWatchlistIndexDoc } from "../../../lib/watchlist-sync";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
+import { parseFirestoreDate } from "../../../lib/date-format";
 import { isFullyVerifiedSeller, profileEmailVerified } from "../../../lib/seller-verified";
 import { detectSuspiciousPrice } from "../../../lib/pricedetection";
 import { safeGetDoc } from "../../../lib/firestore";
@@ -78,6 +80,7 @@ import { DETAIL_POLL_MS, startVisibilityPolledFetch } from "../../../lib/polled-
 import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
 import { scheduleListingView } from "../../../lib/listing-view-dedupe";
 import { V1_ARRANGE_SAFETY_ONE_LINER } from "../../../lib/conversation-safety";
+import { sellerRatingSummary } from "../../../lib/seller-rating-summary";
 import EmptyState from "../../../components/EmptyState";
 
 const CheckoutModal = dynamic(() => import("../../../components/CheckoutModal"), { ssr: false });
@@ -179,6 +182,8 @@ interface SellerProfile {
   emailVerified?: boolean;
   kycStatus?: string;
   profileBadge?: string;
+  averageRating?: number;
+  reviewCount?: number;
   [key: string]: unknown;
 }
 
@@ -763,19 +768,19 @@ export default function ListingPage() {
     const run = () => {
       (async () => {
         try {
-          const [reviewSnap, salesSnap] = await Promise.all([
-            getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", listing.sellerEmail), limit(SELLER_REVIEWS_LIMIT))),
-            getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", listing.sellerEmail), where("status", "in", ["delivered", "completed"]), limit(SELLER_SALES_LIMIT))),
-          ]);
+          // `reviews` is publicly readable (firestore.rules: allow read: if true).
+          const reviewSnap = await getDocs(
+            query(collection(db, "reviews"), where("sellerEmail", "==", listing.sellerEmail), limit(SELLER_REVIEWS_LIMIT))
+          );
           const ratings: number[] = [];
           reviewSnap.docs.forEach((d) => {
+            if (!isReviewReceivedBySeller(d.data(), listing.sellerEmail)) return;
             const r = d.data().rating;
             if (r) ratings.push(Number(r));
           });
           if (mounted && ratings.length > 0) {
             setSellerReviewData({ avg: ratings.reduce((a, b) => a + b, 0) / ratings.length, count: ratings.length });
           }
-          if (mounted) setSellerSalesCount(salesSnap.size);
         } catch (e) { console.error(e); }
       })();
     };
@@ -791,6 +796,37 @@ export default function ListingPage() {
       }
     };
   }, [listing?.sellerEmail]);
+
+  // Seller's completed-sales count. `purchases` is readable only by the buyer or the seller
+  // (firestore.rules), so this query is only legal when the viewer IS the seller. Guests and
+  // other signed-in users used to run it anyway and got "Missing or insufficient permissions".
+  const sellerEmailForSales = listing?.sellerEmail;
+  const viewerEmailForSales = user?.email;
+  useEffect(() => {
+    if (!sellerEmailForSales || !viewerEmailForSales || viewerEmailForSales !== sellerEmailForSales) return;
+    let mounted = true;
+    const run = () => {
+      (async () => {
+        try {
+          const salesSnap = await getDocs(
+            query(collection(db, "purchases"), where("sellerEmail", "==", sellerEmailForSales), where("status", "in", ["delivered", "completed"]), limit(SELLER_SALES_LIMIT))
+          );
+          if (mounted) setSellerSalesCount(salesSnap.size);
+        } catch (e) { console.error(e); }
+      })();
+    };
+    const ric = typeof requestIdleCallback !== "undefined"
+      ? requestIdleCallback(run, { timeout: 1200 })
+      : window.setTimeout(run, 0);
+    return () => {
+      mounted = false;
+      if (typeof cancelIdleCallback !== "undefined" && typeof ric === "number") {
+        try { cancelIdleCallback(ric as number); } catch { /* ignore */ }
+      } else {
+        clearTimeout(ric as number);
+      }
+    };
+  }, [sellerEmailForSales, viewerEmailForSales]);
 
   // Fetch seller's other listings (deferred — not needed for Message Seller CTA)
   useEffect(() => {
@@ -1066,7 +1102,8 @@ export default function ListingPage() {
 
   const trustScore = useMemo(() => {
     if (!sellerProfile) return null;
-    const memberDate = sellerProfile.memberSince?.toDate ? sellerProfile.memberSince.toDate() : null;
+    // /api/public-profile returns Admin JSON ({_seconds}), not a client Timestamp.
+    const memberDate = parseFirestoreDate(sellerProfile.memberSince);
     return calculateTrustScore({
       emailVerified: profileEmailVerified(sellerProfile),
       hasProfile: true,
@@ -1093,7 +1130,8 @@ export default function ListingPage() {
 
   const isNewSeller = useMemo(() => {
     if (!sellerProfile?.memberSince) return false;
-    const memberDate = sellerProfile.memberSince.toDate ? sellerProfile.memberSince.toDate() : new Date();
+    const memberDate = parseFirestoreDate(sellerProfile.memberSince);
+    if (!memberDate) return false; // unknown age: don't badge as new
     const daysOld = (Date.now() - memberDate.getTime()) / 86400000;
     if (daysOld > 7) return false;
     if (sellerProfile.photoURL) return false;
@@ -2123,13 +2161,13 @@ Property Status: 🟢 Inquiry Active`;
                         <span className="text-sky-400">✓</span> Trusted
                       </span>
                     )}
-                    {typeof sellerProfile?.reviewCount === "number" && sellerProfile.reviewCount > 0 && (
-                      <span className="flex items-center gap-1">
-                        ★ {typeof sellerProfile.reviewAverage === 'number' ? sellerProfile.reviewAverage.toFixed(1) : "5.0"} ({sellerProfile.reviewCount} reviews)
+                    {sellerProfile && (
+                      <span className="flex items-center gap-1" data-testid="listing-seller-rating">
+                        {sellerRatingSummary(sellerProfile, sellerReviewData).label}
                       </span>
                     )}
-                    {typeof sellerProfile?.createdAt === "object" && !!sellerProfile?.createdAt && "seconds" in sellerProfile.createdAt && (
-                      <span>Member since {new Date((sellerProfile.createdAt as any).seconds * 1000).toLocaleDateString("en-NZ", { month: "short", year: "numeric" })}</span>
+                    {parseFirestoreDate(sellerProfile?.createdAt) && (
+                      <span>Member since {parseFirestoreDate(sellerProfile?.createdAt)!.toLocaleDateString("en-NZ", { month: "short", year: "numeric" })}</span>
                     )}
                   </div>
 
@@ -2588,8 +2626,8 @@ Service Status: 🟢 Inquiry Active`;
                       {sellerSalesCount !== null && sellerSalesCount > 0 && (
                         <span className="text-[var(--muted)]">· {sellerSalesCount} sale{sellerSalesCount !== 1 ? "s" : ""}</span>
                       )}
-                      {sellerProfile?.memberSince && (
-                        <span className="text-[var(--muted)]">· {(sellerProfile.memberSince as any).seconds ? new Date((sellerProfile.memberSince as any).seconds * 1000).getFullYear() : ""}</span>
+                      {parseFirestoreDate(sellerProfile?.memberSince) && (
+                        <span className="text-[var(--muted)]">· {parseFirestoreDate(sellerProfile?.memberSince)?.getFullYear() ?? ""}</span>
                       )}
                     </div>
                   </div>

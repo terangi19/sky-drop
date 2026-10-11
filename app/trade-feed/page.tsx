@@ -11,6 +11,7 @@ import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot,
 import { User } from "firebase/auth";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
 import { fetchSellerProfilesByListing } from "../lib/fetch-seller-profiles";
+import { createLatestWins } from "../lib/latest-wins";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
@@ -110,13 +111,18 @@ export default function TradeFeedPage() {
   const [liveEvents, setLiveEvents] = useState<Array<{id: number; text: string; icon: string; world?: string}>>([]);
   const eventId = useRef(0);
   const [postsLoaded, setPostsLoaded] = useState(false);
+  // The posts list is polled (BROWSE_POLL_MS), not live. Own create/delete call this so the change shows immediately.
+  const refreshPostsRef = useRef<() => Promise<void>>(async () => {});
+  const postsFetchGuard = useRef(createLatestWins());
   const [expandedReplies, setExpandedReplies] = useState<any[] | null>(null);
   const [shouts, setShouts] = useState<any[]>([]);
   const [shoutText, setShoutText] = useState("");
   const shoutsEndRef = useRef<HTMLDivElement>(null);
   const shoutsAtBottom = useRef(true);
   const lastShoutTime = useRef(0);
-  const lastOfferTime = useRef(0);
+  // Per-post 5 s cooldown (was one global ref for all posts) + posts this session already got an offer from us.
+  const lastOfferAtByPost = useRef(new Map<string, number>());
+  const [offerSentPostIds, setOfferSentPostIds] = useState<Set<string>>(() => new Set());
   const shoutInFlight = useRef(false);
   const postInFlight = useRef(false);
   const deleteInFlight = useRef(new Set<string>());
@@ -199,9 +205,11 @@ export default function TradeFeedPage() {
 
     async function fetchPosts() {
       if (!mounted) return;
+      const isLatest = postsFetchGuard.current.begin();
       try {
         const snap = await getDocs(q);
-        if (!mounted) return;
+        // A newer fetch, e.g. forced right after create/delete, supersedes this one: don't let a stale result overwrite it.
+        if (!mounted || !isLatest()) return;
         setPosts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
         setPostsLoaded(true);
       } catch (err) {
@@ -210,9 +218,11 @@ export default function TradeFeedPage() {
       }
     }
 
+    refreshPostsRef.current = fetchPosts;
     const stop = startVisibilityPolledFetch(fetchPosts, BROWSE_POLL_MS);
     return () => {
       mounted = false;
+      refreshPostsRef.current = async () => {};
       stop();
     };
   }, []);
@@ -489,6 +499,7 @@ export default function TradeFeedPage() {
       } else {
         setTitle(""); setPrice(""); setMessage(""); setImageFiles([]); setImagePreviews([]); setShowComposer(false);
         setPickupAvailable(false); setShippingAvailable(false); setPickupArea(""); setShippingFee(""); setFreeShipping(false);
+        void refreshPostsRef.current(); // show the new post now instead of at the next poll
       }
     } catch (e) {
       console.error(e);
@@ -513,8 +524,14 @@ export default function TradeFeedPage() {
         getIdToken: () => user.getIdToken(),
         body: { action: "delete", postId: id },
       });
-      // On success the post disappears via the tradePosts snapshot; on failure it stays and we say why.
+      // On failure the post stays and we say why. On success remove it locally. No full-feed refetch
+      // (up to 100 reads per delete): the server already confirmed the delete. A poll that started
+      // before the delete may still hold the post, so drop any in-flight poll result.
       if (!result.ok) showToast(result.message, "error");
+      else {
+        postsFetchGuard.current.invalidate();
+        setPosts((prev) => prev.filter((p) => p.id !== id));
+      }
     } finally {
       deleteInFlight.current.delete(id);
     }
@@ -554,6 +571,12 @@ export default function TradeFeedPage() {
         showToast(result.message, "error");
         return;
       }
+      if (result.duplicate) {
+        // Same reply by this user on this post a moment ago (double click): the server stored nothing, so don't notify again.
+        setReplyTexts((prev) => ({ ...prev, [postId]: "" }));
+        showToast("You already sent that a moment ago.", "info");
+        return;
+      }
       await createNotification({
         type: "message",
         targetEmail: tradePost?.sellerEmail || "",
@@ -586,11 +609,15 @@ export default function TradeFeedPage() {
       return;
     }
     if (offerInFlight.current.has(postId)) return;
-    if (Date.now() - lastOfferTime.current < 5000) {
+    if (offerSentPostIds.has(postId)) {
+      showToast("Offer already sent — the seller has been notified.", "info");
+      return;
+    }
+    if (Date.now() - (lastOfferAtByPost.current.get(postId) ?? 0) < 5000) {
       showToast("Please wait before sending another offer", "info");
       return;
     }
-    lastOfferTime.current = Date.now();
+    lastOfferAtByPost.current.set(postId, Date.now());
     offerInFlight.current.add(postId);
     setOfferSendingId(postId);
     try {
@@ -601,10 +628,12 @@ export default function TradeFeedPage() {
         requestId: globalThis.crypto?.randomUUID?.(),
       });
       if (!result.ok) {
-        lastOfferTime.current = 0; // nothing was sent, so don't make the user wait out the cooldown
+        lastOfferAtByPost.current.delete(postId); // nothing was sent, so don't make the user wait out the cooldown
         showToast(result.message, "error");
         return;
       }
+      // Any 2xx (incl. duplicate:true) means the seller already has this buyer's offer: stop re-clicks.
+      setOfferSentPostIds((prev) => new Set(prev).add(postId));
       showToast(result.message, result.kind);
       setSwipedId(null);
       playOffer();
@@ -1031,8 +1060,8 @@ export default function TradeFeedPage() {
                               <>
                                 {stripeCheckoutVisible && post.price && <button onClick={() => { setCheckoutPost(post); setSwipedId(null); }}
                                   className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white">🛒 Buy</button>}
-                                <button onClick={() => { void sendOffer(post.id); }} disabled={offerSendingId === post.id}
-                                  className="rounded-xl bg-white/[0.04] border border-white/[0.06] px-4 py-2.5 text-xs font-bold text-sky-400 disabled:opacity-50">{offerSendingId === post.id ? "Sending…" : "💰 Offer"}</button>
+                                <button onClick={() => { void sendOffer(post.id); }} disabled={offerSendingId === post.id || offerSentPostIds.has(post.id)}
+                                  className="rounded-xl bg-white/[0.04] border border-white/[0.06] px-4 py-2.5 text-xs font-bold text-sky-400 disabled:opacity-50">{offerSendingId === post.id ? "Sending…" : offerSentPostIds.has(post.id) ? "✓ Offer sent" : "💰 Offer"}</button>
                               </>
                             )}
                           </div>

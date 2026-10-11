@@ -1,8 +1,9 @@
-import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import { isViewsOnlyListingUpdate } from "./listing-update-filter";
+import { computeSellerReviewAggregates, reviewAggregateInputsChanged } from "./review-aggregates";
 
 setGlobalOptions({ region: "asia-southeast1" });
 
@@ -77,45 +78,16 @@ export const onListingUpdated = onDocumentUpdated("listings/{listingId}", async 
   }
 });
 
-export const onListingCreated = onDocumentCreated("listings/{listingId}", async (event) => {
-  const data = event.data?.data();
-  const listingId = event.params.listingId;
-  if (!data) return;
-
-  const title = String(data.title || "").toLowerCase();
-  const category = String(data.category || "").toLowerCase();
-  const price = Number(data.price) || 0;
-
-  try {
-    const savedSearches = await db.collection("savedSearches").get();
-    for (const doc of savedSearches.docs) {
-      const search = doc.data();
-      const query = String(search.query || "").toLowerCase();
-      const searchCategory = String(search.category || "").toLowerCase();
-      const userEmail = search.userEmail;
-
-      if (!userEmail || typeof userEmail !== "string") continue;
-      if (searchCategory !== "all" && searchCategory !== category && searchCategory !== "") continue;
-      if (query && !title.includes(query)) continue;
-
-      const minPrice = Number(search.minPrice) || 0;
-      const maxPrice = Number(search.maxPrice) || Infinity;
-      if (price > 0 && (price < minPrice || price > maxPrice)) continue;
-
-      await createNotification({
-        targetEmail: userEmail,
-        fromEmail: "system@skydrop.nz",
-        type: "saved_search_match",
-        title: "New match for your saved search",
-        message: `A new listing "${String(data.title || "")}" matches your search "${search.query || search.category}"`,
-        listingId,
-        listingTitle: String(data.title || ""),
-        listingImage: String((data.images as string[])?.[0] || data.imageUrl || ""),
-      });
-    }
-  } catch (e) {
-    console.error("[onListingCreated] Saved-search notification failed:", e);
-  }
+/**
+ * Saved-search notifications are sent by POST /api/create-listing (it applies the
+ * user's notification preferences, skips the seller's own listing and caps the
+ * fan-out). This trigger used to scan the ENTIRE savedSearches collection and send
+ * a second, duplicate saved-search notification per match, so it is
+ * intentionally a no-op now. Do not re-add a savedSearches read here.
+ * See app/lib/saved-search-match.ts.
+ */
+export const onListingCreated = onDocumentCreated("listings/{listingId}", async () => {
+  return;
 });
 
 export const onMessageCreated = onDocumentCreated("messages/{messageId}", async (event) => {
@@ -198,6 +170,51 @@ export const onReportCreated = onDocumentCreated("reports/{reportId}", async (ev
 
 // Auto-complete delivered orders 14 days after delivery if no dispute.
 // Does NOT move Stripe funds — destination charges already paid the seller at checkout.
+/**
+ * Review aggregates: profiles/{uid}.averageRating + reviewCount are written by /api/submit-review on
+ * create. firestore.rules still let a reviewer update `rating` (or delete) their review directly with
+ * the client SDK, which used to leave the aggregate stale. Recompute from source on those writes.
+ * (Creates are handled by the API; recompute is idempotent, so a double run is harmless.)
+ */
+async function recomputeReviewAggregates(revieweeId: unknown): Promise<void> {
+  if (typeof revieweeId !== "string" || !revieweeId) return;
+  const profileRef = db.collection("profiles").doc(revieweeId);
+  const q = db.collection("reviews").where("revieweeId", "==", revieweeId).limit(1000);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(q);
+    // Seller rating only: reviews this user received as the buyer are excluded (isSellerRatingReview).
+    const agg = computeSellerReviewAggregates(
+      snap.docs.map((d) => ({
+        rating: d.get("rating"),
+        role: d.get("role"),
+        revieweeEmail: d.get("revieweeEmail"),
+        sellerEmail: d.get("sellerEmail"),
+      }))
+    );
+    tx.set(profileRef, { ...agg, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  });
+}
+
+export const onReviewUpdated = onDocumentUpdated("reviews/{reviewId}", async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!reviewAggregateInputsChanged(before, after)) return;
+  try {
+    await recomputeReviewAggregates(after?.revieweeId);
+    if (before?.revieweeId !== after?.revieweeId) await recomputeReviewAggregates(before?.revieweeId);
+  } catch (e) {
+    console.error("[onReviewUpdated] aggregate recompute failed:", e);
+  }
+});
+
+export const onReviewDeleted = onDocumentDeleted("reviews/{reviewId}", async (event) => {
+  try {
+    await recomputeReviewAggregates(event.data?.data()?.revieweeId);
+  } catch (e) {
+    console.error("[onReviewDeleted] aggregate recompute failed:", e);
+  }
+});
+
 export const autoCompleteDeliveredOrders = onSchedule("every 24 hours", async () => {
   const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 14 * 24 * 60 * 60 * 1000);
   try {

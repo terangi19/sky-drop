@@ -23,6 +23,10 @@ export type ClientPublicProfile = {
   topTrader?: boolean;
   profileBadge?: string;
   salesCount?: number;
+  averageRating?: number;
+  reviewCount?: number;
+  /** In PUBLIC_PROFILE_FIELDS; nothing writes it today. */
+  responseTime?: number | string;
   kycStatus?: string;
 };
 

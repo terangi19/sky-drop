@@ -12,13 +12,45 @@ export type TradeOfferFailure = {
   error: string;
 };
 
-/** Per-buyer limits enforced in the route via `rateLimit()` (Upstash, in-memory fallback). */
+/**
+ * Per-buyer limits enforced in the route via `rateLimit()` (Upstash, in-memory fallback).
+ * The route checks perUserPost FIRST so a locked post does not keep draining the perUser budget.
+ * perUserPost only caps repeat clicks: the seller is counted/notified once per buyer per post per 24 h
+ * (offerers/{uid} in the route transaction), so a short window adds no seller spam.
+ */
 export const TRADE_OFFER_LIMITS = {
   /** Max offers a single signed-in user may send across all posts per window. */
   perUser: { max: 20, windowMs: 60 * 60 * 1000 },
   /** Max offers a single signed-in user may send on one post per window. */
-  perUserPost: { max: 3, windowMs: 60 * 60 * 1000 },
+  perUserPost: { max: 3, windowMs: 10 * 60 * 1000 },
 } as const;
+
+/** Which route limiter answered 429: "post" = perUserPost, "user" = perUser. */
+export type TradeOfferLimitScope = "post" | "user";
+
+/**
+ * 429 body + Retry-After for a route limiter. `retryAfterSec` is the window length, i.e. an UPPER
+ * bound: the shared `rateLimit()` wrapper does not expose the exact reset time (and is not changed here).
+ */
+export function tradeOfferRateLimited(scope: TradeOfferLimitScope): {
+  status: 429;
+  body: { error: string; code: "rate_limited"; scope: TradeOfferLimitScope };
+  retryAfterSec: number;
+} {
+  const limit = scope === "post" ? TRADE_OFFER_LIMITS.perUserPost : TRADE_OFFER_LIMITS.perUser;
+  return {
+    status: 429,
+    body: {
+      error:
+        scope === "post"
+          ? "You've already sent offers on this post. Please try again later."
+          : "Too many offers. Please try again later.",
+      code: "rate_limited",
+      scope,
+    },
+    retryAfterSec: Math.ceil(limit.windowMs / 1000),
+  };
+}
 
 /** Statuses on which a trade post no longer accepts offers (matches manage-trade-post statuses + expired). */
 export const TRADE_OFFER_CLOSED_STATUSES: ReadonlySet<string> = new Set([

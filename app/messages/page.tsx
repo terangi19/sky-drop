@@ -28,6 +28,7 @@ import { detectScam } from "../lib/scamdetection";
 import { calculateTrustScore } from "../lib/trustscore";
 import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
+import { buildThreadSearch, resolveThreadUserParam, threadUrlUserId } from "../lib/messages-thread-url";
 import { createNotification } from "../lib/notifications";
 import dynamic from "next/dynamic";
 import ArrangePaymentCopyBar from "../components/ArrangePaymentCopyBar";
@@ -39,7 +40,8 @@ import {
   resolveConversationOrderStatus,
   shouldHideSupersededPaidOrderCard,
 } from "../lib/conversation-order-status";
-import { isRefundedStatus } from "../lib/refund-display";
+import { buildConversationPurchasesQuery } from "../lib/conversation-purchase-query";
+import { isRefundedStatus, threadRefundCardAmount } from "../lib/refund-display";
 import BraveWarning from "../components/BraveWarning";
 import LoadingSpinner from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
@@ -57,7 +59,8 @@ import {
   resolvePublicIdentity,
   type PublicIdentity,
 } from "../lib/public-identity";
-import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
+import { canSellerConfirmArrangeSale } from "../lib/arrange-purchase-status";
+import { publicSalesCount } from "../lib/public-sales-count";
 import { purchaseStatusLabel } from "../lib/purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
 import { trackFunnelEvent } from "../lib/funnel-events";
@@ -157,6 +160,36 @@ function getSearchParam(key: string): string | null {
   if (typeof window === "undefined") return null;
   try { return new URLSearchParams(window.location.search).get(key); } catch { return null; }
 }
+/** Thread-list placeholder while the inbox's first snapshot is pending (no empty-state flash). */
+function InboxSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading conversations" data-testid="inbox-skeleton">
+      {Array.from({ length: 6 }, (_, i) => (
+        <div key={i} className="flex items-center gap-3 border-b border-[var(--card-border)]/70 px-3.5 py-3">
+          <div className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-[var(--card-border)]/80" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="h-3 w-24 animate-pulse rounded bg-[var(--card-border)]/80" />
+            <div className="h-3 w-40 max-w-full animate-pulse rounded bg-[var(--card-border)]/60" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+/** Perf probe (no reads): window.__skyMsgTiming = time-to-threads for the inbox's first snapshot. */
+function recordInboxTiming(subscribedAt: number, docs: number, fromCache: boolean) {
+  if (typeof window === "undefined") return;
+  const w = window as unknown as { __skyMsgTiming?: unknown };
+  if (w.__skyMsgTiming) return; // first snapshot only
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  w.__skyMsgTiming = {
+    subscribeAtMs: Math.round(subscribedAt), // since navigation start: includes JS load + auth restore
+    firstSnapshotAtMs: Math.round(now), // = time-to-threads
+    listenerMs: Math.round(now - subscribedAt), // Firestore connect (+App Check token) + query
+    docs,
+    fromCache,
+  };
+}
 function MessagesPage() {
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -166,6 +199,13 @@ function MessagesPage() {
   const [chatListingId, setChatListingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  /**
+   * True once the inbox listener delivered its first snapshot (or failed). Until then the thread
+   * list shows a skeleton (never the "Your messages will appear here" empty state), and the
+   * chat-pane-only work (typing + purchases listeners, listing getDoc) waits so it doesn't compete
+   * with the inbox query on the shared Firestore stream. Same reads, later.
+   */
+  const [inboxReady, setInboxReady] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
   const [avatars, setAvatars] = useState<Record<string, string>>({});
@@ -312,8 +352,23 @@ function MessagesPage() {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+  // Re-apply the URL on back/forward (selection itself uses replaceState, see below).
+  const [urlNonce, setUrlNonce] = useState(0);
+  const deepLinkSeqRef = useRef(0);
+  useEffect(() => {
+    const onPop = () => setUrlNonce((n) => n + 1);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   useEffect(() => {
     const conversationId = getSearchParam("conversation");
+    if (urlNonce > 0 && !conversationId && !getSearchParam("user")) {
+      // Back/forward to a /messages entry without a thread: show the list.
+      setChatUser("");
+      setChatListingId(null);
+      setMobileView("list");
+      return;
+    }
     if (conversationId && user?.email) {
       getDoc(doc(db, "conversations", conversationId)).then((snap) => {
         if (!snap.exists()) return;
@@ -333,29 +388,30 @@ function MessagesPage() {
     if (param) {
       if (isEmailLike(param)) {
         setChatUser(param);
-      } else {
+      } else if (user?.email && inboxReady) {
+        // uid / username: match against inbox identities (public API never returns emails),
+        // then the listing's seller. Never use the raw param as chatUser.
         const listingParam = getSearchParam("listing");
-        fetchPublicProfileBySlug(param)
-          .then(async (profile) => {
-            if (profile?.email) {
-              setChatUser(profile.email);
-              return;
-            }
-            if (listingParam) {
-              try {
+        const seq = ++deepLinkSeqRef.current;
+        void resolveThreadUserParam(param, {
+          myEmail: user.email,
+          inboxParticipants: rawMessagesRef.current.flatMap((m: any) =>
+            Array.isArray(m.participants) ? m.participants : []
+          ),
+          resolveIdentity: (id) => resolvePublicIdentity(id),
+          resolveIdentities: (ids) => resolvePublicIdentities(ids),
+          listingSeller: listingParam
+            ? async () => {
                 const snap = await getDoc(doc(db, "listings", listingParam));
-                const listingEmail = String(snap.data()?.sellerEmail || "").trim();
-                if (listingEmail.includes("@")) {
-                  setChatUser(listingEmail);
-                  return;
-                }
-              } catch {
-                /* fall through */
+                const data = snap.data() || {};
+                return { email: String(data.sellerEmail || ""), uid: String(data.sellerId || "") };
               }
-            }
-            setChatUser(param);
-          })
-          .catch(() => setChatUser(param));
+            : undefined,
+        }).then((email) => {
+          if (seq !== deepLinkSeqRef.current) return; // superseded by a newer URL/selection
+          if (email) setChatUser(email);
+          else showToast("Couldn't open that conversation. Message the seller from the listing.", "info");
+        });
       }
       const listingParam = getSearchParam("listing");
       setChatListingId(listingParam || null);
@@ -378,7 +434,27 @@ function MessagesPage() {
         setMobileView("chat");
       }
     }
-  }, [isMobile, user?.email]);
+    // inboxReady: uid/username links resolve against the inbox; urlNonce: back/forward.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, user?.email, inboxReady, urlNonce]);
+
+  // Keep the URL shareable: ?user=<counterparty uid>&listing=<id> (never an email), via
+  // replaceState so switching threads doesn't stack history entries.
+  const threadUrlSyncedRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !user?.email) return;
+    if (!chatUser) {
+      if (!threadUrlSyncedRef.current) return; // a deep link may still be resolving
+    } else {
+      threadUrlSyncedRef.current = true;
+    }
+    const userId = chatUser ? threadUrlUserId(chatUser, peekPublicIdentity) : null;
+    if (chatUser && !userId) return; // identity not resolved yet; re-runs when usernames update
+    const next = buildThreadSearch(window.location.search, { userId, listingId: chatListingId });
+    if (next !== window.location.search) {
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${next}${window.location.hash}`);
+    }
+  }, [chatUser, chatListingId, usernames, user?.email]);
 
   // Read pre-fill message from localStorage (used by job Apply Now)
   useEffect(() => {
@@ -416,7 +492,7 @@ function MessagesPage() {
     }
   }, [chatUser]);
 
-  // Fetch seller profile + trust score (prefer profile.salesCount aggregate)
+  // Fetch seller profile + trust score (sales = public profile.salesCount ?? 0)
   useEffect(() => {
     if (!chatUser) { setSellerProfile(null); setSellerTrust(null); return; }
     let cancelled = false;
@@ -424,21 +500,8 @@ function MessagesPage() {
       try {
         const profile = await fetchPublicProfileBySlug(chatUser);
         if (profile && !cancelled) {
-          const profileEmail = profile.email || chatUser;
-          const trustedSales =
-            typeof profile.salesCount === "number" && profile.salesCount >= 0
-              ? profile.salesCount
-              : null;
-          let salesTotal = trustedSales ?? 0;
-          // Only scan purchases when aggregate is missing
-          if (trustedSales === null) {
-            const purchaseSnap = await getDocs(
-              query(collection(db, "purchases"), where("sellerEmail", "==", profileEmail), limit(100))
-            );
-            salesTotal = countSellerSales(
-              purchaseSnap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
-            );
-          }
+          // Public aggregate only; a buyer may not read the seller's purchases (rules), so no fallback scan.
+          const salesTotal = publicSalesCount(profile);
           setSellerProfile({
             id: profile.uid,
             ...profile,
@@ -471,6 +534,7 @@ function MessagesPage() {
       setListingCard(null);
       return;
     }
+    if (!inboxReady) return; // URL prefill card stays visible; hydrate after the inbox snapshot
     let cancelled = false;
     getDoc(doc(db, "listings", chatListingId)).then((snap) => {
       if (cancelled) return;
@@ -509,10 +573,11 @@ function MessagesPage() {
     return () => { cancelled = true; };
     // intentionally omit messages — avoid re-getDoc on every inbox snapshot
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatListingId]);
+  }, [chatListingId, inboxReady]);
   // Typing listener — peer writes to peerEmail_myEmail_listingId
   useEffect(() => {
     if (!chatUser || !user?.email) { setOtherTyping(false); return; }
+    if (!inboxReady) return; // deferred until the inbox's first snapshot
     const typingRef = doc(db, "typing", `${chatUser}_${user.email}_${chatListingId || "general"}`);
     const unsub = onSnapshot(typingRef, (snap) => {
       if (snap.exists()) {
@@ -527,7 +592,7 @@ function MessagesPage() {
       }
     });
     return () => { unsub(); if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); };
-  }, [chatUser, user, chatListingId]);
+  }, [chatUser, user, chatListingId, inboxReady]);
   // Mark as read — dedupe by message id; notifications consolidated server-side once per conversation
   useEffect(() => {
     if (!chatUser || !user?.email) return;
@@ -781,11 +846,16 @@ function MessagesPage() {
   useEffect(() => {
     if (!user?.email) {
       setMessages([]);
-      setLoading(false);
+      // Signed out: the auth gate renders instead of the inbox, so keep the skeleton state.
+      setLoading(Boolean(user));
+      setInboxReady(Boolean(user));
       return;
     }
     let mounted = true;
     setLoadError(false);
+    setLoading(true);
+    setInboxReady(false);
+    const subscribedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
     const msgQuery = query(
       collection(db, "messages"),
       where("participants", "array-contains", user.email),
@@ -802,6 +872,8 @@ function MessagesPage() {
       rawMessagesRef.current = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setMessages(items);
       setLoading(false);
+      setInboxReady(true);
+      recordInboxTiming(subscribedAt, snap.size, Boolean(snap.metadata?.fromCache));
       if (snap.metadata?.hasPendingWrites) return;
       // Batch public identity — one POST /api/public-profiles for unique emails/uids
       const ids = new Set<string>();
@@ -817,6 +889,7 @@ function MessagesPage() {
       if (mounted) {
         setLoading(false);
         setLoadError(true);
+        setInboxReady(true);
       }
     });
 
@@ -1537,11 +1610,10 @@ function MessagesPage() {
       setPurchaseData(null);
       return;
     }
+    if (!inboxReady) return; // deferred until the inbox's first snapshot
 
-    const q = query(
-      collection(db, "purchases"),
-      where("listingId", "==", chatListingId)
-    );
+    // Bounded + rules-compliant: see buildConversationPurchasesQuery.
+    const q = buildConversationPurchasesQuery(db, chatListingId, user.email, chatUser);
 
     const unsub = onSnapshot(
       q,
@@ -1562,7 +1634,7 @@ function MessagesPage() {
     );
 
     return () => unsub();
-  }, [chatUser, chatListingId, user?.email]);
+  }, [chatUser, chatListingId, user?.email, inboxReady]);
   useEffect(() => {
     if (!authReady || user) return;
     const returnPath = `${window.location.pathname}${window.location.search}` || "/messages";
@@ -1728,8 +1800,8 @@ function MessagesPage() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-thin">
-              {loading ? (
-                <div className="flex justify-center p-6"><LoadingSpinner text="Loading conversations" /></div>
+              {loading || !inboxReady ? (
+                <InboxSkeleton />
               ) : loadError ? (
                 <div className="p-4">
                   <EmptyState
@@ -1776,6 +1848,7 @@ function MessagesPage() {
                   return (
                     <button key={key}
                       onClick={() => { 
+                        deepLinkSeqRef.current++; // a manual pick wins over a still-resolving deep link
                         setChatUser(convo.participant); 
                         setChatListingId(convo.listingId); 
                         if (isMobile) setMobileView("chat"); 
@@ -1940,7 +2013,11 @@ function MessagesPage() {
               )}
             </div>
             {/* Empty state */}
-            {!chatUser ? (
+            {!chatUser && (loading || !inboxReady) ? (
+              <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center" aria-busy="true">
+                <p className="text-[13px] text-[var(--muted)]">Loading conversations…</p>
+              </div>
+            ) : !chatUser ? (
               <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
                 <p className="text-[15px] font-medium text-[var(--foreground)]">Your messages will appear here.</p>
                 <p className="mt-1.5 max-w-xs text-[13px] leading-relaxed text-[var(--muted)]">
@@ -2071,7 +2148,11 @@ function MessagesPage() {
                     </div>
                   )}
                   {/* Messages */}
-                  {filteredMessages.length === 0 ? (
+                  {filteredMessages.length === 0 && (loading || !inboxReady) ? (
+                    <div className="flex h-full flex-col items-center justify-center px-4 text-center" aria-busy="true">
+                      <p className="text-[13px] text-[var(--muted)]">Loading messages…</p>
+                    </div>
+                  ) : filteredMessages.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center px-4 text-center">
                       <p className="text-[14px] font-medium text-[var(--foreground)]">No messages yet</p>
                       <p className="mt-1 text-[12px] text-[var(--muted)]">Say hello to start arranging.</p>
@@ -2178,9 +2259,8 @@ function MessagesPage() {
                                 <div className="w-full max-w-md space-y-2">
                                   <RefundStatusCard
                                     role={isSellerViewer ? "seller" : "buyer"}
-                                    refundAmount={purchaseData?.refundAmount}
+                                    {...threadRefundCardAmount(purchaseData, msg)}
                                     refundedAt={purchaseData?.refundedAt || msg.createdAt}
-                                    total={purchaseData?.total ?? Number(msg.listingPrice)}
                                     variant="compact"
                                   />
                                   <div className="flex justify-end">

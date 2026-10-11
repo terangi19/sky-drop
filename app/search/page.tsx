@@ -439,8 +439,9 @@ export default function SearchPage() {
                 <option value="all">All</option>
                 <option value="New">New</option>
                 <option value="Used">Used</option>
-                <option value="Refurbished">Refurbished</option>
-                <option value="For parts">For parts</option>
+                <option value="Used - Like New">Used - Like New</option>
+                <option value="Used - Good">Used - Good</option>
+                <option value="Used - Fair">Used - Fair</option>
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
@@ -495,8 +496,9 @@ export default function SearchPage() {
                     <option value="all">All</option>
                     <option value="New">New</option>
                     <option value="Used">Used</option>
-                    <option value="Refurbished">Refurbished</option>
-                    <option value="For parts">For parts</option>
+                    <option value="Used - Like New">Used - Like New</option>
+                    <option value="Used - Good">Used - Good</option>
+                    <option value="Used - Fair">Used - Fair</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
