@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientSafeError } from "../../lib/client-safe-error";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { getStripe } from "../../lib/stripe-server";
 import { rateLimit } from "../../lib/rate-limit";
@@ -240,6 +241,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ error: `Purchase failed: ${msg}` }, { status: 500 });
+    const safe = clientSafeError(e, "Purchase failed. If you were charged, check Purchases or contact support.");
+    return NextResponse.json({ error: safe.error }, { status: safe.status });
   }
 }

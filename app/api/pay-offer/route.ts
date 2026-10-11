@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientSafeError } from "../../lib/client-safe-error";
 import { verifyIdToken, isAdminInitialized } from "../../lib/firebase-admin";
 import { getStripe } from "../../lib/stripe-server";
 import { rateLimit } from "../../lib/rate-limit";
@@ -115,10 +116,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, ...result });
   } catch (e: unknown) {
     console.error("[pay-offer] Error:", e instanceof Error ? e.message : e);
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Failed to process offer payment" },
-      { status: 500 }
-    );
+    const safe = clientSafeError(e, "Failed to process offer payment");
+    return NextResponse.json({ error: safe.error }, { status: safe.status });
   }
 }
 

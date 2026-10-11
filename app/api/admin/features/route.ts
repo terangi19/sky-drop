@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (e instanceof AdminAuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status });
     }
-    const message = e instanceof Error ? e.message : "Failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[admin/features]", e);
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

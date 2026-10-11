@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientSafeError } from "../../lib/client-safe-error";
 import { verifyIdToken, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { acceptOfferWithAdmin } from "../../lib/purchase-service";
@@ -99,10 +100,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, ...result });
   } catch (e: unknown) {
     console.error("[accept-offer] Error:", e instanceof Error ? e.message : e);
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Failed to accept offer" },
-      { status: 500 }
-    );
+    const safe = clientSafeError(e, "Failed to accept offer");
+    return NextResponse.json({ error: safe.error }, { status: safe.status });
   }
 }
 
