@@ -11,11 +11,21 @@ import {
   buildTradeOfferNotification,
   decideTradeOffer,
   parseTradeOfferBody,
+  tradeOfferRateLimited,
   type TradeOfferFailure,
+  type TradeOfferLimitScope,
 } from "../../lib/trade-offer-validation";
 
 function failure(f: TradeOfferFailure) {
   return NextResponse.json({ error: f.error, code: f.code }, { status: f.status });
+}
+
+function rateLimited(scope: TradeOfferLimitScope) {
+  const r = tradeOfferRateLimited(scope);
+  return NextResponse.json(r.body, {
+    status: r.status,
+    headers: { "Retry-After": String(r.retryAfterSec), "Cache-Control": "no-store" },
+  });
 }
 
 /**
@@ -49,25 +59,23 @@ export async function POST(req: NextRequest) {
     if (parsed.ok === false) return failure(parsed);
     const { postId, requestId } = parsed;
 
-    // Per-user limits (overall, then per post). Shared helper: Upstash, in-memory fallback.
-    const userLimit = TRADE_OFFER_LIMITS.perUser;
-    const { allowed: userAllowed } = await rateLimit(
-      `trade-offer:uid:${decoded.uid}`,
-      userLimit.max,
-      userLimit.windowMs
-    );
-    if (!userAllowed) {
-      return NextResponse.json({ error: "Too many requests", code: "rate_limited" }, { status: 429 });
-    }
+    // Per-user limits: per post FIRST, then overall. Shared helper: Upstash, in-memory fallback.
+    // Order matters: a denied per-post request returns before the per-user limiter is called, so
+    // repeat clicks on one locked post cannot drain the user's budget for every other post.
     const postLimit = TRADE_OFFER_LIMITS.perUserPost;
     const { allowed: postAllowed } = await rateLimit(
       `trade-offer:uid-post:${decoded.uid}:${postId}`,
       postLimit.max,
       postLimit.windowMs
     );
-    if (!postAllowed) {
-      return NextResponse.json({ error: "Too many requests", code: "rate_limited" }, { status: 429 });
-    }
+    if (!postAllowed) return rateLimited("post");
+    const userLimit = TRADE_OFFER_LIMITS.perUser;
+    const { allowed: userAllowed } = await rateLimit(
+      `trade-offer:uid:${decoded.uid}`,
+      userLimit.max,
+      userLimit.windowMs
+    );
+    if (!userAllowed) return rateLimited("user");
 
     // Per-IP limit, abuse decision engine, optional Turnstile, requestId idempotency (409 on replay).
     const protection = await enforceProtection(req, {

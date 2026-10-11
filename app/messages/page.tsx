@@ -39,6 +39,7 @@ import {
   resolveConversationOrderStatus,
   shouldHideSupersededPaidOrderCard,
 } from "../lib/conversation-order-status";
+import { buildConversationPurchasesQuery } from "../lib/conversation-purchase-query";
 import { isRefundedStatus } from "../lib/refund-display";
 import BraveWarning from "../components/BraveWarning";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -57,7 +58,8 @@ import {
   resolvePublicIdentity,
   type PublicIdentity,
 } from "../lib/public-identity";
-import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
+import { canSellerConfirmArrangeSale } from "../lib/arrange-purchase-status";
+import { publicSalesCount } from "../lib/public-sales-count";
 import { purchaseStatusLabel } from "../lib/purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
 import { trackFunnelEvent } from "../lib/funnel-events";
@@ -416,7 +418,7 @@ function MessagesPage() {
     }
   }, [chatUser]);
 
-  // Fetch seller profile + trust score (prefer profile.salesCount aggregate)
+  // Fetch seller profile + trust score (sales = public profile.salesCount ?? 0)
   useEffect(() => {
     if (!chatUser) { setSellerProfile(null); setSellerTrust(null); return; }
     let cancelled = false;
@@ -424,21 +426,8 @@ function MessagesPage() {
       try {
         const profile = await fetchPublicProfileBySlug(chatUser);
         if (profile && !cancelled) {
-          const profileEmail = profile.email || chatUser;
-          const trustedSales =
-            typeof profile.salesCount === "number" && profile.salesCount >= 0
-              ? profile.salesCount
-              : null;
-          let salesTotal = trustedSales ?? 0;
-          // Only scan purchases when aggregate is missing
-          if (trustedSales === null) {
-            const purchaseSnap = await getDocs(
-              query(collection(db, "purchases"), where("sellerEmail", "==", profileEmail), limit(100))
-            );
-            salesTotal = countSellerSales(
-              purchaseSnap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
-            );
-          }
+          // Public aggregate only; a buyer may not read the seller's purchases (rules), so no fallback scan.
+          const salesTotal = publicSalesCount(profile);
           setSellerProfile({
             id: profile.uid,
             ...profile,
@@ -1538,10 +1527,8 @@ function MessagesPage() {
       return;
     }
 
-    const q = query(
-      collection(db, "purchases"),
-      where("listingId", "==", chatListingId)
-    );
+    // Bounded + rules-compliant: see buildConversationPurchasesQuery.
+    const q = buildConversationPurchasesQuery(db, chatListingId, user.email, chatUser);
 
     const unsub = onSnapshot(
       q,

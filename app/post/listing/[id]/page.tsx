@@ -12,6 +12,7 @@ import JobApplicationModal from "../../../components/JobApplicationModal";
 import ArrangePurchaseModal from "../../../components/ArrangePurchaseModal";
 import { showToast } from "../../../components/Toast";
 import { createNotification } from "../../../lib/notifications";
+import { isReviewReceivedBySeller } from "../../../lib/review-role";
 import { User } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, limit, query, where, Timestamp, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../../../lib/firebase";
@@ -76,6 +77,7 @@ import { DETAIL_POLL_MS, startVisibilityPolledFetch } from "../../../lib/polled-
 import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
 import { scheduleListingView } from "../../../lib/listing-view-dedupe";
 import { V1_ARRANGE_SAFETY_ONE_LINER } from "../../../lib/conversation-safety";
+import { sellerRatingSummary } from "../../../lib/seller-rating-summary";
 import EmptyState from "../../../components/EmptyState";
 
 const CheckoutModal = dynamic(() => import("../../../components/CheckoutModal"), { ssr: false });
@@ -177,6 +179,8 @@ interface SellerProfile {
   emailVerified?: boolean;
   kycStatus?: string;
   profileBadge?: string;
+  averageRating?: number;
+  reviewCount?: number;
   [key: string]: unknown;
 }
 
@@ -767,6 +771,7 @@ export default function ListingPage() {
           );
           const ratings: number[] = [];
           reviewSnap.docs.forEach((d) => {
+            if (!isReviewReceivedBySeller(d.data(), listing.sellerEmail)) return;
             const r = d.data().rating;
             if (r) ratings.push(Number(r));
           });
@@ -2153,9 +2158,9 @@ Property Status: 🟢 Inquiry Active`;
                         <span className="text-sky-400">✓</span> Trusted
                       </span>
                     )}
-                    {typeof sellerProfile?.reviewCount === "number" && sellerProfile.reviewCount > 0 && (
-                      <span className="flex items-center gap-1">
-                        ★ {typeof sellerProfile.reviewAverage === 'number' ? sellerProfile.reviewAverage.toFixed(1) : "5.0"} ({sellerProfile.reviewCount} reviews)
+                    {sellerProfile && (
+                      <span className="flex items-center gap-1" data-testid="listing-seller-rating">
+                        {sellerRatingSummary(sellerProfile, sellerReviewData).label}
                       </span>
                     )}
                     {typeof sellerProfile?.createdAt === "object" && !!sellerProfile?.createdAt && "seconds" in sellerProfile.createdAt && (

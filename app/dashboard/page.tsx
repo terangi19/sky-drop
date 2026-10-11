@@ -19,6 +19,7 @@ import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import { PAGE_SHELL_WIDE } from "../lib/page-layout";
 import { loginRedirectHref } from "../lib/safe-redirect";
+import { isReviewReceivedBySeller } from "../lib/review-role";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -95,7 +96,10 @@ export default function DashboardPage() {
         listings.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
         setListings(listings);
 
-        const reviews = reviewsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+        // sellerEmail docs also include reviews this user wrote (as seller) about buyers.
+        const reviews = reviewsSnap.docs
+          .filter((d) => isReviewReceivedBySeller(d.data(), userEmail))
+          .map((d) => ({ id: d.id, ...d.data() } as any));
         reviews.sort((a: any, b: any) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
         setReviews(reviews);
       } catch (error) {
