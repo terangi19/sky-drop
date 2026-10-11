@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
+import { isReviewReceivedBySeller } from "./review-role";
 import { db } from "./firebase";
 import {
   fetchSellerProfilesByListing,
@@ -140,6 +141,8 @@ export function useSellerListingMeta(
               snap.docs.forEach((d) => {
                 const data = d.data();
                 const email = data.sellerEmail as string;
+                // Skip reviews this seller wrote about a buyer (same sellerEmail field).
+                if (!isReviewReceivedBySeller(data, email)) return;
                 if (!grouped[email]) grouped[email] = [];
                 grouped[email].push(data.rating || 0);
               });

@@ -197,6 +197,7 @@ async function checkRateLimit(req: NextRequest) {
   let uid: string | null = null;
   let email = "";
 
+  const authStarted = Date.now();
   if (authHeader?.startsWith("Bearer ")) {
     try {
       const decoded = await verifyIdToken(authHeader.slice(7));
@@ -206,10 +207,26 @@ async function checkRateLimit(req: NextRequest) {
       /* optional */
     }
   }
+  const authMs = Date.now() - authStarted;
 
   const limitKey = uid ? `sky-ai:${uid}` : `sky-ai:ip:${ip}`;
+  const rateLimitStarted = Date.now();
   const limit = await rateLimit(limitKey, uid ? 120 : 20, 15 * 60_000);
-  return { uid, email, allowed: limit.allowed };
+  return { uid, email, allowed: limit.allowed, authMs, rateLimitMs: Date.now() - rateLimitStarted };
+}
+
+/** Durations only (ms). Set before the body streams; the SSE body is built after all work is done. */
+function withServerTiming(res: Response, spans: Record<string, number | undefined>): Response {
+  const value = Object.entries(spans)
+    .filter(([, ms]) => typeof ms === "number")
+    .map(([name, ms]) => `${name};dur=${ms}`)
+    .join(", ");
+  try {
+    res.headers.set("Server-Timing", value);
+  } catch {
+    /* immutable headers: skip timing, never fail the request */
+  }
+  return res;
 }
 
 function parseListingContext(body: unknown): SkyAiListingContext | null {
@@ -485,18 +502,29 @@ function recordAwhinaQuality(
 
 export async function POST(req: NextRequest) {
   const ip = parseIpFromRequest(req.headers);
+  const started = Date.now();
   try {
-    const { uid, email, allowed } = await checkRateLimit(req);
+    const { uid, email, allowed, authMs, rateLimitMs } = await checkRateLimit(req);
     if (!allowed) {
-      return NextResponse.json(
-        { error: "Too many Āwhina requests — please try again later." },
-        { status: 429 }
+      return withServerTiming(
+        NextResponse.json(
+          { error: "Too many Āwhina requests — please try again later." },
+          { status: 429 }
+        ),
+        { auth: authMs, rateLimit: rateLimitMs, total: Date.now() - started }
       );
     }
 
-    return await withOpenAiSpendContext({ uid, ip }, () =>
-      handleSkyAiPost(req, uid, email)
+    const timing: SkyAiTiming = {};
+    const res = await withOpenAiSpendContext({ uid, ip }, () =>
+      handleSkyAiPost(req, uid, email, timing)
     );
+    return withServerTiming(res, {
+      auth: authMs,
+      rateLimit: rateLimitMs,
+      history: timing.historyMs,
+      total: Date.now() - started,
+    });
   } catch (e: unknown) {
     console.error("sky-ai error:", e);
     const mapped = openaiErrorResponse(e);
@@ -516,10 +544,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
+type SkyAiTiming = { historyMs?: number };
+
 async function handleSkyAiPost(
   req: NextRequest,
   uid: string | null,
-  email: string
+  email: string,
+  timing: SkyAiTiming = {}
 ) {
     const body = await req.json();
     const inboundMessage = typeof body.message === "string" ? body.message.trim() : "";
@@ -557,7 +588,9 @@ async function handleSkyAiPost(
         // Trim OpenAI context — sell/profile keep a few turns for follow-ups.
         // Read only the window we keep (was limitToLast(30) then slice(-keep)).
         const keep = skyAiHistoryKeep(pathname);
+        const historyStarted = Date.now();
         const stored = await loadSkyAiMessages(conversationId, uid, keep);
+        timing.historyMs = Date.now() - historyStarted;
         history = stored
           .map((m) => ({ role: m.role, content: m.content }))
           .slice(-keep);
