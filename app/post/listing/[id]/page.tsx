@@ -18,6 +18,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where, Timestamp, setDo
 import { auth, db, onAuthStateChanged } from "../../../lib/firebase";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
+import { parseFirestoreDate } from "../../../lib/date-format";
 import { isFullyVerifiedSeller, profileEmailVerified } from "../../../lib/seller-verified";
 import { detectSuspiciousPrice } from "../../../lib/pricedetection";
 import { safeGetDoc } from "../../../lib/firestore";
@@ -1101,7 +1102,8 @@ export default function ListingPage() {
 
   const trustScore = useMemo(() => {
     if (!sellerProfile) return null;
-    const memberDate = sellerProfile.memberSince?.toDate ? sellerProfile.memberSince.toDate() : null;
+    // /api/public-profile returns Admin JSON ({_seconds}), not a client Timestamp.
+    const memberDate = parseFirestoreDate(sellerProfile.memberSince);
     return calculateTrustScore({
       emailVerified: profileEmailVerified(sellerProfile),
       hasProfile: true,
@@ -1128,7 +1130,8 @@ export default function ListingPage() {
 
   const isNewSeller = useMemo(() => {
     if (!sellerProfile?.memberSince) return false;
-    const memberDate = sellerProfile.memberSince.toDate ? sellerProfile.memberSince.toDate() : new Date();
+    const memberDate = parseFirestoreDate(sellerProfile.memberSince);
+    if (!memberDate) return false; // unknown age: don't badge as new
     const daysOld = (Date.now() - memberDate.getTime()) / 86400000;
     if (daysOld > 7) return false;
     if (sellerProfile.photoURL) return false;
@@ -2163,8 +2166,8 @@ Property Status: 🟢 Inquiry Active`;
                         {sellerRatingSummary(sellerProfile, sellerReviewData).label}
                       </span>
                     )}
-                    {typeof sellerProfile?.createdAt === "object" && !!sellerProfile?.createdAt && "seconds" in sellerProfile.createdAt && (
-                      <span>Member since {new Date((sellerProfile.createdAt as any).seconds * 1000).toLocaleDateString("en-NZ", { month: "short", year: "numeric" })}</span>
+                    {parseFirestoreDate(sellerProfile?.createdAt) && (
+                      <span>Member since {parseFirestoreDate(sellerProfile?.createdAt)!.toLocaleDateString("en-NZ", { month: "short", year: "numeric" })}</span>
                     )}
                   </div>
 
@@ -2623,8 +2626,8 @@ Service Status: 🟢 Inquiry Active`;
                       {sellerSalesCount !== null && sellerSalesCount > 0 && (
                         <span className="text-[var(--muted)]">· {sellerSalesCount} sale{sellerSalesCount !== 1 ? "s" : ""}</span>
                       )}
-                      {sellerProfile?.memberSince && (
-                        <span className="text-[var(--muted)]">· {(sellerProfile.memberSince as any).seconds ? new Date((sellerProfile.memberSince as any).seconds * 1000).getFullYear() : ""}</span>
+                      {parseFirestoreDate(sellerProfile?.memberSince) && (
+                        <span className="text-[var(--muted)]">· {parseFirestoreDate(sellerProfile?.memberSince)?.getFullYear() ?? ""}</span>
                       )}
                     </div>
                   </div>
