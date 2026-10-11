@@ -53,3 +53,43 @@ export function expiredOwnShoutIds(
     })
     .map((s) => s.id);
 }
+
+/**
+ * Display filter: hide shouts older than the TTL. Server-side cleanup (daily cron) can leave expired
+ * shouts in Firestore for up to ~26h, and the client auto-clear only deletes the viewer's OWN shouts,
+ * so without this other people's day-old shouts stay on screen. Shouts with an unknown/pending
+ * createdAt (0) are kept (a just-sent shout before the server timestamp resolves).
+ */
+export function visibleShouts<T extends { createdAt?: unknown }>(
+  items: readonly T[],
+  nowMs: number,
+  ttlMs: number = TRADE_SHOUT_TTL_MS
+): T[] {
+  return items.filter((s) => {
+    const created = shoutCreatedMs(s.createdAt);
+    return created === 0 || nowMs - created <= ttlMs;
+  });
+}
+
+/**
+ * onSnapshot error handler for the shout listener. A missing composite index
+ * (`failed-precondition`) or a rules denial (`permission-denied`) would otherwise fail silently
+ * (Firestore logs nothing useful without an error callback). Logs once per error code per
+ * handler instance (the listener does not retry, so no spam), and reports via `onError` so the UI can
+ * show a quiet empty state while keeping any shouts it already has.
+ */
+export function createShoutListenerErrorHandler(
+  onError: (code: string) => void,
+  log: (...args: unknown[]) => void = console.warn
+): (err: unknown) => void {
+  const seen = new Set<string>();
+  return (err: unknown) => {
+    const code = String((err as { code?: unknown } | null)?.code || "unknown");
+    if (!seen.has(code)) {
+      seen.add(code);
+      const message = String((err as { message?: unknown } | null)?.message || err);
+      log(`[trade-feed] shout listener failed (${code}):`, message);
+    }
+    onError(code);
+  };
+}
