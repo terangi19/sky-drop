@@ -3,7 +3,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import { isViewsOnlyListingUpdate } from "./listing-update-filter";
-import { computeReviewAggregates, reviewAggregateInputsChanged } from "./review-aggregates";
+import { computeSellerReviewAggregates, reviewAggregateInputsChanged } from "./review-aggregates";
 
 setGlobalOptions({ region: "asia-southeast1" });
 
@@ -182,7 +182,15 @@ async function recomputeReviewAggregates(revieweeId: unknown): Promise<void> {
   const q = db.collection("reviews").where("revieweeId", "==", revieweeId).limit(1000);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(q);
-    const agg = computeReviewAggregates(snap.docs.map((d) => d.get("rating")));
+    // Seller rating only: reviews this user received as the buyer are excluded (isSellerRatingReview).
+    const agg = computeSellerReviewAggregates(
+      snap.docs.map((d) => ({
+        rating: d.get("rating"),
+        role: d.get("role"),
+        revieweeEmail: d.get("revieweeEmail"),
+        sellerEmail: d.get("sellerEmail"),
+      }))
+    );
     tx.set(profileRef, { ...agg, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
   });
 }
