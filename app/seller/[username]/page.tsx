@@ -28,7 +28,7 @@ import ReportModal from "../../components/ReportModal";
 import EmptyState from "../../components/EmptyState";
 import { ReviewStars } from "../../components/SellerReviewStars";
 import { isListingVisibleInMarketplace } from "../../lib/listing-availability";
-import { countSellerSales } from "../../lib/arrange-purchase-status";
+import { publicSalesCount } from "../../lib/public-sales-count";
 import {
   loadReviewsForUser,
   reviewComment,
@@ -77,6 +77,7 @@ interface ProfileData {
   profileBadge?: string;
   averageRating?: number;
   reviewCount?: number;
+  salesCount?: number;
 }
 
 interface Listing {
@@ -115,9 +116,6 @@ export default function SellerPage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [sellerPurchases, setSellerPurchases] = useState<
-    Array<{ status?: string; paymentType?: string }>
-  >([]);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
@@ -246,23 +244,6 @@ export default function SellerPage() {
 
   // Follower count comes from public profile API (updated after follow/unfollow)
 
-  useEffect(() => {
-    if (!profile?.email) {
-      setSellerPurchases([]);
-      return;
-    }
-    const q = query(
-      collection(db, "purchases"),
-      where("sellerEmail", "==", profile.email),
-      limit(200)
-    );
-    getDocs(q).then((snap) => {
-      setSellerPurchases(
-        snap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
-      );
-    });
-  }, [profile?.email]);
-
   // Reviews
   useEffect(() => {
     if (!sellerUid && !profile?.email) return;
@@ -333,10 +314,8 @@ export default function SellerPage() {
   // Computed
   const activeListings = useMemo(() => listings.filter((l) => isListingVisibleInMarketplace(l)), [listings]);
   const soldListings = useMemo(() => listings.filter((l) => !isListingVisibleInMarketplace(l)), [listings]);
-  const completedSalesCount = useMemo(
-    () => countSellerSales(sellerPurchases),
-    [sellerPurchases]
-  );
+  // Public profile aggregate (other viewers cannot read this seller's purchases under firestore.rules).
+  const completedSalesCount = publicSalesCount(profile);
   const pinnedListings = useMemo(() => listings.filter((l) => l.pinned), [listings]);
 
   const avgRating = useMemo(() => {
