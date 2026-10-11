@@ -524,11 +524,13 @@ export default function TradeFeedPage() {
         getIdToken: () => user.getIdToken(),
         body: { action: "delete", postId: id },
       });
-      // On failure the post stays and we say why. On success remove it now; the refetch confirms (the list is polled, not live).
+      // On failure the post stays and we say why. On success remove it locally. No full-feed refetch
+      // (up to 100 reads per delete): the server already confirmed the delete. A poll that started
+      // before the delete may still hold the post, so drop any in-flight poll result.
       if (!result.ok) showToast(result.message, "error");
       else {
+        postsFetchGuard.current.invalidate();
         setPosts((prev) => prev.filter((p) => p.id !== id));
-        void refreshPostsRef.current();
       }
     } finally {
       deleteInFlight.current.delete(id);
