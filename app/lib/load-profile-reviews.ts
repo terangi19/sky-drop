@@ -1,5 +1,6 @@
 import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { db } from "./firebase";
+import { isReviewReceivedBySeller } from "./review-role";
 
 export type ProfileReview = {
   id: string;
@@ -39,6 +40,8 @@ export async function loadReviewsForUser(
       query(collection(db, "reviews"), where("sellerEmail", "==", email), limit(50))
     );
     legacy.docs.forEach((d) => {
+      // Legacy sellerEmail docs also include reviews this user WROTE as seller about a buyer.
+      if (!isReviewReceivedBySeller(d.data(), email)) return;
       if (!byId.has(d.id)) {
         byId.set(d.id, { id: d.id, ...(d.data() as Omit<ProfileReview, "id">) });
       }
