@@ -7,6 +7,7 @@ import {
 import { publicHandleFromProfile } from "./public-display";
 import type { Firestore } from "firebase-admin/firestore";
 import { sanitizeCheckoutCollectionName } from "./payment-checkout";
+import { findArrangeBuyerSignal } from "./arrange-repair-signal";
 import {
   assertListingAvailableForPurchase,
   buildListingUpdateAfterSale,
@@ -1393,7 +1394,19 @@ export function buildArrangePurchaseData(
   };
 }
 
-/** Backfill purchase row for sold Arrange Purchase listings (pre-fix sales). */
+/** Firestore ALREADY_EXISTS (gRPC 6) from DocumentReference.create on an existing doc. */
+function isAlreadyExists(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return code === 6 || code === "already-exists" || code === "ALREADY_EXISTS";
+}
+
+/**
+ * Backfill purchase row for sold Arrange Purchase listings (pre-fix sales).
+ * Only when a server-written buyer signal exists for that buyer on that listing (accepted offer
+ * or an arrange/offer conversation; see arrange-repair-signal.ts). `listing.soldTo` alone was
+ * seller-controlled. Create-only (never overwrites) and status "arrange_requested", which is not a
+ * sale status for the salesCount trigger, so the backfill never changes profiles.salesCount.
+ */
 export async function repairMissingArrangePurchasesForSeller(
   sellerEmail: string
 ): Promise<number> {
@@ -1411,6 +1424,7 @@ export async function repairMissingArrangePurchasesForSeller(
     if (String(listing.paymentType || "") !== "contact") continue;
     const buyerEmail = String(listing.soldTo || "");
     if (!buyerEmail) continue;
+    if (buyerEmail.trim().toLowerCase() === sellerEmail.trim().toLowerCase()) continue;
 
     const purchaseId = makePurchaseId(listingDoc.id, buyerEmail);
     const purchaseRef = db.collection("purchases").doc(purchaseId);
@@ -1418,17 +1432,35 @@ export async function repairMissingArrangePurchasesForSeller(
     if (existing.exists) continue;
 
     const convId = makeConversationId(listingDoc.id, buyerEmail);
+    const signal = await findArrangeBuyerSignal(db, {
+      listingId: listingDoc.id,
+      buyerEmail,
+      sellerEmail,
+      conversationId: convId,
+    });
+    if (!signal) {
+      // No emails in logs: listing id + reason only.
+      console.warn("[repair-arrange-sales] skipped: no buyer signal", { listingId: listingDoc.id });
+      continue;
+    }
+
     const buyerPublicName = await adminGetPublicName(buyerEmail);
-    await purchaseRef.set(
-      buildArrangePurchaseData(
-        listing,
-        listingDoc.id,
-        buyerEmail,
-        convId,
-        "listings",
-        buyerPublicName
-      )
-    );
+    try {
+      await purchaseRef.create(
+        buildArrangePurchaseData(
+          listing,
+          listingDoc.id,
+          buyerEmail,
+          convId,
+          "listings",
+          buyerPublicName
+        )
+      );
+    } catch (err) {
+      if (isAlreadyExists(err)) continue; // created concurrently (arrange-purchase / another repair)
+      throw err;
+    }
+    console.info("[repair-arrange-sales] backfilled", { listingId: listingDoc.id, signal });
     repaired += 1;
   }
   return repaired;
