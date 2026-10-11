@@ -5,6 +5,7 @@ import {
   decideTradeOffer,
   parseTradeOfferBody,
   sanitizeNotificationText,
+  tradeOfferRateLimited,
 } from "./trade-offer-validation";
 
 const buyer = { uid: "buyer-uid", email: "Buyer@Example.com" };
@@ -113,5 +114,18 @@ describe("notification text", () => {
 describe("limits", () => {
   it("per-post limit is tighter than the per-user limit", () => {
     expect(TRADE_OFFER_LIMITS.perUserPost.max).toBeLessThan(TRADE_OFFER_LIMITS.perUser.max);
+  });
+
+  it("per-post: 3 per 10 minutes; per-user: 20 per hour (unchanged)", () => {
+    expect(TRADE_OFFER_LIMITS.perUserPost).toEqual({ max: 3, windowMs: 10 * 60 * 1000 });
+    expect(TRADE_OFFER_LIMITS.perUser).toEqual({ max: 20, windowMs: 60 * 60 * 1000 });
+  });
+
+  it("429 helper: scope + code + Retry-After = window upper bound", () => {
+    const post = tradeOfferRateLimited("post");
+    expect(post).toMatchObject({ status: 429, retryAfterSec: 600, body: { code: "rate_limited", scope: "post" } });
+    const user = tradeOfferRateLimited("user");
+    expect(user).toMatchObject({ status: 429, retryAfterSec: 3600, body: { code: "rate_limited", scope: "user" } });
+    expect(post.body.error).not.toBe(user.body.error);
   });
 });
