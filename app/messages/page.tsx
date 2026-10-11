@@ -28,6 +28,7 @@ import { detectScam } from "../lib/scamdetection";
 import { calculateTrustScore } from "../lib/trustscore";
 import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
+import { buildThreadSearch, resolveThreadUserParam, threadUrlUserId } from "../lib/messages-thread-url";
 import { createNotification } from "../lib/notifications";
 import dynamic from "next/dynamic";
 import ArrangePaymentCopyBar from "../components/ArrangePaymentCopyBar";
@@ -351,8 +352,23 @@ function MessagesPage() {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+  // Re-apply the URL on back/forward (selection itself uses replaceState, see below).
+  const [urlNonce, setUrlNonce] = useState(0);
+  const deepLinkSeqRef = useRef(0);
+  useEffect(() => {
+    const onPop = () => setUrlNonce((n) => n + 1);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   useEffect(() => {
     const conversationId = getSearchParam("conversation");
+    if (urlNonce > 0 && !conversationId && !getSearchParam("user")) {
+      // Back/forward to a /messages entry without a thread: show the list.
+      setChatUser("");
+      setChatListingId(null);
+      setMobileView("list");
+      return;
+    }
     if (conversationId && user?.email) {
       getDoc(doc(db, "conversations", conversationId)).then((snap) => {
         if (!snap.exists()) return;
@@ -372,29 +388,30 @@ function MessagesPage() {
     if (param) {
       if (isEmailLike(param)) {
         setChatUser(param);
-      } else {
+      } else if (user?.email && inboxReady) {
+        // uid / username: match against inbox identities (public API never returns emails),
+        // then the listing's seller. Never use the raw param as chatUser.
         const listingParam = getSearchParam("listing");
-        fetchPublicProfileBySlug(param)
-          .then(async (profile) => {
-            if (profile?.email) {
-              setChatUser(profile.email);
-              return;
-            }
-            if (listingParam) {
-              try {
+        const seq = ++deepLinkSeqRef.current;
+        void resolveThreadUserParam(param, {
+          myEmail: user.email,
+          inboxParticipants: rawMessagesRef.current.flatMap((m: any) =>
+            Array.isArray(m.participants) ? m.participants : []
+          ),
+          resolveIdentity: (id) => resolvePublicIdentity(id),
+          resolveIdentities: (ids) => resolvePublicIdentities(ids),
+          listingSeller: listingParam
+            ? async () => {
                 const snap = await getDoc(doc(db, "listings", listingParam));
-                const listingEmail = String(snap.data()?.sellerEmail || "").trim();
-                if (listingEmail.includes("@")) {
-                  setChatUser(listingEmail);
-                  return;
-                }
-              } catch {
-                /* fall through */
+                const data = snap.data() || {};
+                return { email: String(data.sellerEmail || ""), uid: String(data.sellerId || "") };
               }
-            }
-            setChatUser(param);
-          })
-          .catch(() => setChatUser(param));
+            : undefined,
+        }).then((email) => {
+          if (seq !== deepLinkSeqRef.current) return; // superseded by a newer URL/selection
+          if (email) setChatUser(email);
+          else showToast("Couldn't open that conversation. Message the seller from the listing.", "info");
+        });
       }
       const listingParam = getSearchParam("listing");
       setChatListingId(listingParam || null);
@@ -417,7 +434,27 @@ function MessagesPage() {
         setMobileView("chat");
       }
     }
-  }, [isMobile, user?.email]);
+    // inboxReady: uid/username links resolve against the inbox; urlNonce: back/forward.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, user?.email, inboxReady, urlNonce]);
+
+  // Keep the URL shareable: ?user=<counterparty uid>&listing=<id> (never an email), via
+  // replaceState so switching threads doesn't stack history entries.
+  const threadUrlSyncedRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !user?.email) return;
+    if (!chatUser) {
+      if (!threadUrlSyncedRef.current) return; // a deep link may still be resolving
+    } else {
+      threadUrlSyncedRef.current = true;
+    }
+    const userId = chatUser ? threadUrlUserId(chatUser, peekPublicIdentity) : null;
+    if (chatUser && !userId) return; // identity not resolved yet; re-runs when usernames update
+    const next = buildThreadSearch(window.location.search, { userId, listingId: chatListingId });
+    if (next !== window.location.search) {
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${next}${window.location.hash}`);
+    }
+  }, [chatUser, chatListingId, usernames, user?.email]);
 
   // Read pre-fill message from localStorage (used by job Apply Now)
   useEffect(() => {
@@ -1811,6 +1848,7 @@ function MessagesPage() {
                   return (
                     <button key={key}
                       onClick={() => { 
+                        deepLinkSeqRef.current++; // a manual pick wins over a still-resolving deep link
                         setChatUser(convo.participant); 
                         setChatListingId(convo.listingId); 
                         if (isMobile) setMobileView("chat"); 
