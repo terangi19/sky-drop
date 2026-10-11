@@ -983,8 +983,12 @@ describe("Firestore Security Rules", () => {
           sellerEmail: "bob@test.com",
         })
       );
-      await assertSucceeds(
+      // tradePosts owner updates are an allow-list (status, updatedAt); other fields are server-only.
+      await assertFails(
         alice.collection("tradePosts").doc("promo-post").update({ title: "Post (updated)" })
+      );
+      await assertSucceeds(
+        alice.collection("tradePosts").doc("promo-post").update({ status: "sold" })
       );
     });
 
@@ -1563,8 +1567,11 @@ describe("Firestore Security Rules", () => {
       await assertSucceeds(
         alice.collection("listings").doc("view-listing").update({ title: "Viewed item (updated)" })
       );
-      await assertSucceeds(
+      await assertFails(
         alice.collection("tradePosts").doc("view-post").update({ title: "Viewed post (updated)" })
+      );
+      await assertSucceeds(
+        alice.collection("tradePosts").doc("view-post").update({ status: "sold", updatedAt: new Date("2026-01-01T00:00:00.000Z") })
       );
     });
 

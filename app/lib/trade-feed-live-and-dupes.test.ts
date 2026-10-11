@@ -100,13 +100,14 @@ describe("trade-feed/page.tsx source guard", () => {
     expect(refreshIdx).toBeGreaterThan(body.indexOf("} else {", failIdx));
   });
 
-  it("deleting a post removes it locally and refreshes, but only after a confirmed success", () => {
+  it("deleting a post removes it locally (no full-feed refetch), but only after a confirmed success", () => {
     const body = between("async function deleteTrade(", "async function updateTradeStatus(");
     const elseIdx = body.indexOf("else {", body.indexOf("if (!result.ok)"));
     expect(elseIdx).toBeGreaterThan(-1);
     const okBranch = body.slice(elseIdx);
     expect(okBranch).toContain("setPosts((prev) => prev.filter((p) => p.id !== id))");
-    expect(okBranch).toContain("void refreshPostsRef.current()");
+    expect(okBranch).toContain("postsFetchGuard.current.invalidate()");
+    expect(body).not.toContain("refreshPostsRef.current()");
     expect(body.slice(0, elseIdx)).not.toContain("setPosts(");
   });
 
