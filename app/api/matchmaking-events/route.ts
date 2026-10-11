@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimit } from "../../lib/rate-limit";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAdminApp } from "../../lib/firebase-admin";
@@ -32,6 +33,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // PROMPT-15: per-uid cap. Each call fans out to dozens of Firestore reads; the edge burst limit is per-IP only.
+    const { allowed } = await rateLimit(`matchmaking-events:${decoded.uid}`, 20, 60_000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     // Fetch matchmaking events (sort in memory — avoids composite index)
     const matchesSnap = await db
       .collection("matches")
@@ -39,6 +46,8 @@ export async function GET(req: NextRequest) {
       .limit(50)
       .get();
 
+    // PROMPT-15: never return the other party's email. The feed only needs listing ids/titles;
+    // anyone could post a broad "wanted" listing and harvest every matching seller's address.
     const events: any[] = [];
     
     for (const doc of matchesSnap.docs) {
@@ -67,7 +76,6 @@ export async function GET(req: NextRequest) {
         listingTitle,
         listingImage,
         matchedWith: data.matchedListingId,
-        matchedWithEmail: data.matchedSellerEmail,
         timestamp: data.timestamp?.toMillis?.() || Date.now(),
         keyword: data.keyword,
       });
@@ -108,7 +116,6 @@ export async function GET(req: NextRequest) {
         listingTitle,
         listingImage,
         matchedWith: data.matchedListingId,
-        matchedWithEmail: data.sourceListingSellerEmail,
         timestamp: data.timestamp?.toMillis?.() || Date.now(),
         keyword: data.keyword,
       });

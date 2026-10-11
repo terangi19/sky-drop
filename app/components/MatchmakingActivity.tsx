@@ -12,7 +12,6 @@ interface MatchmakingEvent {
   listingTitle: string;
   listingImage?: string;
   matchedWith?: string;
-  matchedWithEmail?: string;
   timestamp: number;
   keyword?: string;
 }
