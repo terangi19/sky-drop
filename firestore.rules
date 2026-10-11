@@ -334,19 +334,12 @@ service cloud.firestore {
 
       allow read: if true;
 
-      allow create: if false;
-
-      allow update: if request.auth != null
-
-        && resource.data.reviewerEmail == request.auth.token.email
-
-        && request.resource.data.diff(resource.data).affectedKeys()
-
-          .hasOnly(['rating', 'text', 'comment', 'updatedAt']);
-
-      allow delete: if request.auth != null
-
-        && resource.data.reviewerEmail == request.auth.token.email;
+      // Server-only writes. /api/submit-review creates (Admin SDK, validated: integer 1-5, comment cap).
+      // No client edit or delete: an edit after the seller ships (5★ -> 1★) is extortion/retaliation,
+      // and with #117 it would feed profiles.averageRating. Moderation (ban-user, report-action) uses
+      // the Admin SDK; #117's onReviewUpdated/onReviewDeleted recompute on those writes. No client
+      // admin path deletes reviews, so there is intentionally no isAdmin() branch here.
+      allow create, update, delete: if false;
 
     }
 

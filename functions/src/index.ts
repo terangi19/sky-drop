@@ -172,8 +172,8 @@ export const onReportCreated = onDocumentCreated("reports/{reportId}", async (ev
 // Does NOT move Stripe funds — destination charges already paid the seller at checkout.
 /**
  * Review aggregates: profiles/{uid}.averageRating + reviewCount are written by /api/submit-review on
- * create. firestore.rules still let a reviewer update `rating` (or delete) their review directly with
- * the client SDK, which used to leave the aggregate stale. Recompute from source on those writes.
+ * create. Client SDK cannot update or delete reviews. Recompute from source after Admin SDK
+ * moderation writes (and any other server write that changes rating, revieweeId, or role).
  * (Creates are handled by the API; recompute is idempotent, so a double run is harmless.)
  */
 async function recomputeReviewAggregates(revieweeId: unknown): Promise<void> {

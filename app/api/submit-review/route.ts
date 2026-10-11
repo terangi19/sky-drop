@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { parseReviewInput } from "../../lib/review-input";
 import { requireAdminForCheckout } from "../../lib/checkout-server";
 import {
   adminGetProfileByEmail,
@@ -48,23 +49,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not determine reviewer identity" }, { status: 400 });
     }
 
-    const body = await req.json();
-    const purchaseId = typeof body.purchaseId === "string" ? body.purchaseId : "";
-    const rating = Number(body.rating);
-    const reviewText = typeof body.reviewText === "string" ? body.reviewText.trim() : "";
-
+    const body = await req.json().catch(() => null);
+    const purchaseId = typeof body?.purchaseId === "string" ? body.purchaseId : "";
     if (!purchaseId) {
       return NextResponse.json({ error: "Missing purchaseId" }, { status: 400 });
     }
-    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-      return NextResponse.json({ error: "Rating must be between 1 and 5" }, { status: 400 });
+    const input = parseReviewInput(body);
+    if (!input.ok) {
+      return NextResponse.json({ error: input.error }, { status: 400 });
     }
-    if (reviewText.length > REVIEW_COMMENT_MAX) {
-      return NextResponse.json(
-        { error: `Comment must be ${REVIEW_COMMENT_MAX} characters or fewer` },
-        { status: 400 }
-      );
-    }
+    const { rating, reviewText } = input;
 
     const db = getAdminDb();
     const purchaseRef = db.collection("purchases").doc(purchaseId);
