@@ -9,7 +9,6 @@ import { User } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
-import { getLevelInfo, setUserLevel } from "../lib/xp";
 import { trackChallenge } from "../lib/challenges";
 import { isAdminEmail } from "../lib/admin-check";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
@@ -29,7 +28,6 @@ export default function DashboardPage() {
   const [listings, setListings] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [xp, setXp] = useState(0);
   const [sellerProfile, setSellerProfile] = useState<any>(null);
   const [insights, setInsights] = useState<any[]>([]);
 
@@ -53,7 +51,6 @@ export default function DashboardPage() {
       try {
         const snap = await getDoc(doc(db, "profiles", uid));
         if (snap.exists() && mounted) {
-          setXp(snap.data().xp || 0);
           setSellerProfile(snap.data());
         }
       } catch (error) {
@@ -72,22 +69,6 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user?.uid) trackChallenge(user.uid, "visit_profile").catch(() => {});
   }, [user?.uid]);
-
-  // Temporary: Set level 10 for testing with Ctrl+Shift+L
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'L' && user?.email?.includes('testaudit')) {
-        e.preventDefault();
-        setUserLevel(user.uid, 10).then(() => {
-          console.log('Set to level 10 for testing');
-        }).catch(err => {
-          console.error('Failed to set level:', err);
-        });
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [user?.uid, user?.email]);
 
   // Fetch dashboard data with getDocs + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
@@ -185,8 +166,6 @@ export default function DashboardPage() {
     }),
     [listings]
   );
-
-  const levelInfo = useMemo(() => getLevelInfo(xp), [xp]);
 
   const quickActions = useMemo(
     () => [
@@ -329,40 +308,16 @@ export default function DashboardPage() {
             <p className="text-sm text-zinc-400">
               Hey {displayName}
             </p>
-            <div className="flex items-center gap-4">
-              <div className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 ${
-                levelInfo.level >= 10 
-                  ? "border-amber-500/40 bg-gradient-to-br from-amber-500/20 to-amber-500/5 shadow-[0_0_20px_rgba(245,158,11,0.15)]" 
-                  : "border-sky-500/20 bg-sky-500/10"
-              }`}>
-                <span className={`text-xs font-bold ${
-                  levelInfo.level >= 10 ? "text-amber-400" : "text-white"
-                }`}>
-                  Level {levelInfo.level}
-                  {levelInfo.level >= 10 && <span className="ml-1 text-amber-400">Premium</span>}
-                </span>
-              </div>
-              {isAdminEmail(user.email) && (
-                <Link
-                  href="/admin"
-                  className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400 transition hover:bg-red-500/20"
-                >
-                  Admin
-                </Link>
-              )}
-              <div className="flex-1">
-                <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-1">
-                  <span>{xp} XP</span>
-                  <span>{levelInfo.xpToNext} XP to Level {levelInfo.level + 1}</span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
-                  <div 
-                    className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-500"
-                    style={{ width: `${levelInfo.progress}%` }}
-                  />
-                </div>
-              </div>
-            </div>
+            {/* XP / Level chip removed for V1: profiles.xp is server-managed (firestore.rules) and every
+                client awardXP write is denied, so it always showed the same level. */}
+            {isAdminEmail(user.email) && (
+              <Link
+                href="/admin"
+                className="flex items-center gap-2 self-start rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400 transition hover:bg-red-500/20"
+              >
+                Admin
+              </Link>
+            )}
           </div>
         </BrowseMarketplaceHero>
 
