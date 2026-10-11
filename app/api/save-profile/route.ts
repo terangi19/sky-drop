@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb, getServerDb } from "../../lib/firebase-admin";
 import { CsrfError, requireCsrf } from "../../lib/csrf";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
@@ -13,6 +13,7 @@ import {
   UsernameTakenError,
   usernameOwnerState,
 } from "../../lib/username-reservation";
+import { propagateSellerUsername } from "../../lib/propagate-seller-username.server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -93,6 +94,7 @@ export async function POST(req: NextRequest) {
 
     const existingSnap = await profileRef.get();
     const existingData = existingSnap.exists ? existingSnap.data() : {};
+    const previousUsername = String(existingData?.username || "").trim();
 
     const usernameRef = db.collection("usernames").doc(usernameKey);
 
@@ -233,6 +235,20 @@ export async function POST(req: NextRequest) {
         await deletePhoneRegistryForUser(decodedToken.uid);
       } catch (releaseErr) {
         console.warn("save-profile: phone registry release failed:", releaseErr);
+      }
+    }
+
+    if (previousUsername !== reservedUsername) {
+      const sellerEmail = String(decodedToken.email || "").trim();
+      if (!sellerEmail) {
+        console.error("save-profile: sellerUsername propagation skipped");
+      } else {
+        try {
+          const counts = await propagateSellerUsername(sellerEmail, reservedUsername, getAdminDb());
+          console.info("save-profile: sellerUsername propagated", counts);
+        } catch {
+          console.error("save-profile: sellerUsername propagation failed");
+        }
       }
     }
 
