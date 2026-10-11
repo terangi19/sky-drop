@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { User } from "firebase/auth";
-import { collection, deleteDoc, doc, getDocs, limit, query, setDoc, Timestamp, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, limit, query } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { BLOCKED_USERS_LIMIT } from "../lib/firestore-query-limits";
+import { saveBlockedUser } from "../lib/blocked-users";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
@@ -73,15 +74,14 @@ export default function BlockedPage() {
     if (!cleanEmail) { showToast("Enter an email.", "error"); return; }
     if (blockedUsers.some((b) => b.email === cleanEmail)) { showToast("User already blocked.", "info"); return; }
 
-    // Look up the user's UID by email
-    let uid = cleanEmail;
+    // uid comes from the public identity API (profiles is owner-only, so `where email ==` is always denied)
     try {
-      const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", cleanEmail)));
-      if (!snap.empty) uid = snap.docs[0].id;
-    } catch {}
-
-    const ref = doc(db, "users", user!.uid, "blocked", uid);
-    await setDoc(ref, { blockedUid: uid, blockedEmail: cleanEmail, createdAt: Timestamp.now() });
+      await saveBlockedUser(db, user!.uid, cleanEmail);
+    } catch (error) {
+      console.error("Failed to save block:", error);
+      showToast("Could not block this user. Please try again.", "error");
+      return;
+    }
     setEmail("");
     await refreshBlockedUsers();
   }

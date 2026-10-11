@@ -51,6 +51,7 @@ import { extractEmailsFromText,
   sellerProfileSlug,
 } from "../lib/public-display";
 import { fetchPublicProfileBySlug } from "../lib/fetch-public-profile-client";
+import { saveBlockedUser } from "../lib/blocked-users";
 import {
   getPublicIdentityMetrics,
   peekPublicIdentity,
@@ -1196,14 +1197,8 @@ function MessagesPage() {
     window.dispatchEvent(new Event("blocked-users-changed"));
     setShowMenu(false);
     try {
-      let uid = email;
-      const profileSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", email)));
-      if (!profileSnap.empty) uid = profileSnap.docs[0].id;
-      await setDoc(doc(db, "users", user.uid, "blocked", uid), {
-        blockedUid: uid,
-        blockedEmail: email,
-        createdAt: serverTimestamp(),
-      });
+      // uid comes from the public identity API (profiles is owner-only, so `where email ==` is always denied)
+      await saveBlockedUser(db, user.uid, email);
     } catch (e) {
       console.error("Failed to persist block:", e);
     }
