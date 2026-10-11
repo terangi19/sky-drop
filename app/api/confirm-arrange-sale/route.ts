@@ -8,7 +8,6 @@ import {
   buildListingUpdateAfterSale,
 } from "../../lib/listing-stock";
 import { adminGetPublicHandle } from "../../lib/profile-display-admin";
-import { incrementProfileSalesCount } from "../../lib/seller-sales-admin";
 
 const CONFIRMABLE_STATUSES = new Set(["arrange_requested", "pending"]);
 
@@ -134,7 +133,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, purchaseId, status: "seller_confirming", existing: true });
     }
 
-    await incrementProfileSalesCount(sellerEmail);
+    // salesCount: counted by the onPurchaseWrittenSalesCount Cloud Function when the purchase
+    // enters seller_confirming (idempotent ledger; see functions/src/sales-count.ts).
 
     const purchaseSnap = await purchaseRef.get();
     const purchase = purchaseSnap.data()!;

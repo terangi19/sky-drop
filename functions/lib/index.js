@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupOldData = exports.autoCompleteDeliveredOrders = exports.onReportCreated = exports.onMessageCreated = exports.onListingCreated = exports.onListingUpdated = void 0;
+exports.onPurchaseWrittenSalesCount = exports.cleanupOldData = exports.autoCompleteDeliveredOrders = exports.onReportCreated = exports.onMessageCreated = exports.onListingCreated = exports.onListingUpdated = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const v2_1 = require("firebase-functions/v2");
@@ -251,4 +251,7 @@ exports.cleanupOldData = (0, scheduler_1.onSchedule)("every 24 hours", async () 
         console.error("[cleanupOldData] Failed:", e);
     }
 });
+// profiles.salesCount: single idempotent writer (SALES-COUNT-INTEGRITY).
+var sales_count_trigger_1 = require("./sales-count-trigger");
+Object.defineProperty(exports, "onPurchaseWrittenSalesCount", { enumerable: true, get: function () { return sales_count_trigger_1.onPurchaseWrittenSalesCount; } });
 //# sourceMappingURL=index.js.map
