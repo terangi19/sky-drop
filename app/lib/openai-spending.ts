@@ -114,15 +114,61 @@ function assertTrackerAvailableForCheck(): void {
   }
 }
 
-// OpenAI pricing (gpt-4o-mini as of 2024)
-const PRICING = {
-  "gpt-4o-mini": { input: 0.00000015, output: 0.0000006 }, // per token
+/** Audio seconds -> synthetic tokens for whisper-1 (shared with openai-spend-guard). ESTIMATE. */
+export const WHISPER_TOKENS_PER_SECOND = 25;
+
+// OpenAI pricing, USD per token (ESTIMATE; update when OpenAI changes list prices).
+// Every model this app uses by default MUST be listed explicitly here:
+//   gpt-4o-mini (OPENAI_MODEL default), gpt-4o (OPENAI_VISION_MODEL default),
+//   whisper-1 (sky-ai/transcribe).
+const PRICING: Record<string, { input: number; output: number }> = {
+  "gpt-4o-mini": { input: 0.00000015, output: 0.0000006 },
   "gpt-4o": { input: 0.0000025, output: 0.00001 },
+  // whisper-1 is billed per audio minute ($0.006/min = $0.0001/s), not per token.
+  // The spend guard maps 1 audio second to WHISPER_TOKENS_PER_SECOND input
+  // "tokens" (see openai-spend-guard.ts), so the per-"token" rate is
+  // $0.0001 / WHISPER_TOKENS_PER_SECOND and cost stays $0.006/min.
+  "whisper-1": { input: 0.0001 / WHISPER_TOKENS_PER_SECOND, output: 0 },
 };
 
-function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
-  const pricing = PRICING[model as keyof typeof PRICING] || PRICING["gpt-4o-mini"];
-  return (inputTokens * pricing.input) + (outputTokens * pricing.output);
+/**
+ * Unknown models are priced at the HIGHEST known per-token rate (never cheaper
+ * than a known model), so a typo or a new OPENAI_MODEL cannot make the dollar
+ * budget under-count. whisper-1 is excluded: its synthetic per-token rate is
+ * not comparable with chat-model rates.
+ */
+const CHAT_PRICING_KEYS = Object.keys(PRICING).filter((k) => k !== "whisper-1");
+const HIGHEST_KNOWN_PRICING = CHAT_PRICING_KEYS.reduce(
+  (max, key) => {
+    const p = PRICING[key];
+    return p.input + p.output > max.input + max.output ? p : max;
+  },
+  PRICING[CHAT_PRICING_KEYS[0]]
+);
+
+/**
+ * Resolve a model name to a price. Exact (case-insensitive) match first, then
+ * the longest known id followed by "-" (dated snapshots such as
+ * "gpt-4o-2024-08-06" or "gpt-4o-mini-2024-07-18"), else the highest known rate.
+ */
+export function resolveModelPricing(model: string | undefined | null): {
+  input: number;
+  output: number;
+  known: boolean;
+} {
+  const id = String(model || "").trim().toLowerCase();
+  if (id && PRICING[id]) return { ...PRICING[id], known: true };
+  let best: string | null = null;
+  for (const key of Object.keys(PRICING)) {
+    if (id.startsWith(`${key}-`) && (!best || key.length > best.length)) best = key;
+  }
+  if (best) return { ...PRICING[best], known: true };
+  return { ...HIGHEST_KNOWN_PRICING, known: false };
+}
+
+export function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
+  const pricing = resolveModelPricing(model);
+  return inputTokens * pricing.input + outputTokens * pricing.output;
 }
 
 async function getSpendingRecord(): Promise<SpendingRecord> {
@@ -454,26 +500,48 @@ export interface SpendingAlertResult {
   message?: string;
 }
 
+/**
+ * Over-cap checks run on EVERY billed OpenAI gate (and every status refresh), so
+ * logging each one would write a `securityEvents` doc per blocked request. Mirror
+ * rate-limit.ts (BLOCKED_KEY_CACHE): at most one event per type per 60 s per
+ * instance. The request is still blocked every time; only the audit write/log is
+ * deduped.
+ */
+const OVER_CAP_LOG_WINDOW_MS = 60_000;
+const overCapLastLoggedAt = new Map<string, number>();
+
+function logOverCapOnce(
+  type: "openai_daily_limit_exceeded" | "openai_monthly_limit_exceeded",
+  message: string,
+  metadata: Record<string, unknown>
+): void {
+  const now = Date.now();
+  const last = overCapLastLoggedAt.get(type);
+  if (last !== undefined && now - last < OVER_CAP_LOG_WINDOW_MS) return;
+  overCapLastLoggedAt.set(type, now);
+  logSecurityWarning(type, message, { metadata });
+}
+
+export function __resetOverCapLogDedupeForTests(): void {
+  overCapLastLoggedAt.clear();
+}
+
 function evaluateGlobalBudgetCaps(
   spending: SpendingRecord,
   config: SpendingConfig
 ): { allowed: boolean; reason?: string } {
   if (spending.dailySpendUSD >= config.dailyLimitUSD) {
-    logSecurityWarning("openai_daily_limit_exceeded", "OpenAI daily spend limit exceeded", {
-      metadata: {
-        dailySpend: spending.dailySpendUSD,
-        dailyLimit: config.dailyLimitUSD,
-      },
+    logOverCapOnce("openai_daily_limit_exceeded", "OpenAI daily spend limit exceeded", {
+      dailySpend: spending.dailySpendUSD,
+      dailyLimit: config.dailyLimitUSD,
     });
     return { allowed: false, reason: "Daily spend limit exceeded" };
   }
 
   if (spending.monthlySpendUSD >= config.monthlyLimitUSD) {
-    logSecurityWarning("openai_monthly_limit_exceeded", "OpenAI monthly spend limit exceeded", {
-      metadata: {
-        monthlySpend: spending.monthlySpendUSD,
-        monthlyLimit: config.monthlyLimitUSD,
-      },
+    logOverCapOnce("openai_monthly_limit_exceeded", "OpenAI monthly spend limit exceeded", {
+      monthlySpend: spending.monthlySpendUSD,
+      monthlyLimit: config.monthlyLimitUSD,
     });
     return { allowed: false, reason: "Monthly spend limit exceeded" };
   }
