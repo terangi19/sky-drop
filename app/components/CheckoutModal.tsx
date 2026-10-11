@@ -10,6 +10,7 @@ import { ref, getDownloadURL } from "firebase/storage";
 import { getFreshIdToken } from "../lib/api-auth";
 import { createNotification } from "../lib/notifications";
 import { sellerMessagesUrl, sellerProfileDisplayName } from "../lib/public-display";
+import { loadCheckoutSellerTrust } from "../lib/checkout-seller-trust";
 import { showToast } from "./Toast";
 
 import AnimatedCheckmark from "./AnimatedCheckmark";
@@ -320,7 +321,22 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     }
   }, [step]);
 
-  // Auto-fill from last checkout or saved profile shipping fields & load seller info
+  // Seller trust hints: public profile API (profiles are owner-only in firestore.rules, a buyer can never getDoc the seller).
+  // Independent of the buyer's own profile, so an early return there cannot skip it.
+  useEffect(() => {
+    // uid first; legacy listings with only sellerEmail resolve through the signed-in email lookup of the same API.
+    const sellerKey = listing.sellerId || listing.sellerEmail || "";
+    if (!sellerKey) return;
+    let cancelled = false;
+    void loadCheckoutSellerTrust(sellerKey).then((trust) => {
+      if (cancelled) return;
+      setSellerRating(trust.rating);
+      setSellerResponseTime(trust.responseTime);
+    });
+    return () => { cancelled = true; };
+  }, [listing.sellerId, listing.sellerEmail]);
+
+  // Auto-fill from last checkout or saved profile shipping fields
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -353,19 +369,6 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         console.error("Failed to load profile shipping info:", e);
       }
 
-      // Load seller trust info — profiles are keyed by UID (sellerId)
-      if (listing.sellerId && !cancelled) {
-        try {
-          const sellerQuery = await getDoc(doc(db, "profiles", listing.sellerId));
-          if (sellerQuery.exists()) {
-            const sellerData = sellerQuery.data();
-            setSellerRating(sellerData.sellerRating || null);
-            setSellerResponseTime(sellerData.averageResponseTime || null);
-          }
-        } catch (e) {
-          console.error("Failed to load seller info:", e);
-        }
-      }
     })();
     return () => { cancelled = true; };
   }, [listing.sellerEmail]);
