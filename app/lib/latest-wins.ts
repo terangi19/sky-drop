@@ -8,7 +8,8 @@
  *   setState(data);
  *
  * Used by the trade-feed posts list: the 60s poll and the forced refresh after the user's own
- * create/delete can overlap, and an older response must never overwrite a newer one.
+ * create can overlap, and an older response must never overwrite a newer one. After a delete the
+ * post is removed locally and `invalidate()` drops any poll that may have read it before the delete.
  */
 export function createLatestWins() {
   let seq = 0;
@@ -16,6 +17,10 @@ export function createLatestWins() {
     begin(): () => boolean {
       const mine = ++seq;
       return () => mine === seq;
+    },
+    /** Mark every fetch already in flight as stale without starting a new one. */
+    invalidate(): void {
+      seq++;
     },
   };
 }
