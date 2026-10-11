@@ -86,12 +86,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "email required" }, { status: 400 });
     }
 
+    // Sum EVERY matching sale. (A `count >= 3` break used to stop after the first
+    // three docs in arbitrary Firestore order, under-reporting any seller with 4+ sales.)
     let total = 0;
-    let count = 0;
     for (const doc of salesDocs.docs) {
-      if (count >= 3) break;
-      total += Number(doc.data().total || doc.data().price || 0);
-      count++;
+      const data = doc.data();
+      const amount = Number(data.total || data.price || 0);
+      if (Number.isFinite(amount)) total += amount;
     }
 
     return NextResponse.json({ total });
