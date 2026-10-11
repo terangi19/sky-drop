@@ -116,7 +116,9 @@ export default function TradeFeedPage() {
   const shoutsEndRef = useRef<HTMLDivElement>(null);
   const shoutsAtBottom = useRef(true);
   const lastShoutTime = useRef(0);
-  const lastOfferTime = useRef(0);
+  // Per-post 5 s cooldown (was one global ref for all posts) + posts this session already got an offer from us.
+  const lastOfferAtByPost = useRef(new Map<string, number>());
+  const [offerSentPostIds, setOfferSentPostIds] = useState<Set<string>>(() => new Set());
   const shoutInFlight = useRef(false);
   const postInFlight = useRef(false);
   const deleteInFlight = useRef(new Set<string>());
@@ -586,11 +588,15 @@ export default function TradeFeedPage() {
       return;
     }
     if (offerInFlight.current.has(postId)) return;
-    if (Date.now() - lastOfferTime.current < 5000) {
+    if (offerSentPostIds.has(postId)) {
+      showToast("Offer already sent — the seller has been notified.", "info");
+      return;
+    }
+    if (Date.now() - (lastOfferAtByPost.current.get(postId) ?? 0) < 5000) {
       showToast("Please wait before sending another offer", "info");
       return;
     }
-    lastOfferTime.current = Date.now();
+    lastOfferAtByPost.current.set(postId, Date.now());
     offerInFlight.current.add(postId);
     setOfferSendingId(postId);
     try {
@@ -601,10 +607,12 @@ export default function TradeFeedPage() {
         requestId: globalThis.crypto?.randomUUID?.(),
       });
       if (!result.ok) {
-        lastOfferTime.current = 0; // nothing was sent, so don't make the user wait out the cooldown
+        lastOfferAtByPost.current.delete(postId); // nothing was sent, so don't make the user wait out the cooldown
         showToast(result.message, "error");
         return;
       }
+      // Any 2xx (incl. duplicate:true) means the seller already has this buyer's offer: stop re-clicks.
+      setOfferSentPostIds((prev) => new Set(prev).add(postId));
       showToast(result.message, result.kind);
       setSwipedId(null);
       playOffer();
@@ -1031,8 +1039,8 @@ export default function TradeFeedPage() {
                               <>
                                 {stripeCheckoutVisible && post.price && <button onClick={() => { setCheckoutPost(post); setSwipedId(null); }}
                                   className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white">🛒 Buy</button>}
-                                <button onClick={() => { void sendOffer(post.id); }} disabled={offerSendingId === post.id}
-                                  className="rounded-xl bg-white/[0.04] border border-white/[0.06] px-4 py-2.5 text-xs font-bold text-sky-400 disabled:opacity-50">{offerSendingId === post.id ? "Sending…" : "💰 Offer"}</button>
+                                <button onClick={() => { void sendOffer(post.id); }} disabled={offerSendingId === post.id || offerSentPostIds.has(post.id)}
+                                  className="rounded-xl bg-white/[0.04] border border-white/[0.06] px-4 py-2.5 text-xs font-bold text-sky-400 disabled:opacity-50">{offerSendingId === post.id ? "Sending…" : offerSentPostIds.has(post.id) ? "✓ Offer sent" : "💰 Offer"}</button>
                               </>
                             )}
                           </div>
