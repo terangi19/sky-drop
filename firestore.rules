@@ -66,35 +66,16 @@ service cloud.firestore {
 
       allow read: if true;
 
-      allow create: if request.auth != null
+      // Server-only writes. /api/create-listing and /api/update-listing (Admin SDK) apply the
+      // restricted/suspended ban, the abuse engine (block / shadow visibilityRank), Turnstile,
+      // disposable-email gate, sanitizer, price checks, digital pending_review and the Stripe
+      // publish check. A direct client create/update skipped every one of them (a banned user
+      // could relist, set status/sellerUsername/promotedUntil, or self-approve pending_review).
+      // No client code creates or updates listings (PromoteModal's promotedUntil write stays
+      // denied until promotion is server-side).
+      allow create, update: if false;
 
-        && isEmailVerified()
-
-        && request.resource.data.sellerEmail == request.auth.token.email
-
-        && (!('sellerId' in request.resource.data)
-
-          || request.resource.data.sellerId == request.auth.uid)
-
-        && (!('sellerUid' in request.resource.data)
-
-          || request.resource.data.sellerUid == request.auth.uid);
-
-      allow update: if request.auth != null
-
-        && isSeller()
-          && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny([
-              'sellerId', 'sellerEmail', 'sellerName', 'sellerUid', 'sellerPhotoURL',
-              'ownerId', 'userId', 'createdBy',
-              'featured', 'boosted', 'promoted', 'bumpExpiresAt', 'visibilityRank',
-              'verified', 'adminVerified', 'isDemo', 'demo',
-              'currentBid', 'highestBidder', 'highestBidderId', 'highestBidderUid', 'bidCount',
-              'currentMaxBid', 'secondMaxBid',
-              'paymentReleased', 'stripePaymentIntentId', 'stripeAccountId',
-              'soldAt', 'views'
-            ]);
-
+      // Seller delete kept (app/list-list delete button); bids/reservations are Admin SDK only.
       allow delete: if request.auth != null && isSeller();
 
     }
@@ -122,7 +103,10 @@ service cloud.firestore {
           'phoneVerified', 'emailVerified',
           'stripeAccountId', 'stripeCustomerId',
           'restricted', 'bannedAt', 'banReason',
-          'referralSignups', 'referredBy', 'referredByUid'
+          'referralSignups', 'referredBy', 'referredByUid',
+          'earningsBalance', 'reportsCount', 'warningCount',
+          'suspended', 'suspendedAt', 'restrictionReason',
+          'responseTime', 'profileViews'
         ])
         && (!('kycStatus' in request.resource.data)
           || request.resource.data.kycStatus == 'pending'
@@ -159,7 +143,10 @@ service cloud.firestore {
             'phoneVerified', 'emailVerified',
             'stripeAccountId', 'stripeCustomerId',
             'restricted', 'bannedAt', 'banReason',
-            'referralSignups', 'referredBy', 'referredByUid'])
+            'referralSignups', 'referredBy', 'referredByUid',
+            'earningsBalance', 'reportsCount', 'warningCount',
+            'suspended', 'suspendedAt', 'restrictionReason',
+            'responseTime', 'profileViews'])
 
           || isKycPendingSelfSubmit())
 
@@ -439,18 +426,9 @@ service cloud.firestore {
 
       allow read: if true;
 
-      allow create: if request.auth != null
-
-        && isEmailVerified()
-
-        && request.resource.data.sellerEmail == request.auth.token.email;
-
-      allow update: if request.auth != null
-
-        && resource.data.sellerEmail == request.auth.token.email
-        && request.resource.data.sellerEmail == request.auth.token.email
-        && !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['sellerEmail', 'sellerId', 'featured', 'boosted', 'visibilityRank']);
+      // Unused by the app (no reads/writes in app/, functions/ or API routes). Clients could
+      // create arbitrary public docs here. Server-only until a feature needs it.
+      allow create, update, delete: if false;
 
     }
 
@@ -706,20 +684,9 @@ service cloud.firestore {
 
       allow read: if true;
 
-      allow create: if request.auth != null
-
-        && isEmailVerified()
-
-        && request.resource.data.sellerEmail == request.auth.token.email;
-
-      allow update: if request.auth != null
-
-        && resource.data.sellerEmail == request.auth.token.email
-        && request.resource.data.sellerEmail == request.auth.token.email;
-
-      allow delete: if request.auth != null
-
-        && resource.data.sellerEmail == request.auth.token.email;
+      // Unused by the app (no reads/writes in app/, functions/ or API routes). Clients could
+      // create arbitrary public docs here. Server-only until a feature needs it.
+      allow create, update, delete: if false;
 
     }
 
@@ -729,14 +696,9 @@ service cloud.firestore {
 
       allow read: if true;
 
-      allow create: if request.auth != null
-
-        && request.resource.data.promoterId == request.auth.uid;
-
-      allow update: if request.auth != null
-
-        && resource.data.promoterId == request.auth.uid
-        && request.resource.data.promoterId == request.auth.uid;
+      // Unused by the app (no reads/writes in app/, functions/ or API routes). Clients could
+      // create arbitrary public docs here. Server-only until a feature needs it.
+      allow create, update, delete: if false;
 
     }
 
@@ -744,9 +706,8 @@ service cloud.firestore {
 
     match /hustlerClicks/{clickId} {
 
-      allow create: if request.auth != null;
-
-      allow read, update, delete: if false;
+      // Unused by the app; any signed-in user could create unbounded docs. Server-only.
+      allow read, create, update, delete: if false;
 
     }
 
@@ -770,9 +731,9 @@ service cloud.firestore {
 
       allow read: if true;
 
-      allow create: if request.auth != null
-
-        && request.resource.data.creatorId == request.auth.uid;
+      // Unused by the app (no reads/writes in app/, functions/ or API routes). Clients could
+      // create arbitrary public docs here. Server-only until a feature needs it.
+      allow create, update, delete: if false;
 
     }
 

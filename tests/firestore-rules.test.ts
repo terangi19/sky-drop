@@ -49,12 +49,12 @@ describe("Firestore Security Rules", () => {
       );
     });
 
-    it("authenticated user can create own listing", async () => {
+    it("authenticated user cannot create a listing directly (server-only via /api/create-listing)", async () => {
       const db = testEnv
         .authenticatedContext("user1", { email: "seller@test.com", email_verified: true })
         .firestore();
       const ref = db.collection("listings").doc();
-      await assertSucceeds(
+      await assertFails(
         ref.set({ title: "Item", sellerEmail: "seller@test.com", price: "10" })
       );
     });
@@ -190,12 +190,12 @@ describe("Firestore Security Rules", () => {
       await assertFails(ref.set({ click: true }));
     });
 
-    it("authenticated user can create clicks", async () => {
+    it("authenticated user cannot create clicks (unused collection, server-only)", async () => {
       const db = testEnv
         .authenticatedContext("user1", { email: "user1@test.com" })
         .firestore();
       const ref = db.collection("hustlerClicks").doc();
-      await assertSucceeds(ref.set({ click: true }));
+      await assertFails(ref.set({ click: true }));
     });
   });
 
@@ -838,7 +838,8 @@ describe("Firestore Security Rules", () => {
           sellerId: "listing-spoof-bob",
         })
       );
-      await assertSucceeds(
+      // Listings are server-only now; even a correctly-owned direct create is denied.
+      await assertFails(
         alice.collection("listings").doc("own-seller").set({
           title: "Alice item",
           sellerEmail: "listing-spoof-alice@test.com",
@@ -876,7 +877,8 @@ describe("Firestore Security Rules", () => {
       await assertFails(
         alice.collection("listings").doc("promo-listing").update({ views: 100 })
       );
-      await assertSucceeds(
+      // Listing edits go through /api/update-listing (Admin SDK); direct client updates are denied.
+      await assertFails(
         alice.collection("listings").doc("promo-listing").update({ title: "Camera (updated)" })
       );
     });
@@ -915,7 +917,7 @@ describe("Firestore Security Rules", () => {
           secondMaxBid: 1,
         })
       );
-      await assertSucceeds(
+      await assertFails(
         alice.collection("listings").doc("auction-spoof-listing").update({
           title: "Auction item (updated)",
         })
@@ -1270,9 +1272,9 @@ describe("Firestore Security Rules", () => {
       });
     });
 
-    it("allows user A to update their own listing title (positive control)", async () => {
+    it("denies user A updating their own listing directly (server-only via /api/update-listing)", async () => {
       const owner = firestoreFor(USER_A);
-      await assertSucceeds(
+      await assertFails(
         owner.collection("listings").doc("gate-direct").update({
           title: "User A's camera (updated)",
         })
@@ -1564,7 +1566,7 @@ describe("Firestore Security Rules", () => {
       await assertFails(
         alice.collection("tradePosts").doc("view-post").update({ views: 5 })
       );
-      await assertSucceeds(
+      await assertFails(
         alice.collection("listings").doc("view-listing").update({ title: "Viewed item (updated)" })
       );
       await assertFails(
