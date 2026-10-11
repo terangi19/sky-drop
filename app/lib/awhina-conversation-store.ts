@@ -15,6 +15,14 @@ import {
   readPersistedAwhinaSession,
   type PersistedAwhinaSession,
 } from "./awhina-session-persist";
+import {
+  AWHINA_CHAT_META_KEY,
+  AWHINA_CHAT_RESET_EVENT,
+  AWHINA_CONVERSATION_ID_KEY,
+  AWHINA_CHAT_MESSAGES_KEY,
+  readAwhinaChatOwner,
+  stampAwhinaChatOwner,
+} from "./sky-ai-draft-owner";
 import { clearListingDraftFromSkyAi, readListingDraftFromSkyAi } from "./sky-ai-listing-context";
 import type { SkyAiListingContext } from "./sky-ai-types";
 
@@ -71,8 +79,9 @@ export type AwhinaConversationState = {
   updatedAt: number;
 };
 
-const MESSAGES_KEY = "skyAiAwhinaMessagesV1";
-const STATE_META_KEY = "skyAiAwhinaConversationMetaV1";
+// Keys live in sky-ai-draft-owner.ts so AuthContext can scope them to the signed-in account.
+const MESSAGES_KEY = AWHINA_CHAT_MESSAGES_KEY;
+const STATE_META_KEY = AWHINA_CHAT_META_KEY;
 const TTL_MS = 30 * 60 * 1000;
 
 type PersistedMessagesBlob = {
@@ -110,7 +119,7 @@ function emptyState(welcome?: string): AwhinaConversationState {
 function readConversationIdFromStorage(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    return localStorage.getItem("skyAiConversationId");
+    return localStorage.getItem(AWHINA_CONVERSATION_ID_KEY);
   } catch {
     return null;
   }
@@ -119,8 +128,8 @@ function readConversationIdFromStorage(): string | null {
 function writeConversationId(id: string | null) {
   if (typeof window === "undefined") return;
   try {
-    if (id) localStorage.setItem("skyAiConversationId", id);
-    else localStorage.removeItem("skyAiConversationId");
+    if (id) localStorage.setItem(AWHINA_CONVERSATION_ID_KEY, id);
+    else localStorage.removeItem(AWHINA_CONVERSATION_ID_KEY);
   } catch {
     /* ignore */
   }
@@ -147,6 +156,7 @@ function persistMessages(state: AwhinaConversationState) {
       updatedAt: Date.now(),
     };
     sessionStorage.setItem(MESSAGES_KEY, JSON.stringify(blob));
+    stampAwhinaChatOwner();
   } catch {
     /* quota */
   }
@@ -161,6 +171,7 @@ function persistMeta(state: AwhinaConversationState) {
       updatedAt: Date.now(),
     };
     sessionStorage.setItem(STATE_META_KEY, JSON.stringify(blob));
+    stampAwhinaChatOwner();
   } catch {
     /* ignore */
   }
@@ -185,8 +196,11 @@ function hydrateFromStorage(): AwhinaConversationState {
     base.pendingSlot = session.pendingSlot ?? null;
   }
 
+  // A transcript with no owner stamp (written before accounts were tracked) cannot be attributed: do not show it.
+  const attributed = readAwhinaChatOwner() !== null;
+
   try {
-    const raw = sessionStorage.getItem(MESSAGES_KEY);
+    const raw = attributed ? sessionStorage.getItem(MESSAGES_KEY) : null;
     if (raw) {
       const parsed = JSON.parse(raw) as PersistedMessagesBlob;
       if (
@@ -216,7 +230,7 @@ function hydrateFromStorage(): AwhinaConversationState {
   }
 
   try {
-    const metaRaw = sessionStorage.getItem(STATE_META_KEY);
+    const metaRaw = attributed ? sessionStorage.getItem(STATE_META_KEY) : null;
     if (metaRaw) {
       const meta = JSON.parse(metaRaw) as PersistedMetaBlob;
       if (meta && Date.now() - (meta.updatedAt || 0) <= TTL_MS) {
@@ -236,6 +250,15 @@ let state: AwhinaConversationState =
   typeof window !== "undefined" ? hydrateFromStorage() : emptyState();
 
 const listeners = new Set<() => void>();
+
+// Account switch / sign-out (fired by bindListingDraftOwner from AuthContext): the module-level store may still
+// hold the previous account's transcript in memory, so drop it. Keeps the welcome seed and the current surface.
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener(AWHINA_CHAT_RESET_EVENT, () => {
+    state = { ...emptyState(state.welcomeSeed), surface: state.surface };
+    for (const l of listeners) l();
+  });
+}
 
 function emit() {
   state = { ...state, updatedAt: Date.now() };
