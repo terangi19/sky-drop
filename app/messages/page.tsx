@@ -159,6 +159,36 @@ function getSearchParam(key: string): string | null {
   if (typeof window === "undefined") return null;
   try { return new URLSearchParams(window.location.search).get(key); } catch { return null; }
 }
+/** Thread-list placeholder while the inbox's first snapshot is pending (no empty-state flash). */
+function InboxSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading conversations" data-testid="inbox-skeleton">
+      {Array.from({ length: 6 }, (_, i) => (
+        <div key={i} className="flex items-center gap-3 border-b border-[var(--card-border)]/70 px-3.5 py-3">
+          <div className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-[var(--card-border)]/80" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="h-3 w-24 animate-pulse rounded bg-[var(--card-border)]/80" />
+            <div className="h-3 w-40 max-w-full animate-pulse rounded bg-[var(--card-border)]/60" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+/** Perf probe (no reads): window.__skyMsgTiming = time-to-threads for the inbox's first snapshot. */
+function recordInboxTiming(subscribedAt: number, docs: number, fromCache: boolean) {
+  if (typeof window === "undefined") return;
+  const w = window as unknown as { __skyMsgTiming?: unknown };
+  if (w.__skyMsgTiming) return; // first snapshot only
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  w.__skyMsgTiming = {
+    subscribeAtMs: Math.round(subscribedAt), // since navigation start: includes JS load + auth restore
+    firstSnapshotAtMs: Math.round(now), // = time-to-threads
+    listenerMs: Math.round(now - subscribedAt), // Firestore connect (+App Check token) + query
+    docs,
+    fromCache,
+  };
+}
 function MessagesPage() {
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -168,6 +198,13 @@ function MessagesPage() {
   const [chatListingId, setChatListingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  /**
+   * True once the inbox listener delivered its first snapshot (or failed). Until then the thread
+   * list shows a skeleton (never the "Your messages will appear here" empty state), and the
+   * chat-pane-only work (typing + purchases listeners, listing getDoc) waits so it doesn't compete
+   * with the inbox query on the shared Firestore stream. Same reads, later.
+   */
+  const [inboxReady, setInboxReady] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
   const [avatars, setAvatars] = useState<Record<string, string>>({});
@@ -460,6 +497,7 @@ function MessagesPage() {
       setListingCard(null);
       return;
     }
+    if (!inboxReady) return; // URL prefill card stays visible; hydrate after the inbox snapshot
     let cancelled = false;
     getDoc(doc(db, "listings", chatListingId)).then((snap) => {
       if (cancelled) return;
@@ -498,10 +536,11 @@ function MessagesPage() {
     return () => { cancelled = true; };
     // intentionally omit messages — avoid re-getDoc on every inbox snapshot
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatListingId]);
+  }, [chatListingId, inboxReady]);
   // Typing listener — peer writes to peerEmail_myEmail_listingId
   useEffect(() => {
     if (!chatUser || !user?.email) { setOtherTyping(false); return; }
+    if (!inboxReady) return; // deferred until the inbox's first snapshot
     const typingRef = doc(db, "typing", `${chatUser}_${user.email}_${chatListingId || "general"}`);
     const unsub = onSnapshot(typingRef, (snap) => {
       if (snap.exists()) {
@@ -516,7 +555,7 @@ function MessagesPage() {
       }
     });
     return () => { unsub(); if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); };
-  }, [chatUser, user, chatListingId]);
+  }, [chatUser, user, chatListingId, inboxReady]);
   // Mark as read — dedupe by message id; notifications consolidated server-side once per conversation
   useEffect(() => {
     if (!chatUser || !user?.email) return;
@@ -770,11 +809,16 @@ function MessagesPage() {
   useEffect(() => {
     if (!user?.email) {
       setMessages([]);
-      setLoading(false);
+      // Signed out: the auth gate renders instead of the inbox, so keep the skeleton state.
+      setLoading(Boolean(user));
+      setInboxReady(Boolean(user));
       return;
     }
     let mounted = true;
     setLoadError(false);
+    setLoading(true);
+    setInboxReady(false);
+    const subscribedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
     const msgQuery = query(
       collection(db, "messages"),
       where("participants", "array-contains", user.email),
@@ -791,6 +835,8 @@ function MessagesPage() {
       rawMessagesRef.current = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setMessages(items);
       setLoading(false);
+      setInboxReady(true);
+      recordInboxTiming(subscribedAt, snap.size, Boolean(snap.metadata?.fromCache));
       if (snap.metadata?.hasPendingWrites) return;
       // Batch public identity — one POST /api/public-profiles for unique emails/uids
       const ids = new Set<string>();
@@ -806,6 +852,7 @@ function MessagesPage() {
       if (mounted) {
         setLoading(false);
         setLoadError(true);
+        setInboxReady(true);
       }
     });
 
@@ -1526,6 +1573,7 @@ function MessagesPage() {
       setPurchaseData(null);
       return;
     }
+    if (!inboxReady) return; // deferred until the inbox's first snapshot
 
     // Bounded + rules-compliant: see buildConversationPurchasesQuery.
     const q = buildConversationPurchasesQuery(db, chatListingId, user.email, chatUser);
@@ -1549,7 +1597,7 @@ function MessagesPage() {
     );
 
     return () => unsub();
-  }, [chatUser, chatListingId, user?.email]);
+  }, [chatUser, chatListingId, user?.email, inboxReady]);
   useEffect(() => {
     if (!authReady || user) return;
     const returnPath = `${window.location.pathname}${window.location.search}` || "/messages";
@@ -1715,8 +1763,8 @@ function MessagesPage() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-thin">
-              {loading ? (
-                <div className="flex justify-center p-6"><LoadingSpinner text="Loading conversations" /></div>
+              {loading || !inboxReady ? (
+                <InboxSkeleton />
               ) : loadError ? (
                 <div className="p-4">
                   <EmptyState
@@ -1927,7 +1975,11 @@ function MessagesPage() {
               )}
             </div>
             {/* Empty state */}
-            {!chatUser ? (
+            {!chatUser && (loading || !inboxReady) ? (
+              <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center" aria-busy="true">
+                <p className="text-[13px] text-[var(--muted)]">Loading conversations…</p>
+              </div>
+            ) : !chatUser ? (
               <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
                 <p className="text-[15px] font-medium text-[var(--foreground)]">Your messages will appear here.</p>
                 <p className="mt-1.5 max-w-xs text-[13px] leading-relaxed text-[var(--muted)]">
@@ -2058,7 +2110,11 @@ function MessagesPage() {
                     </div>
                   )}
                   {/* Messages */}
-                  {filteredMessages.length === 0 ? (
+                  {filteredMessages.length === 0 && (loading || !inboxReady) ? (
+                    <div className="flex h-full flex-col items-center justify-center px-4 text-center" aria-busy="true">
+                      <p className="text-[13px] text-[var(--muted)]">Loading messages…</p>
+                    </div>
+                  ) : filteredMessages.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center px-4 text-center">
                       <p className="text-[14px] font-medium text-[var(--foreground)]">No messages yet</p>
                       <p className="mt-1 text-[12px] text-[var(--muted)]">Say hello to start arranging.</p>

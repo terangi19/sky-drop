@@ -10,9 +10,10 @@ function purchaseEffect(): string {
   const start = page.indexOf("buildConversationPurchasesQuery(db, chatListingId");
   expect(start).toBeGreaterThan(0);
   const effectStart = page.lastIndexOf("useEffect(", start);
-  const end = page.indexOf("}, [chatUser, chatListingId, user?.email]);", start);
+  // MESSAGES-SLOW-LOAD: the listener is deferred until the inbox's first snapshot (inboxReady).
+  const end = page.indexOf("}, [chatUser, chatListingId, user?.email, inboxReady]);", start);
   expect(end).toBeGreaterThan(start);
-  return page.slice(effectStart, end + 45);
+  return page.slice(effectStart, end + 57);
 }
 
 describe("messages page purchases listener", () => {
@@ -32,7 +33,7 @@ describe("messages page purchases listener", () => {
     const eff = purchaseEffect();
     expect(eff).toMatch(/const unsub = onSnapshot\(/);
     expect(eff).toMatch(/return \(\) => unsub\(\);/);
-    expect(eff).toMatch(/\[chatUser, chatListingId, user\?\.email\]/);
+    expect(eff).toMatch(/\[chatUser, chatListingId, user\?\.email, inboxReady\]/);
   });
 
   it("does not subscribe without a chat user, signed-in email and listing id", () => {
