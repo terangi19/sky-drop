@@ -4,6 +4,7 @@ import { getAdminDb, getAdminAuth, isAdminInitialized } from "../../../lib/fireb
 import { AdminAuthError, requireAdminFromRequest } from "../../../lib/admin-request";
 import { writeAuditLog } from "../../../lib/admin-utils";
 import { blacklistPhone, recordUsedIp } from "../../../lib/ban-store";
+import { removeFollowEdgesForUser } from "../../../lib/follow-edges.server";
 
 const SERIOUS_ACTIONS = new Set(["restrict_user", "suspend_user", "delete_listing", "ban_user"]);
 
@@ -57,10 +58,7 @@ async function banUser(uid: string, adminEmail: string, adminUid: string, report
   reviewsOfUser.docs.forEach((doc) => hideBatch.update(doc.ref, { hidden: true }));
   await hideBatch.commit();
 
-  const followers = await db.collection("followers").where("followingId", "==", uid).get();
-  const followerBatch = db.batch();
-  followers.docs.forEach((doc) => followerBatch.delete(doc.ref));
-  await followerBatch.commit();
+  await removeFollowEdgesForUser(db, uid);
 
   const ip = String(profile.ip || "");
   if (ip) await recordUsedIp(ip);

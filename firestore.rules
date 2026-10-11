@@ -504,15 +504,21 @@ service cloud.firestore {
 
     match /followers/{docId} {
 
+      // PROMPT-13: edges are uid-only ({sellerId, followerId, createdAt}); id = sellerUid_followerUid.
+      // A user reads only their OWN outgoing edges (Following tab query, "am I following?" check).
+      // Sellers do not read who follows them: they see profiles.followers (count) via the public
+      // profile API. Old docs carried followerEmail/sellerEmail; scrub with scripts/scrub-follower-emails.cjs.
       allow read: if request.auth != null
+        && resource.data.followerId == request.auth.uid;
 
-        && (resource.data.followerId == request.auth.uid
+      // "Am I following X?" on a missing edge: only for an id ending in _<caller uid>. Reveals nothing
+      // beyond the caller's own (absent) edge, and avoids a permission error for non-followers.
+      allow get: if request.auth != null
+        && resource == null
+        && docId.split('_').size() == 2
+        && docId.split('_')[1] == request.auth.uid;
 
-          || resource.data.sellerId == request.auth.uid
-
-          || resource.data.followingId == request.auth.uid);
-
-      allow create, update, delete: if false; // server-only via follow APIs
+      allow create, update, delete: if false; // server-only via /api/follow and admin moderation
 
     }
 
