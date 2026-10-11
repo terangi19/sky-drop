@@ -2,6 +2,8 @@
  * Centralized input validation utilities for API routes
  */
 
+import { EMAIL_MAX_LENGTH, isValidEmailFormat } from "./email-format";
+
 export interface ValidationResult {
   valid: boolean;
   error?: string;
@@ -11,12 +13,12 @@ export function validateEmail(email: unknown): ValidationResult {
   if (typeof email !== "string") {
     return { valid: false, error: "Email must be a string" };
   }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return { valid: false, error: "Invalid email format" };
-  }
-  if (email.length > 255) {
+  // Length first: never run a format check on unbounded input.
+  if (email.length > EMAIL_MAX_LENGTH) {
     return { valid: false, error: "Email too long" };
+  }
+  if (!isValidEmailFormat(email)) {
+    return { valid: false, error: "Invalid email format" };
   }
   return { valid: true };
 }

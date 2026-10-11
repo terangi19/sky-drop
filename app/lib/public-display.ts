@@ -27,7 +27,11 @@ export type SellerLinkFields = PublicProfileFields &
 
 export function isEmailLike(value: string | undefined | null): boolean {
   if (!value || typeof value !== "string") return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  const v = value.trim();
+  // Cap before the regex: no real address exceeds 254 chars, and the pattern backtracks
+  // quadratically on long "@"/"."-heavy input (~2 s at 40k chars).
+  if (v.length > 254) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 }
 
 /** @username → username, else unchanged */

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { isValidEmailFormat } from "../../lib/email-format";
 import { RATE_LIMITS } from "../../lib/rate-limit-config";
 import { isAdminEmail } from "../../lib/admin-check";
 import { parseIpFromRequest } from "../../lib/geo-check";
@@ -18,7 +19,6 @@ import { registerAction } from "../../lib/account-graph";
 import { isTurnstileConfigured, verifyTurnstileToken } from "../../lib/turnstile";
 import { isPublicHttpUrl } from "../../lib/http-url";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
   try {
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     const target = targetEmail.trim().toLowerCase();
     const from = fromEmail.trim().toLowerCase();
 
-    if (!EMAIL_RE.test(target) || !EMAIL_RE.test(from)) {
+    if (!isValidEmailFormat(target) || !isValidEmailFormat(from)) {
       return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
     }
 

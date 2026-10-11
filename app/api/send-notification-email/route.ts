@@ -3,6 +3,7 @@ import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { RATE_LIMITS } from "../../lib/rate-limit-config";
 import { isAdminEmail } from "../../lib/admin-check";
+import { isValidEmailFormat } from "../../lib/email-format";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { resolveNotificationEmailBody } from "../../lib/notification-email-body";
 
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing to, subject, or html" }, { status: 400 });
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    if (!isValidEmailFormat(to)) {
       return NextResponse.json({ error: "Invalid recipient email" }, { status: 400 });
     }
 
