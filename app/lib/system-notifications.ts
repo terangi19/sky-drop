@@ -23,7 +23,6 @@ export async function createSystemNotification(input: SystemNotificationInput): 
   if (target === from) return;
 
   const targetProfile = await db.collection("profiles").where("email", "==", target).limit(1).get();
-  const targetUid = targetProfile.empty ? null : targetProfile.docs[0].id;
   if (!targetProfile.empty) {
     const prefs = targetProfile.docs[0].data();
     if (!profileAllowsNotificationDelivery(prefs, input.type)) {
@@ -44,11 +43,8 @@ export async function createSystemNotification(input: SystemNotificationInput): 
     createdAt: new Date(),
   };
 
-  // Add to notifications collection for target user
-  if (targetUid) {
-    await db.collection("users").doc(targetUid).collection("notifications").add(notification);
-  }
-
-  // Also create a global notification document for email/push workers
+  // The `notifications` collection is the only store anything reads (dropdown, unread
+  // counts, mark-read, email/push workers). A per-user `users/{uid}/notifications`
+  // copy used to be written here too, but nothing ever read it.
   await db.collection("notifications").add(notification);
 }
