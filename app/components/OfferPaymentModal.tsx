@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
-import { calculateTrustScore } from "../lib/trustscore";
 import { playSuccess } from "../lib/sounds";
 import { buildCheckoutSuccessUrl } from "../lib/payment-checkout";
 import AnimatedCheckmark from "./AnimatedCheckmark";
@@ -134,31 +133,10 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
         }
       }
 
-      // Check seller is not restricted and has acceptable trust
-      const profileSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail)));
-      if (!profileSnap.empty) {
-        const profile = profileSnap.docs[0].data();
-        if (profile.restricted) {
-          setIntentError("This seller is currently restricted. Payment cannot be processed.");
-          setStep("form");
-          return;
-        }
-        const trust = calculateTrustScore({
-          emailVerified: profile.emailVerified,
-          hasProfile: true,
-          hasBio: !!profile.bio,
-          hasPhoto: !!profile.photoURL,
-          memberSince: profile.memberSince?.toDate?.() || new Date(),
-          reportsCount: profile.reportsCount || 0,
-          salesCount: profile.salesCount || 0,
-        });
-        if (trust.score < 40) {
-          setIntentError("This seller's trust score is too low. Please contact support.");
-          setStep("form");
-          return;
-        }
-      }
-
+      // No client seller-profile lookup here: `profiles` is owner-only (firestore.rules), so the old
+      // profiles-by-email list query was always denied and every offer payment ended in
+      // "Could not connect to payment server". /api/create-payment-intent re-checks the seller with
+      // the Admin SDK (restricted / unverified email / no payouts) before creating the intent.
       const token = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
