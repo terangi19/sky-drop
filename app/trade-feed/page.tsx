@@ -31,6 +31,13 @@ import {
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import { BROWSE_POLL_MS, startVisibilityPolledFetch } from "../lib/polled-firestore";
 import { requireWatchlistAccount } from "../lib/require-watchlist-account";
+import {
+  TRADE_SHOUT_LIMIT,
+  createShoutListenerErrorHandler,
+  expiredOwnShoutIds,
+  orderShoutsOldestFirst,
+  visibleShouts,
+} from "../lib/trade-shouts";
 
 const CheckoutModal = dynamic(() => import("../components/CheckoutModal"), { ssr: false });
 const PromoteModal = dynamic(() => import("../components/PromoteModal"), { ssr: false });
@@ -116,6 +123,12 @@ export default function TradeFeedPage() {
   const postsFetchGuard = useRef(createLatestWins());
   const [expandedReplies, setExpandedReplies] = useState<any[] | null>(null);
   const [shouts, setShouts] = useState<any[]>([]);
+  /** Shout listener failed (missing index / permission): show a quiet empty state, keep what we had. */
+  const [shoutsUnavailable, setShoutsUnavailable] = useState(false);
+  /** Re-evaluated every minute so shouts age out of the 1h display window without a new snapshot. */
+  const [shoutClockMs, setShoutClockMs] = useState(() => Date.now());
+  // Display window: only shouts from the last hour (cron cleanup can lag up to ~26h).
+  const displayShouts = useMemo(() => visibleShouts(shouts, shoutClockMs), [shouts, shoutClockMs]);
   const [shoutText, setShoutText] = useState("");
   const shoutsEndRef = useRef<HTMLDivElement>(null);
   const shoutsAtBottom = useRef(true);
@@ -132,7 +145,7 @@ export default function TradeFeedPage() {
   const lastPostTime = useRef(0);
   const knownSoldIds = useRef(new Set<string>());
   const knownHotIds = useRef(new Set<string>());
-  const knownShoutCount = useRef(0);
+  const knownShoutIds = useRef(new Set<string>());
   const lastClaimUsername = useRef<string | null>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -316,9 +329,11 @@ export default function TradeFeedPage() {
 
   // Shouts → live events
   useEffect(() => {
-    if (shouts.length > knownShoutCount.current) {
-      const newShouts = shouts.slice(knownShoutCount.current);
-      knownShoutCount.current = shouts.length;
+    // Track by id: the shout window is capped (newest N), so once it is full the length no longer grows.
+    // Only shouts inside the 1h display window become live events (not day-old leftovers).
+    const newShouts = displayShouts.filter((s) => !knownShoutIds.current.has(s.id));
+    if (newShouts.length > 0) {
+      newShouts.forEach((s) => knownShoutIds.current.add(s.id));
       for (const s of newShouts) {
         const id = ++eventId.current;
         const name = (s.by || "?").split("@")[0];
@@ -326,7 +341,7 @@ export default function TradeFeedPage() {
         setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
       }
     }
-  }, [shouts]);
+  }, [displayShouts]);
 
   // Legendary badge claims → live events
   useEffect(() => {
@@ -346,32 +361,46 @@ export default function TradeFeedPage() {
   // Shouts — real-time world chat
   useEffect(() => {
     const worldFilter = selectedWorld.length === 1 && selectedWorld[0] !== "all" ? selectedWorld[0] : "__general__";
-    const q = query(collection(db, "tradeShouts"), where("world", "==", worldFilter), limit(50));
-    const unsub = onSnapshot(q, (snap) => {
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      items.sort((a: any, b: any) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
-      setShouts(items);
-    });
+    // Newest N for this world (needs the tradeShouts world ASC + createdAt DESC index in firestore.indexes.json).
+    const q = query(collection(db, "tradeShouts"), where("world", "==", worldFilter), orderBy("createdAt", "desc"), limit(TRADE_SHOUT_LIMIT));
+    const onShoutError = createShoutListenerErrorHandler(() => setShoutsUnavailable(true));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setShoutsUnavailable(false);
+        setShouts(orderShoutsOldestFirst(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+      },
+      onShoutError
+    );
     return () => unsub();
   }, [selectedWorld]);
 
-  // Shoutbox auto-clear old shouts (older than 1 hour) every 5 minutes
   useEffect(() => {
+    const t = setInterval(() => setShoutClockMs(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Shoutbox auto-clear: every 5 minutes delete the signed-in user's OWN shouts older than 1 hour.
+  // firestore.rules only let an author delete their own shout, so other people's expired shouts are
+  // removed when their authors are online (or by a server-side TTL/cron, not by this client).
+  // No query: it works on the shouts already loaded, so it costs no extra reads.
+  const shoutsRef = useRef<any[]>([]);
+  shoutsRef.current = shouts;
+  useEffect(() => {
+    if (!user?.email) return;
     const interval = setInterval(async () => {
       try {
-        const cutoff = Date.now() / 1000 - 3600;
-        const q = query(collection(db, "tradeShouts"), where("createdAt", "<", cutoff), limit(50));
-        const snap = await getDocs(q);
-        if (snap.empty) return;
+        const ids = expiredOwnShoutIds(shoutsRef.current, user.email, Date.now());
+        if (ids.length === 0) return;
         const batch = writeBatch(db);
-        snap.docs.forEach((d) => batch.delete(doc(db, "tradeShouts", d.id)));
+        ids.forEach((id) => batch.delete(doc(db, "tradeShouts", id)));
         await batch.commit();
       } catch (e) {
         console.error("Shoutbox auto-clear failed:", e);
       }
     }, 300000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user?.email]);
 
   // Auto-scroll shoutbox to bottom
   useEffect(() => {
@@ -1282,13 +1311,13 @@ export default function TradeFeedPage() {
                 </span>
               </div>
               <div className="max-h-80 overflow-y-auto mb-3 scrollbar-thin space-y-0.5" ref={shoutsEndRef} onScroll={handleShoutsScroll}>
-                {shouts.length === 0 ? (
+                {displayShouts.length === 0 ? (
                   <div className="flex flex-col items-center py-8 text-sm text-zinc-600">
                     <span className="mb-2 text-2xl">💬</span>
-                    <span>No messages yet...</span>
+                    <span>{shoutsUnavailable ? "Chat is unavailable right now." : "No messages yet..."}</span>
                   </div>
                 ) : (
-                  shouts.map((s) => (
+                  displayShouts.map((s) => (
                     <div key={s.id} className="group relative rounded-lg px-2 py-2 transition hover:bg-white/[0.02]">
                       <div className="flex items-start gap-2.5">
                         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-500 text-xs font-bold text-white mt-0.5">
