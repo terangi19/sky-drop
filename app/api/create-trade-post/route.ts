@@ -67,6 +67,13 @@ export async function POST(req: NextRequest) {
     const db = getAdminDb();
 
     if (badgeForSale) {
+      // Badge posts sell a profile badge: the seller must actually hold it (profiles.badges is
+      // server-written only; firestore.rules denies owner writes to badges/profileBadge).
+      const profileSnap = await db.collection("profiles").doc(token.uid).get();
+      const ownedBadges = profileSnap.exists ? profileSnap.data()?.badges : undefined;
+      if (!Array.isArray(ownedBadges) || !ownedBadges.includes(badgeForSale)) {
+        return NextResponse.json({ error: "You don't own this badge." }, { status: 403 });
+      }
       const existing = await db
         .collection("tradePosts")
         .where("sellerEmail", "==", sellerEmail)
