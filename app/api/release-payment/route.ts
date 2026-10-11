@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
-import { isAdminEmail } from "../../lib/admin-check";
+import { isAdminEmailToken } from "../../lib/admin-check.server";
 import { writeAuditLog } from "../../lib/admin-utils";
 import {
   isActiveDisputeStatus,
@@ -19,7 +19,7 @@ import {
 import * as Sentry from "@sentry/nextjs";
 
 export async function POST(req: NextRequest) {
-  let decodedToken: { email?: string } | undefined;
+  let decodedToken: { email?: string; email_verified?: boolean } | undefined;
   let purchaseId: string | undefined;
 
   try {
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
     const isSeller = purchase.sellerEmail === decodedToken.email;
     const isBuyer = purchase.buyerEmail === decodedToken.email;
-    const isAdmin = isAdminEmail(decodedToken.email || "");
+    const isAdmin = isAdminEmailToken(decodedToken);
     if (!isSeller && !isBuyer && !isAdmin) {
       return NextResponse.json({ error: "Not authorized for this purchase" }, { status: 403 });
     }

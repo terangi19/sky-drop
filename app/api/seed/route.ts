@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
-import { isAdminEmail } from "../../lib/admin-check";
+import { isAdminEmailToken } from "../../lib/admin-check.server";
 
 const sellers = [
   { email: "seller1@skydrop.nz", name: "TechTrader", uid: "seed_s1" },
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     const idToken = authHeader.slice(7);
     try {
       const decoded = await verifyIdToken(idToken);
-      if (!isAdminEmail(decoded.email)) {
+      if (!isAdminEmailToken(decoded)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     } catch {

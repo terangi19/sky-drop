@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { parseIpFromRequest } from "../../lib/geo-check";
-import { isAdminUser } from "../../lib/admin-check.server";
+import { isAdminToken } from "../../lib/admin-check.server";
 import { classifyIntentWithOpenAI, type AwhinaIntentContext } from "../../lib/awhina-intent-router-server";
 import {
   checkOpenAiSpendGate,
@@ -15,12 +15,14 @@ async function checkRateLimit(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   let uid: string | null = null;
   let email = "";
+  let emailVerified = false;
 
   if (authHeader?.startsWith("Bearer ")) {
     try {
       const decoded = await verifyIdToken(authHeader.slice(7));
       uid = decoded.uid;
       email = decoded.email || "";
+      emailVerified = decoded.email_verified === true;
     } catch {
       /* optional */
     }
@@ -28,13 +30,13 @@ async function checkRateLimit(req: NextRequest) {
 
   const limitKey = uid ? `awhina-intent:${uid}` : `awhina-intent:ip:${ip}`;
   const limit = await rateLimit(limitKey, uid ? 80 : 10, 15 * 60_000);
-  return { uid, email, allowed: limit.allowed };
+  return { uid, email, emailVerified, allowed: limit.allowed };
 }
 
 export async function POST(req: NextRequest) {
   const ip = parseIpFromRequest(req.headers);
   try {
-    const { uid, email, allowed } = await checkRateLimit(req);
+    const { uid, email, emailVerified, allowed } = await checkRateLimit(req);
     if (!uid) {
       return NextResponse.json(
         { error: "Sign in to use AI intent classification.", code: "auth_required" },
@@ -66,7 +68,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const message = typeof body.message === "string" ? body.message.trim() : "";
     const pathname = typeof body.pathname === "string" ? body.pathname : "/";
-    const isAdmin = await isAdminUser(email, uid);
+    const isAdmin = await isAdminToken({ uid, email, email_verified: emailVerified });
     const conversationHistory = Array.isArray(body.conversationHistory)
       ? body.conversationHistory.slice(-10) // Last 10 messages
       : [];

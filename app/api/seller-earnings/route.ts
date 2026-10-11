@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb, isAdminInitialized, verifyIdToken } from "../../lib/firebase-admin";
-import { isAdminUser } from "../../lib/admin-check.server";
+import { isAdminToken } from "../../lib/admin-check.server";
 
 const EARNING_STATUSES = ["paid", "delivered", "confirmed"] as const;
 
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const requesterEmailRaw = (token.email || "").trim();
     const requesterEmail = requesterEmailRaw.toLowerCase();
     const isAdmin = requesterEmail
-      ? await isAdminUser(requesterEmail, token.uid)
+      ? await isAdminToken(token)
       : false;
 
     let targetUid = uidParam;

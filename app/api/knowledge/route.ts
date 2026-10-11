@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
-import { isAdminEmail } from "../../lib/admin-check";
+import { isAdminEmailToken } from "../../lib/admin-check.server";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { KNOWLEDGE_CATEGORIES, matchKnowledge, type KnowledgeDoc, SEED_KNOWLEDGE } from "../../lib/knowledge-base";
 import { rateLimit } from "../../lib/rate-limit";
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       }
       try {
         const decoded = await verifyIdToken(authHeader.slice(7));
-        if (!isAdminEmail(decoded.email)) {
+        if (!isAdminEmailToken(decoded)) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
       } catch {
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const decoded = await verifyIdToken(authHeader.slice(7));
-    if (!isAdminEmail(decoded.email)) {
+    if (!isAdminEmailToken(decoded)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -128,7 +128,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const decoded = await verifyIdToken(authHeader.slice(7));
-    if (!isAdminEmail(decoded.email)) {
+    if (!isAdminEmailToken(decoded)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

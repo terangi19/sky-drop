@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../../lib/firebase-admin";
-import { isAdminUser } from "../../../lib/admin-check.server";
+import { isAdminToken } from "../../../lib/admin-check.server";
 import { parseIpFromRequest } from "../../../lib/geo-check";
 import { frictionLimit, shouldSkipCaptcha, type FrictionInput } from "../../../lib/rate-limit";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../../lib/request-body";
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const email = decodedToken.email || "";
     const uid = decodedToken.uid;
 
-    if (!(await isAdminUser(email, uid))) {
+    if (!(await isAdminToken(decodedToken))) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
