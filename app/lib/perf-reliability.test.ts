@@ -111,7 +111,9 @@ describe("performance reliability locks", () => {
   });
 
   it("resolves send-message identity lookups concurrently", () => {
-    const file = src("app/api/send-message/route.ts");
+    // PROMPT-11 moved the lookup into send-message-receiver.server.ts (route calls it).
+    expect(src("app/api/send-message/route.ts")).toContain("resolveMessageReceiver(");
+    const file = src("app/lib/send-message-receiver.server.ts");
     expect(file).toContain("Promise.all");
     expect(file).toMatch(/unameSnap[\s\S]*listingSnap[\s\S]*userRec/);
   });

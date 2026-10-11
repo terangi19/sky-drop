@@ -15,6 +15,7 @@ import { requireVerifiedEmail } from "../../lib/require-verified";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
 import { clearHiddenConversationForUser } from "../../lib/conversation-hide.server";
+import { checkConversationBinding, resolveMessageReceiver } from "../../lib/send-message-receiver.server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -123,62 +124,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not determine sender email" }, { status: 400 });
     }
 
-    // Resolve username / uid / email-local-part placeholders to a real email so
-    // participants stay deliverable for both buyer and seller inboxes.
-    let resolvedReceiver = receiver;
-    if (!receiver.includes("@")) {
-      const lower = receiver.toLowerCase();
-      const [unameSnap, listingSnap, userRec] = await Promise.all([
-        db.collection("usernames").doc(lower).get(),
-        listingId
-          ? db.collection("listings").doc(listingId).get().catch(() => null)
-          : Promise.resolve(null),
-        getAdminAuth()
-          .getUser(receiver)
-          .catch(() => null),
-      ]);
-      if (unameSnap.exists) {
-        const uid = String(unameSnap.data()?.uid || "");
-        if (uid) {
-          const profileSnap = await db.collection("profiles").doc(uid).get();
-          const email = String(profileSnap.data()?.email || "").trim();
-          if (email.includes("@")) resolvedReceiver = email;
-        }
-      }
-      if (!resolvedReceiver.includes("@") && userRec?.email) {
-        resolvedReceiver = userRec.email;
-      }
-      if (!resolvedReceiver.includes("@") && listingSnap?.exists) {
-        const listing = listingSnap.data() || {};
-        const listingEmail = String(listing.sellerEmail || "").trim();
-        const listingUser = String(listing.sellerUsername || "").trim().toLowerCase();
-        const listingUid = String(listing.sellerId || "").trim();
-        if (
-          listingEmail.includes("@") &&
-          (lower === listingUser ||
-            lower === listingUid.toLowerCase() ||
-            lower === listingEmail.split("@")[0]?.toLowerCase())
-        ) {
-          resolvedReceiver = listingEmail;
-        }
-      }
-    }
-
-    if (resolvedReceiver.toLowerCase() === senderEmail.toLowerCase()) {
-      return NextResponse.json({ error: "Cannot message yourself" }, { status: 400 });
-    }
-
-    // Existing conversations: sender must be a participant.
+    // Existing conversation: load it first so the receiver can be bound to its participants.
+    let convParticipants: string[] | null = null;
+    let convDoc: Record<string, unknown> | null = null;
     if (conversationId) {
       const convSnap = await db.collection("conversations").doc(conversationId).get();
       if (!convSnap.exists) {
         return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
       }
-      const participants = Array.isArray(convSnap.data()?.participants)
-        ? (convSnap.data()!.participants as string[])
-        : [];
-      if (!participants.includes(senderEmail)) {
-        return NextResponse.json({ error: "Not a participant in this conversation" }, { status: 403 });
+      convDoc = convSnap.data() || {};
+      convParticipants = Array.isArray(convDoc.participants) ? (convDoc.participants as string[]) : [];
+    }
+
+    // Resolve username / uid placeholders to an email without turning this into an email oracle
+    // (see send-message-receiver.server.ts).
+    const resolved = await resolveMessageReceiver(db, getAdminAuth(), {
+      receiver,
+      listingId,
+      conversationParticipants: convParticipants,
+    });
+    if (!resolved.ok) {
+      return NextResponse.json({ error: resolved.error }, { status: resolved.status });
+    }
+    const resolvedReceiver = resolved.email;
+
+    if (resolvedReceiver.toLowerCase() === senderEmail.toLowerCase()) {
+      return NextResponse.json({ error: "Cannot message yourself" }, { status: 400 });
+    }
+
+    // Existing conversations: sender AND receiver must be participants; listing must match.
+    if (convDoc) {
+      const binding = checkConversationBinding(convDoc, {
+        senderEmail,
+        receiverEmail: resolvedReceiver,
+        listingId,
+      });
+      if (!binding.ok) {
+        return NextResponse.json({ error: binding.error }, { status: binding.status });
       }
     }
 
@@ -267,7 +249,7 @@ export async function POST(req: NextRequest) {
 
     await clearHiddenConversationForUser(
       db,
-      receiver,
+      resolvedReceiver,
       senderEmail,
       listingId || null
     ).catch(() => {});
