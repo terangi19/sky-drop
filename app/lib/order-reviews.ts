@@ -20,8 +20,14 @@ export function isReviewEligibleStatus(status?: string): boolean {
   return REVIEW_ELIGIBLE_STATUSES.has(String(status || "").toLowerCase());
 }
 
+/**
+ * Once-only flag for the buyer's review. Only `buyerReviewed` counts: it is
+ * written solely by /api/submit-review (Admin SDK) and no client rule allows it.
+ * The legacy `reviewed` field was client-writable by BOTH parties, so a seller
+ * could set it to block the buyer's review. It is display-only and ignored here.
+ */
 export function buyerAlreadyReviewed(p: OrderReviewPurchase): boolean {
-  return Boolean(p.buyerReviewed || p.reviewed);
+  return p.buyerReviewed === true;
 }
 
 export function sellerAlreadyReviewed(p: OrderReviewPurchase): boolean {
@@ -88,7 +94,7 @@ export type ReviewEligibilityResult =
 export function evaluateReviewEligibility(
   purchase: OrderReviewPurchase,
   reviewerEmail: string,
-  options?: { reviewDocExists?: boolean }
+  options?: { reviewDocExists?: boolean; legacyReviewExists?: boolean }
 ): ReviewEligibilityResult {
   const role = resolveReviewRole(purchase, reviewerEmail);
   if (!role) {
@@ -112,7 +118,7 @@ export function evaluateReviewEligibility(
   if (role === "seller" && sellerAlreadyReviewed(purchase)) {
     return { ok: false, status: 409, error: "You already reviewed this order" };
   }
-  if (options?.reviewDocExists) {
+  if (options?.reviewDocExists || options?.legacyReviewExists) {
     return { ok: false, status: 409, error: "You already reviewed this order" };
   }
 
@@ -123,4 +129,40 @@ export function evaluateReviewEligibility(
   }
 
   return { ok: true, role, revieweeEmail };
+}
+
+/** Shape of a stored review doc, for the legacy duplicate check. */
+export type StoredReviewLike = {
+  role?: unknown;
+  reviewerId?: unknown;
+  reviewerEmail?: unknown;
+  buyerEmail?: unknown;
+};
+
+/**
+ * Legacy purchases can carry `reviewed: true` without `buyerReviewed`. The
+ * flag alone is not trusted (either party could set it), so the route checks
+ * whether a buyer review for the purchase actually exists under any doc id.
+ * A review counts as the buyer's when it was written by this uid, or by the
+ * buyer email and not explicitly as the seller's review.
+ */
+export function isBuyerReviewDoc(
+  review: StoredReviewLike,
+  buyer: { uid: string; email: string }
+): boolean {
+  const uid = String(buyer.uid || "");
+  const email = String(buyer.email || "").trim().toLowerCase();
+  if (uid && review.reviewerId === uid) return true;
+  if (!email) return false;
+  const role = typeof review.role === "string" ? review.role : "";
+  if (role === "seller") return false;
+  const reviewerEmail = String(review.reviewerEmail || "").trim().toLowerCase();
+  if (reviewerEmail) return reviewerEmail === email;
+  // Oldest docs have no reviewerEmail; buyer reviews carried buyerEmail.
+  return String(review.buyerEmail || "").trim().toLowerCase() === email;
+}
+
+/** True when the purchase needs the legacy existence lookup before a buyer review. */
+export function needsLegacyBuyerReviewLookup(p: OrderReviewPurchase): boolean {
+  return p.reviewed === true && p.buyerReviewed !== true;
 }

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  isBuyerReviewDoc,
+  needsLegacyBuyerReviewLookup,
   canBuyerReview,
   canSellerReview,
   REVIEW_COMMENT_MAX,
@@ -28,7 +30,8 @@ describe("order-reviews", () => {
 
   it("allows one review per role", () => {
     expect(canBuyerReview({ status: "delivered", buyerReviewed: true })).toBe(false);
-    expect(canBuyerReview({ status: "delivered", reviewed: true })).toBe(false);
+    // `reviewed` was client-writable by either party; only server-only buyerReviewed counts.
+    expect(canBuyerReview({ status: "delivered", reviewed: true })).toBe(true);
     expect(canSellerReview({ status: "delivered", sellerReviewed: true })).toBe(false);
   });
 
@@ -102,6 +105,18 @@ describe("evaluateReviewEligibility — integrity cases", () => {
     });
   });
 
+  it("duplicate: rejects when a legacy buyer review exists", () => {
+    const result = evaluateReviewEligibility({ ...completedOrder, reviewed: true }, "buyer@example.com", {
+      legacyReviewExists: true,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(409);
+  });
+
+  it("seller-set reviewed=true alone does not block the buyer", () => {
+    expect(evaluateReviewEligibility({ ...completedOrder, reviewed: true }, "buyer@example.com").ok).toBe(true);
+  });
+
   it("duplicate: rejects when review doc already exists", () => {
     const result = evaluateReviewEligibility(completedOrder, "buyer@example.com", {
       reviewDocExists: true,
@@ -146,5 +161,24 @@ describe("evaluateReviewEligibility — integrity cases", () => {
       status: 400,
       error: "Reviews are not available while a dispute is open",
     });
+  });
+});
+
+describe("legacy buyer-review detection", () => {
+  const buyer = { uid: "buyer-uid", email: "Buyer@Example.com" };
+  it("matches by reviewerId, by reviewerEmail (case-insensitive), or by legacy buyerEmail", () => {
+    expect(isBuyerReviewDoc({ reviewerId: "buyer-uid" }, buyer)).toBe(true);
+    expect(isBuyerReviewDoc({ reviewerEmail: "buyer@example.com" }, buyer)).toBe(true);
+    expect(isBuyerReviewDoc({ buyerEmail: "buyer@example.com" }, buyer)).toBe(true);
+  });
+  it("does not match the seller's review or another reviewer", () => {
+    expect(isBuyerReviewDoc({ role: "seller", reviewerEmail: "seller@example.com", buyerEmail: "buyer@example.com" }, buyer)).toBe(false);
+    expect(isBuyerReviewDoc({ reviewerEmail: "seller@example.com", buyerEmail: "buyer@example.com" }, buyer)).toBe(false);
+    expect(isBuyerReviewDoc({}, buyer)).toBe(false);
+  });
+  it("lookup is needed only for reviewed=true without buyerReviewed", () => {
+    expect(needsLegacyBuyerReviewLookup({ reviewed: true })).toBe(true);
+    expect(needsLegacyBuyerReviewLookup({ reviewed: true, buyerReviewed: true })).toBe(false);
+    expect(needsLegacyBuyerReviewLookup({})).toBe(false);
   });
 });

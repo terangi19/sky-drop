@@ -12,8 +12,18 @@ import {
   REVIEW_COMMENT_MAX,
   reviewDocId,
   evaluateReviewEligibility,
+  isBuyerReviewDoc,
+  needsLegacyBuyerReviewLookup,
+  resolveReviewRole,
 } from "../../lib/order-reviews";
 import { incrementProfileReviewAggregates } from "../../lib/review-aggregates";
+
+/** Firestore ALREADY_EXISTS (gRPC code 6) from tx.create on an existing doc. */
+function isAlreadyExistsError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = (err as { code?: unknown }).code;
+  return code === 6 || code === "already-exists" || code === "ALREADY_EXISTS";
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -79,8 +89,27 @@ export async function POST(req: NextRequest) {
     const reviewRef = db.collection("reviews").doc(docId);
     const existing = await reviewRef.get();
 
+    // `reviewed` is never trusted for once-only. If a legacy purchase has it set
+    // without the server-only `buyerReviewed`, look for a real buyer review.
+    let legacyReviewExists = false;
+    if (
+      resolveReviewRole(purchase, reviewerEmail) === "buyer" &&
+      !existing.exists &&
+      needsLegacyBuyerReviewLookup(purchase)
+    ) {
+      const legacy = await db
+        .collection("reviews")
+        .where("purchaseId", "==", purchaseId)
+        .limit(20)
+        .get();
+      legacyReviewExists = legacy.docs.some((d) =>
+        isBuyerReviewDoc(d.data() || {}, { uid: reviewerId, email: reviewerEmail })
+      );
+    }
+
     const eligibility = evaluateReviewEligibility(purchase, reviewerEmail, {
       reviewDocExists: existing.exists,
+      legacyReviewExists,
     });
     if (!eligibility.ok) {
       return NextResponse.json({ error: eligibility.error }, { status: eligibility.status });
@@ -110,38 +139,72 @@ export async function POST(req: NextRequest) {
     const buyerEmail = String(purchase.buyerEmail || "");
     const sellerEmail = String(purchase.sellerEmail || "");
 
-    await reviewRef.set({
-      orderId,
-      listingId,
-      listingTitle,
-      purchaseId,
-      reviewerId,
-      reviewerEmail,
-      reviewerUsername,
-      revieweeId,
-      revieweeEmail,
-      revieweeUsername,
-      role,
-      rating,
-      comment,
-      createdAt: FieldValue.serverTimestamp(),
-      // Legacy fields for existing UI queries
-      buyerEmail,
-      sellerEmail,
-      buyerName: role === "buyer" ? reviewerUsername : revieweeUsername,
-      reviewText: comment,
+    // Once-only is enforced here: re-read the purchase and the deterministic
+    // review doc inside a transaction, re-check eligibility, and create-if-absent.
+    // A concurrent duplicate either sees the doc in the re-check or loses on create.
+    const outcome = await db.runTransaction(async (tx) => {
+      const [freshPurchaseSnap, freshReviewSnap] = await Promise.all([
+        tx.get(purchaseRef),
+        tx.get(reviewRef),
+      ]);
+      if (!freshPurchaseSnap.exists) {
+        return { ok: false as const, status: 404, error: "Purchase not found" };
+      }
+      const recheck = evaluateReviewEligibility(freshPurchaseSnap.data() || {}, reviewerEmail, {
+        reviewDocExists: freshReviewSnap.exists,
+        legacyReviewExists,
+      });
+      if (!recheck.ok) {
+        return { ok: false as const, status: recheck.status, error: recheck.error };
+      }
+      if (recheck.role !== role) {
+        return { ok: false as const, status: 409, error: "Order changed, please try again" };
+      }
+
+      tx.create(reviewRef, {
+        orderId,
+        listingId,
+        listingTitle,
+        purchaseId,
+        reviewerId,
+        reviewerEmail,
+        reviewerUsername,
+        revieweeId,
+        revieweeEmail,
+        revieweeUsername,
+        role,
+        rating,
+        comment,
+        createdAt: FieldValue.serverTimestamp(),
+        // Legacy fields for existing UI queries
+        buyerEmail,
+        sellerEmail,
+        buyerName: role === "buyer" ? reviewerUsername : revieweeUsername,
+        reviewText: comment,
+      });
+
+      // Server-owned flags. `reviewed` is kept for existing UI display only.
+      const purchasePatch: Record<string, unknown> = {
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      if (role === "buyer") {
+        purchasePatch.buyerReviewed = true;
+        purchasePatch.reviewed = true;
+      } else {
+        purchasePatch.sellerReviewed = true;
+      }
+      tx.update(purchaseRef, purchasePatch);
+      return { ok: true as const };
+    }).catch((err: unknown) => {
+      if (isAlreadyExistsError(err)) {
+        return { ok: false as const, status: 409, error: "You already reviewed this order" };
+      }
+      throw err;
     });
 
-    const purchasePatch: Record<string, unknown> = {
-      updatedAt: FieldValue.serverTimestamp(),
-    };
-    if (role === "buyer") {
-      purchasePatch.buyerReviewed = true;
-      purchasePatch.reviewed = true;
-    } else {
-      purchasePatch.sellerReviewed = true;
+    if (!outcome.ok) {
+      return NextResponse.json({ error: outcome.error }, { status: outcome.status });
     }
-    await purchaseRef.update(purchasePatch);
 
     await incrementProfileReviewAggregates(revieweeId, rating);
 
