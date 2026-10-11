@@ -242,3 +242,6 @@ export const cleanupOldData = onSchedule("every 24 hours", async () => {
     console.error("[cleanupOldData] Failed:", e);
   }
 });
+
+// profiles.salesCount: single idempotent writer (SALES-COUNT-INTEGRITY).
+export { onPurchaseWrittenSalesCount } from "./sales-count-trigger";

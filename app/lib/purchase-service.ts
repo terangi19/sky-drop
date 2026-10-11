@@ -14,7 +14,6 @@ import {
   listingStockCount,
   listingTracksStock,
 } from "./listing-stock";
-import { incrementProfileSalesCount } from "./seller-sales-admin";
 import { resolveDeliveryMethodFromListing } from "./purchase-order-actions";
 
 function listingPrimaryImage(listing: Record<string, unknown>): string {
@@ -349,13 +348,8 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
     });
   });
 
-  if (!isExisting) {
-    try {
-      await incrementProfileSalesCount(sellerEmail);
-    } catch (e) {
-      console.warn("[purchase] salesCount increment skipped:", e);
-    }
-  }
+  // salesCount: counted by the onPurchaseWrittenSalesCount Cloud Function from the purchase's
+  // state (idempotent ledger), not incremented inline — see functions/src/sales-count.ts.
 
   return { purchaseId, orderId, conversationId, existing: isExisting };
 }
