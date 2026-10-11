@@ -1,8 +1,9 @@
-import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import { isViewsOnlyListingUpdate } from "./listing-update-filter";
+import { computeReviewAggregates, reviewAggregateInputsChanged } from "./review-aggregates";
 
 setGlobalOptions({ region: "asia-southeast1" });
 
@@ -169,6 +170,43 @@ export const onReportCreated = onDocumentCreated("reports/{reportId}", async (ev
 
 // Auto-complete delivered orders 14 days after delivery if no dispute.
 // Does NOT move Stripe funds — destination charges already paid the seller at checkout.
+/**
+ * Review aggregates: profiles/{uid}.averageRating + reviewCount are written by /api/submit-review on
+ * create. firestore.rules still let a reviewer update `rating` (or delete) their review directly with
+ * the client SDK, which used to leave the aggregate stale. Recompute from source on those writes.
+ * (Creates are handled by the API; recompute is idempotent, so a double run is harmless.)
+ */
+async function recomputeReviewAggregates(revieweeId: unknown): Promise<void> {
+  if (typeof revieweeId !== "string" || !revieweeId) return;
+  const profileRef = db.collection("profiles").doc(revieweeId);
+  const q = db.collection("reviews").where("revieweeId", "==", revieweeId).limit(1000);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(q);
+    const agg = computeReviewAggregates(snap.docs.map((d) => d.get("rating")));
+    tx.set(profileRef, { ...agg, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  });
+}
+
+export const onReviewUpdated = onDocumentUpdated("reviews/{reviewId}", async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!reviewAggregateInputsChanged(before, after)) return;
+  try {
+    await recomputeReviewAggregates(after?.revieweeId);
+    if (before?.revieweeId !== after?.revieweeId) await recomputeReviewAggregates(before?.revieweeId);
+  } catch (e) {
+    console.error("[onReviewUpdated] aggregate recompute failed:", e);
+  }
+});
+
+export const onReviewDeleted = onDocumentDeleted("reviews/{reviewId}", async (event) => {
+  try {
+    await recomputeReviewAggregates(event.data?.data()?.revieweeId);
+  } catch (e) {
+    console.error("[onReviewDeleted] aggregate recompute failed:", e);
+  }
+});
+
 export const autoCompleteDeliveredOrders = onSchedule("every 24 hours", async () => {
   const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 14 * 24 * 60 * 60 * 1000);
   try {
