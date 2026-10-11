@@ -1,5 +1,10 @@
 /** Shared public profile field selection for single + batch profile APIs. */
 
+import {
+  isEmailDerivedName,
+  resolvePublicProfileName,
+} from "./safe-display-name";
+
 export const PUBLIC_PROFILE_FIELDS = [
   "username",
   "displayName",
@@ -39,6 +44,26 @@ export function pickPublicProfileFields(
     if (data[field] !== undefined) profile[field] = data[field];
   }
   return profile;
+}
+
+/**
+ * Adds derived public labels. `source` may contain email (server-side only);
+ * email is never copied onto the returned object.
+ * publicName: displayName, then username (even if auto-assigned), then fallback.
+ * usernameIsAutoAssigned is informational and does not hide the username.
+ */
+export function decoratePublicProfile(
+  profile: Record<string, unknown>,
+  source: Record<string, unknown>
+): Record<string, unknown> {
+  const email = typeof source.email === "string" ? source.email : null;
+  const username = profile.username;
+  const displayName = profile.displayName ?? profile.name;
+  return {
+    ...profile,
+    publicName: resolvePublicProfileName({ displayName, username, email }),
+    usernameIsAutoAssigned: isEmailDerivedName(username, email),
+  };
 }
 
 type LooseDb = {

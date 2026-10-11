@@ -3,6 +3,7 @@ import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebas
 import { FieldValue } from "firebase-admin/firestore";
 import { enforceProtection } from "../../lib/enforce-protection";
 import { parseIpFromRequest } from "../../lib/geo-check";
+import { authorNameForWrite, loadAuthorFields } from "../../lib/public-author.server";
 import { isDuplicateReply } from "../../lib/trade-reply-dedupe";
 
 const ALLOWED_STATUSES = new Set(["live", "sold", "completed", "closed"]);
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "postId and text required" }, { status: 400 });
       }
       const ref = db.collection("tradePosts").doc(postId);
+      const author = await loadAuthorFields(db, token.uid);
       // Read-check-append in one transaction so two concurrent identical replies cannot both pass the duplicate check.
       const outcome = await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
@@ -83,7 +85,13 @@ export async function POST(req: NextRequest) {
         const post = snap.data()!;
         const replies = Array.isArray(post.replies) ? [...post.replies] : [];
         if (isDuplicateReply(replies, token.email, replyText, Date.now())) return { kind: "duplicate" as const };
-        replies.push({ text: replyText, by: token.email, at: new Date().toISOString() });
+        replies.push({
+          text: replyText,
+          by: token.email,
+          byId: token.uid,
+          byName: authorNameForWrite(author, token.email),
+          at: new Date().toISOString(),
+        });
         tx.update(ref, { replies, updatedAt: FieldValue.serverTimestamp() });
         return { kind: "added" as const, post };
       });

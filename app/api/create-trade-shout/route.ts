@@ -3,6 +3,7 @@ import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebas
 import { FieldValue } from "firebase-admin/firestore";
 import { enforceProtection } from "../../lib/enforce-protection";
 import { parseIpFromRequest } from "../../lib/geo-check";
+import { authorNameForWrite, loadAuthorFields } from "../../lib/public-author.server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,10 +41,13 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getAdminDb();
+    const author = await loadAuthorFields(db, token.uid);
     await db.collection("tradeShouts").add({
       world,
       text,
       by: token.email,
+      byId: token.uid,
+      byName: authorNameForWrite(author, token.email),
       createdAt: FieldValue.serverTimestamp(),
     });
 

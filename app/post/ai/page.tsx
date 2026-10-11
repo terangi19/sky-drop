@@ -2342,7 +2342,7 @@ export default function AIPostPage() {
       if (editId) {
         baseData.updatedAt = serverTimestamp();
       } else {
-        baseData.sellerEmail = user.email; baseData.sellerUsername = user.email?.split("@")[0] || "User";
+        baseData.sellerEmail = user.email;
         baseData.sellerId = user.uid; baseData.createdAt = serverTimestamp();
         baseData.expiresAt = new Date(Date.now() + Number(expiresIn) * 86400000);
       }

@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const expiresAt = new Date(Date.now() + 30 * 86400000); // 30 days from now
     const sellerEmail = decodedToken.email || "admin@skydrop.co.nz";
-    const sellerUsername = sellerEmail.split("@")[0];
+    const sellerUsername = "skydrop-admin";
 
     const createdListings = [];
     

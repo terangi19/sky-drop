@@ -1,4 +1,5 @@
 import { getAdminDb } from "./firebase-admin";
+import { chosenUsernameForWrite } from "./public-author.server";
 
 /** Firestore batches accept 500 ops; stay under that. */
 const CHUNK = 400;
@@ -42,6 +43,11 @@ export type SellerUsernamePropagation = {
  * Copy a server-validated username onto the caller's listings and trade posts.
  * Selector matches the old client batch: sellerEmail equality. The email must
  * be the verified token email, never a request body value.
+ *
+ * Listings keep the profile slug when it has no "@", including an auto-assigned
+ * /seller handle (same rule as create-listing). Trade posts use
+ * chosenUsernameForWrite, which is "" for an auto-assigned or email-derived
+ * handle, and that empty string is what gets stored.
  */
 export async function propagateSellerUsername(
   sellerEmail: string,
@@ -49,21 +55,31 @@ export async function propagateSellerUsername(
   db: UsernameDb = getAdminDb() as unknown as UsernameDb
 ): Promise<SellerUsernamePropagation> {
   const email = sellerEmail.trim();
-  if (!email || !username) {
+  const raw = username.trim();
+  if (!email || !raw) {
     return { listings: 0, tradePosts: 0, capped: false };
   }
+
+  const listingUsername = raw.includes("@") ? "" : raw;
+  const tradePostUsername = chosenUsernameForWrite(
+    { displayName: "", username: raw },
+    email
+  );
 
   const listings = await loadOwned(db, "listings", email, CAP);
   const tradePosts = await loadOwned(db, "tradePosts", email, CAP - listings.length);
   const total = listings.length + tradePosts.length;
   const capped = total >= CAP;
 
-  const docs = [...listings, ...tradePosts];
+  const docs = [
+    ...listings.map((snap) => ({ snap, sellerUsername: listingUsername })),
+    ...tradePosts.map((snap) => ({ snap, sellerUsername: tradePostUsername })),
+  ];
   for (let i = 0; i < docs.length; i += CHUNK) {
     const slice = docs.slice(i, i + CHUNK);
     const batch = db.batch();
     for (const doc of slice) {
-      batch.update(doc.ref, { sellerUsername: username });
+      batch.update(doc.snap.ref, { sellerUsername: doc.sellerUsername });
     }
     await batch.commit();
   }

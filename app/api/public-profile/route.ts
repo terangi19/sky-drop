@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import {
+  decoratePublicProfile,
   pickPublicProfileFields,
   resolvePublicProfileUid,
 } from "../../lib/public-profile-fields";
@@ -37,7 +38,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ profile: null }, { status: 200 });
     }
 
-    const profile = pickPublicProfileFields(uid, profileSnap.data() || {});
+    const raw = profileSnap.data() || {};
+    const profile = decoratePublicProfile(pickPublicProfileFields(uid, raw), raw);
     return NextResponse.json({ profile });
   } catch {
     return NextResponse.json({ error: "Failed to load profile" }, { status: 500 });

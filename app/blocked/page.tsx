@@ -10,10 +10,11 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { showToast } from "../components/Toast";
 import { loginRedirectHref } from "../lib/safe-redirect";
+import { safeDisplayName } from "../lib/safe-display-name";
 
 export default function BlockedPage() {
   const [user, setUser] = useState<User | null>(null);
-  const [blockedUsers, setBlockedUsers] = useState<{ uid: string; email: string }[]>([]);
+  const [blockedUsers, setBlockedUsers] = useState<{ uid: string; email: string; username?: string; displayName?: string }[]>([]);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -28,12 +29,17 @@ export default function BlockedPage() {
 
   // Blocked users: capped one-shot getDocs on mount / uid change (no live listener, no interval).
   // Block / unblock / unblock-all refetch explicitly, so the list never waits on a poll.
-  async function fetchBlockedUsers(uid: string): Promise<{ uid: string; email: string }[]> {
+  async function fetchBlockedUsers(uid: string): Promise<{ uid: string; email: string; username?: string; displayName?: string }[]> {
     const snap = await getDocs(query(collection(db, "users", uid, "blocked"), limit(BLOCKED_USERS_LIMIT)));
-    return snap.docs.map((d) => ({
-      uid: d.id,
-      email: (d.data().blockedEmail as string) || d.id,
-    }));
+    return snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        uid: d.id,
+        email: (data.blockedEmail as string) || (d.id.includes("@") ? d.id : ""),
+        username: typeof data.username === "string" ? data.username : undefined,
+        displayName: typeof data.displayName === "string" ? data.displayName : undefined,
+      };
+    });
   }
 
   useEffect(() => {
@@ -190,9 +196,15 @@ export default function BlockedPage() {
               {filtered.map((b) => (
                 <div key={b.uid} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition hover:border-zinc-700">
                   <div className="min-w-0 flex-1">
-                    <Link href={`/seller/${b.email}`} className="truncate text-sm font-bold text-[var(--foreground)] hover:text-sky-400 transition-colors">
-                      {b.email?.split("@")[0] || "Blocked User"}
-                    </Link>
+                    {b.uid && !b.uid.includes("@") ? (
+                      <Link href={`/seller/${b.uid}`} className="truncate text-sm font-bold text-[var(--foreground)] hover:text-sky-400 transition-colors">
+                        {safeDisplayName(b.username ?? b.displayName, b.email, "Blocked user")}
+                      </Link>
+                    ) : (
+                      <span className="truncate text-sm font-bold text-[var(--foreground)]">
+                        {safeDisplayName(b.username ?? b.displayName, b.email, "Blocked user")}
+                      </span>
+                    )}
                     <p className="text-[10px] text-[var(--muted)]">Synced across all devices</p>
                   </div>
                   <button onClick={() => unblockUser(b.uid)}

@@ -8,6 +8,7 @@ import { showToast } from "./Toast";
 import { awardXP } from "../lib/xp";
 import { trackChallenge } from "../lib/challenges";
 import confetti from "canvas-confetti";
+import { safeDisplayName } from "../lib/safe-display-name";
 
 type Rarity = "common" | "rare" | "epic" | "legendary";
 
@@ -145,7 +146,7 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
 
       const profileSnap = await getDoc(doc(db, "profiles", userId));
       const profileData = profileSnap.data();
-      const username = profileData?.username || userEmail.split("@")[0];
+      const username = safeDisplayName(profileData?.username, userEmail);
       await updateDoc(doc(db, "config", "platform"), {
         lastLegendaryClaim: {
           claimedAt: serverTimestamp(),
