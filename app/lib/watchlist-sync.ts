@@ -1,5 +1,6 @@
 import {
   addToWatchlistCache,
+  isInWatchlistCache,
   removeFromWatchlistCache,
   type WatchlistStorage,
 } from "./watchlist-cache";
@@ -10,6 +11,13 @@ import {
  * entry, so a stale/empty local cache can never cause a double add, a
  * delete-then-re-add churn (which reset `savedPrice`/`savedAt`), or a second
  * `watchlistCount` bump. Pure: remote + counter are injected.
+ *
+ * The HEART is optimistic: the per-uid cache flips (and `onOptimistic` fires, so the
+ * caller can repaint + toast) before any network round trip; the Firestore check and
+ * writes run afterwards and a failure restores the previous cache state (`onRevert`).
+ * The displayed watchlistCount still moves only on a confirmed write (`changed`), so
+ * it can never double-bump. Remote phases for the same uid+listing run one after the
+ * other, so a fast double click cannot interleave exists()/add()/remove().
  */
 
 export type WatchlistItemInput = {
@@ -81,25 +89,65 @@ export type SetWatchlistSavedDeps = {
   /** Fire-and-forget server counter (itself idempotent per uid). */
   adjustCount: (listingId: string, delta: 1 | -1) => void | Promise<void>;
   storage?: WatchlistStorage | null;
+  /** Fired synchronously right after the optimistic cache flip, before any network call. */
+  onOptimistic?: (save: boolean) => void;
+  /** Fired after a failed read/write restored the cache to its pre-click state. */
+  onRevert?: () => void;
 };
+
+/** Per uid+listing chain of remote phases (see header). */
+const remoteChains = new Map<string, Promise<unknown>>();
 
 /**
  * Make the account's saved state for `item` equal `save`.
+ * The cache (heart) flips immediately; the returned promise settles after Firestore.
  * `changed` is true only when Firestore was actually written - callers bump the
- * displayed watchlistCount and toast "Added"/"Removed" only then.
+ * displayed watchlistCount only then.
  */
-export async function setWatchlistSaved(
+export function setWatchlistSaved(
   deps: SetWatchlistSavedDeps,
   args: { uid: string; item: WatchlistItemInput; save: boolean; ownerEmail?: string | null }
 ): Promise<SetWatchlistSavedResult> {
+  const { uid, item, save } = args;
+  const { storage } = deps;
+  const wasCached = isInWatchlistCache(uid, item.id, storage);
+  if (save) addToWatchlistCache(uid, item.id, storage);
+  else removeFromWatchlistCache(uid, item.id, storage);
+  deps.onOptimistic?.(save);
+
+  const key = `${uid}\u0000${item.id}`;
+  const previous = remoteChains.get(key) ?? Promise.resolve();
+  const run = previous
+    .catch(() => undefined)
+    .then(() => syncWatchlistRemote(deps, args, wasCached));
+  remoteChains.set(key, run);
+  void run
+    .catch(() => undefined)
+    .finally(() => {
+      if (remoteChains.get(key) === run) remoteChains.delete(key);
+    });
+  return run;
+}
+
+async function syncWatchlistRemote(
+  deps: SetWatchlistSavedDeps,
+  args: { uid: string; item: WatchlistItemInput; save: boolean; ownerEmail?: string | null },
+  wasCached: boolean
+): Promise<SetWatchlistSavedResult> {
   const { uid, item, save, ownerEmail } = args;
   const { remote, adjustCount, storage } = deps;
+  const revert = () => {
+    if (wasCached) addToWatchlistCache(uid, item.id, storage);
+    else removeFromWatchlistCache(uid, item.id, storage);
+    deps.onRevert?.();
+  };
 
   let exists: boolean;
   try {
     exists = await remote.exists(uid, item.id);
   } catch (e) {
     console.error("watchlist exists check failed:", e);
+    revert();
     return { ok: false, error: "read" };
   }
 
@@ -112,6 +160,7 @@ export async function setWatchlistSaved(
       await remote.add(uid, item, ownerEmail);
     } catch (e) {
       console.error("watchlist add failed:", e);
+      revert();
       return { ok: false, error: "write" };
     }
     addToWatchlistCache(uid, item.id, storage);
@@ -127,6 +176,7 @@ export async function setWatchlistSaved(
     await remote.remove(uid, item.id);
   } catch (e) {
     console.error("watchlist remove failed:", e);
+    revert();
     return { ok: false, error: "write" };
   }
   removeFromWatchlistCache(uid, item.id, storage);

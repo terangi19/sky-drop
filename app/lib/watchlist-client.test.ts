@@ -124,7 +124,7 @@ describe("setListingWatchlistSaved", () => {
     expect(h.showToast).toHaveBeenCalledWith("Added to watchlist!", "success");
   });
 
-  it("save on a fresh device when the doc already exists: no writes, no count bump, 'Already in watchlist'", async () => {
+  it("save on a fresh device when the doc already exists: no writes, no count bump, one optimistic 'Added' toast", async () => {
     stubLocalStorage();
     h.getDoc.mockResolvedValueOnce({ exists: () => true });
     const res = await setListingWatchlistSaved({ uid: "u1", item, save: true, ownerEmail: "me@x.nz" });
@@ -132,7 +132,9 @@ describe("setListingWatchlistSaved", () => {
     expect(h.setDoc).not.toHaveBeenCalled();
     expect(h.deleteDoc).not.toHaveBeenCalled();
     expect(h.adjust).not.toHaveBeenCalled();
-    expect(h.showToast).toHaveBeenCalledWith("Already in watchlist", "info");
+    // Optimistic heart: the toast fired before Firestore answered; the account state matches it, so nothing else is shown.
+    expect(h.showToast).toHaveBeenCalledTimes(1);
+    expect(h.showToast).toHaveBeenCalledWith("Added to watchlist!", "success");
     expect(readWatchlistIds("u1")).toEqual(["L1"]);
   });
 

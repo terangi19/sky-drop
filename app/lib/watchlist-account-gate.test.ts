@@ -91,7 +91,8 @@ describe("watchlist UI gates guests before success toasts", () => {
     expect(helperAt).toBeGreaterThan(gateAt);
     expect(toggle.slice(0, helperAt)).toMatch(/if\s*\(\s*!uid\s*\)\s*return/);
     const client = readFileSync(path.join(process.cwd(), "app/lib/watchlist-client.ts"), "utf8");
-    expect(client).toContain('showToast(result.changed ? "Added to watchlist!"');
+    // Optimistic toast (fires inside the helper, so only after the uid gate above).
+    expect(client).toContain('showToast(save ? "Added to watchlist!"');
     expect(client).toMatch(/uid: string;\s*item: WatchlistItemInput;\s*save: boolean;/);
   });
 });

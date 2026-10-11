@@ -76,9 +76,10 @@ function notifyWatchlistChanged() {
 }
 
 /**
- * Save (`save: true`) or remove an item for `uid`, toast the outcome, and
- * re-render every mounted heart. `changed` tells the caller whether to adjust a
- * displayed watchlistCount (never on "Already in watchlist").
+ * Save (`save: true`) or remove an item for `uid`. Optimistic: every mounted heart
+ * repaints and the toast shows immediately; Firestore is checked/written afterwards
+ * and a failure flips the heart back with an error toast. `changed` (confirmed write)
+ * tells the caller whether to adjust a displayed watchlistCount.
  */
 export async function setListingWatchlistSaved(args: {
   uid: string;
@@ -87,19 +88,20 @@ export async function setListingWatchlistSaved(args: {
   ownerEmail?: string | null;
 }): Promise<SetWatchlistSavedResult> {
   const result = await setWatchlistSaved(
-    { remote: firestoreWatchlistRemote, adjustCount: adjustListingWatchlistCount },
+    {
+      remote: firestoreWatchlistRemote,
+      adjustCount: adjustListingWatchlistCount,
+      onOptimistic: (save) => {
+        showToast(save ? "Added to watchlist!" : "Removed from watchlist", save ? "success" : "info");
+        notifyWatchlistChanged();
+      },
+      onRevert: notifyWatchlistChanged,
+    },
     args
   );
   if (!result.ok) {
     showToast(args.save ? "Failed to save to watchlist" : "Could not remove from watchlist", "error");
-    return result;
   }
-  if (result.saved) {
-    showToast(result.changed ? "Added to watchlist!" : "Already in watchlist", result.changed ? "success" : "info");
-  } else {
-    showToast("Removed from watchlist", "info");
-  }
-  notifyWatchlistChanged();
   return result;
 }
 
