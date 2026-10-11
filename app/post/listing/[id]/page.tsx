@@ -12,6 +12,7 @@ import JobApplicationModal from "../../../components/JobApplicationModal";
 import ArrangePurchaseModal from "../../../components/ArrangePurchaseModal";
 import { showToast } from "../../../components/Toast";
 import { createNotification } from "../../../lib/notifications";
+import { isReviewReceivedBySeller } from "../../../lib/review-role";
 import { User } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, limit, query, where, Timestamp, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../../../lib/firebase";
@@ -770,6 +771,7 @@ export default function ListingPage() {
           );
           const ratings: number[] = [];
           reviewSnap.docs.forEach((d) => {
+            if (!isReviewReceivedBySeller(d.data(), listing.sellerEmail)) return;
             const r = d.data().rating;
             if (r) ratings.push(Number(r));
           });
