@@ -68,7 +68,13 @@ async function runCreateListingSideEffects(opts: {
       const s = doc.data();
       const userEmail = s.userEmail;
       if (!userEmail || typeof userEmail !== "string") continue;
-      if (savedSearchMatchesListing(s, { titleLower, categoryLower })) {
+      if (
+        savedSearchMatchesListing(s, {
+          titleLower,
+          categoryLower,
+          price: opts.listingWithId.price,
+        })
+      ) {
         notifications.push(
           createSystemNotification({
             targetEmail: userEmail,
