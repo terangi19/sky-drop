@@ -12,6 +12,7 @@ import {
 
 const CSRF_COOKIE_NAME = 'csrf_token';
 const TOKEN_LENGTH = 32;
+const MAINTENANCE_MODE = true;
 
 function generateToken(): string {
   const array = new Uint8Array(TOKEN_LENGTH);
@@ -113,6 +114,14 @@ function checkBodySizeLimit(request: NextRequest, pathname: string): NextRespons
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const country = request.geo?.country || "";
+
+  if (
+    MAINTENANCE_MODE &&
+    pathname !== "/unavailable" &&
+    !pathname.startsWith("/api/")
+  ) {
+    return NextResponse.redirect(new URL("/unavailable", request.url));
+  }
 
   // Generate CSRF token if not present
   const existingToken = request.cookies.get(CSRF_COOKIE_NAME);
