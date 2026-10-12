@@ -116,7 +116,7 @@ export async function proxy(request: NextRequest) {
   const country = request.geo?.country || "";
 
   if (MAINTENANCE_MODE) {
-    if (pathname.startsWith("/api/")) {
+    if (pathname === "/api" || pathname.startsWith("/api/")) {
       return NextResponse.json(
         { error: "Sky Drop is temporarily offline" },
         {
@@ -173,5 +173,10 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*", "/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/api/:path*",
+    "/admin",
+    "/admin/:path*",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
 };
