@@ -115,12 +115,22 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const country = request.geo?.country || "";
 
-  if (
-    MAINTENANCE_MODE &&
-    pathname !== "/unavailable" &&
-    !pathname.startsWith("/api/")
-  ) {
-    return NextResponse.redirect(new URL("/unavailable", request.url));
+  if (MAINTENANCE_MODE) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Sky Drop is temporarily offline" },
+        {
+          status: 503,
+          headers: {
+            "Cache-Control": "no-store",
+            "Retry-After": "3600",
+          },
+        }
+      );
+    }
+    if (pathname !== "/unavailable") {
+      return NextResponse.redirect(new URL("/unavailable", request.url));
+    }
   }
 
   // Generate CSRF token if not present
