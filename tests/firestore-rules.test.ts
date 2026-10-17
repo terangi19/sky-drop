@@ -751,7 +751,8 @@ describe("Firestore Security Rules", () => {
           purchaseId: "purchase-2",
         })
       );
-      await assertSucceeds(
+      // PROMPT-8: reviews are server-only; the reviewer can no longer edit rating/text either.
+      await assertFails(
         alice.collection("reviews").doc("immutable-review").update({
           rating: 5,
           text: "Excellent",
