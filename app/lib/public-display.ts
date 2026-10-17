@@ -1,6 +1,7 @@
 /** Public-facing identity — never show raw emails in UI copy. */
 
 import { getListingOwnerId, type ListingOwnerFields } from "./listing-owner";
+import { isAutoAssignedUsername, isEmailDerivedName } from "./safe-display-name";
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 
@@ -119,6 +120,7 @@ export function sellerProfileDisplayName(
   fields: SellerLinkFields | null | undefined,
   fallback = "Seller"
 ): string {
+  const email = fields?.sellerEmail || fields?.email || fields?.buyerEmail || null;
   const fromCanonical = getSellerDisplayName(
     {
       username: fields?.username,
@@ -126,7 +128,8 @@ export function sellerProfileDisplayName(
       sellerUsername: fields?.sellerUsername,
       sellerName: fields?.sellerName,
     },
-    ""
+    "",
+    email
   );
   if (fromCanonical) return fromCanonical;
 
@@ -150,6 +153,26 @@ export function isSafePublicHandle(value: string | undefined | null): string | n
  * Priority: username → displayName → legacy sellerUsername → sellerName → fallback.
  * Never email. Username is the Sky Drop public handle.
  */
+/**
+ * Keep a profile username (including the auto-assigned /seller slug).
+ * Drop "@" values. Drop a client seller handle that is email-derived and
+ * differs from the profile username — raw locals like "john.smith" are not
+ * the reserved slug ("johnsmith").
+ */
+function acceptSellerLabel(
+  raw: string | null | undefined,
+  email: string | null | undefined,
+  profileUsername: string | null,
+  allowAutoSlug: boolean
+): string | null {
+  const safe = isSafePublicHandle(raw);
+  if (!safe || safe.includes("@")) return null;
+  if (!isEmailDerivedName(safe, email)) return safe;
+  if (profileUsername && safe.toLowerCase() === profileUsername.toLowerCase()) return safe;
+  if (allowAutoSlug && isAutoAssignedUsername(safe, email)) return safe;
+  return null;
+}
+
 export function getSellerDisplayName(
   input: {
     displayName?: string | null;
@@ -157,16 +180,19 @@ export function getSellerDisplayName(
     sellerName?: string | null;
     sellerUsername?: string | null;
   } | null | undefined,
-  fallback = "Seller"
+  fallback = "Seller",
+  email?: string | null
 ): string {
   if (!input) return fallback;
-  for (const raw of [
-    input.username,
-    input.displayName,
-    input.sellerUsername,
-    input.sellerName,
-  ]) {
-    const safe = isSafePublicHandle(raw);
+  const profileUsername = isSafePublicHandle(input.username);
+  const ordered: Array<{ raw: string | null | undefined; allowAutoSlug: boolean }> = [
+    { raw: input.username, allowAutoSlug: true },
+    { raw: input.displayName, allowAutoSlug: false },
+    { raw: input.sellerUsername, allowAutoSlug: true },
+    { raw: input.sellerName, allowAutoSlug: true },
+  ];
+  for (const { raw, allowAutoSlug } of ordered) {
+    const safe = acceptSellerLabel(raw, email, profileUsername, allowAutoSlug);
     if (safe) return safe;
   }
   return fallback;
@@ -206,31 +232,27 @@ export function resolveSellerCardDisplayName(
   const email = String(fields?.sellerEmail || "").trim();
 
   const liveHandle = lookupKeyedValue(sellerHandles, ownerId, email);
-  if (liveHandle) return liveHandle;
+  // Profile username from the public profile API — keep the auto-assigned slug.
+  if (liveHandle && !liveHandle.includes("@")) return liveHandle;
 
   const liveDisplay = lookupKeyedValue(sellerDisplayNames, ownerId, email);
-  if (liveDisplay) return liveDisplay;
-
-  const emailLocal =
-    email && isEmailLike(email)
-      ? email.split("@")[0]?.toLowerCase() || ""
-      : "";
-
-  const rejectEmailLocal = (raw: string | null | undefined): string | null => {
-    const safe = isSafePublicHandle(raw);
-    if (!safe) return null;
-    if (emailLocal && safe.toLowerCase() === emailLocal) return null;
-    return safe;
-  };
+  if (
+    liveDisplay &&
+    !liveDisplay.includes("@") &&
+    !isEmailDerivedName(liveDisplay, email)
+  ) {
+    return liveDisplay;
+  }
 
   return getSellerDisplayName(
     {
-      username: rejectEmailLocal(fields?.username),
+      username: fields?.username,
       displayName: fields?.displayName || fields?.name,
-      sellerUsername: rejectEmailLocal(fields?.sellerUsername),
+      sellerUsername: fields?.sellerUsername,
       sellerName: fields?.sellerName,
     },
-    fallback
+    fallback,
+    email
   );
 }
 

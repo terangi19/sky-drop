@@ -3,6 +3,8 @@ import { FieldValue } from "firebase-admin/firestore";
 import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { parseIpFromRequest } from "../../lib/geo-check";
+import { authorNameForWrite, loadAuthorFields } from "../../lib/public-author.server";
+import { sanitizeAuthorNameForWrite } from "../../lib/safe-display-name";
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,10 +59,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Cannot ask on your own listing" }, { status: 400 });
       }
 
-      const askerName =
-        typeof body.askerName === "string" && body.askerName.trim()
-          ? body.askerName.trim().slice(0, 80)
-          : askerEmail.split("@")[0] || "Someone";
+      const author = await loadAuthorFields(db, decoded.uid);
+      const clientName = sanitizeAuthorNameForWrite(body.askerName, askerEmail);
+      const askerName = clientName || authorNameForWrite(author, askerEmail);
 
       const ref = await db.collection("listingQuestions").add({
         listingId,

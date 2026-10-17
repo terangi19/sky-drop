@@ -180,6 +180,21 @@ describe("POST /api/save-profile sellerUsername propagation", () => {
     info.mockRestore();
   });
 
+  it("propagates an auto-assigned handle as an empty trade-post username", async () => {
+    seedOwnedDocs();
+    // defaultUsernameFromEmail("seller@test.com") is "seller".
+    const res = await POST(post("seller"));
+    expect(res.status).toBe(200);
+    expect((await res.json()).username).toBe("seller");
+    expect(h.docs.get("profiles/seller-uid")?.username).toBe("seller");
+    // Listings keep the /seller slug when it has no "@", including this auto-assigned handle.
+    expect(h.docs.get("listings/mine")?.sellerUsername).toBe("seller");
+    // Trade posts use chosenUsernameForWrite, which is "" for that handle.
+    expect(h.docs.get("tradePosts/mine")?.sellerUsername).toBe("");
+    expect(h.docs.get("listings/other")?.sellerUsername).toBe("other");
+    expect(h.docs.get("tradePosts/other")?.sellerUsername).toBe("other");
+  });
+
   it("does not touch listings or trade posts when the username is unchanged", async () => {
     seedOwnedDocs();
     const res = await POST(post("oldhandle"));
