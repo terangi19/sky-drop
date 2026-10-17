@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { RATE_LIMITS } from "../../lib/rate-limit-config";
-import { isAdminEmail } from "../../lib/admin-check";
+import { isAdminEmailToken } from "../../lib/admin-check.server";
 import { parseIpFromRequest } from "../../lib/geo-check";
 
 interface PushPayload {
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     const target = String(targetEmail).trim().toLowerCase();
     const callerEmail = (decoded.email || "").toLowerCase();
-    if (target !== callerEmail && !isAdminEmail(decoded.email)) {
+    if (target !== callerEmail && !isAdminEmailToken(decoded)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

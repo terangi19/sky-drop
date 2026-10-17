@@ -46,6 +46,9 @@ vi.mock("../app/lib/firebase-admin", () => ({
 
 vi.mock("../app/lib/admin-check.server", () => ({
   isAdminUser: (...args: unknown[]) => h.isAdminUser(...args),
+  // PROMPT-14: same contract as the real isAdminToken: email lists only for a verified email.
+  isAdminToken: async (t: { uid?: string; email?: string; email_verified?: boolean } | null) =>
+    !!t && t.email_verified === true && !!t.email && (await h.isAdminUser(t.email.trim().toLowerCase(), t.uid)),
 }));
 
 import { GET } from "../app/api/seller-earnings/route";
@@ -125,12 +128,21 @@ describe("GET /api/seller-earnings uid bind", () => {
 
   it("allows an admin to query another uid", async () => {
     h.isAdminUser.mockResolvedValue(true);
+    h.verifyIdToken.mockResolvedValue({ uid: "seller-1", email: "Seller@Example.test", email_verified: true });
     h.sellerIdDocs = [{ total: 80 }];
     const res = await getEarnings("?uid=victim");
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ total: 80 });
     expect(h.isAdminUser).toHaveBeenCalledWith("seller@example.test", "seller-1");
     expect(h.queries).toEqual([{ field: "sellerId", value: "victim" }]);
+  });
+
+  it("PROMPT-14: a listed admin email that is not verified cannot query another uid", async () => {
+    h.isAdminUser.mockResolvedValue(true);
+    h.verifyIdToken.mockResolvedValue({ uid: "squatter", email: "Seller@Example.test", email_verified: false });
+    const res = await getEarnings("?uid=victim");
+    expect(res.status).toBe(403);
+    expect(h.queries).toEqual([]);
   });
 
   it("falls back to sellerEmail when the sellerId query throws", async () => {

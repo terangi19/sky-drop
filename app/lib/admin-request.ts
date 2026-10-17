@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { verifyIdToken } from "./firebase-admin";
-import { isAdminUser } from "./admin-check.server";
+import { isAdminToken } from "./admin-check.server";
 import { logSecurityWarning } from "./security-log";
 import { rateLimit } from "./rate-limit";
 
@@ -39,7 +39,8 @@ export async function requireAdminFromRequest(req: NextRequest) {
     throw new AdminAuthError(401, "Unauthorized");
   }
 
-  if (!decoded.email || !(await isAdminUser(decoded.email, decoded.uid))) {
+  // PROMPT-14: email-based admin only for a verified email (legacy uid record still counts).
+  if (!(await isAdminToken(decoded))) {
     await logSecurityWarning("admin_access_denied", `Non-admin attempted admin route`, {
       actorEmail: decoded.email,
       actorUid: decoded.uid,

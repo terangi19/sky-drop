@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
-import { isAdminEmail } from "../../lib/admin-check";
+import { isAdminEmailToken } from "../../lib/admin-check.server";
 import { buildEmailHtml, notificationToEmail } from "../../lib/email";
 
 const ALL_TYPES = [
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     } catch {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
-    if (!isAdminEmail(decodedToken.email)) {
+    if (!isAdminEmailToken(decodedToken)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

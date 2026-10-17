@@ -3,7 +3,7 @@ import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { getStripe } from "../../lib/stripe-server";
 import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
-import { isAdminEmail } from "../../lib/admin-check";
+import { isAdminEmailToken } from "../../lib/admin-check.server";
 import { writeAuditLog } from "../../lib/admin-utils";
 import { notifyAdmin } from "../../lib/admin-alerts";
 import { logSecurityWarning } from "../../lib/security-log";
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === "refund") {
-      if (!isAdminEmail(decodedToken.email)) {
+      if (!isAdminEmailToken(decodedToken)) {
         return NextResponse.json({ error: "Admin only" }, { status: 403 });
       }
 
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
       if (!purchaseId) {
         return NextResponse.json({ error: "Missing purchase ID" }, { status: 400 });
       }
-      if (!isAdminEmail(decodedToken.email)) {
+      if (!isAdminEmailToken(decodedToken)) {
         return NextResponse.json({ error: "Admin only" }, { status: 403 });
       }
 

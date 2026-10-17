@@ -20,8 +20,9 @@ service cloud.firestore {
 
       return request.auth.token.admin == true
 
-        || (exists(/databases/$(database)/documents/config/adminEmails)
-
+        // PROMPT-14: an email list only identifies an admin once Firebase has verified the email.
+        || (request.auth.token.email_verified == true
+          && exists(/databases/$(database)/documents/config/adminEmails)
           && request.auth.token.email in get(/databases/$(database)/documents/config/adminEmails).data.emails);
 
     }

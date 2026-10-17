@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { parseIpFromRequest } from "../../lib/geo-check";
-import { isAdminUser } from "../../lib/admin-check.server";
+import { isAdminToken } from "../../lib/admin-check.server";
 import {
   processAwhinaAIRequest,
   processAndExecuteAIRequest,
@@ -28,12 +28,14 @@ async function checkRateLimit(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   let uid: string | null = null;
   let email = "";
+  let emailVerified = false;
 
   if (authHeader?.startsWith("Bearer ")) {
     try {
       const decoded = await verifyIdToken(authHeader.slice(7));
       uid = decoded.uid;
       email = decoded.email || "";
+      emailVerified = decoded.email_verified === true;
     } catch {
       /* optional */
     }
@@ -41,7 +43,7 @@ async function checkRateLimit(req: NextRequest) {
 
   const limitKey = uid ? `awhina-ai:${uid}` : `awhina-ai:ip:${ip}`;
   const limit = await rateLimit(limitKey, uid ? 80 : 15, 15 * 60_000);
-  return { uid, email, allowed: limit.allowed };
+  return { uid, email, emailVerified, allowed: limit.allowed };
 }
 
 function parseCanonicalSession(body: Record<string, unknown>, message: string) {
@@ -135,7 +137,7 @@ function listingFactsChanged(
 export async function POST(req: NextRequest) {
   const ip = parseIpFromRequest(req.headers);
   try {
-    const { uid, email, allowed } = await checkRateLimit(req);
+    const { uid, email, emailVerified, allowed } = await checkRateLimit(req);
     if (!allowed) {
       return NextResponse.json(
         { error: "Too many Āwhina requests — please try again later." },
@@ -147,7 +149,7 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as Record<string, unknown>;
     const message = typeof body.message === "string" ? body.message.trim() : "";
     const pathname = typeof body.pathname === "string" ? body.pathname : "/";
-    const isAdmin = uid ? await isAdminUser(email, uid) : false;
+    const isAdmin = uid ? await isAdminToken({ uid, email, email_verified: emailVerified }) : false;
     const executeTool = body.executeTool === true;
     const conversationHistory = Array.isArray(body.conversationHistory)
       ? body.conversationHistory.slice(-10)
