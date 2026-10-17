@@ -23,6 +23,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 import { useAuth } from "../../contexts/AuthContext";
+import { findBlockedDocIds, removeBlockedDocs, saveBlockedUser } from "../../lib/blocked-users";
 import { useParams } from "next/navigation";
 import ReportModal from "../../components/ReportModal";
 import EmptyState from "../../components/EmptyState";
@@ -123,6 +124,8 @@ export default function SellerPage() {
   const [followerCount, setFollowerCount] = useState(0);
   const [showReportModal, setShowReportModal] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [blockedDocIds, setBlockedDocIds] = useState<string[]>([]);
+  const [sellerEmail, setSellerEmail] = useState("");
 
   // Load profile by username (case-insensitive via usernames/) or email
   useEffect(() => {
@@ -131,6 +134,7 @@ export default function SellerPage() {
     setLoading(true);
     setProfile(null);
     setSellerUid("");
+    setSellerEmail("");
     setListings([]);
 
     async function load() {
@@ -187,6 +191,7 @@ export default function SellerPage() {
           setLoading(false);
           return;
         }
+        if (!cancelled) setSellerEmail(email);
 
         // Listings
         const listingsSnap = await getDocs(
@@ -291,21 +296,31 @@ export default function SellerPage() {
     setFollowLoading(false);
   }
 
-  // Block/unblock
+  // Block/unblock. The block doc is keyed by the seller's uid (messages + /blocked write it the same way); docs saved
+  // before that fix were keyed by email, so also match on blockedEmail (the seller's email comes from their listings).
   useEffect(() => {
     if (!currentUser?.uid || !sellerUid) return;
-    getDoc(doc(db, "users", currentUser.uid, "blocked", sellerUid)).then((d) => setIsBlocked(d.exists())).catch((e) => console.error("Failed to check blocked status:", e));
-  }, [currentUser?.uid, sellerUid]);
+    let cancelled = false;
+    findBlockedDocIds(db, currentUser.uid, { uid: sellerUid, email: sellerEmail })
+      .then((ids) => {
+        if (cancelled) return;
+        setBlockedDocIds(ids);
+        setIsBlocked(ids.length > 0);
+      })
+      .catch((e) => console.error("Failed to check blocked status:", e));
+    return () => { cancelled = true; };
+  }, [currentUser?.uid, sellerUid, sellerEmail]);
 
   async function toggleBlock() {
     if (!currentUser?.uid || !sellerUid) return;
     try {
-      const ref = doc(db, "users", currentUser.uid, "blocked", sellerUid);
       if (isBlocked) {
-        await deleteDoc(ref);
+        await removeBlockedDocs(db, currentUser.uid, blockedDocIds.length ? blockedDocIds : [sellerUid]);
+        setBlockedDocIds([]);
         setIsBlocked(false);
       } else {
-        await setDoc(ref, { blockedUid: sellerUid, blockedEmail: profile?.email, createdAt: Timestamp.now() });
+        const saved = await saveBlockedUser(db, currentUser.uid, sellerEmail, sellerUid);
+        setBlockedDocIds([saved.id]);
         setIsBlocked(true);
       }
     } catch (e) { console.error(e); }
