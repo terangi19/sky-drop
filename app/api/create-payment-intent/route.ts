@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientSafeError } from "../../lib/client-safe-error";
 import { getStripe } from "../../lib/stripe-server";
 import { getAdminDb, verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
@@ -317,9 +318,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { error: `Payment could not be processed: ${msg}` },
-      { status: 500 }
-    );
+    const safe = clientSafeError(err, "Payment could not be processed. Please try again.");
+    return NextResponse.json({ error: safe.error }, { status: safe.status });
   }
 }

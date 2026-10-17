@@ -43,9 +43,12 @@ export async function GET(
     }));
     return NextResponse.json({ messages: cleaned });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Failed to load messages";
-    const status = msg.includes("not found") ? 404 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    const msg = e instanceof Error ? e.message : "";
+    if (msg === "Conversation not found") {
+      return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+    }
+    console.error("[sky-ai/conversations/:id] GET failed:", msg || e);
+    return NextResponse.json({ error: "Failed to load messages" }, { status: 500 });
   }
 }
 
@@ -63,7 +66,11 @@ export async function DELETE(
     await deleteSkyAiConversation(id, uid);
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Failed to delete";
-    return NextResponse.json({ error: msg }, { status: 404 });
+    const msg = e instanceof Error ? e.message : "";
+    if (msg === "Conversation not found") {
+      return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+    }
+    console.error("[sky-ai/conversations/:id] DELETE failed:", msg || e);
+    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
   }
 }

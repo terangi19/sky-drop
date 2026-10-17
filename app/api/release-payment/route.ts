@@ -156,6 +156,6 @@ export async function POST(req: NextRequest) {
       tags: { type: "order-completion" },
       extra: { purchaseId },
     });
-    return NextResponse.json({ error: msg || "Failed to complete order" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to complete order" }, { status: 500 });
   }
 }
