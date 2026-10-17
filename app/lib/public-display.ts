@@ -2,7 +2,53 @@
 
 import { getListingOwnerId, type ListingOwnerFields } from "./listing-owner";
 
-const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+/**
+ * Email matcher used to find and redact addresses in free text.
+ *
+ * The plain global form, /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, is
+ * quadratic on a long run of local-part characters with no "@" (it rescans the
+ * run from every start offset; 50k chars took ~2.4 s). findEmailMatches() returns
+ * exactly the same matches in linear time:
+ *  - a match that starts mid-run implies one from the run start (the domain class
+ *    is a subset of the local class), so after the previous match only two starts
+ *    can win: the scan position itself (EMAIL_AT_RE, sticky) or a position whose
+ *    previous char is not a local-part char (EMAIL_SCAN_RE, lookbehind).
+ * There is no length cap on purpose: a cap would leave emails past it unredacted.
+ */
+const EMAIL_BODY = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}";
+const EMAIL_AT_RE = new RegExp(EMAIL_BODY, "y");
+const EMAIL_SCAN_RE = new RegExp(`(?<![a-zA-Z0-9._%+-])${EMAIL_BODY}`, "g");
+
+/** Same matches, in order, as `text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)`. */
+export function findEmailMatches(text: string): Array<{ index: number; match: string }> {
+  const out: Array<{ index: number; match: string }> = [];
+  if (!text || text.indexOf("@") === -1) return out;
+  let pos = 0;
+  while (pos < text.length) {
+    EMAIL_AT_RE.lastIndex = pos;
+    let m = EMAIL_AT_RE.exec(text);
+    if (!m) {
+      EMAIL_SCAN_RE.lastIndex = pos;
+      m = EMAIL_SCAN_RE.exec(text);
+      if (!m) break;
+    }
+    out.push({ index: m.index, match: m[0] });
+    pos = m.index + m[0].length;
+  }
+  return out;
+}
+
+function replaceEmails(text: string, fn: (match: string) => string): string {
+  const matches = findEmailMatches(text);
+  if (matches.length === 0) return text;
+  let out = "";
+  let last = 0;
+  for (const { index, match } of matches) {
+    out += text.slice(last, index) + fn(match);
+    last = index + match.length;
+  }
+  return out + text.slice(last);
+}
 
 export type PublicProfileFields = {
   username?: string;
@@ -325,8 +371,7 @@ export function resolveStoredBuyerName(
 }
 
 export function extractEmailsFromText(text: string): string[] {
-  const matches = text.match(EMAIL_RE) || [];
-  return [...new Set(matches)];
+  return [...new Set(findEmailMatches(text).map((m) => m.match))];
 }
 
 /**
@@ -349,7 +394,7 @@ export function sanitizePublicText(
           : `@${handle}`;
     out = out.split(email).join(display);
   }
-  out = out.replace(EMAIL_RE, (match) => {
+  out = replaceEmails(out, (match) => {
     const mapped = emailToHandle[match];
     if (mapped) {
       return mapped === "Buyer" || mapped === "User"
