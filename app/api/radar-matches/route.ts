@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimit } from "../../lib/rate-limit";
 import { getAdminAuth, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { isSameMarketplaceUser } from "../../lib/sky-ai-matchmaking";
 
@@ -21,6 +22,12 @@ export async function GET(req: NextRequest) {
 
     if (!userEmail) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // PROMPT-15: per-uid cap. Each call fans out to dozens of Firestore reads; the edge burst limit is per-IP only.
+    const { allowed } = await rateLimit(`radar-matches:${decoded.uid}`, 20, 60_000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
     // Get user's watchlist and viewed listings to understand preferences
