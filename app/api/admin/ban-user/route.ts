@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb, getAdminApp, getAdminAuth, isAdminInitialized } from "../../../lib/firebase-admin";
 import { AdminAuthError, requireAdminFromRequest } from "../../../lib/admin-request";
 import { blacklistPhone, recordUsedIp } from "../../../lib/ban-store";
+import { removeFollowEdgesForUser } from "../../../lib/follow-edges.server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -78,15 +79,8 @@ export async function POST(req: NextRequest) {
     }
     await hideBatch.commit();
 
-    // 7. Disconnect followers
-    const followers = await db.collection("followers")
-      .where("followingId", "==", uid)
-      .get();
-    const followerBatch = db.batch();
-    for (const doc of followers.docs) {
-      followerBatch.delete(doc.ref);
-    }
-    await followerBatch.commit();
+    // 7. Disconnect follow edges both ways (edges are keyed by sellerId/followerId uids)
+    await removeFollowEdgesForUser(db, uid);
 
     // 8. Record IP for cooldown
     const ip = String(profile.ip || "");

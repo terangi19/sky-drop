@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb, isAdminInitialized, verifyIdToken } from "../../lib/firebase-admin";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
+import { followEdgeData, followEdgeId } from "../../lib/follow-edges.server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "This seller is not accepting followers" }, { status: 403 });
     }
 
-    const followerRef = db.collection("followers").doc(`${sellerUid}_${decoded.uid}`);
+    const followerRef = db.collection("followers").doc(followEdgeId(sellerUid, decoded.uid));
     const followerSnap = await followerRef.get();
     const isFollowing = followerSnap.exists;
 
@@ -67,13 +68,8 @@ export async function POST(req: NextRequest) {
       }
 
       await db.runTransaction(async (transaction) => {
-        transaction.set(followerRef, {
-          sellerId: sellerUid,
-          followerId: decoded.uid,
-          sellerEmail: profileData.email ?? null,
-          followerEmail: decoded.email ?? null,
-          createdAt: FieldValue.serverTimestamp(),
-        });
+        // uids only (PROMPT-13): no follower/seller emails on edges the other party could read.
+        transaction.set(followerRef, followEdgeData(sellerUid, decoded.uid));
         transaction.update(profileRef, { followers: FieldValue.increment(1) });
       });
 
