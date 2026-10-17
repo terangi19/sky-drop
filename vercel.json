@@ -25,5 +25,12 @@
       "path": "/api/cron/cleanup-trade-shouts",
       "schedule": "40 13 * * *"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "*": false,
+      "**": false
+    }
+  }
 }
