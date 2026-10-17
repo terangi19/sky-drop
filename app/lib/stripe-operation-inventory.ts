@@ -78,9 +78,9 @@ export const STRIPE_OPERATION_INVENTORY = [
   },
   {
     path: "app/api/stripe-connect/route.ts",
-    op: "transfers.create (earningsBalance withdraw) + Connect onboard",
+    op: "Connect onboard (withdraw / transfers.create removed: 410)",
     class: "legacy_or_unused" as const,
-    v1: "fail_closed_create_onboard_withdraw",
+    v1: "fail_closed_create_onboard",
   },
 ] as const;
 
