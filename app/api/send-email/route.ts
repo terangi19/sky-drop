@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { isAdminEmail } from "../../lib/admin-check";
+import { isValidEmailFormat } from "../../lib/email-format";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,17 +24,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
+    // Admin gate first: non-admins never reach body parsing or validation.
+    if (!isAdminEmail(decoded.email)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { to, subject, html } = await req.json();
     if (!to || !subject || !html) {
       return NextResponse.json({ error: "Missing to, subject, or html" }, { status: 400 });
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    if (!isValidEmailFormat(to)) {
       return NextResponse.json({ error: "Invalid recipient email" }, { status: 400 });
-    }
-
-    if (!isAdminEmail(decoded.email)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { sendEmail } = await import("../../lib/email-transport");
