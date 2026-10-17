@@ -275,21 +275,25 @@ service cloud.firestore {
 
       allow create: if false; // server-only (Admin SDK / REST API in API routes)
 
+      // Field ownership is split by role. status, deliveredAt and every review
+      // flag (reviewed, buyerReviewed, sellerReviewed) are server-only via API.
+      // Buyer: own shipping address, only before the order ships (mirrors
+      // /api/update-purchase-shipping). Seller: tracking only.
       allow update: if request.auth != null
 
-        && (resource.data.buyerEmail == request.auth.token.email
+        && !isDisputeActive()
 
-          || resource.data.sellerEmail == request.auth.token.email)
+        && (
+          (resource.data.buyerEmail == request.auth.token.email
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['shippingAddress', 'updatedAt'])
+            && !(resource.data.get('status', '') in
+              ['shipped', 'delivered', 'completed', 'cancelled', 'refunded']))
 
-        // Client-safe fields only; status/deliveredAt are server-only via API
-
-        && request.resource.data.diff(resource.data).affectedKeys()
-
-          .hasOnly(['tracking', 'trackingNumber', 'updatedAt', 'reviewed', 'shippingAddress'])
-
-        // disputeStatus is server-only (open-dispute / admin APIs)
-
-        && !isDisputeActive();
+          || (resource.data.sellerEmail == request.auth.token.email
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['tracking', 'trackingNumber', 'updatedAt']))
+        );
 
     }
 
